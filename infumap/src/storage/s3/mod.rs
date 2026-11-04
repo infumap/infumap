@@ -40,6 +40,11 @@ const FIRST_BYTE_TIMEOUT_SECS: u64 = 10;
 /// Also bounds the wait for subsequent download chunks after the first byte.
 const FULL_TRANSFER_TIMEOUT_SECS: u64 = 120;
 
+/// A PUT's time limit is extended for a file too big to send within FULL_TRANSFER_TIMEOUT_SECS at this rate. A fixed
+/// limit can never succeed for a large file on a slow uplink, however many times it is retried. The rate is low because
+/// the uplink may be shared with other uploads.
+const MIN_PUT_BYTES_PER_SEC: u64 = 128 * 1024;
+
 /// A couple of quick retries absorb transient transport issues without adding
 /// much latency before the object layer falls back to the secondary store.
 const GET_MAX_ATTEMPTS: usize = 3;
@@ -282,7 +287,12 @@ where
   }
 }
 
+fn put_timeout_secs(num_bytes: usize) -> u64 {
+  FULL_TRANSFER_TIMEOUT_SECS.max(num_bytes as u64 / MIN_PUT_BYTES_PER_SEC)
+}
+
 pub(super) async fn put_object_with_retry(bucket: &Bucket, path: &str, val: &[u8]) -> Result<ResponseData, S3Error> {
+  let bucket = bucket.with_request_timeout(Duration::from_secs(put_timeout_secs(val.len())))?;
   retry_write_once("PUT", path, || bucket.put_object(path, val)).await
 }
 
@@ -368,6 +378,15 @@ impl IndividualObjectStore for Arc<S3Store> {
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn put_timeout_only_grows_for_files_too_big_for_the_base_limit() {
+    assert_eq!(put_timeout_secs(0), FULL_TRANSFER_TIMEOUT_SECS);
+    assert_eq!(put_timeout_secs(10 * 1024 * 1024), FULL_TRANSFER_TIMEOUT_SECS);
+    // The file that failed: at 4 Mbit/s it takes about 144 seconds to send.
+    assert_eq!(put_timeout_secs(71_835_413), 548);
+    assert_eq!(put_timeout_secs(300 * 1024 * 1024), 2400);
+  }
 
   #[tokio::test]
   async fn error_with_causes_includes_what_reqwest_leaves_out_of_its_message() {
