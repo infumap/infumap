@@ -19,6 +19,7 @@ use std::sync::Arc;
 
 use clap::{Arg, ArgAction, ArgMatches, Command};
 use config::Config;
+use futures_util::{StreamExt, stream};
 use infusdk::item::is_data_item_type;
 use infusdk::util::infu::InfuResult;
 
@@ -33,6 +34,9 @@ use crate::storage::db::item_db::ItemAndUserId;
 use crate::storage::file as storage_file;
 use crate::storage::object::IndividualObjectStore;
 use crate::storage::s3 as storage_s3;
+
+/// Stop rather than work through every remaining file if, for example, the credentials or the network have failed.
+const MAX_CONSECUTIVE_COPY_FAILURES: usize = 20;
 
 enum ObjectStoreName {
   S3_1,
@@ -95,6 +99,15 @@ fn make_missing_subcommand() -> Command {
         .action(ArgAction::SetTrue)
         .required(false),
     )
+    .arg(
+      Arg::new("concurrency")
+        .long("concurrency")
+        .help("With --copy, the number of files to copy at the same time. Must be 1 if the destination is local.")
+        .num_args(1)
+        .value_parser(clap::value_parser!(u16).range(1..))
+        .default_value("1")
+        .requires("copy"),
+    )
 }
 
 fn make_orphaned_subcommand() -> Command {
@@ -129,6 +142,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
 
 pub async fn execute_missing(sub_matches: &ArgMatches, config: &Config) -> InfuResult<()> {
   let copying = sub_matches.get_flag("copy");
+  let concurrency = *sub_matches.get_one::<u16>("concurrency").unwrap() as usize;
 
   let a = match sub_matches.get_one::<String>("a") {
     Some(a) => match ObjectStoreName::from_str(a) {
@@ -184,10 +198,16 @@ pub async fn execute_missing(sub_matches: &ArgMatches, config: &Config) -> InfuR
     },
   };
 
+  // Local writes are not atomic, so stopping a run part way can leave a partial file that the next run treats as
+  // present. That is manageable with one file in flight (delete the newest), but not with many.
+  if concurrency > 1 && matches!(b, ObjectStoreName::Local) {
+    return Err("--concurrency must be 1 if the destination is local.".into());
+  }
+
   println!("Source (-a):      {}", describe_store(&a, config));
   println!("Destination (-b): {}", describe_store(&b, config));
   if copying {
-    println!("Mode:             copy missing files to {}\n", b.as_str());
+    println!("Mode:             copy missing files to {}, {} at a time\n", b.as_str(), concurrency);
   } else {
     println!("Mode:             list only (pass --copy to copy)\n");
   }
@@ -199,30 +219,84 @@ pub async fn execute_missing(sub_matches: &ArgMatches, config: &Config) -> InfuR
   let destination_files = HashSet::<ItemAndUserId>::from_iter(destination_store.list().await?.iter().cloned());
   println!("Number of files in {}: {}.", b.as_str(), destination_files.len());
 
-  let mut missing_cnt = 0;
-  for s_file in &source_files {
-    if !destination_files.contains(&s_file) {
-      missing_cnt += 1;
-    }
-  }
-  println!("Number of files in {} that are missing from {}: {}.\n", a.as_str(), b.as_str(), missing_cnt);
+  let missing_files = source_files.iter().filter(|f| !destination_files.contains(*f)).collect::<Vec<_>>();
+  println!("Number of files in {} that are missing from {}: {}.\n", a.as_str(), b.as_str(), missing_files.len());
 
-  let mut cnt = 0;
-  for s_file in &source_files {
-    if !destination_files.contains(&s_file) {
-      cnt += 1;
-      if copying {
-        let val = source_store.get(s_file.user_id.clone(), s_file.item_id.clone()).await?;
-        println!("Copying {}/{}: {}_{} [{} bytes]", cnt, missing_cnt, s_file.user_id, s_file.item_id, val.len());
-        let val = Arc::new(val);
-        destination_store.put(s_file.user_id.clone(), s_file.item_id.clone(), val).await?;
-      } else {
-        println!("{}_{}", s_file.user_id, s_file.item_id);
+  if copying {
+    return copy_files(source_store, destination_store, &missing_files, concurrency).await;
+  }
+  for s_file in &missing_files {
+    println!("{}_{}", s_file.user_id, s_file.item_id);
+  }
+
+  Ok(())
+}
+
+/// Copy the files, carrying on past a failure so that one bad file does not hold up the rest of a long run.
+async fn copy_files(
+  source_store: &dyn IndividualObjectStore,
+  destination_store: &dyn IndividualObjectStore,
+  files: &[&ItemAndUserId],
+  concurrency: usize,
+) -> InfuResult<()> {
+  let mut results = stream::iter(files.iter().copied())
+    .map(|file| async move { (file, copy_file(source_store, destination_store, file).await) })
+    .buffer_unordered(concurrency);
+
+  let mut copied_cnt = 0;
+  let mut consecutive_failures = 0;
+  let mut failures = vec![];
+  let mut stopped_early = false;
+  while let Some((file, result)) = results.next().await {
+    let done_cnt = copied_cnt + failures.len() + 1;
+    match result {
+      Ok(num_bytes) => {
+        copied_cnt += 1;
+        consecutive_failures = 0;
+        println!("Copied {}/{}: {}_{} [{} bytes]", done_cnt, files.len(), file.user_id, file.item_id, num_bytes);
+      }
+      Err(e) => {
+        consecutive_failures += 1;
+        let failure = format!("{}_{}: {}", file.user_id, file.item_id, e);
+        println!("FAILED {}/{}: {}", done_cnt, files.len(), failure);
+        failures.push(failure);
+        if consecutive_failures >= MAX_CONSECUTIVE_COPY_FAILURES {
+          stopped_early = true;
+          break;
+        }
       }
     }
   }
 
-  Ok(())
+  println!("\nCopied: {}. Failed: {}. Total to copy: {}.", copied_cnt, failures.len(), files.len());
+  if failures.is_empty() {
+    return Ok(());
+  }
+  println!("Failures:");
+  for failure in &failures {
+    println!("  {}", failure);
+  }
+  if stopped_early {
+    return Err(
+      format!(
+        "Stopped after {} failures in a row, which suggests a problem that is not specific to a file.",
+        MAX_CONSECUTIVE_COPY_FAILURES
+      )
+      .into(),
+    );
+  }
+  Err(format!("{} file(s) could not be copied (listed above). Run this again to retry them.", failures.len()).into())
+}
+
+async fn copy_file(
+  source_store: &dyn IndividualObjectStore,
+  destination_store: &dyn IndividualObjectStore,
+  file: &ItemAndUserId,
+) -> InfuResult<usize> {
+  let val = source_store.get(file.user_id.clone(), file.item_id.clone()).await?;
+  let num_bytes = val.len();
+  destination_store.put(file.user_id.clone(), file.item_id.clone(), Arc::new(val)).await?;
+  Ok(num_bytes)
 }
 
 pub async fn execute_orphaned(sub_matches: &ArgMatches, config: &Config) -> InfuResult<()> {
@@ -360,4 +434,89 @@ async fn list_all_db_files(db: &mut Db) -> InfuResult<Vec<ItemAndUserId>> {
   }
 
   Ok(files)
+}
+
+#[cfg(test)]
+mod tests {
+  use std::sync::Mutex;
+  use std::sync::atomic::{AtomicUsize, Ordering};
+  use std::time::Duration;
+
+  use async_trait::async_trait;
+  use infusdk::util::uid::Uid;
+
+  use super::*;
+
+  #[derive(Default)]
+  struct FakeStore {
+    stored: Mutex<HashSet<Uid>>,
+    failing_item_ids: HashSet<Uid>,
+    put_attempts: AtomicUsize,
+    in_flight: AtomicUsize,
+    max_in_flight: AtomicUsize,
+  }
+
+  #[async_trait]
+  impl IndividualObjectStore for FakeStore {
+    async fn get(&self, _user_id: Uid, _item_id: Uid) -> InfuResult<Vec<u8>> {
+      Ok(vec![0; 3])
+    }
+
+    async fn put(&self, _user_id: Uid, item_id: Uid, _val: Arc<Vec<u8>>) -> InfuResult<()> {
+      self.put_attempts.fetch_add(1, Ordering::SeqCst);
+      let in_flight = self.in_flight.fetch_add(1, Ordering::SeqCst) + 1;
+      self.max_in_flight.fetch_max(in_flight, Ordering::SeqCst);
+      tokio::time::sleep(Duration::from_millis(5)).await;
+      self.in_flight.fetch_sub(1, Ordering::SeqCst);
+      if self.failing_item_ids.contains(&item_id) {
+        return Err("put failed".into());
+      }
+      self.stored.lock().unwrap().insert(item_id);
+      Ok(())
+    }
+
+    async fn list(&self) -> InfuResult<Vec<ItemAndUserId>> {
+      Ok(vec![])
+    }
+  }
+
+  fn files(count: usize) -> Vec<ItemAndUserId> {
+    (0..count).map(|n| ItemAndUserId { user_id: "user".to_owned(), item_id: format!("item{}", n) }).collect()
+  }
+
+  #[tokio::test]
+  async fn copies_every_file_without_exceeding_the_concurrency() {
+    let (source, destination) = (FakeStore::default(), FakeStore::default());
+    let files = files(50);
+
+    copy_files(&source, &destination, &files.iter().collect::<Vec<_>>(), 8).await.unwrap();
+
+    assert_eq!(destination.stored.lock().unwrap().len(), 50);
+    assert_eq!(destination.max_in_flight.load(Ordering::SeqCst), 8);
+  }
+
+  #[tokio::test]
+  async fn carries_on_past_a_failed_file_and_reports_it() {
+    let source = FakeStore::default();
+    let destination = FakeStore { failing_item_ids: HashSet::from(["item3".to_owned()]), ..FakeStore::default() };
+    let files = files(10);
+
+    let result = copy_files(&source, &destination, &files.iter().collect::<Vec<_>>(), 1).await;
+
+    assert!(result.is_err());
+    assert_eq!(destination.stored.lock().unwrap().len(), 9);
+  }
+
+  #[tokio::test]
+  async fn stops_when_every_file_is_failing() {
+    let source = FakeStore::default();
+    let files = files(500);
+    let destination =
+      FakeStore { failing_item_ids: files.iter().map(|f| f.item_id.clone()).collect(), ..FakeStore::default() };
+
+    let result = copy_files(&source, &destination, &files.iter().collect::<Vec<_>>(), 4).await;
+
+    assert!(result.unwrap_err().to_string().contains("in a row"));
+    assert!(destination.put_attempts.load(Ordering::SeqCst) < MAX_CONSECUTIVE_COPY_FAILURES + 8);
+  }
 }

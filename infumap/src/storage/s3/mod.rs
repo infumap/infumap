@@ -245,6 +245,21 @@ fn is_retryable_get_error_message(message: &str) -> bool {
     || lower.contains("timed out")
 }
 
+/// The error and its underlying causes. reqwest's message alone is just "error sending request for url (...)", which
+/// leaves out what actually went wrong (a timeout, a reset connection, a TLS failure, ...).
+fn error_with_causes(error: &S3Error) -> String {
+  let mut message = error.to_string();
+  let mut source = std::error::Error::source(error);
+  while let Some(cause) = source {
+    let cause_message = cause.to_string();
+    if !message.contains(&cause_message) {
+      message = format!("{}: {}", message, cause_message);
+    }
+    source = cause.source();
+  }
+  message
+}
+
 // rust-s3 0.38 no longer retries ordinary PUTs or DELETEs. Preserve the previous
 // single retry with the same key and bytes. A second failure must propagate through
 // the normal command error response.
@@ -256,11 +271,11 @@ where
   match operation().await {
     Ok(response) => Ok(response),
     Err(error) => {
-      warn!("S3 {} for '{}' failed; retrying once in 1 second: {}", operation_name, path, error);
+      warn!("S3 {} for '{}' failed; retrying once in 1 second: {}", operation_name, path, error_with_causes(&error));
       tokio::time::sleep(Duration::from_secs(1)).await;
       let result = operation().await;
       if let Err(error) = &result {
-        warn!("S3 {} for '{}' failed after two attempts: {}", operation_name, path, error);
+        warn!("S3 {} for '{}' failed after two attempts: {}", operation_name, path, error_with_causes(error));
       }
       result
     }
@@ -279,7 +294,7 @@ pub async fn put(s3_store: Arc<S3Store>, user_id: Uid, id: Uid, val: Arc<Vec<u8>
   let s3_path = format!("{}_{}", user_id, id);
   let result = put_object_with_retry(&s3_store.bucket, &s3_path, val.as_slice())
     .await
-    .map_err(|e| format!("Error occurred putting S3 object: {}", e))?;
+    .map_err(|e| format!("Error occurred putting S3 object: {}", error_with_causes(&e)))?;
   if result.status_code() != 200 {
     return Err(format!("Unexpected status code putting S3 object: {}.", result.status_code()).into());
   }
@@ -347,5 +362,22 @@ impl IndividualObjectStore for Arc<S3Store> {
   }
   async fn list(&self) -> InfuResult<Vec<ItemAndUserId>> {
     list(self.clone()).await
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[tokio::test]
+  async fn error_with_causes_includes_what_reqwest_leaves_out_of_its_message() {
+    // Nothing listens on port 1, so this fails with a connection error.
+    let error = reqwest::get("http://127.0.0.1:1/").await.unwrap_err();
+    let reqwest_message = error.to_string();
+
+    let message = error_with_causes(&S3Error::Reqwest(error));
+
+    assert!(message.contains(&reqwest_message));
+    assert!(message.len() > reqwest_message.len() + "reqwest: ".len(), "{}", message);
   }
 }
