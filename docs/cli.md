@@ -53,7 +53,7 @@ Identify files that are present in the source object store but not the destinati
 - **-s --settings (optional):** Path to the settings file. If not specified, `~/.infumap/settings.toml` will be assumed.
 - **-a --a (required):** The source object store.
 - **-b --b (required):** The destination object store.
-- **-c --copy (optional):** If specified, items present in the source but not destination object store will be copied to the destination. Else, they will just be listed. A file that fails to copy is reported and the others carry on, unless 20 fail in a row. Run the command again to retry the failures.
+- **-c --copy (optional):** If specified, items present in the source but not destination object store will be copied to the destination. Else, they will just be listed. A file that fails to copy is retried for about 4 minutes, then reported while the others carry on, unless 20 fail in a row. Run the command again to retry the failures.
 - **--concurrency (optional):** With `--copy`, the number of files to copy at the same time (default 1). Must be 1 if the destination is `local`.
 
 Examples:

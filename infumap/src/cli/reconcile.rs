@@ -16,6 +16,7 @@
 
 use std::collections::HashSet;
 use std::sync::Arc;
+use std::time::Duration;
 
 use clap::{Arg, ArgAction, ArgMatches, Command};
 use config::Config;
@@ -37,6 +38,16 @@ use crate::storage::s3 as storage_s3;
 
 /// Stop rather than work through every remaining file if, for example, the credentials or the network have failed.
 const MAX_CONSECUTIVE_COPY_FAILURES: usize = 20;
+
+/// Waits before each further attempt at a file. A long copy will see connections reset, sometimes several at once for a
+/// minute or two, which outlasts the quick retry in the S3 store and would otherwise count towards the limit above.
+const COPY_RETRY_DELAYS: [Duration; 5] = [
+  Duration::from_secs(5),
+  Duration::from_secs(15),
+  Duration::from_secs(30),
+  Duration::from_secs(60),
+  Duration::from_secs(120),
+];
 
 enum ObjectStoreName {
   S3_1,
@@ -223,7 +234,7 @@ pub async fn execute_missing(sub_matches: &ArgMatches, config: &Config) -> InfuR
   println!("Number of files in {} that are missing from {}: {}.\n", a.as_str(), b.as_str(), missing_files.len());
 
   if copying {
-    return copy_files(source_store, destination_store, &missing_files, concurrency).await;
+    return copy_files(source_store, destination_store, &missing_files, concurrency, &COPY_RETRY_DELAYS).await;
   }
   for s_file in &missing_files {
     println!("{}_{}", s_file.user_id, s_file.item_id);
@@ -238,9 +249,12 @@ async fn copy_files(
   destination_store: &dyn IndividualObjectStore,
   files: &[&ItemAndUserId],
   concurrency: usize,
+  retry_delays: &[Duration],
 ) -> InfuResult<()> {
   let mut results = stream::iter(files.iter().copied())
-    .map(|file| async move { (file, copy_file(source_store, destination_store, file).await) })
+    .map(
+      |file| async move { (file, copy_file_with_retries(source_store, destination_store, file, retry_delays).await) },
+    )
     .buffer_unordered(concurrency);
 
   let mut copied_cnt = 0;
@@ -286,6 +300,26 @@ async fn copy_files(
     );
   }
   Err(format!("{} file(s) could not be copied (listed above). Run this again to retry them.", failures.len()).into())
+}
+
+async fn copy_file_with_retries(
+  source_store: &dyn IndividualObjectStore,
+  destination_store: &dyn IndividualObjectStore,
+  file: &ItemAndUserId,
+  retry_delays: &[Duration],
+) -> InfuResult<usize> {
+  let mut remaining_delays = retry_delays.iter();
+  loop {
+    let error = match copy_file(source_store, destination_store, file).await {
+      Ok(num_bytes) => return Ok(num_bytes),
+      Err(e) => e,
+    };
+    let Some(delay) = remaining_delays.next() else {
+      return Err(error);
+    };
+    println!("Retrying {}_{} in {} s: {}", file.user_id, file.item_id, delay.as_secs(), error);
+    tokio::time::sleep(*delay).await;
+  }
 }
 
 async fn copy_file(
@@ -440,7 +474,6 @@ async fn list_all_db_files(db: &mut Db) -> InfuResult<Vec<ItemAndUserId>> {
 mod tests {
   use std::sync::Mutex;
   use std::sync::atomic::{AtomicUsize, Ordering};
-  use std::time::Duration;
 
   use async_trait::async_trait;
   use infusdk::util::uid::Uid;
@@ -451,6 +484,7 @@ mod tests {
   struct FakeStore {
     stored: Mutex<HashSet<Uid>>,
     failing_item_ids: HashSet<Uid>,
+    failures_before_success: AtomicUsize,
     put_attempts: AtomicUsize,
     in_flight: AtomicUsize,
     max_in_flight: AtomicUsize,
@@ -471,6 +505,9 @@ mod tests {
       if self.failing_item_ids.contains(&item_id) {
         return Err("put failed".into());
       }
+      if self.failures_before_success.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1)).is_ok() {
+        return Err("put failed".into());
+      }
       self.stored.lock().unwrap().insert(item_id);
       Ok(())
     }
@@ -489,7 +526,7 @@ mod tests {
     let (source, destination) = (FakeStore::default(), FakeStore::default());
     let files = files(50);
 
-    copy_files(&source, &destination, &files.iter().collect::<Vec<_>>(), 8).await.unwrap();
+    copy_files(&source, &destination, &files.iter().collect::<Vec<_>>(), 8, &[]).await.unwrap();
 
     assert_eq!(destination.stored.lock().unwrap().len(), 50);
     assert_eq!(destination.max_in_flight.load(Ordering::SeqCst), 8);
@@ -501,10 +538,36 @@ mod tests {
     let destination = FakeStore { failing_item_ids: HashSet::from(["item3".to_owned()]), ..FakeStore::default() };
     let files = files(10);
 
-    let result = copy_files(&source, &destination, &files.iter().collect::<Vec<_>>(), 1).await;
+    let result = copy_files(&source, &destination, &files.iter().collect::<Vec<_>>(), 1, &[]).await;
 
     assert!(result.is_err());
     assert_eq!(destination.stored.lock().unwrap().len(), 9);
+  }
+
+  #[tokio::test]
+  async fn retries_a_file_until_it_succeeds() {
+    let source = FakeStore::default();
+    let destination = FakeStore { failures_before_success: AtomicUsize::new(2), ..FakeStore::default() };
+    let files = files(1);
+    let delays = [Duration::from_millis(1); 2];
+
+    copy_files(&source, &destination, &files.iter().collect::<Vec<_>>(), 1, &delays).await.unwrap();
+
+    assert_eq!(destination.put_attempts.load(Ordering::SeqCst), 3);
+    assert_eq!(destination.stored.lock().unwrap().len(), 1);
+  }
+
+  #[tokio::test]
+  async fn gives_up_on_a_file_when_the_retries_run_out() {
+    let source = FakeStore::default();
+    let destination = FakeStore { failing_item_ids: HashSet::from(["item0".to_owned()]), ..FakeStore::default() };
+    let files = files(1);
+    let delays = [Duration::from_millis(1); 2];
+
+    let result = copy_files(&source, &destination, &files.iter().collect::<Vec<_>>(), 1, &delays).await;
+
+    assert!(result.is_err());
+    assert_eq!(destination.put_attempts.load(Ordering::SeqCst), 3);
   }
 
   #[tokio::test]
@@ -514,7 +577,7 @@ mod tests {
     let destination =
       FakeStore { failing_item_ids: files.iter().map(|f| f.item_id.clone()).collect(), ..FakeStore::default() };
 
-    let result = copy_files(&source, &destination, &files.iter().collect::<Vec<_>>(), 4).await;
+    let result = copy_files(&source, &destination, &files.iter().collect::<Vec<_>>(), 4, &[]).await;
 
     assert!(result.unwrap_err().to_string().contains("in a row"));
     assert!(destination.put_attempts.load(Ordering::SeqCst) < MAX_CONSECUTIVE_COPY_FAILURES + 8);
