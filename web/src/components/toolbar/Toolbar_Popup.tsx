@@ -537,6 +537,10 @@ export const Toolbar_Popup: Component = () => {
     }
     ev.stopPropagation();
   }
+  // Escape is left to the global key handler, which closes the popup.
+  const handleSliderKeyDown = (ev: KeyboardEvent) => {
+    if (ev.code != "Escape") { handleKeyDown(ev); }
+  }
   const handleKeyUp = (ev: KeyboardEvent) => { ev.stopPropagation(); }
   const handleKeyPress = (ev: KeyboardEvent) => { ev.stopPropagation(); }
 
@@ -1614,7 +1618,7 @@ export const Toolbar_Popup: Component = () => {
                     max={overlayType() == ToolbarPopupType.NoteIndent ? "4" : "20"}
                     value={sliderValue()}
                     onInput={handleSliderInput}
-                    onKeyDown={handleKeyDown}
+                    onKeyDown={handleSliderKeyDown}
                     onKeyUp={handleKeyUp}
                     onKeyPress={handleKeyPress} />
                   <span class="ml-1 text-sm font-mono w-6 text-center">{sliderValue()}</span>

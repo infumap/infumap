@@ -273,6 +273,23 @@ export function commitActiveTextEdit(
   return true;
 }
 
+/** Gives the focus back to the text being edited if a control outside it, such as a toolbar slider, took it. */
+export function refocusActiveTextEdit(store: StoreContextModel): void {
+  const info = store.overlay.textEditInfo();
+  const active = document.activeElement;
+  if (info == null || (active instanceof HTMLElement && active.isContentEditable)) { return; }
+  const selection = window.getSelection();
+  const anchorNode = selection?.anchorNode;
+  const focusNode = selection?.focusNode;
+  const anchorOffset = selection?.anchorOffset ?? 0;
+  const focusOffset = selection?.focusOffset ?? 0;
+  // A title nested in the editable composite or document page can't take the focus itself.
+  let host = document.getElementById(textEditElementId(info));
+  while (host?.parentElement?.isContentEditable) { host = host.parentElement; }
+  host?.focus({ preventScroll: true });
+  if (anchorNode && focusNode) { selection?.setBaseAndExtent(anchorNode, anchorOffset, focusNode, focusOffset); }
+}
+
 function editableItemType(ve: VisualElement): ItemType | null {
   if (isNote(ve.displayItem)) { return ItemType.Note; }
   if (isFile(ve.displayItem)) { return ItemType.File; }

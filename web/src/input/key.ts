@@ -64,7 +64,8 @@ import {
 } from "../items/query-item";
 import type { SearchResult } from "../server";
 import { commitActiveToolbarTitleEdit } from "./toolbar_title";
-import { commitActiveTextEdit } from "./edit";
+import { commitActiveTextEdit, refocusActiveTextEdit } from "./edit";
+import { closeToolbarDialog } from "../components/toolbar/toolbarDialog";
 
 
 /**
@@ -559,6 +560,15 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     if (isReservedTabKey(ev)) {
       ev.preventDefault();
     }
+    return;
+  }
+
+  // Ahead of the text edit and native keyboard checks below, because the focus is usually in the editor or the popup.
+  // Only the popup closes: the text edit and its selection stay, and a further Escape ends the edit.
+  if (ev.code == "Escape" && store.overlay.toolbarPopupInfoMaybe.get()) {
+    ev.preventDefault();
+    closeToolbarDialog(store);
+    refocusActiveTextEdit(store);
     return;
   }
 
