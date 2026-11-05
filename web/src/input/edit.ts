@@ -283,11 +283,18 @@ export function refocusActiveTextEdit(store: StoreContextModel): void {
   const focusNode = selection?.focusNode;
   const anchorOffset = selection?.anchorOffset ?? 0;
   const focusOffset = selection?.focusOffset ?? 0;
+  const noteSelection = store.overlay.noteTextSelectionInfo.get();
   // A title nested in the editable composite or document page can't take the focus itself.
   let host = document.getElementById(textEditElementId(info));
   while (host?.parentElement?.isContentEditable) { host = host.parentElement; }
-  host?.focus({ preventScroll: true });
-  if (anchorNode && focusNode) { selection?.setBaseAndExtent(anchorNode, anchorOffset, focusNode, focusOffset); }
+  if (host == null) { return; }
+  host.focus({ preventScroll: true });
+  if (anchorNode && focusNode && nodeIsInsideElement(host, anchorNode) && nodeIsInsideElement(host, focusNode)) {
+    selection?.setBaseAndExtent(anchorNode, anchorOffset, focusNode, focusOffset);
+  } else if (noteSelection?.itemPath == info.itemPath) {
+    // A text input took the selection too, and the overlay keeps the note range.
+    restoreNoteTextSelection(store, noteSelection.itemPath, noteSelection.start, noteSelection.end, true);
+  }
 }
 
 function editableItemType(ve: VisualElement): ItemType | null {

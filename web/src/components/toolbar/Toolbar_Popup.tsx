@@ -33,7 +33,7 @@ import { InfuColorButton } from "../library/InfuColorButton";
 import { QrCode } from "../library/QrCode";
 import { Backlink, server, serverOrRemote } from "../../server";
 import { applyEditorFormatCommand } from "../../input/editor_history";
-import { noteFormatTargets } from "../../input/edit";
+import { noteFormatTargets, refocusActiveTextEdit } from "../../input/edit";
 import { panic } from "../../util/lang";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
 import { asTableItem, isTable } from "../../items/table-item";
@@ -71,7 +71,7 @@ import { PAGE_CATALOG_LAYOUT_POPUP_HEIGHT_PX, Toolbar_PageCatalogLayoutPopup } f
 import { PAGE_SHAPE_POPUP_HEIGHT_PX, Toolbar_PageShapePopup } from "./Toolbar_PageShapePopup";
 import { PAGE_TABLE_LAYOUT_POPUP_HEIGHT_PX, Toolbar_PageTableLayoutPopup } from "./Toolbar_PageTableLayoutPopup";
 import { PAGE_DOCUMENT_LAYOUT_POPUP_HEIGHT_PX, Toolbar_PageDocumentLayoutPopup } from "./Toolbar_PageDocumentLayoutPopup";
-import { TOOLBAR_DIALOG_CLASS, toolbarDialogHeightPx } from "./toolbarDialog";
+import { TOOLBAR_DIALOG_CLASS, closeToolbarDialog, toolbarDialogHeightPx } from "./toolbarDialog";
 
 
 const EMOJI_CATEGORIES = [
@@ -531,15 +531,22 @@ export const Toolbar_Popup: Component = () => {
         serverOrRemote.updateItem(getToolbarFocusItem(store));
         setTimeout(() => {
           store.overlay.toolbarPopupInfoMaybe.set(null);
-          document.getElementById("noteEditOverlayTextArea")!.focus();
+          refocusActiveTextEdit(store);
         }, 0);
       }
     }
     ev.stopPropagation();
   }
-  // Escape is left to the global key handler, which closes the popup.
   const handleSliderKeyDown = (ev: KeyboardEvent) => {
-    if (ev.code != "Escape") { handleKeyDown(ev); }
+    // Escape is left to the global key handler, which closes the popup.
+    if (ev.code == "Escape") { return; }
+    ev.stopPropagation();
+    if (ev.code == "Enter") {
+      // Otherwise the key would go on to act in the editor, which has the focus again.
+      ev.preventDefault();
+      closeToolbarDialog(store);
+      refocusActiveTextEdit(store);
+    }
   }
   const handleKeyUp = (ev: KeyboardEvent) => { ev.stopPropagation(); }
   const handleKeyPress = (ev: KeyboardEvent) => { ev.stopPropagation(); }
