@@ -993,13 +993,9 @@ pub(in crate::web::routes::command) fn document_note_markdown(note: &Item) -> St
   if flags.contains(NoteFlags::Code) {
     return format!("```\n{text}\n```");
   }
-  let indent = if flags.contains(NoteFlags::Indent2) {
-    "    "
-  } else if flags.contains(NoteFlags::Indent1) {
-    "  "
-  } else {
-    ""
-  };
+  let indent_level =
+    usize::from(flags.contains(NoteFlags::Indent1)) + 2 * usize::from(flags.contains(NoteFlags::Indent2));
+  let indent = "  ".repeat(indent_level);
   let marker = if flags.contains(NoteFlags::Heading1) {
     "# "
   } else if flags.contains(NoteFlags::Heading2) {
@@ -1015,7 +1011,7 @@ pub(in crate::web::routes::command) fn document_note_markdown(note: &Item) -> St
   } else {
     ""
   };
-  let indent = if marker.starts_with('#') { "" } else { indent };
+  let indent = if marker.starts_with('#') { "" } else { indent.as_str() };
   format!("{indent}{marker}{}", note_markdown(text, note_urls(note)))
 }
 
@@ -2016,13 +2012,17 @@ mod tests {
     })
     .await;
     t.note_with(&document, "point", |item| item.flags = Some((NoteFlags::Bullet1 | NoteFlags::Indent1).bits())).await;
+    t.note_with(&document, "deep", |item| {
+      item.flags = Some((NoteFlags::Bullet1 | NoteFlags::Indent1 | NoteFlags::Indent2).bits());
+    })
+    .await;
     t.note_with(&document, "let x = 1;", |item| item.flags = Some(NoteFlags::Code.bits())).await;
 
     let texts = t.texts(&document);
     assert_eq!(texts.len(), 1);
     assert_eq!(
       body(&texts[0]),
-      "# Title\n\nsee the [docs](https://example.com) here\n\n  - point\n\n```\nlet x = 1;\n```"
+      "# Title\n\nsee the [docs](https://example.com) here\n\n  - point\n\n      - deep\n\n```\nlet x = 1;\n```"
     );
   }
 

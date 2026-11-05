@@ -55,7 +55,8 @@ export function assignFlowListItemNumbers(items: Array<{ displayItem: Item, geom
         : null;
 
     if (kind == null) {
-      resetFromLevel(0);
+      // A code block or text inside a list item has an indent level, though it isn't shown, so the list goes on after it.
+      resetFromLevel(level);
       continue;
     }
 

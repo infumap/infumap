@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { NoteFlags, NOTE_INDENT_MAX_LEVEL, noteFlagsWithIndentLevel } from "../items/base/flags-item";
+import { NoteFlags, NOTE_INDENT_MAX_LEVEL, noteFlagsWithIndentLevel, noteIndentLevelFromFlags } from "../items/base/flags-item";
 import type { TextDocumentBlock, TextDocumentInlineText, TextDocumentTableBlock } from "../items/markdown-blocks";
 import {
   NoteInlineMark, NoteInlineMarkFlags, NoteUrl, normalizeNoteInlineMarks, normalizeNoteUrls, safeNoteLinkUrl,
@@ -139,7 +139,8 @@ class HtmlBlocks {
       this.flush();
       const code = (el.textContent ?? "").replace(/\r\n?/g, "\n").replace(/\n+$/, "");
       if (code.trim() != "") {
-        this.pushTextBlock({ title: code, inlineMarks: [], urls: [], blockFlags: NoteFlags.Code });
+        const indentLevel = context.mode == "listItem" ? noteIndentLevelFromFlags(context.blockFlags) + 1 : 0;
+        this.pushTextBlock({ title: code, inlineMarks: [], urls: [], blockFlags: noteFlagsWithIndentLevel(NoteFlags.Code, indentLevel) });
       }
       return;
     }

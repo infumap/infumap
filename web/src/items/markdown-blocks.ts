@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { NoteFlags, noteFlagsWithIndentLevel, noteHasListStyle, noteIndentLevelFromFlags } from "./base/flags-item";
+import { NOTE_INDENT_MAX_LEVEL, NoteFlags, noteFlagsWithIndentLevel, noteHasListStyle, noteIndentLevelFromFlags } from "./base/flags-item";
 import { NoteInlineMark, NoteInlineMarkFlags, NoteUrl, normalizeNoteInlineMarks, normalizeNoteUrls, safeNoteLinkUrl } from "./note-item";
 
 
@@ -77,11 +77,15 @@ type TextLine = {
 
 type MarkdownCodeFenceInfo = {
   tickCount: number,
+  column: number,
+  /** The level of the list item the fence is inside, if any. */
+  listLevel: number | null,
 };
 
 type MarkdownCodeBlockParse = {
   block: TextDocumentTextBlock,
   endIndex: number,
+  listLevel: number | null,
 };
 
 type MarkdownFrontMatterTableParse = {
@@ -162,12 +166,14 @@ function headingInfo(line: string): { level: number, title: string } | null {
 type MarkdownListKind = "bullet" | "numbered";
 
 type MarkdownListContainer = {
+  markerColumn: number,
   bodyColumn: number,
 };
 
 type MarkdownListMarkerInfo = {
   kind: MarkdownListKind,
   title: string,
+  markerColumn: number,
   bodyColumn: number,
   indentLevel: number,
 };
@@ -198,13 +204,30 @@ function markdownColumnAfterText(text: string, start: number, end: number, colum
   return column;
 }
 
-function markdownListIndentLevel(markerColumn: number, stack: Array<MarkdownListContainer>): number | null {
+/**
+ * How far past a list item's marker a line must start to be inside the item. CommonMark asks for the item's body column,
+ * so `1. a` followed by `  - b` are two lists. That is rarely what was meant (LLMs write this often, as they do `10. a`
+ * followed by `   - b`), and it is costly here: numbers are computed, so the list after `b` would restart at 1 where a
+ * CommonMark renderer keeps the number in the source. One space isn't enough: that is more likely sloppy alignment.
+ */
+const MARKDOWN_LIST_CHILD_MIN_INDENT = 2;
+
+function markdownListLevelContaining(column: number, stack: Array<MarkdownListContainer>): number | null {
   for (let level = stack.length - 1; level >= 0; --level) {
-    if (markerColumn >= stack[level].bodyColumn && markerColumn <= stack[level].bodyColumn + 3) {
-      return Math.min(level + 1, 3);
-    }
+    if (column >= stack[level].markerColumn + MARKDOWN_LIST_CHILD_MIN_INDENT) { return level; }
   }
-  return markerColumn <= 3 ? 0 : null;
+  return null;
+}
+
+function markdownListIndentLevel(markerColumn: number, stack: Array<MarkdownListContainer>): number | null {
+  if (stack.length == 0) { return markerColumn <= 3 ? 0 : null; }
+  for (let level = stack.length - 1; level >= 0; --level) {
+    if (markerColumn >= stack[level].markerColumn + MARKDOWN_LIST_CHILD_MIN_INDENT) {
+      return Math.min(level + 1, NOTE_INDENT_MAX_LEVEL);
+    }
+    if (markerColumn >= stack[level].markerColumn) { return level; }
+  }
+  return 0;
 }
 
 function markdownListMarkerInfo(line: string, stack: Array<MarkdownListContainer>): MarkdownListMarkerInfo | null {
@@ -247,6 +270,7 @@ function markdownListMarkerInfo(line: string, stack: Array<MarkdownListContainer
   return {
     kind,
     title,
+    markerColumn: leading.column,
     bodyColumn: contentColumn,
     indentLevel,
   };
@@ -1062,19 +1086,38 @@ function parseMarkdownFrontMatterAt(lines: Array<TextLine>, index: number): Mark
   };
 }
 
-function markdownCodeFenceInfo(line: string): MarkdownCodeFenceInfo | null {
-  const match = /^ {0,3}(`{3,})[^`]*$/.exec(line);
+function markdownCodeFenceInfo(line: string, listStack: Array<MarkdownListContainer>): MarkdownCodeFenceInfo | null {
+  const leading = markdownLeadingWhitespaceInfo(line);
+  const match = /^(`{3,})[^`]*$/.exec(line.substring(leading.index));
   if (match == null) { return null; }
-  return { tickCount: match[1].length };
+  const listLevel = markdownListLevelContaining(leading.column, listStack);
+  if (listLevel == null && leading.column > 3) { return null; }
+  return { tickCount: match[1].length, column: leading.column, listLevel };
 }
 
-function isMarkdownCodeFenceClose(line: string, openingTickCount: number): boolean {
-  const match = /^ {0,3}(`{3,})[ \t]*$/.exec(line);
-  return match != null && match[1].length >= openingTickCount;
+function isMarkdownCodeFenceClose(line: string, opening: MarkdownCodeFenceInfo): boolean {
+  const leading = markdownLeadingWhitespaceInfo(line);
+  const match = /^(`{3,})[ \t]*$/.exec(line.substring(leading.index));
+  return match != null && match[1].length >= opening.tickCount && leading.column <= Math.max(3, opening.column + 3);
 }
 
-function parseMarkdownCodeBlockAt(lines: Array<TextLine>, index: number): MarkdownCodeBlockParse | null {
-  const fence = markdownCodeFenceInfo(lines[index].text);
+/** A line of a code block without the indent of its fence, or as much of that as it has. */
+function markdownCodeLine(line: string, fenceColumn: number): string {
+  let index = 0;
+  let column = 0;
+  while (index < line.length && column < fenceColumn && (line[index] == " " || line[index] == "\t")) {
+    column = markdownColumnAfterChar(column, line[index]);
+    index += 1;
+  }
+  return line.substring(index);
+}
+
+function parseMarkdownCodeBlockAt(
+  lines: Array<TextLine>,
+  index: number,
+  listStack: Array<MarkdownListContainer>,
+): MarkdownCodeBlockParse | null {
+  const fence = markdownCodeFenceInfo(lines[index].text, listStack);
   if (fence == null) { return null; }
 
   const codeLines: Array<string> = [];
@@ -1083,10 +1126,10 @@ function parseMarkdownCodeBlockAt(lines: Array<TextLine>, index: number): Markdo
   for (let i = index + 1; i < lines.length; ++i) {
     end = lines[i].end;
     endIndex = i;
-    if (isMarkdownCodeFenceClose(lines[i].text, fence.tickCount)) {
+    if (isMarkdownCodeFenceClose(lines[i].text, fence)) {
       break;
     }
-    codeLines.push(lines[i].text);
+    codeLines.push(markdownCodeLine(lines[i].text, fence.column));
   }
 
   return {
@@ -1097,12 +1140,13 @@ function parseMarkdownCodeBlockAt(lines: Array<TextLine>, index: number): Markdo
       urls: [],
       linkIconHints: [],
       headingLevel: null,
-      noteFlags: NoteFlags.Code,
+      noteFlags: noteFlagsWithIndentLevel(NoteFlags.Code, fence.listLevel == null ? 0 : fence.listLevel + 1),
       start: lines[index].start,
       end,
       ordinal: 0,
     },
     endIndex,
+    listLevel: fence.listLevel,
   };
 }
 
@@ -1179,12 +1223,14 @@ function appendMarkdownInlineTextBlock(block: TextDocumentTextBlock, parsed: Tex
   ], block.title);
 }
 
-function lastMarkdownListTextBlock(blocks: Array<TextDocumentBlock>): TextDocumentTextBlock | null {
+/** The block a line of text inside the list item at listLevel joins, if any, rather than being a block of its own. */
+function markdownListBlockToJoin(blocks: Array<TextDocumentBlock>, listLevel: number, afterBlankLine: boolean): TextDocumentTextBlock | null {
   const block = blocks[blocks.length - 1];
-  if (block == null || block.kind != "paragraph" || !noteHasListStyle(block.noteFlags)) {
-    return null;
+  if (block == null || block.kind != "paragraph") { return null; }
+  if (noteHasListStyle(block.noteFlags)) {
+    return noteIndentLevelFromFlags(block.noteFlags) == listLevel ? block : null;
   }
-  return block;
+  return !afterBlankLine && block.noteFlags == noteFlagsWithIndentLevel(NoteFlags.None, listLevel + 1) ? block : null;
 }
 
 type TextDocumentBlockOptions = {
@@ -1265,10 +1311,10 @@ export function parseTextDocumentBlocks(
       continue;
     }
 
-    const codeBlock = parseMarkdown ? parseMarkdownCodeBlockAt(lines, i) : null;
+    const codeBlock = parseMarkdown ? parseMarkdownCodeBlockAt(lines, i, listStack) : null;
     if (codeBlock != null) {
       flushParagraph();
-      listStack = [];
+      listStack = codeBlock.listLevel == null ? [] : listStack.slice(0, codeBlock.listLevel + 1);
       codeBlock.block.ordinal = blocks.length;
       blocks.push(codeBlock.block);
       i = codeBlock.endIndex;
@@ -1315,21 +1361,35 @@ export function parseTextDocumentBlocks(
         ordinal: blocks.length,
       });
       listStack = listStack.slice(0, listMarker.indentLevel);
-      listStack[listMarker.indentLevel] = { bodyColumn: listMarker.bodyColumn };
+      listStack[listMarker.indentLevel] = { markerColumn: listMarker.markerColumn, bodyColumn: listMarker.bodyColumn };
       continue;
     }
 
     const listContinuation = parseMarkdown && paragraphLines.length == 0
       ? markdownListContinuationInfo(line.text, listStack)
       : null;
-    const lastListBlock = listContinuation != null ? lastMarkdownListTextBlock(blocks) : null;
-    if (
-      listContinuation != null &&
-      lastListBlock != null &&
-      noteIndentLevelFromFlags(lastListBlock.noteFlags) == listContinuation.indentLevel
-    ) {
-      appendMarkdownInlineTextBlock(lastListBlock, parseMarkdownInline(listContinuation.title));
-      lastListBlock.end = line.end;
+    if (listContinuation != null) {
+      const parsed = parseMarkdownInline(listContinuation.title);
+      const blockToJoin = markdownListBlockToJoin(blocks, listContinuation.indentLevel, lines[i - 1].text.trim() == "");
+      if (blockToJoin != null) {
+        appendMarkdownInlineTextBlock(blockToJoin, parsed);
+        blockToJoin.end = line.end;
+      } else {
+        // Text after a code block or a child list. Its level keeps the list going: see assignFlowListItemNumbers.
+        blocks.push({
+          kind: "paragraph",
+          title: parsed.title,
+          inlineMarks: parsed.inlineMarks,
+          urls: parsed.urls,
+          linkIconHints: parsed.linkIconHints,
+          headingLevel: null,
+          noteFlags: noteFlagsWithIndentLevel(NoteFlags.None, listContinuation.indentLevel + 1),
+          start: line.start,
+          end: line.end,
+          ordinal: blocks.length,
+        });
+      }
+      listStack = listStack.slice(0, listContinuation.indentLevel + 1);
       continue;
     }
 

@@ -34,6 +34,14 @@ const NOTE_FLAG_BULLET1: i64 = 0x010;
 const NOTE_FLAG_CODE: i64 = 0x200;
 const NOTE_FLAG_HEADING4: i64 = 0x1000;
 const NOTE_FLAG_NUMBERED: i64 = 0x8000;
+const NOTE_INDENT_LEVEL_SHIFT: u32 = 13;
+const NOTE_INDENT_MAX_LEVEL: usize = 3;
+// How far past a list item's marker a line must start to be inside the item. CommonMark asks for the item's body column,
+// so `1. a` followed by `  - b` are two lists. That is rarely what was meant, and LLMs write it often, as they do `10. a`
+// followed by `   - b`. It is costly here: numbers are computed, so the list after `b` would restart at 1 where a
+// CommonMark renderer keeps the number in the source. One space isn't enough: that is more likely sloppy alignment.
+// The same rules are in the client's markdown-blocks.ts, for markdown documents and paste.
+const MARKDOWN_LIST_CHILD_MIN_INDENT: usize = 2;
 const NOTE_INLINE_MARK_BOLD: i64 = 0x001;
 const NOTE_INLINE_MARK_ITALIC: i64 = 0x002;
 const TABLE_FLAG_SHOW_COL_HEADER: i64 = 0x001;
@@ -76,6 +84,18 @@ struct ChatMarkdownTable {
   columns: Vec<String>,
   alignments: Vec<ChatMarkdownTableAlignment>,
   rows: Vec<ChatMarkdownTableRow>,
+}
+
+struct ChatMarkdownListContainer {
+  marker_column: usize,
+  body_column: usize,
+}
+
+struct ChatMarkdownListItem<'a> {
+  flags: i64,
+  title: &'a str,
+  marker_column: usize,
+  body_column: usize,
 }
 
 enum ChatMarkdownItem {
@@ -398,6 +418,7 @@ fn chat_markdown_items_from_text(markdown: &str) -> Vec<ChatMarkdownItem> {
   let mut items = Vec::new();
   let mut paragraph_lines: Vec<String> = Vec::new();
   let lines: Vec<&str> = markdown.lines().collect();
+  let mut list_stack: Vec<ChatMarkdownListContainer> = Vec::new();
   let mut line_index = 0;
 
   while line_index < lines.len() {
@@ -411,6 +432,8 @@ fn chat_markdown_items_from_text(markdown: &str) -> Vec<ChatMarkdownItem> {
 
     if let Some(fence_marker) = markdown_code_fence_marker(line) {
       flush_chat_markdown_paragraph(&mut items, &mut paragraph_lines);
+      let fence_column = markdown_leading_whitespace(line).1;
+      let list_level = markdown_list_level_containing(fence_column, &list_stack);
       line_index += 1;
       let mut code_lines = Vec::new();
       while line_index < lines.len() {
@@ -418,18 +441,21 @@ fn chat_markdown_items_from_text(markdown: &str) -> Vec<ChatMarkdownItem> {
         if code_line.trim_start().starts_with(fence_marker) {
           break;
         }
-        code_lines.push(code_line.to_owned());
+        code_lines.push(markdown_code_line(code_line, fence_column).to_owned());
         line_index += 1;
       }
       if line_index < lines.len() {
         line_index += 1;
       }
-      push_chat_markdown_note(&mut items, &code_lines.join("\n"), NOTE_FLAG_CODE);
+      list_stack.truncate(list_level.map_or(0, |level| level + 1));
+      let flags = note_flags_with_indent_level(NOTE_FLAG_CODE, list_level.map_or(0, |level| level + 1));
+      push_chat_markdown_note(&mut items, &code_lines.join("\n"), flags);
       continue;
     }
 
     if let Some((table, next_line_index)) = markdown_table_at(&lines, line_index) {
       flush_chat_markdown_paragraph(&mut items, &mut paragraph_lines);
+      list_stack.clear();
       items.push(ChatMarkdownItem::Table(table));
       line_index = next_line_index;
       continue;
@@ -437,6 +463,7 @@ fn chat_markdown_items_from_text(markdown: &str) -> Vec<ChatMarkdownItem> {
 
     if markdown_divider_line(line) {
       flush_chat_markdown_paragraph(&mut items, &mut paragraph_lines);
+      list_stack.clear();
       items.push(ChatMarkdownItem::Divider);
       line_index += 1;
       continue;
@@ -444,17 +471,43 @@ fn chat_markdown_items_from_text(markdown: &str) -> Vec<ChatMarkdownItem> {
 
     if let Some((flags, title)) = markdown_heading(line) {
       flush_chat_markdown_paragraph(&mut items, &mut paragraph_lines);
+      list_stack.clear();
       push_chat_markdown_note(&mut items, title, flags);
       line_index += 1;
       continue;
     }
 
-    if let Some((flags, title)) = markdown_list_item(line) {
+    if let Some(list_item) = markdown_list_item(line) {
       flush_chat_markdown_paragraph(&mut items, &mut paragraph_lines);
-      push_chat_markdown_note(&mut items, title, flags);
+      let level = markdown_list_indent_level(list_item.marker_column, &list_stack);
+      push_chat_markdown_note(&mut items, list_item.title, note_flags_with_indent_level(list_item.flags, level));
+      list_stack.truncate(level);
+      list_stack
+        .push(ChatMarkdownListContainer { marker_column: list_item.marker_column, body_column: list_item.body_column });
       line_index += 1;
       continue;
     }
+
+    if let Some(level) = markdown_list_continuation_level(line, &list_stack) {
+      let after_blank_line = lines[line_index - 1].trim().is_empty();
+      let note_to_join = match items.last_mut() {
+        Some(ChatMarkdownItem::Note(note)) if chat_markdown_note_takes_list_text(note, level, after_blank_line) => {
+          Some(note)
+        }
+        _ => None,
+      };
+      match note_to_join {
+        Some(note) => append_chat_markdown_note_text(note, line.trim()),
+        // Text after a code block or a child list. Its level keeps the list going: the client numbers list items, and
+        // only a note at level 0 ends a list.
+        None => push_chat_markdown_note(&mut items, line, note_flags_with_indent_level(0, level + 1)),
+      }
+      list_stack.truncate(level + 1);
+      line_index += 1;
+      continue;
+    }
+
+    list_stack.clear();
 
     if markdown_standalone_inline_heading(line) {
       flush_chat_markdown_paragraph(&mut items, &mut paragraph_lines);
@@ -502,6 +555,76 @@ fn push_chat_markdown_note(items: &mut Vec<ChatMarkdownItem>, raw_title: &str, f
     inline_marks: inline_text.inline_marks,
     urls: inline_text.urls,
   }));
+}
+
+fn note_flags_with_indent_level(flags: i64, level: usize) -> i64 {
+  flags | ((level.min(NOTE_INDENT_MAX_LEVEL) as i64) << NOTE_INDENT_LEVEL_SHIFT)
+}
+
+fn note_indent_level_from_flags(flags: i64) -> usize {
+  ((flags >> NOTE_INDENT_LEVEL_SHIFT) & NOTE_INDENT_MAX_LEVEL as i64) as usize
+}
+
+fn markdown_column_after_text(text: &str, column: usize) -> usize {
+  text.chars().fold(column, |column, c| if c == '\t' { column + 4 - column % 4 } else { column + 1 })
+}
+
+/// The length in bytes of the whitespace a line starts with, and the column after it.
+fn markdown_leading_whitespace(line: &str) -> (usize, usize) {
+  let leading = &line[..line.len() - line.trim_start().len()];
+  (leading.len(), markdown_column_after_text(leading, 0))
+}
+
+fn markdown_list_level_containing(column: usize, list_stack: &[ChatMarkdownListContainer]) -> Option<usize> {
+  list_stack.iter().rposition(|container| column >= container.marker_column + MARKDOWN_LIST_CHILD_MIN_INDENT)
+}
+
+fn markdown_list_indent_level(marker_column: usize, list_stack: &[ChatMarkdownListContainer]) -> usize {
+  for (level, container) in list_stack.iter().enumerate().rev() {
+    if marker_column >= container.marker_column + MARKDOWN_LIST_CHILD_MIN_INDENT {
+      return (level + 1).min(NOTE_INDENT_MAX_LEVEL);
+    }
+    if marker_column >= container.marker_column {
+      return level;
+    }
+  }
+  0
+}
+
+fn markdown_list_continuation_level(line: &str, list_stack: &[ChatMarkdownListContainer]) -> Option<usize> {
+  let column = markdown_leading_whitespace(line).1;
+  list_stack.iter().rposition(|container| column >= container.body_column)
+}
+
+/// Whether a line of text inside the list item at list_level joins this note, rather than being a note of its own.
+fn chat_markdown_note_takes_list_text(note: &ChatMarkdownNote, list_level: usize, after_blank_line: bool) -> bool {
+  if note.flags & (NOTE_FLAG_BULLET1 | NOTE_FLAG_NUMBERED) != 0 {
+    return note_indent_level_from_flags(note.flags) == list_level;
+  }
+  !after_blank_line && note.flags == note_flags_with_indent_level(0, list_level + 1)
+}
+
+fn append_chat_markdown_note_text(note: &mut ChatMarkdownNote, raw_text: &str) {
+  let inline_text = parse_markdown_inline(raw_text);
+  note.title.push(' ');
+  let offset = note.title.encode_utf16().count() as i64;
+  note.title.push_str(&inline_text.title);
+  append_shifted_chat_inline_marks(&mut note.inline_marks, &inline_text.inline_marks, offset);
+  for url in inline_text.urls {
+    push_chat_url(&mut note.urls, url.start + offset, url.end + offset, url.url);
+  }
+}
+
+/// A line of a code block without the indent of its fence, or as much of that as it has.
+fn markdown_code_line(line: &str, fence_column: usize) -> &str {
+  let mut column = 0;
+  for (index, c) in line.char_indices() {
+    if column >= fence_column || (c != ' ' && c != '\t') {
+      return &line[index..];
+    }
+    column = markdown_column_after_text(&line[index..index + c.len_utf8()], column);
+  }
+  ""
 }
 
 fn markdown_code_fence_marker(line: &str) -> Option<&'static str> {
@@ -668,37 +791,28 @@ fn markdown_heading(line: &str) -> Option<(i64, &str)> {
   ))
 }
 
-fn markdown_list_item(line: &str) -> Option<(i64, &str)> {
-  let trimmed = line.trim_start();
-  let mut chars = trimmed.char_indices();
-  if let Some((_, marker)) = chars.next() {
-    if matches!(marker, '-' | '*' | '+') {
-      if let Some((content_start, separator)) = chars.next() {
-        if separator.is_whitespace() {
-          return Some((NOTE_FLAG_BULLET1, trimmed[content_start..].trim_start()));
-        }
-      }
-    }
-  }
+fn markdown_list_item(line: &str) -> Option<ChatMarkdownListItem<'_>> {
+  let (leading_len, marker_column) = markdown_leading_whitespace(line);
+  let trimmed = &line[leading_len..];
 
-  let mut digit_end = 0;
-  let mut has_digit = false;
-  for (index, ch) in trimmed.char_indices() {
-    if !ch.is_ascii_digit() {
-      break;
+  let (flags, marker_len) = if trimmed.starts_with(['-', '*', '+']) {
+    (NOTE_FLAG_BULLET1, 1)
+  } else {
+    let digit_end = trimmed.find(|c: char| !c.is_ascii_digit()).unwrap_or(trimmed.len());
+    if digit_end == 0 || !trimmed[digit_end..].starts_with(['.', ')']) {
+      return None;
     }
-    has_digit = true;
-    digit_end = index + ch.len_utf8();
-  }
-  if !has_digit || !trimmed[digit_end..].starts_with('.') {
+    (NOTE_FLAG_NUMBERED, digit_end + 1)
+  };
+
+  let after_marker = &trimmed[marker_len..];
+  if !after_marker.chars().next().map(|c| c.is_whitespace()).unwrap_or(false) {
     return None;
   }
-
-  let content = &trimmed[digit_end + 1..];
-  if !content.chars().next().map(|c| c.is_whitespace()).unwrap_or(false) {
-    return None;
-  }
-  Some((NOTE_FLAG_NUMBERED, content.trim_start()))
+  let title = after_marker.trim_start();
+  let padding = &after_marker[..after_marker.len() - title.len()];
+  let body_column = markdown_column_after_text(padding, marker_column + marker_len);
+  Some(ChatMarkdownListItem { flags, title, marker_column, body_column })
 }
 
 fn markdown_standalone_inline_heading(line: &str) -> bool {
@@ -918,4 +1032,165 @@ fn push_chat_url(urls: &mut Vec<ChatMarkdownUrl>, start: i64, end: i64, url: Str
   }
 
   urls.push(ChatMarkdownUrl { start, end, url });
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  const BULLET: i64 = NOTE_FLAG_BULLET1;
+  const NUMBERED: i64 = NOTE_FLAG_NUMBERED;
+  const CODE: i64 = NOTE_FLAG_CODE;
+
+  fn level(flags: i64, level: usize) -> i64 {
+    note_flags_with_indent_level(flags, level)
+  }
+
+  fn notes(markdown: &str) -> Vec<(i64, String)> {
+    chat_markdown_items_from_text(markdown)
+      .into_iter()
+      .map(|item| match item {
+        ChatMarkdownItem::Note(note) => (note.flags, note.title),
+        ChatMarkdownItem::Divider => (-1, "divider".to_owned()),
+        ChatMarkdownItem::Table(_) => (-1, "table".to_owned()),
+      })
+      .collect()
+  }
+
+  fn expected(notes: &[(i64, &str)]) -> Vec<(i64, String)> {
+    notes.iter().map(|(flags, title)| (*flags, (*title).to_owned())).collect()
+  }
+
+  #[test]
+  fn nested_lists_get_indent_levels() {
+    let want =
+      expected(&[(level(BULLET, 0), "a"), (level(BULLET, 1), "b"), (level(BULLET, 2), "c"), (level(BULLET, 0), "d")]);
+    assert_eq!(notes("- a\n  - b\n    - c\n- d"), want);
+    assert_eq!(notes("- a\n    - b\n        - c\n- d"), want);
+    assert_eq!(notes("- a\n\t- b\n\t\t- c\n- d"), want);
+    assert_eq!(notes("- a\n\n  - b\n\n    - c\n\n- d"), want);
+  }
+
+  #[test]
+  fn numbered_and_bullet_lists_nest_in_each_other() {
+    assert_eq!(
+      notes("1. a\n   - x\n2) b\n   1. y\n- c\n  1. z"),
+      expected(&[
+        (level(NUMBERED, 0), "a"),
+        (level(BULLET, 1), "x"),
+        (level(NUMBERED, 0), "b"),
+        (level(NUMBERED, 1), "y"),
+        (level(BULLET, 0), "c"),
+        (level(NUMBERED, 1), "z"),
+      ])
+    );
+  }
+
+  #[test]
+  fn a_marker_indented_past_its_parents_marker_is_a_child() {
+    assert_eq!(
+      notes("1. a\n  - x\n2. b"),
+      expected(&[(level(NUMBERED, 0), "a"), (level(BULLET, 1), "x"), (level(NUMBERED, 0), "b")])
+    );
+    assert_eq!(
+      notes("9. i\n   - x\n10. j\n   - y\n11. k"),
+      expected(&[
+        (level(NUMBERED, 0), "i"),
+        (level(BULLET, 1), "x"),
+        (level(NUMBERED, 0), "j"),
+        (level(BULLET, 1), "y"),
+        (level(NUMBERED, 0), "k"),
+      ])
+    );
+    assert_eq!(notes("- a\n        - b"), expected(&[(level(BULLET, 0), "a"), (level(BULLET, 1), "b")]));
+  }
+
+  #[test]
+  fn a_marker_indented_one_space_is_a_sibling() {
+    assert_eq!(notes("- a\n - b"), expected(&[(level(BULLET, 0), "a"), (level(BULLET, 0), "b")]));
+  }
+
+  #[test]
+  fn levels_stop_at_the_deepest_a_note_can_have() {
+    assert_eq!(
+      notes("- 0\n  - 1\n    - 2\n      - 3\n        - 4\n      - 3b\n- 0b"),
+      expected(&[
+        (level(BULLET, 0), "0"),
+        (level(BULLET, 1), "1"),
+        (level(BULLET, 2), "2"),
+        (level(BULLET, 3), "3"),
+        (level(BULLET, 3), "4"),
+        (level(BULLET, 3), "3b"),
+        (level(BULLET, 0), "0b"),
+      ])
+    );
+  }
+
+  #[test]
+  fn an_indented_line_joins_its_list_item() {
+    assert_eq!(
+      notes("1. a\n   wrapped\n2. *b*\n   **wrapped** [link](https://example.com)"),
+      expected(&[(level(NUMBERED, 0), "a wrapped"), (level(NUMBERED, 0), "b wrapped link")])
+    );
+    let items = chat_markdown_items_from_text("- *b*\n  **wrapped** [link](https://example.com)");
+    let ChatMarkdownItem::Note(note) = &items[0] else { panic!() };
+    assert_eq!(note.inline_marks, vec![0, 1, NOTE_INLINE_MARK_ITALIC, 2, 9, NOTE_INLINE_MARK_BOLD]);
+    assert_eq!((note.urls[0].start, note.urls[0].end), (10, 14));
+  }
+
+  #[test]
+  fn a_code_block_in_a_list_item_keeps_the_list_going() {
+    assert_eq!(
+      notes("1. a\n   ```\n   code\n     more\n   ```\n   - child\n2. b"),
+      expected(&[
+        (level(NUMBERED, 0), "a"),
+        (level(CODE, 1), "code\n  more"),
+        (level(BULLET, 1), "child"),
+        (level(NUMBERED, 0), "b"),
+      ])
+    );
+    assert_eq!(
+      notes("- a\n  - b\n    ```\n    code\n    ```\n  - c"),
+      expected(&[(level(BULLET, 0), "a"), (level(BULLET, 1), "b"), (level(CODE, 2), "code"), (level(BULLET, 1), "c")])
+    );
+  }
+
+  #[test]
+  fn an_unindented_code_block_ends_the_list() {
+    assert_eq!(
+      notes("- a\n```\ncode\n```\n  - b"),
+      expected(&[(level(BULLET, 0), "a"), (CODE, "code"), (level(BULLET, 0), "b")])
+    );
+  }
+
+  #[test]
+  fn text_after_a_code_block_or_child_stays_in_the_list() {
+    assert_eq!(
+      notes("1. a\n   ```\n   code\n   ```\n   then\n   more\n\n   apart\n2. b"),
+      expected(&[
+        (level(NUMBERED, 0), "a"),
+        (level(CODE, 1), "code"),
+        (level(0, 1), "then more"),
+        (level(0, 1), "apart"),
+        (level(NUMBERED, 0), "b"),
+      ])
+    );
+    assert_eq!(
+      notes("- a\n  - b\n  more of a\n  - c"),
+      expected(&[
+        (level(BULLET, 0), "a"),
+        (level(BULLET, 1), "b"),
+        (level(0, 1), "more of a"),
+        (level(BULLET, 1), "c")
+      ])
+    );
+  }
+
+  #[test]
+  fn unindented_text_ends_the_list() {
+    assert_eq!(
+      notes("- a\n  - b\n\ntext\n\n  - c"),
+      expected(&[(level(BULLET, 0), "a"), (level(BULLET, 1), "b"), (0, "text"), (level(BULLET, 0), "c")])
+    );
+  }
 }
