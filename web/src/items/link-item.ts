@@ -269,6 +269,9 @@ export const LinkFns = {
 
     const result = ItemFns.calcGeometry_InComposite(measurableMaybe!, blockSizePx, compositeWidthBl, leftMarginBl, topPx, smallScreenMode);
     let insertPos = result.hitboxes.length;
+    if (result.hitboxes.length > 0 && result.hitboxes[result.hitboxes.length - 1].type == HitboxFlags.Resize) {
+      insertPos = result.hitboxes.length - 1;
+    }
     result.hitboxes.splice(insertPos, 0, HitboxFns.create(HitboxFlags.TriangleLinkSettings, { x: 0, y: 0, w: LINK_TRIANGLE_SIZE_PX + 2, h: LINK_TRIANGLE_SIZE_PX + 2 }))
     return result;
   },

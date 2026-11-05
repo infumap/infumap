@@ -790,6 +790,10 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
           hitVe.blockSizePx != null && hitVe.blockSizePx.w > 0 && hitVe.blockSizePx.h > 0) {
           // Column resize: the item's scale doesn't change during the drag, so its rendered block size is direct.
           onePxSizeBl = { x: 1.0 / hitVe.blockSizePx.w, y: 1.0 / hitVe.blockSizePx.h };
+        } else if (isComposite(parent.displayItem) &&
+          hitVe.blockSizePx != null && hitVe.blockSizePx.w > 0 && hitVe.blockSizePx.h > 0) {
+          // The table handler reports no composite hitbox type, so a table in a composite gets here, not the case above.
+          onePxSizeBl = { x: 1.0 / hitVe.blockSizePx.w, y: 1.0 / hitVe.blockSizePx.h };
         } else if (isPage(parent.displayItem) && VeFns.treeItem(hitVe).relationshipToParent == RelationshipToParent.Child) {
           let parentPage = asPageItem(parent.displayItem);
           onePxSizeBl = onePxSizeBlForPageChild(parentPage, parent);

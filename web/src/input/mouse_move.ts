@@ -146,6 +146,13 @@ function maxInsideCompositeOrDocumentWidthBl(activeVisualElement: VisualElement)
   panic("unexpected item type: " + parentVe.displayItem.itemType);
 }
 
+function isTableInComposite(activeVisualElement: VisualElement): boolean {
+  if (!(activeVisualElement.flags & VisualElementFlags.InsideCompositeOrDoc) || !isTable(activeVisualElement.displayItem)) {
+    return false;
+  }
+  return isComposite(MouseActionState.readVisualElement(activeVisualElement.parentPath!)!.displayItem);
+}
+
 
 export function mouseMoveHandler(store: StoreContextModel) {
   if (store.history.currentPageVeid() == null) { return; }
@@ -888,36 +895,40 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
     y: widthOnly ? 0 : deltaPx.y * onePxSizeBl.y
   };
 
-  const maxWidthBl = maxInsideCompositeOrDocumentWidthBl(activeVisualElement);
-  const startWidthBl = MouseActionState.getStartWidthBl()!;
-  const resizeStartWidthBl = maxWidthBl == null ? startWidthBl : Math.min(startWidthBl, maxWidthBl);
-  let newWidthBl = resizeStartWidthBl + deltaBl.x;
-  if (isLink(activeItem)) {
-    if (isLink(activeVisualElement.displayItem)) {
-      newWidthBl = Math.round(newWidthBl);
+  // A table in a composite always fills the composite's width, so a drag can't show a change to its own width, which
+  // is the width it returns to when moved out of the composite.
+  if (!isTableInComposite(activeVisualElement)) {
+    const maxWidthBl = maxInsideCompositeOrDocumentWidthBl(activeVisualElement);
+    const startWidthBl = MouseActionState.getStartWidthBl()!;
+    const resizeStartWidthBl = maxWidthBl == null ? startWidthBl : Math.min(startWidthBl, maxWidthBl);
+    let newWidthBl = resizeStartWidthBl + deltaBl.x;
+    if (isLink(activeItem)) {
+      if (isLink(activeVisualElement.displayItem)) {
+        newWidthBl = Math.round(newWidthBl);
+      } else {
+        newWidthBl = allowHalfBlockWidth(asXSizableItem(activeVisualElement.displayItem)) ? Math.round(newWidthBl * 2.0) / 2.0 : Math.round(newWidthBl);
+      }
     } else {
-      newWidthBl = allowHalfBlockWidth(asXSizableItem(activeVisualElement.displayItem)) ? Math.round(newWidthBl * 2.0) / 2.0 : Math.round(newWidthBl);
+      newWidthBl = allowHalfBlockWidth(asXSizableItem(activeItem)) ? Math.round(newWidthBl * 2.0) / 2.0 : Math.round(newWidthBl);
     }
-  } else {
-    newWidthBl = allowHalfBlockWidth(asXSizableItem(activeItem)) ? Math.round(newWidthBl * 2.0) / 2.0 : Math.round(newWidthBl);
-  }
-  if (newWidthBl < 1) { newWidthBl = 1.0; }
+    if (newWidthBl < 1) { newWidthBl = 1.0; }
 
-  if (maxWidthBl != null && newWidthBl > maxWidthBl) {
-    newWidthBl = maxWidthBl;
-  }
-
-  const newWidthGr = newWidthBl * GRID_SIZE;
-
-  if (isLink(activeItem)) {
-    if (newWidthGr != asLinkItem(activeItem).spatialWidthGr) {
-      asLinkItem(activeItem).spatialWidthGr = newWidthGr;
-      requireArrange = true;
+    if (maxWidthBl != null && newWidthBl > maxWidthBl) {
+      newWidthBl = maxWidthBl;
     }
-  } else {
-    if (newWidthGr != asXSizableItem(activeItem).spatialWidthGr) {
-      asXSizableItem(activeItem).spatialWidthGr = newWidthGr;
-      requireArrange = true;
+
+    const newWidthGr = newWidthBl * GRID_SIZE;
+
+    if (isLink(activeItem)) {
+      if (newWidthGr != asLinkItem(activeItem).spatialWidthGr) {
+        asLinkItem(activeItem).spatialWidthGr = newWidthGr;
+        requireArrange = true;
+      }
+    } else {
+      if (newWidthGr != asXSizableItem(activeItem).spatialWidthGr) {
+        asXSizableItem(activeItem).spatialWidthGr = newWidthGr;
+        requireArrange = true;
+      }
     }
   }
 
