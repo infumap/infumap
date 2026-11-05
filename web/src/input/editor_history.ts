@@ -174,13 +174,19 @@ export function makeEditorHistory(getStore: () => StoreContextModel) {
     const entry: Entry = { changes, before: token.selection, after: selection ?? captureEditorSelection(getStore()), label: token.label,
       group: token.group, started: token.started, ended: Date.now() };
     const previous = undo.at(-1);
+    const previousChange = (change: Change) => previous?.changes.find(other => other.id === change.id);
     // Typing continues only from the caret it left; toolbar drags have no text selection.
-    if (previous && entry.group && previous.group === entry.group && changes.length === 1 && previous.changes.length === 1 &&
-        previous.changes[0].id === changes[0].id && equal(previous.changes[0].after, changes[0].before) &&
+    // A drag over several notes can change only some of them at each step, those not yet at the new value.
+    if (previous && entry.group && previous.group === entry.group &&
+        changes.every(change => { const from = previousChange(change); return !from || equal(from.after, change.before); }) &&
         equal(previous.after.anchor, entry.before.anchor) && equal(previous.after.focus, entry.before.focus) &&
         entry.started - previous.ended < GROUP_DELAY_MS && entry.ended - previous.started < GROUP_DURATION_MS) {
-      previous.changes[0].after = changes[0].after;
-      previous.changes[0].fields = [...new Set([...previous.changes[0].fields, ...changes[0].fields])];
+      for (const change of changes) {
+        const from = previousChange(change);
+        if (!from) { previous.changes.push(change); continue; }
+        from.after = change.after;
+        from.fields = [...new Set([...from.fields, ...change.fields])];
+      }
       previous.after = entry.after;
       previous.ended = entry.ended;
     } else { undo.push(entry); }

@@ -32,7 +32,7 @@ import { itemState } from "../../../store/ItemState";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 import { Toolbar_InfoAndId } from "./Toolbar_InfoAndId";
 import { getToolbarFocusItem, getToolbarFocusPathMaybe, toolbarFocusIsInTableView } from "../toolbarFocus";
-import { toggleActiveNoteInlineMark } from "../../../input/edit";
+import { noteFormatTargets, toggleActiveNoteInlineMark } from "../../../input/edit";
 import { applyEditorFormatCommand } from "../../../input/editor_history";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../../items/page-item";
 import { VeFns } from "../../../layout/visual-element";
@@ -93,11 +93,13 @@ export const Toolbar_Note: Component = () => {
 
   // Only store an alignment that differs from the inherited one, so the note keeps following its column.
   const selectAlignment = (flag: NoteFlags) => {
-    const note = noteItem();
+    const notes = noteFormatTargets(store, noteItem());
     const inheritedFlag = noteInheritedAlignFlag(focusTableColumnAlign());
-    applyEditorFormatCommand(store, [note], "Align text", () => {
-      NoteFns.clearAlignmentFlags(note);
-      if (flag != inheritedFlag) { note.flags |= flag; }
+    applyEditorFormatCommand(store, notes, "Align text", () => {
+      for (const note of notes) {
+        NoteFns.clearAlignmentFlags(note);
+        if (flag != inheritedFlag) { note.flags |= flag; }
+      }
     });
     requestArrange(store, "toolbar-note-alignment");
   };

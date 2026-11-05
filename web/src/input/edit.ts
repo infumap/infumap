@@ -20,6 +20,7 @@ import { historyOwnsTextEdit } from "./editor_history";
 import { server, serverOrRemote } from "../server";
 import {
   NoteFns,
+  type NoteItem,
   asNoteItem,
   concatNoteInlineMarks,
   concatNoteUrls,
@@ -385,6 +386,32 @@ function structuralPathsInLinearContainer(context: LinearEditContext): Array<str
     orderedPaths.push(childVe ? VeFns.veToPath(childVe) : VeFns.addVeidToPath({ itemId: childId, linkIdMaybe: null }, context.containerPath));
   }
   return orderedPaths;
+}
+
+/**
+ * The notes a paragraph format command applies to: those touched by the text selection in the container being edited, or
+ * otherwise the focused note. These are the container's direct children only: a range can pass over a composite in a
+ * document page, but the composite's text isn't selectable from outside it, so isn't highlighted.
+ */
+export function noteFormatTargets(store: StoreContextModel, focusNote: NoteItem): Array<NoteItem> {
+  const context = currentLinearEditContext(store);
+  const selection = window.getSelection();
+  if (context == null || selection == null || selection.rangeCount == 0) { return [focusNote]; }
+  const range = selection.getRangeAt(0);
+
+  const notes: Array<NoteItem> = [];
+  for (const childVe of VesCache.current.readStructuralChildren(context.containerPath)) {
+    const path = VeFns.veToPath(childVe);
+    const element = document.getElementById(path + ":title");
+    const item = itemState.get(childVe.displayItem.id);
+    if (element == null || item == null || !isNote(item) || !itemCanEdit(item) || !range.intersectsNode(element)) { continue; }
+    // A drag to the start of a line ends the range at the start of that note, with none of its text selected. The note
+    // being edited is kept regardless, since it's the one the toolbar shows.
+    if (path != context.editingPath && nodeIsInsideElement(element, range.endContainer) &&
+        getTextOffsetWithinElement(element, range.endContainer, range.endOffset) == 0) { continue; }
+    notes.push(asNoteItem(item));
+  }
+  return notes.length > 0 ? notes : [focusNote];
 }
 
 function linearSelectionBoundaryFromRangeBoundary(node: Node, offset: number): LinearSelectionBoundary | null {

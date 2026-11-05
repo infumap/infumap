@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Show } from "solid-js";
+import { Component, For, Show, createMemo } from "solid-js";
 import { NoteInlineMark, NoteInlineMarkFlags, NoteUrl, noteInlineTextSegments, safeNoteLinkUrl } from "../../items/note-item";
 import { EMPTY_CONTENT_EDITABLE_PLACEHOLDER } from "../../util/string";
 import { ClickState } from "../../input/state";
@@ -47,8 +47,11 @@ export const NoteInlineText: Component<{
   inactiveLinksStyled?: boolean,
   onLinkMouseDown?: (url: string, ev: MouseEvent) => void,
 }> = (props) => {
-  const segments = () => noteInlineTextSegments(props.inlineMarks, props.urls, props.text)
-    .map(segment => ({ ...segment, url: safeNoteLinkUrl(segment.url) }));
+  // Each arrange of the note can get here, as a change to its alignment does. Rebuilding spans that are the same would
+  // collapse a text selection ending inside them.
+  const segments = createMemo(() => noteInlineTextSegments(props.inlineMarks, props.urls, props.text)
+    .map(segment => ({ ...segment, url: safeNoteLinkUrl(segment.url) })),
+    undefined, { equals: (a, b) => JSON.stringify(a) == JSON.stringify(b) });
 
   const linkMouseDown = (url: string) => (ev: MouseEvent) => {
     if (props.onLinkMouseDown) {

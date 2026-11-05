@@ -33,6 +33,7 @@ import { InfuColorButton } from "../library/InfuColorButton";
 import { QrCode } from "../library/QrCode";
 import { Backlink, server, serverOrRemote } from "../../server";
 import { applyEditorFormatCommand } from "../../input/editor_history";
+import { noteFormatTargets } from "../../input/edit";
 import { panic } from "../../util/lang";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
 import { asTableItem, isTable } from "../../items/table-item";
@@ -55,7 +56,7 @@ import { navigateToContainingPageOfItemAndFocus } from "../../layout/navigation"
 import { searchResultPathSegmentsFromPath } from "../../util/search-result-display";
 import { getToolbarFocusItem, getToolbarFocusPathMaybe, toolbarFocusIsCurrentPage, toolbarFocusIsInTableView } from "./toolbarFocus";
 import { printCurrentPage } from "../../print";
-import { getNoteIndentLevel, getPageCalendarDisplayMode, PageCalendarDisplayMode, setNoteIndentLevel, setPageCalendarDisplayMode } from "../../items/base/flags-item";
+import { getNoteIndentLevel, getPageCalendarDisplayMode, noteHasListStyle, PageCalendarDisplayMode, setNoteIndentLevel, setPageCalendarDisplayMode } from "../../items/base/flags-item";
 import { alignCalendarWindowStartMonthIndex, getCalendarMonthsPerPageForDisplayMode } from "../../util/calendar-layout";
 import { VesCache } from "../../layout/ves-cache";
 import { isVirtualTextDocumentPage, sourceTextItemForVirtualTextDocumentPage } from "../../items/text-document";
@@ -468,6 +469,10 @@ export const Toolbar_Popup: Component = () => {
 
   const overlayTypeConst = store.overlay.toolbarPopupInfoMaybe.get()!.type;
   const overlayType = () => store.overlay.toolbarPopupInfoMaybe.get()?.type ?? overlayTypeConst;
+  // Read now, because using the slider can take the text selection. Indent only means something on a list note.
+  const noteIndentTargets = overlayTypeConst == ToolbarPopupType.NoteIndent
+    ? noteFormatTargets(store, noteItem()).filter(note => noteHasListStyle(note.flags))
+    : [];
   const [sliderValue, setSliderValue] = createSignal(
     isTable(getToolbarFocusItem(store))
       ? asTableItem(getToolbarFocusItem(store)).numberOfVisibleColumns.toString()
@@ -1093,8 +1098,10 @@ export const Toolbar_Popup: Component = () => {
       store.overlay.toolbarPopupInfoMaybe.set(null);
       return;
     }
-    const note = asNoteItem(focusItem);
-    applyEditorFormatCommand(store, [note], "Change text style", () => { NoteFns.setTextStyle(note, textStyle); });
+    const notes = noteFormatTargets(store, asNoteItem(focusItem));
+    applyEditorFormatCommand(store, notes, "Change text style", () => {
+      for (const note of notes) { NoteFns.setTextStyle(note, textStyle); }
+    });
     store.overlay.toolbarPopupInfoMaybe.set(null);
     store.touchToolbar();
     requestArrange(store, "toolbar-popup-note-text-style");
@@ -1197,6 +1204,11 @@ export const Toolbar_Popup: Component = () => {
     e.stopPropagation();  // Prevent global handler from closing popup
     if (e.button == MOUSE_RIGHT) { store.overlay.toolbarPopupInfoMaybe.set(null); }
   }
+  // The choice applies to the text selection, which a press on the menu must not take from the editor.
+  const handleNoteTextStyleMouseDown = (e: MouseEvent) => {
+    e.preventDefault();
+    handleMouseDown(e);
+  }
   const handleMouseMove = (e: MouseEvent) => { e.stopPropagation(); }
 
   onMount(() => {
@@ -1222,8 +1234,9 @@ export const Toolbar_Popup: Component = () => {
         tableItem().tableColumns.push({ name: `col ${tableItem().tableColumns.length}`, widthGr: 120 });
       }
     } else if (overlayTypeConst == ToolbarPopupType.NoteIndent) {
-      const note = noteItem();
-      applyEditorFormatCommand(store, [note], "Change indent", () => { setNoteIndentLevel(note, newValue - 1); }, "indent");
+      applyEditorFormatCommand(store, noteIndentTargets, "Change indent", () => {
+        for (const note of noteIndentTargets) { setNoteIndentLevel(note, newValue - 1); }
+      }, "indent");
     }
     store.touchToolbar();
     requestArrange(store, "toolbar-popup-slider");
@@ -1254,7 +1267,7 @@ export const Toolbar_Popup: Component = () => {
         <Match when={overlayType() == ToolbarPopupType.NoteTextStyle}>
           <div class={TOOLBAR_MENU_CLASS}
             style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
-            onMouseDown={handleMouseDown}
+            onMouseDown={handleNoteTextStyleMouseDown}
             onMouseMove={handleMouseMove}>
             <For each={visibleNoteTextStyleOptions(store)}>{option =>
               <div class={noteTextStyleChoiceClass(option)}
