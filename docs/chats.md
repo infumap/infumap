@@ -83,6 +83,9 @@ recent edits (see [Data](data.md)). What the model reads stays in the chat for t
 long chat with many reads can outgrow a small model's context, and then fails with "The conversation is too long for
 the model's context window." To see what the model sees, run the same tools with [`infumap tool`](cli.md#tool).
 
+To point a chat at particular items, [choose them](scopes.md#limiting-a-chat-to-chosen-items). The model then gets
+their content without having to read it first, and its tools are limited to them.
+
 ## Prompts
 
 Text you send often, such as "Summarize the attached", can be kept as a prompt and put into a message without

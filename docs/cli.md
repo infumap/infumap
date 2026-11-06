@@ -27,7 +27,7 @@ Options:
 
 Generate a 256 bit encryption key suitable for use with the `backup_encryption_key` configuration property or the `objectEncryptionKey` user item property.
 
-Changing the `objectEncryptionKey` user property is currently not a supported / implemented feature.
+To change a user's `objectEncryptionKey`, see [rekey](#rekey).
 
 A (unique) backup encryption key is generated when a new `settings.toml` file is auto-generated. Generally, you won't need to use the `keygen` command unless you are specifying configuration via environment variables, or creating a settings file from scratch.
 
@@ -86,6 +86,44 @@ infumap reconcile orphaned -o s3_2
 ```
 
 
+### rekey
+
+Re-encrypt a user's object files in a local object store with a new object encryption key, writing them to another data directory. The source files are never modified. The current and new keys are prompted for, without echo. Use `keygen` to generate the new key.
+
+The item database is not read or changed, and the key stored for the user must be updated separately (see below).
+
+Options:
+- **--user-id (required):** The id of the user whose files are re-encrypted.
+- **--src (required):** The data directory holding the files to re-encrypt, in `<src>/user_<id>/files/`.
+- **--dest (required):** The data directory to write the re-encrypted files to, in `<dest>/user_<id>/files/`. It is created if it does not exist, and cannot be the source.
+
+Files already in the destination are skipped, so an interrupted run can be repeated. A file that can't be re-encrypted is reported while the others carry on, and the command then exits with an error. Run it again to retry the failures. If the first 5 files attempted all fail, it stops, because the old key is probably wrong.
+
+To change a user's key:
+
+1. Stop the web server.
+2. If the user's files are only in S3, copy them to the local object store first. This needs `enable_local_object_storage`:
+
+   ```
+   infumap reconcile missing -a s3_1 -b local --copy
+   ```
+3. Run `rekey`, with `--src` set to your data directory and `--dest` set to a new directory:
+
+   ```
+   infumap rekey --user-id <id> --src <data_dir> --dest <new_dir>
+   ```
+4. Move `<data_dir>/user_<id>/files` aside, and move `<new_dir>/user_<id>/files` into its place.
+5. In `<data_dir>/user_<id>/user.json`, replace the value of `objectEncryptionKey` with the new key. The server does not allow this value to be changed, so the log has to be edited by hand.
+6. Files in S3 are still encrypted with the old key. `reconcile missing` only copies files absent from the destination, so point your S3 settings at new, empty buckets, then copy the files to each of them:
+
+   ```
+   infumap reconcile missing -a local -b s3_1 --copy
+   ```
+7. Start the web server and check that files open.
+
+The old key can still decrypt every copy made with it: the files moved aside and those in the old buckets, including any hidden object versions. If you are changing the key because it was exposed, delete them once the new copies are confirmed good. A backup made before the change has the old key in its `user.json`, so set the new key again after restoring one.
+
+
 ### restore
 
 Decrypt / unpack a user backup file. A backup file includes the `user.json` and `items.json` log files. These will be output to the current directory, and you need to move them manually into the relevant user folder in the configured Infumap data directory.
@@ -103,6 +141,9 @@ and you need to urgently access information in Infumap. This command is also use
 recovery test. Since there are a lot of parameters, it's a good idea to have a simple shell script set up so
 that you can act quickly if/when the time comes. This command does not start the web server; after setup, run:
 `infumap web --settings <directory>`.
+
+The command refuses to run if `<recovery-dir>/data/user_<user-id>/files` exists, because that directory would be
+replaced and may hold a full download of the user's files. Use a different recovery directory, or move it out of the way first.
 
 - **--s3-backup-endpoint:** As per your Infumap settings.
 - **--s3-backup-region:** As per your Infumap settings.
@@ -174,7 +215,6 @@ Options:
 - **--service-url (optional):** Override the `image_extract` endpoint discovered from `gpu_tools_url` for this process.
 - **--delay-secs (optional):** Sleep for this many seconds after each image tagging request in this process. Defaults to `0`.
 - **--item-id (optional):** Tag only this item. The item must have a supported image MIME type. Existing image-tag artifacts are overwritten.
-- **--test (optional):** Read saved image embeddings for supported images, use this item as the query, and print the top 10 closest items by cosine similarity. Does not contact the image-tagging service.
 - **--container-id (optional):** Tag only supported images within this container subtree, then exit after the finite batch completes. By default, items with existing image-tag artifacts are skipped.
 - **--overwrite (optional):** When used with `--container-id`, reprocess items even if image-tag artifacts already exist. `--item-id` always overwrites.
 - **--list-failed (optional):** List supported images for which image tagging previously failed, then exit. When combined with `--container-id`, only failures within that subtree are shown.
@@ -240,12 +280,11 @@ Reverse geocode GPS-tagged supported images without starting the web server.
 
 This command looks for supported image items that already have saved image-tag/caption output in the local `text` artifact directory. When the saved image-tag JSON includes `image_metadata.gps_latitude` and `image_metadata.gps_longitude`, Infumap calls a reverse-geocoding service and stores the full JSON response beside the image-tag artifact as `<item_id>_geo.json`, along with a separate `<item_id>_geo_manifest.json`.
 
-By default, the command targets the Geoapify reverse-geocoding API and expects an API key via `--api-key` or `INFUMAP_GEOAPIFY_API_KEY`.
+By default, the command targets the Geoapify reverse-geocoding API and expects an API key in the `geoapify_api_key` configuration property or `INFUMAP_GEOAPIFY_API_KEY`.
 
 Options:
 
 - **-s --settings (optional):** Path to a toml settings configuration file. If not specified, `~/.infumap/settings.toml` will be assumed.
-- **--api-key (optional):** Geoapify API key. Defaults to `INFUMAP_GEOAPIFY_API_KEY`.
 - **--service-url (optional):** Override the reverse-geocoding service URL. Defaults to Geoapify's reverse endpoint.
 - **--item-id (optional):** Reverse geocode only this supported image item. Existing geo artifacts are overwritten. The command exits after processing the one item.
 - **--overwrite (optional):** Reprocess items even if geo artifacts already exist. `--item-id` always overwrites.
@@ -282,11 +321,15 @@ infumap tool infumap_search "budget" --page-num 2
 infumap tool infumap_get_fragment infumap://<item-id>
 infumap tool infumap_get_fragment <item-id> --fragment-ordinal 4
 infumap tool infumap_search "budget" --session work --scope <scope-id>
+infumap tool infumap_search "budget" --scope-item <item-id> --scope-item <item-id>
 ```
 
-Both subcommands accept `-s --session <name>` (default: `default`) and `--scope <scope-id>`.
-These options may appear before or after the tool name. An invalid or deleted scope fails the
-request; it never falls back to an unrestricted call.
+Both subcommands accept `-s --session <name>` (default: `default`), `--scope <scope-id>` and
+`--scope-item <item-id>`. These options may appear before or after the tool name. An invalid or deleted
+scope fails the request; it never falls back to an unrestricted call.
+
+`--scope-item` limits the tool to the item and everything inside it, in place of `--scope`. It can be
+repeated, up to 32 times. Ids of items that no longer exist are left out, and the request fails if none remain.
 
 `tool infumap_search <text>` accepts:
 
@@ -303,7 +346,7 @@ ending with a `The item continues.` or `For more results,` line has more: run th
 separate from `tool infumap_get_fragment`, which reads them and renders live container contents.
 
 The command calls the server's `POST /chat/tool` endpoint, which can also be called directly with an authenticated
-session. It takes `{ "name": "infumap_search" | "infumap_get_fragment", "arguments": {…}, "scopeId": "<optional>" }`
+session. It takes `{ "name": "infumap_search" | "infumap_get_fragment", "arguments": {…}, "scopeId": "<optional>", "scopeItemIds": ["<optional>"] }`
 and returns the tool result as `text/plain`, or a JSON `error` with HTTP 400 for a tool error or invalid request and
 403 without a session. Requests are limited to 16 KiB.
 
@@ -355,6 +398,7 @@ Ask a running Infumap server to discard an item's generated search text (PDF ext
 Options:
 - **-s --session (optional):** The session name. If no session name is specified, "`default`" will be assumed.
 - **-i --id (required):** The id of the item to reprocess.
+- **--pdf-conversion-timeout (optional):** For a PDF, the conversion time limit for this attempt, e.g. `4h`, `90m` or `3600` (seconds), up to 24 hours. Otherwise the GPU service default (1 hour) is used.
 
 Progress is shown on the `Search processing` page and at `/files/<item id>/search-status`.
 
