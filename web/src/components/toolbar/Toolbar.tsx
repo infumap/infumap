@@ -30,7 +30,7 @@ import { itemState } from "../../store/ItemState";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { hexToRGBA } from "../../util/color";
-import { BORDER_COLOR, BorderType, Colors, LIGHT_BORDER_COLOR, borderColorForColorIdx, linearGradient, mainPageBorderColor, mainPageBorderWidth } from "../../style";
+import { BORDER_COLOR, BorderType, Colors, LIGHT_BORDER_COLOR, borderColorForColorIdx, linearGradient, mainPageBorderColor, mainPageBorderWidth, tablePageLineColor } from "../../style";
 import { InfuIconButton } from '../library/InfuIconButton';
 import { Toolbar_Page } from './item/Toolbar_Page';
 import { Toolbar_Table } from './item/Toolbar_Table';
@@ -253,17 +253,25 @@ export const Toolbar: Component = () => {
   const focusedSearchChrome = () => getFocusedSearchWorkspaceChromeSpec(store);
   const toolbarFocusItem = () => getToolbarFocusItem(store);
 
-  const tableHeaderBorderBounds = createMemo(() => {
+  const lastTopTitledPageVe = () => {
     const pages = store.topTitledPages.get();
     const path = pages[pages.length - 1];
-    if (!path) { return null; }
-    const ve = VesCache.render.getNode(path)?.get();
+    return path ? VesCache.render.getNode(path)?.get() : null;
+  };
+
+  const tableHeaderBorderBounds = createMemo(() => {
+    const ve = lastTopTitledPageVe();
     if (!ve?.viewportBoundsPx || !ve.tableBodyViewportBoundsPx ||
       ve.tableBodyViewportBoundsPx.y <= ve.viewportBoundsPx.y) {
       return null;
     }
     return VeFns.veViewportBoundsRelativeToDesktopPx(store, ve);
   });
+
+  const tableHeaderBorderColor = () => {
+    store.touchToolbarDependency();
+    return tablePageLineColor(asPageItem(lastTopTitledPageVe()!.displayItem).backgroundColorIndex);
+  };
 
   const hideToolbar = () => {
     store.topToolbarVisible.set(false);
@@ -474,8 +482,8 @@ export const Toolbar: Component = () => {
       {mainToolbarArea()}
       {/* Share the toolbar's bottom pixel with the table header, leaving one page-border pixel above it. */}
       <Show when={tableHeaderBorderBounds()}>{bounds =>
-        <div class="fixed pointer-events-none bg-[#999]"
-          style={`left: ${bounds().x}px; top: ${store.topToolbarHeightPx() - 1}px; ` +
+        <div class="fixed pointer-events-none"
+          style={`background-color: ${tableHeaderBorderColor()}; left: ${bounds().x}px; top: ${store.topToolbarHeightPx() - 1}px; ` +
             `width: ${bounds().w}px; height: 1px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY};`} />
       }</Show>
       <Show when={focusedSearchChrome()}>

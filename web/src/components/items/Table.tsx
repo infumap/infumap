@@ -20,7 +20,7 @@ import { edit_inputListener } from "../../input/edit";
 import { Component, createMemo, For, Match, onMount, Show, Switch, createEffect, onCleanup } from "solid-js";
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, PADDING_PROP, TABLE_COL_HEADER_HEIGHT_BL, TABLE_TITLE_HEADER_HEIGHT_BL, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 import { itemCanEdit } from "../../items/base/capabilities-item";
-import { FOCUS_RING_BOX_SHADOW } from "../../style";
+import { FOCUS_RING_BOX_SHADOW, tableHeaderBackgroundColor } from "../../style";
 import { TableFns, asTableItem, tableColHeaderHeightBl, tableHeaderHeightBl, tableTitleHeaderHeightBl } from "../../items/table-item";
 import { VisualElement_LineItem, VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { VesCache } from "../../layout/ves-cache";
@@ -294,8 +294,10 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
         <div class={`absolute border border-item-border rounded-item pointer-events-none`}
           style={`left: 0px; top: ${titleHeaderHeightPx()}px; width: ${boundsPx().w}px; height: ${boundsPx().h - titleHeaderHeightPx()}px;`} />
         <Show when={showColHeader()}>
-          <div class={`absolute border border-item-border bg-slate-300 rounded-t-item`}
-            style={`left: 0px; top: ${titleHeaderHeightPx()}px; width: ${boundsPx().w}px; height: ${colHeaderHeightPx()}px;`} />
+          {/* A table has no color of its own, so uses the default page color. */}
+          <div class={`absolute border border-item-border rounded-t-item`}
+            style={`left: 0px; top: ${titleHeaderHeightPx()}px; width: ${boundsPx().w}px; height: ${colHeaderHeightPx()}px; ` +
+              `background-color: ${tableHeaderBackgroundColor(0)};`} />
         </Show>
 
         <For each={VesCache.render.getAttachments(VeFns.veToPath(props.visualElement))()}>{attachmentVe =>

@@ -70,6 +70,25 @@ export function translucent(colIndex: number, lightenByAlpha: number): string {
   return `${hexToRGBA(Colors[colIndex], 0.986-lightenByAlpha)}`;
 }
 
+// Strong enough to stand apart from a focused page's title bar directly above, which is a tint of about 8%.
+const TABLE_HEADER_TINT = 0.12;
+// Any lighter and the title bar and column headings run together. A neutral grey dominates the pale fill it edges.
+const TABLE_LINE_TINT = 0.35;
+
+function opaquePageColorTint(colIndex: number, tint: number): string {
+  return rgbArrayToRgbaFunc(rgbHexToArray(Colors[colIndex]).map(c => Math.round(255 - (255 - c) * tint)));
+}
+
+/** The background of a table's column headings. */
+export function tableHeaderBackgroundColor(colIndex: number): string {
+  return opaquePageColorTint(colIndex, TABLE_HEADER_TINT);
+}
+
+/** The lines around the column headings of a table page, and between its columns. */
+export function tablePageLineColor(colIndex: number): string {
+  return opaquePageColorTint(colIndex, TABLE_LINE_TINT);
+}
+
 // https://stackoverflow.com/questions/17242144/javascript-convert-hsb-hsv-color-to-rgb-accurately/54024653#54024653
 function hsv2rgb(h: number, s: number, v: number) {
   let f = (n: number) => {
