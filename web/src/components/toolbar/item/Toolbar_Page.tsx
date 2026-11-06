@@ -206,11 +206,42 @@ export const Toolbar_Page: Component = () => {
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid;
   }
 
-  // Table pages set their columns, how their rows are drawn and their aspect (which only applies where they are
-  // shown in something else) together in one dialog.
-  const showTableLayoutButton = () => {
+  // Table pages set their columns and their aspect (which only applies where they are shown in something else)
+  // together in one dialog. Column headings and wrapping are toggles of their own.
+  const showTableButtons = () => {
     store.touchToolbarDependency();
     return pageItem().arrangeAlgorithm == ArrangeAlgorithm.Table;
+  }
+
+  const showTableHeader = () => {
+    store.touchToolbarDependency();
+    return !!(pageItem().flags & PageFlags.ShowTableColHeader);
+  }
+
+  const handleToggleTableHeader = () => {
+    // Hiding the headings while one is being edited would leave the edit with nothing to edit.
+    if ((pageItem().flags & PageFlags.ShowTableColHeader) &&
+      store.overlay.textEditInfo()?.itemType == ItemType.Page &&
+      store.overlay.textEditInfo()?.itemPath == getToolbarFocusPathMaybe(store) &&
+      store.overlay.textEditInfo()?.colNum != null) {
+      store.overlay.setTextEditInfo(store.history, null, true);
+    }
+    pageItem().flags ^= PageFlags.ShowTableColHeader;
+    requestArrange(store, "toolbar-page-table-header-visibility");
+    serverOrRemote.updateItem(pageItem());
+    store.touchToolbar();
+  }
+
+  const tableWrapRows = () => {
+    store.touchToolbarDependency();
+    return !!(pageItem().flags & PageFlags.TableWrapRows);
+  }
+
+  const handleToggleTableWrapRows = () => {
+    pageItem().flags ^= PageFlags.TableWrapRows;
+    requestArrange(store, "toolbar-page-table-wrap-rows");
+    serverOrRemote.updateItem(pageItem());
+    store.touchToolbar();
   }
 
   // Justified pages set their row height and their aspect (which only applies where they are shown in something
@@ -606,7 +637,7 @@ export const Toolbar_Page: Component = () => {
             <span class="pl-[6px]">{pageShapeText()}</span>
           </div>
         </Show>
-        <Show when={!isQueriesPage() && !showPageSizeButton() && !showGridLayoutButton() && !showJustifiedLayoutButton() && !showCatalogLayoutButton() && !showPageShapeButton() && !showTableLayoutButton() && !showDocumentButtons()}>
+        <Show when={!isQueriesPage() && !showPageSizeButton() && !showGridLayoutButton() && !showJustifiedLayoutButton() && !showCatalogLayoutButton() && !showPageShapeButton() && !showTableButtons() && !showDocumentButtons()}>
           <div ref={aspectDiv}
             class="inline-block w-[65px] border border-slate-400 rounded-md ml-[10px] hover:bg-slate-300 cursor-pointer"
             style={`font-size: 13px;`}
@@ -630,16 +661,18 @@ export const Toolbar_Page: Component = () => {
             <span class="pl-[6px]">{catalogLayoutText()}</span>
           </div>
         </Show>
-        <Show when={showTableLayoutButton()}>
+        <Show when={showTableButtons()}>
           <div ref={tableLayoutDiv}
-            class="inline-block border border-slate-400 rounded-md ml-[10px] px-[5px] hover:bg-slate-300 cursor-pointer whitespace-nowrap"
+            class="inline-block border border-slate-400 rounded-md ml-[10px] mr-[7px] px-[5px] hover:bg-slate-300 cursor-pointer whitespace-nowrap"
             style={`font-size: 13px;`}
             title="Table layout"
             onClick={handleTableLayoutClick}
             onMouseDown={handleTableLayoutDown}>
-            <i class="bi-table" />
+            <i class="bi-layout-three-columns" />
             <span class="pl-[6px]">{tableLayoutText()}</span>
           </div>
+          <InfuIconButton icon="bi-table" highlighted={showTableHeader()} clickHandler={handleToggleTableHeader} title="Show column headers" />
+          <InfuIconButton icon="bi-text-wrap" highlighted={tableWrapRows()} clickHandler={handleToggleTableWrapRows} title="Wrap row text" />
         </Show>
         <Show when={showJustifiedLayoutButton()}>
           <div ref={justifiedLayoutDiv}
@@ -668,7 +701,8 @@ export const Toolbar_Page: Component = () => {
           {documentControls()}
         </Show>
         <Show when={showOrderByButton()}>
-          <div class="inline-block ml-[10px]">
+          {/* On a table page this follows the heading and wrap toggles, so is spaced as one more icon in their run. */}
+          <div class={`inline-block ${showTableButtons() ? "ml-[3px]" : "ml-[10px]"}`}>
             <Toolbar_SortOrder />
           </div>
         </Show>
