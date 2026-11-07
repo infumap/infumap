@@ -19,9 +19,14 @@
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { itemState } from "../../store/ItemState";
+import { ATTACH_AREA_SIZE_PX } from "../../constants";
 import { BoundingBox, Dimensions } from "../../util/geometry";
 import { VesCache } from "../ves-cache";
+import { isFile } from "../../items/file-item";
+import { isNote } from "../../items/note-item";
 import { isPlaceholder } from "../../items/placeholder-item";
+import { isText } from "../../items/text-item";
+import { HitboxFlags, HitboxFns } from "../hitbox";
 import { AttachmentsOverflowMarker, VeFns, Veid, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
 import { getVePropertiesForItem } from "./util";
 import { ArrangeItemFlags } from "./item";
@@ -42,6 +47,21 @@ export function setNaturalAttachmentBlockSizePx(store: StoreContextModel, item: 
   const isAttachments = isAttachmentsItem(displayItem);
   const attachmentCount = isAttachments ? asAttachmentsItem(displayItem).computed_attachments.length : 0;
   setGeometryAttachmentBlockSizePx(geometry, attachmentCount, blockSizePx, canAttach && isAttachments);
+}
+
+/**
+ * Give an item in a cell of a grid or justified page the strip along its bottom edge for attaching to a new composite,
+ * if its type has one in a spatial page. The in-cell geometry of item types does not include one.
+ */
+export function addAttachCompositeHitboxMaybe(store: StoreContextModel, item: Item, geometry: ItemGeometry) {
+  const { displayItem } = getVePropertiesForItem(store, item);
+  if (!isNote(displayItem) && !isText(displayItem) && !isFile(displayItem)) { return; }
+  geometry.hitboxes.push(HitboxFns.create(HitboxFlags.AttachComposite, {
+    x: 0,
+    y: geometry.boundsPx.h - ATTACH_AREA_SIZE_PX,
+    w: geometry.boundsPx.w,
+    h: ATTACH_AREA_SIZE_PX,
+  }));
 }
 
 

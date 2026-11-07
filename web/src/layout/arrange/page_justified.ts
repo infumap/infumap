@@ -35,7 +35,7 @@ import { arrangeMovingPile } from "./moving";
 import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
 import { childIdsSizingPageDuringMove, getMovingTreeItemInParentMaybe } from "./util";
 import { addLinkTriangleHitboxMaybe } from "../link-triangle";
-import { setNaturalAttachmentBlockSizePx } from "./attachments";
+import { addAttachCompositeHitboxMaybe, setNaturalAttachmentBlockSizePx } from "./attachments";
 import createJustifiedLayout from "justified-layout";
 
 
@@ -142,6 +142,7 @@ export function arrange_justified_page(
 
     const cellGeometry = ItemFns.calcGeometry_InCell(childItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.IsPopupRoot), false, false, false, false, true, false, store.smallScreenMode());
     setNaturalAttachmentBlockSizePx(store, childItem, cellGeometry, attachmentBlockSizePx, true);
+    addAttachCompositeHitboxMaybe(store, childItem, cellGeometry);
     addLinkTriangleHitboxMaybe(cellGeometry, actualLinkItemMaybe);
 
     childrenPaths.push(arrangeItemPath(

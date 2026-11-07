@@ -17,7 +17,7 @@
 */
 
 import { GRID_SIZE, NATURAL_BLOCK_SIZE_PX } from "../constants";
-import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
+import { AttachmentsItem, asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { itemCanEdit } from "../items/base/capabilities-item";
 import { ContainerItem, asContainerItem, isContainer } from "../items/base/container-item";
 import { itemCanAcceptManualChildren } from "../items/base/flags-item";
@@ -2000,6 +2000,12 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContext
     panic("mouseUpHandler_moving_hitboxAttachToComposite: Attempt was made to attach an item to itself.");
   }
 
+  const movingItems = orderedGroupMoveItems(activeItem).map(item => asPositionalItem(item));
+  if (movingItems.length > 1) {
+    attachGroupToComposite(store, movingItems, attachToItem);
+    return;
+  }
+
   // case #1: attaching to an item inside an existing composite.
   if (isComposite(itemState.get(attachToItem.parentId)!)) {
     const destinationCompositeItem = itemState.get(attachToItem.parentId)!;
@@ -2101,6 +2107,66 @@ async function mouseUpHandler_moving_hitboxAttachToComposite(store: StoreContext
 }
 
 
+function attachGroupToComposite(store: StoreContextModel, movingItems: Array<PositionalItem>, attachToItem: PositionalItem): void {
+  if (rejectFlatteningGroupCompositesIfNeeded(store, movingItems)) { return; }
+
+  const ops: Array<MovePersistOperation> = [];
+  const attachToParent = itemState.get(attachToItem.parentId)!;
+
+  // case #1: attaching to an item inside an existing composite.
+  if (isComposite(attachToParent)) {
+    const destination = asCompositeItem(attachToParent);
+    const rollbackExtras = moveGroupIntoComposite(
+      store, ops, destination, movingItems, destination.computed_children.indexOf(attachToItem.id) + 1);
+    scheduleMoveCommit(store, ops, "mouse-up-attach-group-to-composite", { rollbackExtras });
+    return;
+  }
+
+  // case #2: attaching to an item that is not inside an existing composite.
+  const attachToItemSnapshot = cloneItemSnapshot(attachToItem);
+  const compositeItem = CompositeFns.create(attachToItem.ownerId, attachToItem.parentId, RelationshipToParent.Child, attachToItem.ordering);
+  // The composite takes the place of the item attached to, pin included.
+  compositeItem.pinnedTo = attachToItem.pinnedTo;
+  compositeItem.spatialPositionGr = { x: attachToItem.spatialPositionGr.x, y: attachToItem.spatialPositionGr.y };
+  if (isXSizableItem(attachToItem)) { compositeItem.spatialWidthGr = asXSizableItem(attachToItem).spatialWidthGr; }
+  itemState.add(compositeItem);
+  enqueueAddItem(ops, store, compositeItem);
+
+  attachToItem.spatialPositionGr = { x: 0.0, y: 0.0 };
+  itemState.moveToNewParent(attachToItem, compositeItem.id, RelationshipToParent.Child);
+  enqueueUpdateItem(ops, store, attachToItem, attachToItemSnapshot);
+
+  const restoreFlattenedComposites = moveGroupIntoComposite(store, ops, compositeItem, movingItems, 1);
+  scheduleMoveCommit(store, ops, "mouse-up-attach-group-to-composite", {
+    rollbackExtras: () => {
+      restoreFlattenedComposites();
+      restorePositionalItemSnapshot(attachToItemSnapshot);
+      deleteCreatedItemIfPresent(compositeItem.id);
+    },
+  });
+}
+
+
+/**
+ * Attach the items moving with activeItem to parent, in order, the first of them with ordering firstOrdering and the
+ * rest directly after it.
+ */
+function attachMovingItems(
+  ops: Array<MovePersistOperation>,
+  store: StoreContextModel,
+  activeItem: PositionalItem,
+  parent: AttachmentsItem,
+  firstOrdering: Uint8Array,
+): void {
+  let ordering = firstOrdering;
+  for (const item of orderedGroupMoveItems(activeItem).map(item => asPositionalItem(item))) {
+    item.spatialPositionGr = { x: 0.0, y: 0.0 };
+    itemState.moveToNewParent(item, parent.id, RelationshipToParent.Attachment, ordering);
+    enqueueUpdateItem(ops, store, item);
+    ordering = itemState.newOrderingAtAttachmentsPosition(parent.id, parent.computed_attachments.indexOf(item.id) + 1);
+  }
+}
+
 function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeItem: PositionalItem) {
   const attachToVisualElement = MouseActionState.readMoveOverAttachHitbox()!;
   const attachToPath = VeFns.veToPath(attachToVisualElement);
@@ -2133,9 +2199,7 @@ function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeIt
         if (placeholderRollback != null) {
           enqueueDeleteItem(ops, store, prevPlaceholderMaybe.id, placeholderRollback);
         }
-        activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-        itemState.moveToNewParent(activeItem, displayedParent.id, RelationshipToParent.Attachment, newOrdering);
-        enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!);
+        attachMovingItems(ops, store, activeItem, displayedParent, newOrdering);
         scheduleMoveCommit(store, ops, "mouse-up-attach-end-placeholder", {
           rollbackExtras: placeholderRollback == null
             ? null
@@ -2144,10 +2208,8 @@ function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeIt
         return;
       }
     }
-    activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
     const newOrdering = itemState.newOrderingAtAttachmentsPosition(displayedParent.id, insertPosition >= 0 ? insertPosition : displayedParent.computed_attachments.length);
-    itemState.moveToNewParent(activeItem, displayedParent.id, RelationshipToParent.Attachment, newOrdering);
-    enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!);
+    attachMovingItems(ops, store, activeItem, displayedParent, newOrdering);
     scheduleMoveCommit(store, ops, "mouse-up-attach-end");
     return;
   }
@@ -2163,9 +2225,7 @@ function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeIt
     if (placeholderRollback != null) {
       enqueueDeleteItem(ops, store, placeholderToReplaceMaybe.id, placeholderRollback);
     }
-    activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-    itemState.moveToNewParent(activeItem, displayedParent.id, RelationshipToParent.Attachment, newOrdering);
-    enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!);
+    attachMovingItems(ops, store, activeItem, displayedParent, newOrdering);
     scheduleMoveCommit(store, ops, "mouse-up-attach-replace-placeholder", {
       rollbackExtras: placeholderRollback == null
         ? null
@@ -2186,9 +2246,7 @@ function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeIt
       if (placeholderRollback != null) {
         enqueueDeleteItem(ops, store, prevPlaceholderMaybe.id, placeholderRollback);
       }
-      activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
-      itemState.moveToNewParent(activeItem, displayedParent.id, RelationshipToParent.Attachment, newOrdering);
-      enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!);
+      attachMovingItems(ops, store, activeItem, displayedParent, newOrdering);
       scheduleMoveCommit(store, ops, "mouse-up-attach-prev-placeholder", {
         rollbackExtras: placeholderRollback == null
           ? null
@@ -2199,10 +2257,8 @@ function mouseUpHandler_moving_hitboxAttachTo(store: StoreContextModel, activeIt
   }
 
   // Insert at specific position (shifts existing attachments)
-  activeItem.spatialPositionGr = { x: 0.0, y: 0.0 };
   const newOrdering = itemState.newOrderingAtAttachmentsPosition(displayedParent.id, insertPosition);
-  itemState.moveToNewParent(activeItem, displayedParent.id, RelationshipToParent.Attachment, newOrdering);
-  enqueueUpdateItem(ops, store, itemState.get(activeItem.id)!);
+  attachMovingItems(ops, store, activeItem, displayedParent, newOrdering);
   scheduleMoveCommit(store, ops, "mouse-up-attach-insert");
 }
 
@@ -2254,6 +2310,18 @@ function mouseUpHandler_moving_toComposite(store: StoreContextModel, activeItem:
     console.error("activeItem", activeItem);
     console.error("overContainerVe", overContainerVe);
     panic("mouseUpHandler_moving_toComposite: Attempt was made to move an item into itself.");
+  }
+
+  const movingItems = orderedGroupMoveItems(activeItem).map(item => asPositionalItem(item));
+  if (movingItems.length > 1) {
+    if (rejectFlatteningGroupCompositesIfNeeded(store, movingItems)) { return; }
+    const destination = asCompositeItem(overContainerVe.displayItem);
+    const moveToIndex = store.perVe.getMoveOverIndex(VeFns.veToPath(overContainerVe));
+    const ops: Array<MovePersistOperation> = [];
+    const rollbackExtras = moveGroupIntoComposite(
+      store, ops, destination, movingItems, moveToIndex >= 0 ? moveToIndex : destination.computed_children.length);
+    scheduleMoveCommit(store, ops, "mouse-up-move-group-to-composite", { rollbackExtras });
+    return;
   }
 
   if (isComposite(activeItem)) {
@@ -2345,6 +2413,78 @@ function rejectCompositeIntoCompositeIfNeeded(store: StoreContextModel, activeCo
   MouseActionState.set(null);
   arrangeNow(store, "mouse-up-reject-composite-into-composite");
   return true;
+}
+
+
+function rejectFlatteningGroupCompositesIfNeeded(store: StoreContextModel, movingItems: Array<PositionalItem>): boolean {
+  return movingItems.some(item => isComposite(item) && rejectCompositeIntoCompositeIfNeeded(store, asCompositeItem(item)));
+}
+
+/**
+ * Put movingItems (a group move, in order) into composite destination, at indexAmongOthers among its other children.
+ * Composites don't nest, so any composite among them is flattened: its children take its place and it is deleted.
+ * Returns what restores those composites if the move is rolled back.
+ */
+function moveGroupIntoComposite(
+  store: StoreContextModel,
+  ops: Array<MovePersistOperation>,
+  destination: CompositeItem,
+  movingItems: Array<PositionalItem>,
+  indexAmongOthers: number,
+): () => void {
+  const composites = movingItems.filter(item => isComposite(item)).map(item => asCompositeItem(item));
+  const moveRollback = MouseActionState.getMoveRollback() ?? [];
+  // The drag may have taken an item to another page, and a rollback puts it back where the drag started. The server
+  // has to get them back as part of undoing the operations, not after it, because a composite created for the move
+  // can't be deleted while they are in it.
+  const snapshotAtMoveStart = <T extends PositionalItem>(item: T): T => {
+    const snapshot = cloneItemSnapshot(item);
+    const start = moveRollback.find(entry => entry.id == item.id);
+    if (start != null) {
+      snapshot.parentId = start.parentId;
+      snapshot.relationshipToParent = start.relationshipToParent;
+      snapshot.ordering = new Uint8Array(start.ordering);
+      snapshot.spatialPositionGr = { ...start.spatialPositionGr };
+      snapshot.groupId = start.groupId;
+      snapshot.pinnedTo = start.pinnedTo;
+    }
+    return snapshot;
+  };
+  const compositeSnapshots = composites.map(snapshotAtMoveStart);
+  const itemsToPlace = movingItems.flatMap(item => isComposite(item)
+    ? asCompositeItem(item).computed_children.map(childId => asPositionalItem(itemState.get(childId)!))
+    : [item]);
+  const childSnapshots = composites.flatMap(composite =>
+    composite.computed_children.map(childId => cloneItemSnapshot(asPositionalItem(itemState.get(childId)!))));
+  const rollbackSnapshotsById = new Map([
+    ...movingItems.filter(item => !isComposite(item)).map(snapshotAtMoveStart),
+    ...childSnapshots,
+  ].map(snapshot => [snapshot.id, snapshot]));
+
+  for (const item of itemsToPlace) {
+    item.spatialPositionGr = { x: 0.0, y: 0.0 };
+  }
+  placeItemsAtChildrenPosition(destination, itemsToPlace, indexAmongOthers);
+  for (const item of itemsToPlace) {
+    enqueueUpdateItem(ops, store, item, rollbackSnapshotsById.get(item.id) ?? null);
+  }
+  for (let i = 0; i < composites.length; ++i) {
+    itemState.delete(composites[i].id);
+    enqueueDeleteItem(ops, store, composites[i].id, compositeSnapshots[i]);
+  }
+
+  return () => {
+    for (const compositeSnapshot of compositeSnapshots) {
+      if (itemState.get(compositeSnapshot.id) == null) {
+        const compositeRestore = asCompositeItem(cloneItemSnapshot(compositeSnapshot));
+        compositeRestore.computed_children = [];
+        itemState.add(compositeRestore);
+      }
+    }
+    for (const childSnapshot of childSnapshots) {
+      restorePositionalItemSnapshot(childSnapshot);
+    }
+  };
 }
 
 

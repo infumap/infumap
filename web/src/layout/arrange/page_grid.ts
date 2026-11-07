@@ -36,7 +36,7 @@ import { arrangeMovingPile } from "./moving";
 import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
 import { childIdsSizingPageDuringMove, getMovingTreeItemInParentMaybe } from "./util";
 import { addLinkTriangleHitboxMaybe } from "../link-triangle";
-import { setNaturalAttachmentBlockSizePx } from "./attachments";
+import { addAttachCompositeHitboxMaybe, setNaturalAttachmentBlockSizePx } from "./attachments";
 
 
 export function arrange_grid_page(
@@ -150,6 +150,7 @@ export function arrange_grid_page(
     cellGeometry.row = row;
     cellGeometry.col = col;
     setNaturalAttachmentBlockSizePx(store, childItem, cellGeometry, attachmentBlockSizePx, !hasCatalogResults);
+    if (!hasCatalogResults) { addAttachCompositeHitboxMaybe(store, childItem, cellGeometry); }
     addLinkTriangleHitboxMaybe(cellGeometry, actualLinkItemMaybe);
     const targetItemId = actualLinkItemMaybe ? LinkFns.getLinkToId(actualLinkItemMaybe) : undefined;
     const cellIndex = row * numCols + col;
