@@ -147,9 +147,9 @@ function movingOverlayVisualElements(store: StoreContextModel): Array<VisualElem
 }
 
 /**
- * Over a list, table, grid or justified page or the dock, at most GROUP_MOVE_STACK_MAX_ITEMS of a group move are drawn,
- * stacked or piled under the cursor (see groupMoveStackWindow), and by the page itself rather than here. This is where
- * the badge counting the rest goes: the bottom right of the stack.
+ * Over a list, table, grid, justified or catalog page or the dock, at most GROUP_MOVE_STACK_MAX_ITEMS of a group
+ * move are drawn, stacked or piled under the cursor (see groupMoveStackWindow), and by the page itself rather than here.
+ * This is where the badge counting the rest goes: the bottom right of the stack.
  */
 function movingOverlayStackBadgeMaybe(store: StoreContextModel): { x: number, y: number, hiddenCount: number } | null {
   if (!store.anItemIsMoving.get()) { return null; }
@@ -169,7 +169,8 @@ function movingOverlayStackBadgeMaybe(store: StoreContextModel): { x: number, y:
       parentVisualElement.tableBodyViewportBoundsPx != null ||
       (isPage(parentVisualElement.displayItem) &&
         (asPageItem(parentVisualElement.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Grid ||
-          asPageItem(parentVisualElement.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Justified)))) {
+          asPageItem(parentVisualElement.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Justified ||
+          asPageItem(parentVisualElement.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Catalog)))) {
     return null;
   }
 

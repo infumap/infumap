@@ -557,7 +557,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       const textStyle = textInteractive ? "cursor: text; user-select: text; " : "";
       const textMouseHandler = textInteractive ? stopTextSelectionMouseEvent : undefined;
       return <Show when={pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog}>
-        <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVeSignal => {
+        <For each={pageFns.nonMovingChildren()}>{childVeSignal => {
           const childVe = () => childVeSignal.get();
           const isMouseOverRow = () =>
             store.perVe.getMoveOverRowNumber(pageFns.vePath()) == rowIndex() &&

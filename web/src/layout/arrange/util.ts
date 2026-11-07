@@ -154,10 +154,10 @@ export function getMovingTreeItemInParentMaybe(parentId: string): Item | null {
 }
 
 /**
- * The children a grid or justified page is sized for during a move, in order: those not moving (movingIds), and those
- * that were its children when the move started, even if they have since left. Sizing the page for just the children it
- * lays out would change its height as items are lifted out and, since scroll position is proportional to height, shift
- * everything in it under the cursor. Items moving in from elsewhere don't count until they are dropped.
+ * The children a grid, justified or catalog page is sized for during a move, in order: those not moving (movingIds),
+ * and those that were its children when the move started, even if they have since left. Sizing the page for just the
+ * children it lays out would change its height as items are lifted out and, since scroll position is proportional to
+ * height, shift everything in it under the cursor. Items moving in from elsewhere don't count until they are dropped.
  */
 export function childIdsSizingPageDuringMove(page: PageItem, movingIds: Set<string>): Array<string> {
   const moveIsActive = !MouseActionState.empty() && MouseActionState.isAction(MouseAction.Moving);

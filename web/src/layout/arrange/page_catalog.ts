@@ -16,27 +16,26 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { CursorEventState, MouseActionState } from "../../input/state";
-import { Item, ItemType } from "../../items/base/item";
+import { orderedGroupMoveItems } from "../../input/move_group";
+import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkFns, LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem, asPageItem, isPage, pageUsesEmbeddedInteractiveMode } from "../../items/page-item";
 import { PageFlags } from "../../items/base/flags-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
-import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
-import { assert } from "../../util/lang";
+import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { ItemGeometry } from "../item-geometry";
 import { HitboxFlags, HitboxFns } from "../hitbox";
-import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes, getMovingTreeItemInParentMaybe, getVePropertiesForItem, scaleGeometry } from "./util";
+import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes, childIdsSizingPageDuringMove, getMovingTreeItemInParentMaybe, getVePropertiesForItem, scaleGeometry } from "./util";
 import { addLinkTriangleHitboxMaybe } from "../link-triangle";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
-import { ArrangeItemFlags, arrangeItem, arrangeItemPath, arrangePreviewChildPath, arrangedItemIsInOverlaySelection, getCommonVisualElementFlags, pageIsPreview } from "./item";
+import { ArrangeItemFlags, arrangeItemPath, arrangePreviewChildPath, arrangedItemIsInOverlaySelection, getCommonVisualElementFlags, pageIsPreview } from "./item";
 import { calcCatalogLayout } from "../catalog";
 import { catalogResultControlsTopInsetPx, catalogResultFooterHeightPx, hasCatalogResultContext } from "../catalog-display";
+import { arrangeMovingPile } from "./moving";
 import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
-import { VisualElementSignal } from "../../util/signals";
 import { setNaturalAttachmentBlockSizePx } from "./attachments";
 import { LINE_HEIGHT_PX, MIN_NON_ROOT_LIST_PAGE_SCALE, NATURAL_BLOCK_SIZE_PX } from "../../constants";
 
@@ -59,9 +58,9 @@ export function arrange_catalog_page(
     VesCache.titles.pushTopTitledPage(pageWithChildrenVePath);
   }
 
-  let movingItem: Item | null = null;
   const movingItemInThisPage = getMovingTreeItemInParentMaybe(displayItem_pageWithChildren.id);
-  movingItem = movingItemInThisPage;
+  const movingItemsInThisPage = movingItemInThisPage ? orderedGroupMoveItems(movingItemInThisPage) : [];
+  const movingIds = new Set(movingItemsInThisPage.map(item => item.id));
 
   const isEmbeddedInteractive =
     !!(flags & ArrangeItemFlags.IsDockRoot) ||
@@ -94,8 +93,7 @@ export function arrange_catalog_page(
   const hasCatalogResults = hasCatalogResultContext(displayItem_pageWithChildren);
   const pageTopPaddingPx = catalogResultControlsTopInsetPx(displayItem_pageWithChildren) ?? layout.verticalMarginPx;
   const catalogFooterHeightPx = catalogResultFooterHeightPx(store, displayItem_pageWithChildren);
-  const movingAdj = movingItemInThisPage ? 1 : 0;
-  const numRows = Math.max(displayItem_pageWithChildren.computed_children.length - movingAdj, 0);
+  const numRows = childIdsSizingPageDuringMove(displayItem_pageWithChildren, movingIds).length;
   const pageHeightPx = pageTopPaddingPx + numRows * rowHeightPx + layout.verticalMarginPx + catalogFooterHeightPx;
   const childAreaBoundsPx = (() => {
     const result = zeroBoundingBoxTopLeft(cloneBoundingBox(geometry.viewportBoundsPx)!);
@@ -136,7 +134,7 @@ export function arrange_catalog_page(
   for (let i = 0; i < displayItem_pageWithChildren.computed_children.length; ++i) {
     const childItem = itemState.get(displayItem_pageWithChildren.computed_children[i])!;
     const actualLinkItemMaybe = isLink(childItem) ? asLinkItem(childItem) : null;
-    if (movingItemInThisPage && childItem.id == movingItemInThisPage.id) {
+    if (movingIds.has(childItem.id)) {
       continue;
     }
 
@@ -226,11 +224,10 @@ export function arrange_catalog_page(
       (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None)));
   }
 
-  if (movingItemInThisPage && movingItem) {
-    const movingVes = arrangeMovingItemInCatalog(
-      store, movingItemInThisPage, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren,
-      pageWithChildrenVePath, geometry, childAreaBoundsPx, flags, parentIsPopup);
-    childrenPaths.push(VeFns.veToPath(movingVes.get()));
+  if (movingItemInThisPage) {
+    childrenPaths.push(...arrangeMovingPile(
+      store, pageWithChildrenVePath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren,
+      geometry, childAreaBoundsPx, movingItemsInThisPage, movingItemInThisPage, flags, catalogScale));
   }
 
   pageRelationships.childrenPaths = childrenPaths;
@@ -245,63 +242,4 @@ export function arrange_catalog_page(
   }
 
   return { spec: pageSpec, relationships: pageRelationships };
-}
-
-function arrangeMovingItemInCatalog(
-  store: StoreContextModel,
-  movingItem: Item,
-  displayItem_pageWithChildren: PageItem,
-  linkItemMaybe_pageWithChildren: LinkItem | null,
-  pageWithChildrenVePath: VisualElementPath,
-  geometry: ItemGeometry,
-  childAreaBoundsPx: BoundingBox,
-  flags: ArrangeItemFlags,
-  parentIsPopup: boolean): VisualElementSignal {
-
-  const actualMovingItemLinkItemMaybe = isLink(movingItem) ? asLinkItem(movingItem) : null;
-
-  let scrollPropY;
-  let scrollPropX;
-  if (flags & ArrangeItemFlags.IsPopupRoot) {
-    const popupSpec = store.history.currentPopupSpec();
-    assert(itemState.get(popupSpec!.actualVeid.itemId)!.itemType == ItemType.Page, "popup spec does not have type page.");
-    scrollPropY = store.perItem.getPageScrollYProp(popupSpec!.actualVeid);
-    scrollPropX = store.perItem.getPageScrollXProp(popupSpec!.actualVeid);
-  } else {
-    scrollPropY = store.perItem.getPageScrollYProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
-    scrollPropX = store.perItem.getPageScrollXProp(VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren));
-  }
-
-  const umbrellaVisualElement = store.umbrellaVisualElement.get();
-  const umbrellaBoundsPx = umbrellaVisualElement.childAreaBoundsPx!;
-  const desktopSizePx = store.desktopBoundsPx();
-  const pageYScrollProp = store.perItem.getPageScrollYProp(store.history.currentPageVeid()!);
-  const pageYScrollPx = pageYScrollProp * (umbrellaBoundsPx.h - desktopSizePx.h);
-
-  const yOffsetPx = scrollPropY * (childAreaBoundsPx.h - geometry.boundsPx.h);
-  const xOffsetPx = scrollPropX * (childAreaBoundsPx.w - geometry.boundsPx.w);
-  const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItem);
-  const scale = geometry.boundsPx.w / store.desktopBoundsPx().w;
-  const mouseDesktopPosPx = CursorEventState.getLatestDesktopPx(store);
-  const popupTitleHeightMaybePx = geometry.boundsPx.h - geometry.viewportBoundsPx!.h;
-  const adjX = flags & ArrangeItemFlags.IsTopRoot ? 0 : store.getCurrentDockWidthPx();
-  const cellBoundsPx = {
-    x: mouseDesktopPosPx.x - geometry.boundsPx.x - adjX + xOffsetPx,
-    y: mouseDesktopPosPx.y - geometry.boundsPx.y - popupTitleHeightMaybePx + yOffsetPx + pageYScrollPx,
-    w: dimensionsBl.w * scale,
-    h: dimensionsBl.h * scale,
-  };
-
-  const clickOffsetProp = MouseActionState.getClickOffsetProp()!;
-  cellBoundsPx.x -= clickOffsetProp.x * cellBoundsPx.w;
-  cellBoundsPx.y -= clickOffsetProp.y * cellBoundsPx.h;
-
-  const cellGeometry = ItemFns.calcGeometry_InCell(
-    movingItem, cellBoundsPx, false, parentIsPopup,
-    false, false, false, false, false, false, store.smallScreenMode());
-  setNaturalAttachmentBlockSizePx(store, movingItem, cellGeometry, LINE_HEIGHT_PX * geometry.boundsPx.w / store.desktopMainAreaBoundsPx().w, false);
-
-  return arrangeItem(
-    store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItem, actualMovingItemLinkItemMaybe, cellGeometry,
-    ArrangeItemFlags.RenderChildrenAsFull | (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
 }

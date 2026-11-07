@@ -97,11 +97,13 @@ export function movingItemCellBoundsInPagePx(
 const MOVING_PILE_OFFSET_PX = 8;
 
 /**
- * Arrange the items moving in grid or justified page pagePath (orderedItems, from orderedGroupMoveItems) as a pile:
- * activeItem on top under the cursor, where it was grabbed, and the others behind it, each further down and to the
- * right. They aren't stacked in a column as in a list page, because they are drawn at their spatial size, and images
- * in particular are often large enough that a column would run off the screen. At most GROUP_MOVE_STACK_MAX_ITEMS are
- * drawn, and MovingItemsOverlay badges the pile with the count of the rest. The result is back to front.
+ * Arrange the items moving in grid, justified or catalog page pagePath (orderedItems, from orderedGroupMoveItems) as a
+ * pile: activeItem on top under the cursor, where it was grabbed, and the others behind it, each further down and to
+ * the right. They aren't stacked in a column as in a list page, because they are drawn at their spatial size, and
+ * images in particular are often large enough that a column would run off the screen. At most
+ * GROUP_MOVE_STACK_MAX_ITEMS are drawn, and MovingItemsOverlay badges the pile with the count of the rest. The result
+ * is back to front. They are drawn at scale relative to natural size, by default the page's width as a proportion of
+ * the desktop's.
  */
 export function arrangeMovingPile(
   store: StoreContextModel,
@@ -113,8 +115,8 @@ export function arrangeMovingPile(
   orderedItems: Array<Item>,
   activeItem: Item,
   flags: ArrangeItemFlags,
+  scale: number = geometry.boundsPx.w / store.desktopBoundsPx().w,
 ): Array<VisualElementPath> {
-  const scale = geometry.boundsPx.w / store.desktopBoundsPx().w;
   const sizePx = (item: Item): Dimensions => {
     const dimensionsBl = ItemFns.calcSpatialDimensionsBl(item);
     return { w: dimensionsBl.w * LINE_HEIGHT_PX * scale, h: dimensionsBl.h * LINE_HEIGHT_PX * scale };
