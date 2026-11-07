@@ -42,6 +42,7 @@ pub mod ls;
 pub mod migrate;
 pub mod note;
 pub mod pending;
+pub mod promote_heic;
 pub mod rebuild_search_index;
 pub mod reconcile;
 pub mod rekey;

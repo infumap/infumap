@@ -174,6 +174,32 @@ Options:
 - **-i --id:** The user id.
 - **-s --settings (optional):** Path to a toml settings configuration file. If not specified and the `env_only` config value is not defined via an environment variable, `~/.infumap/settings.toml` will be used (and auto-created if it doesn't exist).
 
+### promote-heic
+
+Convert a user's existing HEIC file items into image items. Stop the web server before running this command.
+
+Without `--apply`, this lists candidates by MIME type or `.heic`, `.heif`, or `.hif` extension, without reading
+originals or changing items. With `--apply`, each original is decoded using the configured local or S3 object store,
+and its image dimensions and placeholder are generated. The original data, item ID, links, attachments, title,
+parent, ordering, position, width, and creation dates are preserved. File icon settings are cleared, image flags
+start at zero, and the last modified date is updated. Image height follows the photo's aspect ratio.
+
+Options:
+
+- **--user (required):** Username or user ID.
+- **-s --settings (optional):** Path to the settings file, or its directory.
+- **--apply (optional):** Save conversions instead of listing candidates.
+
+```sh
+infumap promote-heic --settings settings.toml --user alice
+infumap promote-heic --settings settings.toml --user alice --apply
+```
+
+Images are processed one at a time. Read or decode failures are reported and remain file items; the command
+continues and exits with an error if any failed. Each successful conversion is saved individually, so rerunning
+skips already-converted images and retries remaining candidates. A database write error stops the command.
+Afterward, restart the web server to pick up missing image tagging and search processing.
+
 ### extract
 
 Extract derived text artifacts from PDFs or images. This command has two subcommands:

@@ -868,6 +868,7 @@ impl ItemDb {
         | (ItemType::Table, ItemType::Page)
         | (ItemType::Page, ItemType::Composite)
         | (ItemType::Composite, ItemType::Page)
+        | (ItemType::File, ItemType::Image)
     ) || old_item.owner_id != item.owner_id
       || old_item.parent_id != item.parent_id
       || old_item.relationship_to_parent != item.relationship_to_parent
