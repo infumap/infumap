@@ -25,9 +25,11 @@ import {
   concatNoteInlineMarks,
   concatNoteUrls,
   isNote,
+  NOTE_INLINE_MARK_ALLOWED_FLAGS,
   noteInlineFlagsAtPosition,
   noteInlineFlagsForRange,
   NoteInlineMarkFlags,
+  setNoteInlineMarkFlag,
   splitNoteInlineMarks,
   splitNoteUrls,
   toggleNoteInlineMarkFlag,
@@ -132,6 +134,40 @@ function nodeIsInsideElement(element: HTMLElement, node: Node): boolean {
   return node == element || element.contains(node);
 }
 
+/** The text offset of a range boundary in element, or its start or end when the boundary is before or after it. */
+function clampedTextOffsetWithinElement(element: HTMLElement, node: Node, offset: number, textLength: number): number {
+  if (nodeIsInsideElement(element, node)) {
+    return Math.max(0, Math.min(getTextOffsetWithinElement(element, node, offset), textLength));
+  }
+  const contents = document.createRange();
+  contents.selectNodeContents(element);
+  return contents.comparePoint(node, offset) < 0 ? 0 : textLength;
+}
+
+type NoteTextSpan = { note: NoteItem, start: number, end: number };
+
+/**
+ * The selected text of each editable note a range covers, when the range doesn't lie within the note being edited, or
+ * otherwise null. As for noteFormatTargets, these are the edited container's direct children only.
+ */
+function linearSelectionNoteSpans(store: StoreContextModel, editingElement: HTMLElement, range: AbstractRange): Array<NoteTextSpan> | null {
+  if (range.collapsed || rangeIsInsideEditor(range, editingElement)) { return null; }
+  const context = currentLinearEditContext(store);
+  if (context == null || !(range instanceof Range)) { return null; }
+
+  const spans: Array<NoteTextSpan> = [];
+  for (const childVe of VesCache.current.readStructuralChildren(context.containerPath)) {
+    const element = document.getElementById(VeFns.veToPath(childVe) + ":title");
+    const item = itemState.get(childVe.displayItem.id);
+    if (element == null || item == null || !isNote(item) || !itemCanEdit(item) || !range.intersectsNode(element)) { continue; }
+    const note = asNoteItem(item);
+    const start = clampedTextOffsetWithinElement(element, range.startContainer, range.startOffset, note.title.length);
+    const end = clampedTextOffsetWithinElement(element, range.endContainer, range.endOffset, note.title.length);
+    if (start < end) { spans.push({ note, start, end }); }
+  }
+  return spans;
+}
+
 function updateNoteTextSelectionInfoFromDom(store: StoreContextModel, preserveCollapsedTypingFlags: boolean): boolean {
   const target = activeNoteTextEditTarget(store);
   if (target == null) {
@@ -151,19 +187,26 @@ function updateNoteTextSelectionInfoFromDom(store: StoreContextModel, preserveCo
   }
 
   const range = selection.getRangeAt(0);
-  if (!nodeIsInsideElement(target.element, range.startContainer) || !nodeIsInsideElement(target.element, range.endContainer)) {
+  // A selection away from the note, e.g. in a toolbar text input, leaves the recorded range for the note in place. One
+  // that only partly covers the note must not: a triple-click ends its range just after the note's text element, and a
+  // drag can continue into the next note, and keeping the range from before would format the wrong text.
+  if (!range.intersectsNode(target.element)) {
     return false;
   }
 
   const note = asNoteItem(item);
-  const start = Math.max(0, Math.min(getTextOffsetWithinElement(target.element, range.startContainer, range.startOffset), note.title.length));
-  const end = Math.max(0, Math.min(getTextOffsetWithinElement(target.element, range.endContainer, range.endOffset), note.title.length));
+  const start = clampedTextOffsetWithinElement(target.element, range.startContainer, range.startOffset, note.title.length);
+  const end = clampedTextOffsetWithinElement(target.element, range.endContainer, range.endOffset, note.title.length);
   const orderedStart = Math.min(start, end);
   const orderedEnd = Math.max(start, end);
   const previous = store.overlay.noteTextSelectionInfo.get();
-  let typingFlags = orderedStart == orderedEnd
-    ? noteInlineFlagsAtPosition(note.inlineMarks, note.title, orderedStart)
-    : noteInlineFlagsForRange(note.inlineMarks, note.title, orderedStart, orderedEnd);
+  const spans = linearSelectionNoteSpans(store, target.element, range);
+  let typingFlags = spans != null && spans.length > 0
+    ? spans.reduce((flags, span) =>
+      flags & noteInlineFlagsForRange(span.note.inlineMarks, span.note.title, span.start, span.end), NOTE_INLINE_MARK_ALLOWED_FLAGS)
+    : orderedStart == orderedEnd
+      ? noteInlineFlagsAtPosition(note.inlineMarks, note.title, orderedStart)
+      : noteInlineFlagsForRange(note.inlineMarks, note.title, orderedStart, orderedEnd);
 
   if (
     preserveCollapsedTypingFlags &&
@@ -1157,19 +1200,26 @@ export function toggleActiveNoteInlineMark(store: StoreContextModel, flag: NoteI
   if (store.textEdit.activeSession()?.isComposing) { return; }
   const target = activeNoteTextEditTarget(store);
   if (target == null) { return; }
-  const selection = textSelectionOffsets(target.element);
-  const backward = selection != null && selection.anchor > selection.focus;
-
-  let selectionInfo = store.overlay.noteTextSelectionInfo.get();
-  if (selectionInfo == null || selectionInfo.itemPath != target.itemPath) {
-    updateNoteTextSelectionInfoFromDom(store, true);
-    selectionInfo = store.overlay.noteTextSelectionInfo.get();
-  }
-  if (selectionInfo == null || selectionInfo.itemPath != target.itemPath) { return; }
-
   const item = itemState.get(VeFns.veidFromPath(target.itemPath).itemId);
   if (item == null || !isNote(item)) { return; }
   const note = asNoteItem(item);
+
+  const ranges = currentSelectionRanges();
+  if (ranges.length == 1 && !ranges[0].collapsed && !rangeIsInsideEditor(ranges[0], target.element)) {
+    // The spans are read from the note titles, so the typed text must be in the note being edited first.
+    store.textEdit.flushActive();
+    const spans = linearSelectionNoteSpans(store, target.element, ranges[0]);
+    if (spans != null && spans.some(span => span.note.id != note.id)) {
+      toggleInlineMarkAcrossNotes(store, spans, flag);
+      return;
+    }
+  }
+
+  const selection = textSelectionOffsets(target.element);
+  const backward = selection != null && selection.anchor > selection.focus;
+  updateNoteTextSelectionInfoFromDom(store, true);
+  const selectionInfo = store.overlay.noteTextSelectionInfo.get();
+  if (selectionInfo == null || selectionInfo.itemPath != target.itemPath) { return; }
 
   if (selectionInfo.start == selectionInfo.end) {
     store.editorHistory.breakGroup();
@@ -1188,7 +1238,34 @@ export function toggleActiveNoteInlineMark(store: StoreContextModel, flag: NoteI
   store.textEdit.saveItem(note, true);
   arrangeNow(store, "toolbar-note-inline-mark");
   restoreNoteTextSelection(store, target.itemPath, selectionInfo.start, selectionInfo.end, false, backward);
+  renderEditedNoteText(store);
   store.editorHistory.commit(token);
+}
+
+/**
+ * The edited note's text is rendered by its editor, which skips a render while the selection reaches outside the note
+ * (as a triple-click's does) so a background render can't disturb it. A format command renders it regardless.
+ */
+function renderEditedNoteText(store: StoreContextModel): void {
+  const target = activeNoteTextEditTarget(store);
+  const item = target == null ? null : itemState.get(VeFns.veidFromPath(target.itemPath).itemId);
+  if (target == null || item == null || !isNote(item)) { return; }
+  reconcileNoteEditableDom(target.element, asNoteItem(item), true);
+}
+
+function toggleInlineMarkAcrossNotes(store: StoreContextModel, spans: Array<NoteTextSpan>, flag: NoteInlineMarkFlags): void {
+  // As within one note, the mark is removed only if all of the selected text has it.
+  const add = spans.some(span =>
+    (noteInlineFlagsForRange(span.note.inlineMarks, span.note.title, span.start, span.end) & flag) == 0);
+  const selection = captureEditorSelection(store);
+  applyEditorFormatCommand(store, spans.map(span => span.note), "Format text", () => {
+    for (const span of spans) {
+      span.note.inlineMarks = setNoteInlineMarkFlag(span.note.inlineMarks, span.note.title, span.start, span.end, flag, add);
+    }
+  });
+  restoreEditorSelection(store, selection);
+  renderEditedNoteText(store);
+  updateNoteTextSelectionInfoFromDom(store, false);
 }
 
 /**

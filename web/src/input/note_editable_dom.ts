@@ -17,13 +17,15 @@
 */
 
 import { NoteInlineMarkFlags, noteInlineTextSegments, safeNoteLinkUrl, type NoteItem } from "../items/note-item";
-import { setDirectionalTextSelection, textSelectionOffsets } from "../util/caret";
+import { getTextOffsetWithinElement, resolveTextRangePosition, setDirectionalTextSelection, textSelectionOffsets } from "../util/caret";
 
 /** The editor owns its children; Solid owns only the host and its layout/styles.
  * Leave native text nodes alone when their contents and formatting already match.
  * Reconcile only at an explicit render boundary, never during composition.
+ * A selection reaching outside the note blocks a background render, but a command that changed the note itself, such
+ * as formatting that selection, passes renderThroughCrossItemSelection to show the change and keep the selection.
  */
-export function reconcileNoteEditableDom(element: HTMLElement, note: NoteItem): void {
+export function reconcileNoteEditableDom(element: HTMLElement, note: NoteItem, renderThroughCrossItemSelection: boolean = false): void {
   const content = document.createDocumentFragment();
   for (const segment of noteInlineTextSegments(note.inlineMarks, note.urls, note.title)) {
     const span = document.createElement("span");
@@ -47,10 +49,24 @@ export function reconcileNoteEditableDom(element: HTMLElement, note: NoteItem): 
 
   const selection = window.getSelection();
   const offsets = textSelectionOffsets(element);
-  // A cross-item selection must not be disturbed by a background render.
-  if (offsets == null && selection &&
-      ((selection.anchorNode && element.contains(selection.anchorNode)) ||
-       (selection.focusNode && element.contains(selection.focusNode)))) { return; }
+  const anchorInside = selection?.anchorNode != null && element.contains(selection.anchorNode);
+  const focusInside = selection?.focusNode != null && element.contains(selection.focusNode);
+  if (offsets == null && selection && (anchorInside || focusInside)) {
+    // A cross-item selection must not be disturbed by a background render.
+    if (!renderThroughCrossItemSelection) { return; }
+    // The end outside the note is untouched by replacing its children, so only the end inside needs restoring.
+    const keep = (inside: boolean, node: Node, offset: number) => inside
+      ? { inside, node, offset: Math.min(getTextOffsetWithinElement(element, node, offset), note.title.length) }
+      : { inside, node, offset };
+    const anchor = keep(anchorInside, selection.anchorNode!, selection.anchorOffset);
+    const focus = keep(focusInside, selection.focusNode!, selection.focusOffset);
+    element.replaceChildren(content);
+    const resolve = (end: typeof anchor) => end.inside ? resolveTextRangePosition(element, end.offset) : end;
+    const anchorPosition = resolve(anchor);
+    const focusPosition = resolve(focus);
+    selection.setBaseAndExtent(anchorPosition.node, anchorPosition.offset, focusPosition.node, focusPosition.offset);
+    return;
+  }
   element.replaceChildren(content);
   if (offsets != null) {
     setDirectionalTextSelection(element, Math.min(offsets.anchor, note.title.length), Math.min(offsets.focus, note.title.length));
