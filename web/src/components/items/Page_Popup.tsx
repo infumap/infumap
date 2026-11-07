@@ -61,6 +61,9 @@ import { ListPageBand, ListPageBandOverlays } from "./ListPageBand";
 import { CalendarRangeOverlays } from "./CalendarRangeOverlays";
 import { Page_TableContent } from "./Page_TableContent";
 import { PageAttachments } from "./PageAttachments";
+import { LinearSelectionGapCover, linearSelectionGapAfterBoundsPx } from "./LinearSelectionGapCover";
+import { itemCanEdit } from "../../items/base/capabilities-item";
+import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -80,6 +83,51 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
   let popupDiv: any = undefined; // HTMLDivElement | undefined
 
   const pageFns = () => props.pageFns;
+  const canEditPage = () => itemCanEdit(pageFns().pageItem());
+  const pageChildren = () => VesCache.render.getChildren(VeFns.veToPath(props.visualElement))();
+  const documentTextEditIsActive = () => {
+    if (!canEditPage() || !pageFns().isDocumentPage()) { return false; }
+    const itemPath = store.overlay.textEditInfo()?.itemPath;
+    if (itemPath == null) { return false; }
+    const pagePath = pageFns().vePath();
+    return itemPath == pagePath || VeFns.parentPath(itemPath) == pagePath;
+  };
+  const readOnlyDocumentTextSelectionIsActive = () =>
+    pageFns().isDocumentPage() && !canEditPage();
+  const documentTextSelectionContainerIsActive = () =>
+    documentTextEditIsActive() || readOnlyDocumentTextSelectionIsActive();
+
+  const keyUpHandler = (ev: KeyboardEvent) => {
+    if (readOnlyDocumentTextSelectionIsActive()) { return; }
+    edit_keyUpHandler(store, ev);
+  }
+
+  const keyDownHandler = (ev: KeyboardEvent) => {
+    if (readOnlyDocumentTextSelectionIsActive()) {
+      if (ev.key == "Backspace" || ev.key == "Delete" || ev.key == "Enter" || ev.key == "Tab") {
+        ev.preventDefault();
+        ev.stopPropagation();
+      }
+      return;
+    }
+    edit_keyDownHandler(store, props.visualElement, ev);
+  }
+
+  const inputListener = (ev: InputEvent) => {
+    if (readOnlyDocumentTextSelectionIsActive()) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      return;
+    }
+    edit_inputListener(store, ev);
+  }
+
+  const beforeInputListener = (ev: InputEvent) => {
+    if (!readOnlyDocumentTextSelectionIsActive()) { return; }
+    ev.preventDefault();
+    ev.stopPropagation();
+  }
+
   const selectedRootVeMaybe = () => {
     const selectedVe = VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()?.get() ?? null;
     if (selectedVe == null || !MouseActionState.isAction(MouseAction.Moving)) {
@@ -489,16 +537,34 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
         style={`left: ${pageFns().isDocumentPage() ? pageFns().documentContentLeftPx() : pageFns().viewportBoundsPx().w - pageFns().childAreaBoundsPx().w}px; ` +
           `top: ${0}px; ` +
           `width: ${pageFns().childAreaBoundsPx().w}px; ` +
-          `height: ${pageFns().childAreaBoundsPx().h}px;`}>
-        <PageGroupBoxes childVes={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()} childAreaBoundsPx={pageFns().childAreaBoundsPx()} pageItemId={props.visualElement.displayItem.id} />
+          `height: ${pageFns().childAreaBoundsPx().h}px; ` +
+          `outline: 0px solid transparent;`}
+        contentEditable={documentTextSelectionContainerIsActive()}
+        onBeforeInput={beforeInputListener}
+        onKeyUp={keyUpHandler}
+        onKeyDown={keyDownHandler}
+        onInput={inputListener}>
+        <PageGroupBoxes childVes={pageChildren()} childAreaBoundsPx={pageFns().childAreaBoundsPx()} pageItemId={props.visualElement.displayItem.id} />
         <Show when={PageFns.showDocumentTitleInDocument(pageFns().pageItem())}>
           <DocumentPageTitle visualElement={props.visualElement} pageFns={props.pageFns} />
         </Show>
         {pageFns().renderCatalogResultSelectionMaybe()}
-        <VisualElement_DesktopShadowLayer visualElementSignals={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()} />
-        <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVe =>
-          <VisualElement_Desktop visualElement={childVe.get()} suppressLocalShadow={true} />
-        }</For>
+        <VisualElement_DesktopShadowLayer visualElementSignals={pageChildren()} />
+        <For each={pageChildren()}>{(childVes, index) => {
+          const gapAfterBoundsPx = () => linearSelectionGapAfterBoundsPx(
+            childVes.get().boundsPx,
+            pageChildren()[index() + 1]?.get().boundsPx ?? null,
+            pageFns().childAreaBoundsPx().w,
+          );
+          return (
+            <>
+              <VisualElement_Desktop visualElement={childVes.get()} suppressLocalShadow={true} />
+              <LinearSelectionGapCover
+                enabled={documentTextSelectionContainerIsActive}
+                boundsPx={gapAfterBoundsPx} />
+            </>
+          );
+        }}</For>
         {pageFns().renderGridLinesMaybe()}
         {pageFns().renderCatalogResultHoverMaybe()}
         {pageFns().renderCatalogMetadataMaybe()}
