@@ -29,6 +29,7 @@ import { tabularColumnLayouts } from "../../layout/tabular";
 import { VesCache } from "../../layout/ves-cache";
 import { VeFns, VisualElement, VisualElementFlags, isVeTranslucentPage } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
+import { BoundingBox } from "../../util/geometry";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { HiddenAttachmentsMarker } from "./HiddenAttachmentsMarker";
@@ -61,7 +62,6 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
   const scale = () => blockSize().h / LINE_HEIGHT_PX;
   const columns = () => tabularColumnLayouts(page(), viewport().w / blockSize().w);
   const lineColor = () => tablePageLineColor(page().backgroundColorIndex);
-  const isSortedByTitle = () => page().orderChildrenBy == "title[ASC]" || page().orderChildrenBy == "title[DESC]";
   // When the rows are drawn as outlines, so are the column names.
   const headerIsOutline = () => tableRowsAreOutlines(page(), blockSize());
   const renderOutlineHeaderLabels = () =>
@@ -76,6 +76,21 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
     TableFns.tableRowSpanBl(store, props.visualElement, Math.max(0, store.perVe.getMoveOverRowNumber(pagePath())));
   const moveOverRowY = () => headerHeightPx() +
     (moveOverRowSpanBl().offsetBl - store.perItem.getTableScrollYPos(pageVeid())) * blockSize().h;
+  const moveOverIndicator = () =>
+    TableFns.tableMoveOverIndicator(store, props.visualElement, Math.max(0, store.perVe.getMoveOverRowNumber(pagePath())));
+  // The shaded area for a drop in a sorted container: the table body, or the visible part of an expanded container's rows.
+  const moveOverShadeBoundsPx = (): BoundingBox => {
+    const indicator = moveOverIndicator();
+    const bodyTopPx = headerHeightPx() + 1;
+    const bodyBottomPx = headerHeightPx() + bodyViewport().h - 1;
+    if (indicator.kind != "shade-rows") {
+      return { x: 1, y: bodyTopPx, w: Math.max(0, bodyViewport().w - 2), h: Math.max(0, bodyBottomPx - bodyTopPx) };
+    }
+    const scrollYPos = store.perItem.getTableScrollYPos(pageVeid());
+    const topPx = Math.max(bodyTopPx, headerHeightPx() + (indicator.offsetBl - scrollYPos) * blockSize().h);
+    const bottomPx = Math.min(bodyBottomPx, headerHeightPx() + (indicator.offsetBl + indicator.heightBl - scrollYPos) * blockSize().h);
+    return { x: 1, y: topPx, w: Math.max(0, bodyViewport().w - 2), h: Math.max(0, bottomPx - topPx) };
+  };
 
   const syncScrollTop = () => {
     if (!bodyDiv) { return; }
@@ -217,10 +232,10 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
           fallback={<div class="absolute border border-black bg-black pointer-events-none"
             style={`left: ${(columns()[Math.min(store.perVe.getMoveOverColAttachmentNumber(pagePath()), columns().length - 1)]?.endBl ?? 0) * blockSize().w}px; ` +
               `top: ${moveOverRowY()}px; width: 4px; height: ${moveOverRowSpanBl().heightBl * blockSize().h}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />}>
-          <Show when={!isSortedByTitle()}
+          <Show when={moveOverIndicator().kind == "line"}
             fallback={<div class="absolute pointer-events-none"
-              style={`background-color: #0044ff0a; left: 1px; top: ${headerHeightPx() + 1}px; ` +
-                `width: ${Math.max(0, bodyViewport().w - 2)}px; height: ${Math.max(0, bodyViewport().h - 2)}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />}>
+              style={`background-color: #0044ff0a; left: ${moveOverShadeBoundsPx().x}px; top: ${moveOverShadeBoundsPx().y}px; ` +
+                `width: ${moveOverShadeBoundsPx().w}px; height: ${moveOverShadeBoundsPx().h}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />}>
             <div class="absolute border border-black pointer-events-none"
               style={`left: 0px; top: ${moveOverRowY()}px; width: ${viewport().w}px; height: 1px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />
           </Show>

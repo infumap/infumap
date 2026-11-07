@@ -183,10 +183,24 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
     handleBounds.x += moveHitbox.boundsPx.x - handleHitbox.x;
     return handleBounds;
   };
-  const isSortedByTitle = () => {
+  const moveOverIndicator = () => {
     store.touchToolbarDependency();
-    return tableItem().orderChildrenBy == "title[ASC]" || tableItem().orderChildrenBy == "title[DESC]";
-  }
+    return TableFns.tableMoveOverIndicator(store, props.visualElement, Math.max(0, store.perVe.getMoveOverRowNumber(vePath())));
+  };
+  // The shaded area for a drop in a sorted container: the table body, or the visible part of an expanded container's rows.
+  const moveOverShadeBoundsPx = (): BoundingBox => {
+    const indicator = moveOverIndicator();
+    const viewport = viewportBoundsLocalPx();
+    const bodyTopPx = viewport.y + 1;
+    const bodyBottomPx = viewport.y + viewport.h - 1;
+    if (indicator.kind != "shade-rows") {
+      return { x: viewport.x + 1, y: bodyTopPx, w: viewport.w - 2, h: bodyBottomPx - bodyTopPx };
+    }
+    const rowsTopBl = tableHeaderHeightBl(tableItem()) - store.perItem.getTableScrollYPos(VeFns.veidFromVe(props.visualElement));
+    const topPx = Math.max(bodyTopPx, (rowsTopBl + indicator.offsetBl) * blockSizePx().h);
+    const bottomPx = Math.min(bodyBottomPx, (rowsTopBl + indicator.offsetBl + indicator.heightBl) * blockSizePx().h);
+    return { x: viewport.x + 1, y: topPx, w: viewport.w - 2, h: Math.max(0, bottomPx - topPx) };
+  };
   const moveOverChildContainerPath = () => store.perVe.getMoveOverChildContainerPath(vePath());
 
   const columnSpecs = createMemo(() => {
@@ -363,7 +377,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
         moveOverChildContainerPath() == null &&
         !store.perVe.getMovingItemIsOverAttach(vePath()) &&
         !store.perVe.getMovingItemIsOverAttachComposite(vePath()) &&
-        !isSortedByTitle()}>
+        moveOverIndicator().kind == "line"}>
         <div class="absolute border border-black"
           style={`left: 0px; top: ${overPosRowPx()}px; width: ${boundsPx().w}px; height: 1px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />
       </Show>
@@ -376,16 +390,15 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
           style={`left: ${insertBoundsPx().x}px; top: ${insertBoundsPx().y}px; width: ${insertBoundsPx().w}px; height: ${insertBoundsPx().h}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />
       </Show>
       <Show when={store.perVe.getMovingItemIsOver(vePath()) &&
-        store.perVe.getMoveOverRowNumber(vePath()) > -2 && // always true, create dependency.
         store.perVe.getMoveOverColAttachmentNumber(vePath()) < 0 &&
         moveOverChildContainerPath() == null &&
         !store.perVe.getMovingItemIsOverAttach(vePath()) &&
         !store.perVe.getMovingItemIsOverAttachComposite(vePath()) &&
-        isSortedByTitle()}>
+        moveOverIndicator().kind != "line"}>
         <div class="absolute pointer-events-none"
           style={`background-color: #0044ff0a; ` +
-            `left: ${viewportBoundsLocalPx().x + 1}px; top: ${viewportBoundsLocalPx().y + 1}px; ` +
-            `width: ${viewportBoundsLocalPx().w - 2}px; height: ${viewportBoundsLocalPx().h - 2}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />
+            `left: ${moveOverShadeBoundsPx().x}px; top: ${moveOverShadeBoundsPx().y}px; ` +
+            `width: ${moveOverShadeBoundsPx().w}px; height: ${moveOverShadeBoundsPx().h}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`} />
       </Show>
       <Show when={store.perVe.getMovingItemIsOverAttachComposite(vePath())}>
         <div class="absolute border border-black pointer-events-none"

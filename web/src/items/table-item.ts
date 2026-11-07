@@ -57,7 +57,7 @@ import { asCompositeItem, isComposite } from "./composite-item";
 import { TabularItem, TabularMixin } from "./base/tabular-item";
 import { newOrdering } from "../util/ordering";
 import { initiateLoadItemMaybe, markChildrenLoadAsInitiatedOrComplete } from "../layout/load";
-import { TabularContainerItem, TabularInsertionTarget, TabularVisibleRowInfo, tabularColumnAtBl, tabularColumnHitboxes, tabularColumnLayouts, tabularColumnWidthBl, tabularInsertionTarget, tabularRowBoundaryNearestOffsetBl, tabularRowIndexAtOffsetBl, tabularRowSpanBl, tabularRowsHeightBl, tabularRowsHeightBlForItems, tabularVisibleRows } from "../layout/tabular";
+import { TabularContainerItem, TabularInsertionTarget, TabularVisibleRowInfo, tabularColumnAtBl, tabularColumnHitboxes, tabularColumnLayouts, tabularColumnWidthBl, tabularInsertionContainerRowsSpanBl, tabularInsertionTarget, tabularRowBoundaryNearestOffsetBl, tabularRowIndexAtOffsetBl, tabularRowSpanBl, tabularRowsHeightBl, tabularRowsHeightBlForItems, tabularVisibleRows } from "../layout/tabular";
 import { asPageItem, isPage } from "./page-item";
 import { SavedPageSettings } from "./base/conversion-settings";
 import { asLinkItem, isLink, LinkFns } from "./link-item";
@@ -72,6 +72,16 @@ export interface TableMeasurable extends ItemTypeMixin, PositionalMixin, XSizabl
 
 export type TableVisibleRowInfo = TabularVisibleRowInfo;
 export type TableInsertionTarget = TabularInsertionTarget;
+
+/**
+ * How a table shows where a row moved over it would be inserted. Where the container it would go in is sorted, a
+ * position in it has no meaning, so that container is shaded instead of drawing a line: the whole table, or the rows of
+ * an expanded container (its own row and those of its children).
+ */
+export type TableMoveOverIndicator =
+  | { kind: "line" }
+  | { kind: "shade-table" }
+  | { kind: "shade-rows", offsetBl: number, heightBl: number };
 
 export function tableTitleHeaderHeightBl(table: FlagsMixin): number {
   return table.flags & TableFlags.HideTitle ? 0 : TABLE_TITLE_HEADER_HEIGHT_BL;
@@ -655,6 +665,15 @@ export const TableFns = {
     const tableItem = tabularViewItem(tableVe);
     const rows = tableVisibleRows(store, tableVe);
     return tabularInsertionTarget(tableItem, rows, insertRow);
+  },
+
+  tableMoveOverIndicator: (store: StoreContextModel, tableVe: VisualElement, insertRow: number): TableMoveOverIndicator => {
+    const tableItem = tabularViewItem(tableVe);
+    const rows = tableVisibleRows(store, tableVe);
+    const target = tabularInsertionTarget(tableItem, rows, insertRow);
+    if (itemState.childrenAreInOrderingOrder(target.parentContainer.id)) { return { kind: "line" }; }
+    const spanBl = tabularInsertionContainerRowsSpanBl(tableItem, rows, insertRow);
+    return spanBl == null ? { kind: "shade-table" } : { kind: "shade-rows", ...spanBl };
   },
 
   tableAttachmentTargetAtRow: (store: StoreContextModel, tableVe: VisualElement, rowNumber: number): AttachmentsItem | null => {

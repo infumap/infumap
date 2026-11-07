@@ -753,13 +753,8 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
 
     // In a list page, the insertion point may be inside an expanded container, whose ordering (not the page's)
     // determines where a drop lands.
-    moveOverTargetIsOrdered: (): boolean => {
-      const page = pageFns.pageItem();
-      if (page.arrangeAlgorithm == ArrangeAlgorithm.Document) {
-        return false;
-      }
-      return pageFns.moveOverTargetContainer().orderChildrenBy != "";
-    },
+    moveOverTargetIsOrdered: (): boolean =>
+      !itemState.childrenAreInOrderingOrder(pageFns.moveOverTargetContainer().id),
 
     moveOverTargetContainer: (): ContainerItem => {
       const page = pageFns.pageItem();

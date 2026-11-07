@@ -234,7 +234,44 @@ export function tabularInsertionTarget(
     return { parentContainer: container, insertIndex: container.computed_children.length };
   }
   const nextRow = rows[clampedInsertRow];
+  // The position directly below the last row of an expanded container is also the position after that row in its
+  // container. Where the row below is in a sorted container, a position there has no meaning, so prefer the expanded
+  // container (as list pages do, see PageFns.listPageInsertionTarget).
+  const previousRow = clampedInsertRow > 0 ? rows[clampedInsertRow - 1] : null;
+  if (previousRow != null &&
+    !itemState.childrenAreInOrderingOrder(nextRow.parentContainer.id) &&
+    previousRow.parentContainer.id != nextRow.parentContainer.id &&
+    previousRow.displayItem.id != nextRow.parentContainer.id) {
+    return { parentContainer: previousRow.parentContainer, insertIndex: previousRow.indexInParent + 1 };
+  }
   return { parentContainer: nextRow.parentContainer, insertIndex: nextRow.indexInParent };
+}
+
+/**
+ * The vertical extent of the rows of the expanded container a row inserted at insertRow would go in: the container's
+ * own row and those of its (possibly nested) children. Null if it would go in container itself, which has no row.
+ */
+export function tabularInsertionContainerRowsSpanBl(
+  container: TabularContainerItem,
+  rows: Array<TabularVisibleRowInfo>,
+  insertRow: number,
+): { offsetBl: number, heightBl: number } | null {
+  const target = tabularInsertionTarget(container, rows, insertRow);
+  if (target.parentContainer.id == container.id) { return null; }
+  const clampedInsertRow = Math.max(0, Math.min(Math.floor(insertRow), rows.length));
+  // A row of a child of the target container next to the insertion point. The same container can be expanded in more
+  // than one place (via links), so its rows must be found from there.
+  const childRowIdx = rows[clampedInsertRow]?.parentContainer.id == target.parentContainer.id
+    ? clampedInsertRow
+    : clampedInsertRow - 1;
+  const childIndentBl = rows[childRowIdx].indentBl;
+  let containerRowIdx = childRowIdx;
+  while (containerRowIdx > 0 && rows[containerRowIdx].indentBl >= childIndentBl) { containerRowIdx -= 1; }
+  const containerRow = rows[containerRowIdx];
+  let lastRowIdx = childRowIdx;
+  while (lastRowIdx + 1 < rows.length && rows[lastRowIdx + 1].indentBl > containerRow.indentBl) { lastRowIdx += 1; }
+  const lastRow = rows[lastRowIdx];
+  return { offsetBl: containerRow.offsetBl, heightBl: lastRow.offsetBl + lastRow.heightBl - containerRow.offsetBl };
 }
 
 export function tabularRowsHeightBl(rows: Array<TabularVisibleRowInfo>): number {

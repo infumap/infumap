@@ -1986,9 +1986,10 @@ export const PageFns = {
         : parentContainer.computed_children.filter(id => !ignoreIds.includes(id));
       return { parentContainer, insertIndex: siblingIds.indexOf(treeItem.id) + offset };
     };
-    // Whether a position among a container's children has no meaning, because they are sorted.
+    // Whether a position among a container's children has no meaning, because they are sorted. Not orderChildrenBy
+    // alone: an expanded spatial page (new pages default to title[ASC]) shows its children in ordering order.
     const isSorted = (container: ContainerItem) =>
-      container.orderChildrenBy != "" && (container.id != page.id || band == "middle");
+      !itemState.childrenAreInOrderingOrder(container.id) && (container.id != page.id || band == "middle");
     if (moveOverIndex < rowVes.length) {
       const target = targetAtRow(rowVes[Math.max(0, moveOverIndex)], 0);
       // The position directly below the last row of an expanded container is also the position after that row in its
@@ -1997,7 +1998,7 @@ export const PageFns = {
       const prevRowVe = moveOverIndex > 0 ? rowVes[moveOverIndex - 1] : null;
       if (prevRowVe != null && isSorted(target.parentContainer) &&
         VeFns.treeItem(prevRowVe).parentId != target.parentContainer.id &&
-        VeFns.treeItem(prevRowVe).id != target.parentContainer.id) {
+        prevRowVe.displayItem.id != target.parentContainer.id) {
         return targetAtRow(prevRowVe, 1);
       }
       return target;

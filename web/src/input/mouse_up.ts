@@ -1925,10 +1925,9 @@ function mouseUpHandler_moving_toOrderedPage(store: StoreContextModel, activeIte
       // Dropped in the list, so unpinned if it was pinned.
       for (const item of movingItems) { item.pinnedTo = null; }
     }
-    const insertIndex =
-      pageItem.arrangeAlgorithm != ArrangeAlgorithm.Document && moveToParent.orderChildrenBy
-        ? 0
-        : insertionTarget.insertIndex;
+    const insertIndex = !itemState.childrenAreInOrderingOrder(moveToParent.id)
+      ? 0
+      : insertionTarget.insertIndex;
     placeItemsAtChildrenPosition(moveToParent, movingItems, insertIndex);
   }
 
