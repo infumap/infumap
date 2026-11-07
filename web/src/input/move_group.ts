@@ -176,8 +176,8 @@ export function compareGroupMoveItems(a: GroupMoveItem, b: GroupMoveItem): numbe
 }
 
 /**
- * All items moving with activeItem, in the order they go into an ordered page (list, dock, grid, justified, catalog):
- * their reading order, where the drag started. Just activeItem when it isn't part of a group move.
+ * All items moving with activeItem, in the order they go into an ordered page (list, dock, grid, justified, catalog,
+ * document): their reading order, where the drag started. Just activeItem when it isn't part of a group move.
  */
 export function orderedGroupMoveItems(activeItem: Item): Array<Item> {
   const entries = getGroupMoveEntriesInParent(MouseActionState.getGroupMoveItems(), activeItem.parentId);

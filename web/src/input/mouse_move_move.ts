@@ -595,8 +595,8 @@ function groupMoveItemsFromSelectionMaybe(
     return entries.map((e, i) => ({ veid: e.veid, startPosGr: startPositionsGr[i], parentId: e.item.parentId }));
   }
 
-  // The spatial positions of the items in the dock or a grid, justified or catalog page are unused, and a marquee
-  // selects them in no particular order: stack them in the order they are laid out.
+  // The spatial positions of the items in the dock or a grid, justified, catalog or document page are unused, and a
+  // marquee selects them in no particular order: stack them in the order they are laid out.
   const parentVe = activeVisualElement.parentPath ? VesCache.current.readNode(activeVisualElement.parentPath) : null;
   if (isPage(parentItem) && (pageLaysOutChildrenInReadingOrder(parentItem) || (parentVe && (parentVe.flags & VisualElementFlags.IsDock)))) {
     const childOrder = asPageItem(parentItem).computed_children;
@@ -624,7 +624,8 @@ function pageLaysOutChildrenInReadingOrder(page: Item): boolean {
   const arrangeAlgorithm = asPageItem(page).arrangeAlgorithm;
   return arrangeAlgorithm == ArrangeAlgorithm.Grid ||
     arrangeAlgorithm == ArrangeAlgorithm.Justified ||
-    arrangeAlgorithm == ArrangeAlgorithm.Catalog;
+    arrangeAlgorithm == ArrangeAlgorithm.Catalog ||
+    arrangeAlgorithm == ArrangeAlgorithm.Document;
 }
 
 function shouldArrangeDocumentPageMoveOutOnStart(parentItem: Item, activeVisualElement: VisualElement): boolean {

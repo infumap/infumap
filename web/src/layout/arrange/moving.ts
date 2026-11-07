@@ -97,8 +97,8 @@ export function movingItemCellBoundsInPagePx(
 const MOVING_PILE_OFFSET_PX = 8;
 
 /**
- * Arrange the items moving in grid, justified or catalog page pagePath (orderedItems, from orderedGroupMoveItems) as a
- * pile: activeItem on top under the cursor, where it was grabbed, and the others behind it, each further down and to
+ * Arrange the items moving in grid, justified, catalog or document page pagePath (orderedItems, from
+ * orderedGroupMoveItems) as a pile: activeItem on top under the cursor, where it was grabbed, and the others behind it, each further down and to
  * the right. They aren't stacked in a column as in a list page, because they are drawn at their spatial size, and
  * images in particular are often large enough that a column would run off the screen. At most
  * GROUP_MOVE_STACK_MAX_ITEMS are drawn, and MovingItemsOverlay badges the pile with the count of the rest. The result
@@ -115,6 +115,7 @@ export function arrangeMovingPile(
   activeItem: Item,
   flags: ArrangeItemFlags,
   scale: number,
+  contentLeftPx: number = 0,
 ): Array<VisualElementPath> {
   const sizePx = (item: Item): Dimensions => {
     const dimensionsBl = ItemFns.calcSpatialDimensionsBl(item);
@@ -124,7 +125,7 @@ export function arrangeMovingPile(
     ? store.history.currentPopupSpec()!.actualVeid
     : VeFns.veidFromItems(page, pageLinkItemMaybe);
   const activeCellBoundsPx = movingItemCellBoundsInPagePx(
-    store, pagePath, geometry, childAreaBoundsPx, scrollVeid, sizePx(activeItem), flags);
+    store, pagePath, geometry, childAreaBoundsPx, scrollVeid, sizePx(activeItem), flags, contentLeftPx);
   const attachmentBlockSizePx = LINE_HEIGHT_PX * scale;
 
   const pile = [
