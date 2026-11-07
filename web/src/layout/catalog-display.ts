@@ -35,11 +35,14 @@ import {
   isQuerySearchResultsPage,
   querySearchResultsFooterHostId,
 } from "../items/query-item";
-import { PageItem } from "../items/page-item";
+import { PageItem, asPageItem } from "../items/page-item";
 import { asTextItem, isText } from "../items/text-item";
 import { calculateChildrenStats, formatBytes } from "../util/item-metadata";
 import { itemPathSegmentsFromItem, resolvedPathTargetItemForItem } from "../util/item-path";
 import { catalogSearchResultDisplay } from "../util/search-result-display";
+import { Vector } from "../util/geometry";
+import { CATALOG_VERTICAL_MARGIN_PX } from "./catalog";
+import { VeFns, VisualElement } from "./visual-element";
 
 interface ChildrenStatsLike {
   totalChildren: number,
@@ -154,6 +157,29 @@ export function catalogResultControlsTopInsetPx(pageItem: PageItem): number | nu
   return hasCatalogResultContext(pageItem)
     ? QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_OVERLAP_PX + QUERY_WORKSPACE_ARRANGE_SELECTOR_RESULTS_GAP_PX
     : null;
+}
+
+/**
+ * Index of the row boundary nearest the pointer. Rows have a fixed height but the items in them are fitted and centered,
+ * so the boundary can't be derived from neighbouring item bounds as it is for other stacked layouts.
+ */
+export function catalogInsertionIndexFromDesktopPx(
+  store: StoreContextModel,
+  catalogPageVe: VisualElement,
+  numRows: number,
+  desktopPx: Vector,
+): number {
+  const rowHeightPx = catalogPageVe.cellSizePx?.h ?? 0;
+  if (rowHeightPx <= 0 || !catalogPageVe.childAreaBoundsPx || !catalogPageVe.viewportBoundsPx) {
+    return numRows;
+  }
+  const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, catalogPageVe);
+  const scrollYPx = store.perItem.getPageScrollYProp(VeFns.actualVeidFromVe(catalogPageVe)) *
+    Math.max(0, catalogPageVe.childAreaBoundsPx.h - catalogPageVe.viewportBoundsPx.h);
+  const localYPx = desktopPx.y - viewportBoundsPx.y + scrollYPx;
+  const rowsTopPx = catalogResultControlsTopInsetPx(asPageItem(catalogPageVe.displayItem)) ??
+    CATALOG_VERTICAL_MARGIN_PX * (catalogPageVe.catalogScale ?? 1.0);
+  return Math.max(0, Math.min(numRows, Math.round((localYPx - rowsTopPx) / rowHeightPx)));
 }
 
 export function catalogResultFooterGapPx(): number {

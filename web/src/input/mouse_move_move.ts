@@ -61,6 +61,7 @@ import { isDataItem } from "../items/base/data-item";
 import { calcJustifiedPagePaddingPx } from "../layout/arrange/justified_metrics";
 import { justifiedInsertionFromDesktopPx } from "../layout/justified-insertion";
 import { stackedInsertionIndexFromDesktopPx } from "../layout/stacked-insertion";
+import { catalogInsertionIndexFromDesktopPx } from "../layout/catalog-display";
 import { GroupMoveItem, calculateMoveToPagePositionGr, moveGroupToChildParentPreservingOffsets, movingHitIgnoreIds, stackedGroupMoveStartPositionsGr } from "./move_group";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../layout/arrange/page_list";
 
@@ -1285,9 +1286,8 @@ function updatePageMoveOverIndex(
   }
 
   else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Catalog) {
-    const catalogChildren = VesCache.render.getNonMovingChildren(VeFns.veToPath(inElementVe))()
-      .map(childVe => childVe.get());
-    const moveOverIndex = stackedInsertionIndexFromDesktopPx(store, catalogChildren, desktopPosPx);
+    const numNonMovingChildren = VesCache.render.getNonMovingChildren(VeFns.veToPath(inElementVe))().length;
+    const moveOverIndex = catalogInsertionIndexFromDesktopPx(store, inElementVe, numNonMovingChildren, desktopPosPx);
     store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), moveOverIndex);
   }
 

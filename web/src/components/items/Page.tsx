@@ -854,17 +854,13 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           <div class="absolute border border-black" style={`top: ${topPx}px; left: ${leftPx}px; height: ${heightPx}px; width: 1px;`} />
         );
       } else if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog) {
-        const children = pageFns.nonMovingChildren().map(childVe => childVe.get());
-        const lineBoundsPx = stackedInsertionLineBoundsPx(children, pageFns.catalogContentWidthPx(), store.perVe.getMoveOverIndex(pageFns.vePath()));
-        if (!lineBoundsPx) {
-          return <></>;
-        }
-        if (children.length == 0) {
-          lineBoundsPx.y = pageFns.catalogPageTopPaddingPx();
-        }
+        const moveOverIndex = store.perVe.getMoveOverIndex(pageFns.vePath());
+        if (moveOverIndex < 0) { return <></>; }
+        // On the row divider, not between neighbouring items: items are fitted and centered in their rows.
+        const topPx = pageFns.catalogPageTopPaddingPx() + moveOverIndex * pageFns.catalogRowHeightPx();
         return (
           <div class="absolute pointer-events-none bg-black"
-            style={`left: ${lineBoundsPx.x + pageFns.catalogContentLeftPx()}px; top: ${lineBoundsPx.y - 1}px; width: ${lineBoundsPx.w}px; height: 2px;`} />
+            style={`left: ${pageFns.catalogContentLeftPx()}px; top: ${topPx - 1}px; width: ${pageFns.catalogContentWidthPx()}px; height: 2px;`} />
         );
       } else if (pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.List) {
         return pageFns.renderListMoveOverLineMaybe("middle");

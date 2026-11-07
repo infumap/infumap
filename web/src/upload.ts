@@ -24,6 +24,7 @@ import { HitboxFlags } from "./layout/hitbox";
 import { RelationshipToParent } from "./layout/relationship-to-parent";
 import { JustifiedInsertion, justifiedInsertionFromDesktopPx } from "./layout/justified-insertion";
 import { stackedInsertionIndexFromDesktopPx } from "./layout/stacked-insertion";
+import { catalogInsertionIndexFromDesktopPx } from "./layout/catalog-display";
 import { VesCache } from "./layout/ves-cache";
 import { VeFns, VisualElement, VisualElementFlags, VisualElementPath } from "./layout/visual-element";
 import { asAttachmentsItem, AttachmentsItem, attachmentAnchorRightPxForVe, attachmentBlockSizePxForVe, calcSpatialAttachmentInsertIndex } from "./items/base/attachments-item";
@@ -327,7 +328,11 @@ function orderedPageInsertIndexFromDesktopPx(
         return stackedInsertionIndexFromDesktopPx(store, PageFns.listPageInsertionRowVes(pageVe), desktopPx);
       }
 
-    case ArrangeAlgorithm.Catalog:
+    case ArrangeAlgorithm.Catalog: {
+      const numNonMovingChildren = VesCache.render.getNonMovingChildren(VeFns.veToPath(pageVe))().length;
+      return catalogInsertionIndexFromDesktopPx(store, pageVe, numNonMovingChildren, desktopPx);
+    }
+
     case ArrangeAlgorithm.Document: {
       const pagePath = VeFns.veToPath(pageVe);
       const childVes = VesCache.render.getNonMovingChildren(pagePath)().map((childVe) => childVe.get());
