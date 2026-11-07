@@ -19,12 +19,14 @@ use std::sync::Arc;
 
 use exif::{Exif, In, Tag, Value};
 use image::codecs::jpeg::JpegEncoder;
-use image::{DynamicImage, Rgb, RgbImage};
+use image::{DynamicImage, ImageReader, Rgb, RgbImage, RgbaImage};
 use infusdk::util::infu::InfuResult;
 use log::debug;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Semaphore;
+
+use crate::util::mime::is_heif_image;
 
 // Decoding and resizing large images is CPU intensive. Bound the number of concurrent image processing tasks,
 // leaving one core free so other requests (including image cache hits) continue to be served promptly.
@@ -38,6 +40,31 @@ const IMAGE_PLACEHOLDER_MAX_DIMENSION_PX: u32 = 40;
 // The JPEG header depends on the quality (via the quantization tables), so this can't be changed without
 // also changing IMAGE_PLACEHOLDER_FORMAT_VERSION and the header template on the client.
 const IMAGE_PLACEHOLDER_JPEG_QUALITY: u8 = 30;
+
+/// Decodes display-oriented pixels. CPU intensive: call on a blocking thread with an image processing permit.
+pub fn decode_image(image_bytes: &[u8], image_identifier: &str) -> InfuResult<DynamicImage> {
+  if is_heif_image(image_bytes) {
+    // Heifer already applies HEIF crop/rotation/mirror properties. Applying EXIF orientation again turns
+    // portrait photos sideways. Convert to sRGB because our JPEG renditions do not carry the original ICC profile.
+    let options = heifer::Options {
+      // Concurrency is bounded across requests by IMAGE_PROCESSING_SEMAPHORE; do not give every decode all cores.
+      max_threads: 1,
+      ..Default::default()
+    };
+    let img = heifer::decode_srgb_rgba8(image_bytes, &options)
+      .map_err(|e| format!("Could not decode HEIC image '{}': {}", image_identifier, e))?;
+    let rgba = RgbaImage::from_raw(img.width, img.height, img.data)
+      .ok_or_else(|| format!("Invalid decoded HEIC pixel buffer for '{}'.", image_identifier))?;
+    return Ok(DynamicImage::ImageRgba8(rgba));
+  }
+
+  let exif_orientation = get_exif_orientation(image_bytes.to_vec(), image_identifier);
+  let img = ImageReader::new(Cursor::new(image_bytes))
+    .with_guessed_format()?
+    .decode()
+    .map_err(|e| format!("Could not decode image '{}': {}", image_identifier, e))?;
+  Ok(adjust_image_for_exif_orientation(img, exif_orientation, image_identifier))
+}
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct ImageMetadata {
@@ -321,6 +348,15 @@ pub fn flatten_onto_white(img: &DynamicImage) -> RgbImage {
     let a = p[3] as u32;
     Rgb([0, 1, 2].map(|c| ((p[c] as u32 * a + 255 * (255 - a) + 127) / 255) as u8))
   })
+}
+
+pub fn encode_image_jpeg(img: &DynamicImage, quality: u8) -> InfuResult<Vec<u8>> {
+  let rgb = flatten_onto_white(img);
+  let mut jpeg = Vec::new();
+  JpegEncoder::new_with_quality(&mut jpeg, quality)
+    .encode_image(&rgb)
+    .map_err(|e| format!("Could not encode image as JPEG: {}", e))?;
+  Ok(jpeg)
 }
 
 fn encode_image_placeholder_jpeg(img: &DynamicImage) -> InfuResult<Vec<u8>> {

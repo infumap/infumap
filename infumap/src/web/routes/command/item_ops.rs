@@ -442,14 +442,7 @@ pub(super) async fn add_item_for_user_with_mime_type(
       let (width, height, placeholder, decoded) =
         tokio::task::spawn_blocking(move || -> InfuResult<(u32, u32, Vec<u8>, Vec<u8>)> {
           let _permit = permit;
-          // TODO (LOW): clone here seems a bit excessive.
-          let exif_orientation = get_exif_orientation(decoded.clone(), &title);
-          let file_reader = ImageReader::new(Cursor::new(decoded.as_slice())).with_guessed_format()?;
-          let img = file_reader.decode().ok().ok_or(format!(
-            "Could not add new image item '{}' - could not interpret base64 data as an image.",
-            item_id
-          ))?;
-          let img = adjust_image_for_exif_orientation(img, exif_orientation, &title);
+          let img = decode_image(&decoded, &title)?;
           let placeholder = create_image_placeholder(&img)
             .map_err(|e| format!("An error occurred creating the placeholder for new image '{}': {}.", item_id, e))?;
           Ok((img.width(), img.height(), placeholder, decoded))

@@ -119,8 +119,8 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     store.printMode.get() ? PRINT_IMAGE_RESOLUTION_MULTIPLIER : store.devicePixelRatio.get();
   const imgSrc = () => {
     let widthPx = Math.round(imageWidthToRequestPx(true) * imageResolutionMultiplier());
-    // The server responds with the unmodified original for any width >= the original width. Capping gives such
-    // requests a single url (and hence cache entry).
+    // Requests at or above the original width use the original size (a JPEG rendition for HEIC). Capping gives
+    // such requests a single url and cache entry.
     const originalWidthPx = imageItem().imageSizePx.w;
     if (originalWidthPx > 0 && widthPx > originalWidthPx) { widthPx = originalWidthPx; }
     return "/files/" + props.visualElement.displayItem.id + "_" + widthPx;

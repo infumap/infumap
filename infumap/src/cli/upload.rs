@@ -14,24 +14,21 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::io::Cursor;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
-use std::time::{Duration, Instant};
 use std::time::UNIX_EPOCH;
+use std::time::{Duration, Instant};
 
 use base64::{Engine as _, engine::general_purpose};
 use clap::ArgAction;
 use clap::{Arg, ArgMatches, Command};
-use image::ImageReader;
 use infusdk::item::ItemType;
 use infusdk::util::geometry::Dimensions;
 use infusdk::util::geometry::GRID_SIZE;
 use infusdk::util::infu::InfuResult;
 use infusdk::util::json;
 use infusdk::util::uid::is_uid;
-use log::debug;
 use serde_json::Map;
 use serde_json::Value;
 use tokio::fs;
@@ -39,8 +36,7 @@ use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 
 use crate::util::fs::expand_tilde;
-use crate::util::image::adjust_image_for_exif_orientation;
-use crate::util::image::get_exif_orientation;
+use crate::util::image::{IMAGE_PROCESSING_SEMAPHORE, decode_image};
 use crate::util::mime::mime_type_from_title_extension;
 use crate::web::routes::command::CommandRequest;
 use crate::web::routes::command::CommandResponse;
@@ -49,7 +45,7 @@ use crate::web::routes::command::CommandResponse;
 fn is_image_filename(filename: &str) -> bool {
   matches!(
     Path::new(filename).extension().and_then(|e| e.to_str()).map(|e| e.to_ascii_lowercase()).as_deref(),
-    Some("png" | "jpg" | "jpeg" | "webp" | "gif" | "bmp")
+    Some("png" | "jpg" | "jpeg" | "webp" | "gif" | "bmp" | "heic" | "heif" | "hif")
   )
 }
 
@@ -283,21 +279,26 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     item.insert("fileSizeBytes".to_owned(), Value::Number(metadata.len().into()));
 
     if is_image_filename(filename) {
-      let file_cursor = Cursor::new(buffer.clone());
-      let file_reader = ImageReader::new(file_cursor).with_guessed_format()?;
-      match file_reader.decode() {
+      let image_name = filename.clone();
+      let permit = IMAGE_PROCESSING_SEMAPHORE
+        .clone()
+        .acquire_owned()
+        .await
+        .map_err(|e| format!("Image processing semaphore closed: {}", e))?;
+      let image = tokio::task::spawn_blocking(move || {
+        let _permit = permit;
+        decode_image(&buffer, &image_name)
+      })
+      .await
+      .map_err(|e| format!("Image decode task failed for '{}': {}", filename, e))?;
+      match image {
         Ok(img) => {
-          let exif_orientation = get_exif_orientation(buffer.clone(), filename);
-          let img = adjust_image_for_exif_orientation(img, exif_orientation, filename);
           item.insert("itemType".to_owned(), Value::String(ItemType::Image.as_str().to_owned()));
           item.insert(
             "imageSizePx".to_owned(),
             json::dimensions_to_object(&Dimensions { w: img.width().into(), h: img.height().into() }),
           );
           item.insert("thumbnail".to_owned(), Value::String("".to_owned())); // set on the server.
-          if exif_orientation > 1 {
-            debug!("Note: image has exif orientation type of: {}", exif_orientation);
-          }
           print!("Adding image '{}' {}/{}... ", filename, i + 1, local_filenames.len());
           std::io::stdout().flush()?;
         }

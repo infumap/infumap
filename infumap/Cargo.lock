@@ -1317,6 +1317,35 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
+name = "heifer"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c306f12bd6e9369c8100e5eedecb9479a2e34afe404c5ddfccf995084ac3373"
+dependencies = [
+ "heifer-hevc-dec",
+ "heifer-isobmff",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "heifer-hevc-dec"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "00861932ab1d5db48b21617ec8f8612a897ad8bb58c20e49b2656ee4b7095007"
+dependencies = [
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "heifer-isobmff"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fbdcdb3d5f1f002a3ff337c45fbaa4a275922a28e0916367db0374e7514ba78"
+dependencies = [
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "hermit-abi"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1658,6 +1687,7 @@ dependencies = [
  "dirs",
  "filetime",
  "futures-util",
+ "heifer",
  "http-body-util",
  "hyper",
  "image",

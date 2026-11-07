@@ -27,7 +27,8 @@ use tokio::time;
 use crate::ai::user_id_for_log;
 use crate::storage::db::Db;
 use crate::storage::object::{self as storage_object, ObjectStore};
-use crate::util::image::extract_image_metadata;
+use crate::util::image::{IMAGE_PROCESSING_SEMAPHORE, decode_image, encode_image_jpeg, extract_image_metadata};
+use crate::util::mime::is_heif_mime_type;
 use crate::util::retry::endpoint_retry_delay;
 
 mod artifacts;
@@ -177,7 +178,7 @@ pub fn is_supported_image_tagging_mime_type(mime_type: Option<&str>) -> bool {
   let Some(mime_type) = mime_type else {
     return false;
   };
-  SUPPORTED_IMAGE_MIME_TYPES.contains(&mime_type)
+  SUPPORTED_IMAGE_MIME_TYPES.contains(&mime_type) || is_heif_mime_type(mime_type)
 }
 
 pub fn should_tag_image_item(item: &Item) -> bool {
@@ -324,6 +325,30 @@ async fn process_image_tagging_for_candidate_and_bytes(
   {
     return Ok(());
   }
+  // The tagging service accepts JPEG, not HEIC. Convert once before retries, keeping the source bytes and
+  // candidate intact so EXIF extraction and artifact identity still describe the uploaded original.
+  let jpeg = if is_heif_mime_type(&candidate.mime_type) {
+    let bytes = file_bytes.to_vec();
+    let item_id = candidate.item_id.clone();
+    let permit = IMAGE_PROCESSING_SEMAPHORE
+      .clone()
+      .acquire_owned()
+      .await
+      .map_err(|e| format!("Image processing semaphore closed: {}", e))?;
+    Some(
+      tokio::task::spawn_blocking(move || -> InfuResult<Vec<u8>> {
+        let _permit = permit;
+        let img = decode_image(&bytes, &item_id)?;
+        encode_image_jpeg(&img, 90)
+      })
+      .await
+      .map_err(|e| format!("HEIC conversion task failed: {}", e))??,
+    )
+  } else {
+    None
+  };
+  let upload_bytes = jpeg.as_deref().unwrap_or(file_bytes);
+  let upload_mime_type = if jpeg.is_some() { "image/jpeg" } else { &candidate.mime_type };
   let client = reqwest::ClientBuilder::new()
     .connect_timeout(Duration::from_secs(10))
     .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
@@ -338,9 +363,18 @@ async fn process_image_tagging_for_candidate_and_bytes(
   );
   let tagging_started_at = Instant::now();
   let outcome = if retry_endpoint_unavailable {
-    request_image_tagging_with_retries(&client, image_tagging_url, &candidate, &file_bytes, request_mode, None).await
+    request_image_tagging_with_retries(
+      &client,
+      image_tagging_url,
+      &candidate,
+      upload_mime_type,
+      upload_bytes,
+      request_mode,
+      None,
+    )
+    .await
   } else {
-    request_image_tagging_once(&client, image_tagging_url, &candidate, &file_bytes, request_mode).await
+    request_image_tagging_once(&client, image_tagging_url, upload_mime_type, upload_bytes, request_mode).await
   };
   let tagging_elapsed = tagging_started_at.elapsed();
   if !candidate_still_current(db.clone(), &candidate).await? {
@@ -522,6 +556,7 @@ async fn request_image_tagging_with_retries(
   client: &reqwest::Client,
   image_tagging_url: &str,
   candidate: &ImageCandidate,
+  mime_type: &str,
   file_bytes: &[u8],
   request_mode: ImageTagRequestMode,
   worker_id_maybe: Option<usize>,
@@ -530,8 +565,7 @@ async fn request_image_tagging_with_retries(
   let mut response_format_attempt = 0usize;
 
   loop {
-    let outcome =
-      request_image_tagging(client, image_tagging_url, &candidate.mime_type, file_bytes.to_vec(), request_mode).await;
+    let outcome = request_image_tagging(client, image_tagging_url, mime_type, file_bytes.to_vec(), request_mode).await;
     match outcome {
       TagOutcome::ResponseFormatFailed(message) => {
         if response_format_attempt >= MAX_RESPONSE_FORMAT_RETRY_ATTEMPTS {
@@ -628,11 +662,11 @@ async fn request_image_tagging_with_retries(
 async fn request_image_tagging_once(
   client: &reqwest::Client,
   image_tagging_url: &str,
-  candidate: &ImageCandidate,
+  mime_type: &str,
   file_bytes: &[u8],
   request_mode: ImageTagRequestMode,
 ) -> TagOutcome {
-  request_image_tagging(client, image_tagging_url, &candidate.mime_type, file_bytes.to_vec(), request_mode).await
+  request_image_tagging(client, image_tagging_url, mime_type, file_bytes.to_vec(), request_mode).await
 }
 
 async fn candidate_still_current(db: Arc<Mutex<Db>>, candidate: &ImageCandidate) -> InfuResult<bool> {

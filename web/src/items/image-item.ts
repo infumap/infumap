@@ -363,12 +363,17 @@ export const ImageFns = {
     const isSoloImage = visualElement.parentPath != null &&
       VeFns.veidFromPath(visualElement.parentPath).itemId == SOLO_ITEM_HOLDER_PAGE_UID;
     if ((visualElement.flags & VisualElementFlags.Popup) || isSoloImage) {
+      const image = visualElement.displayItem as ImageItem;
+      // Open a full-size JPEG rendition for HEIC; most browsers cannot display the downloadable original.
+      const fileName = image.mimeType == "image/heic" || image.mimeType == "image/heif"
+        ? `${image.id}_${image.imageSizePx.w}`
+        : image.id;
       if (visualElement.displayItem.origin == null) {
-        window.open('/files/' + visualElement.displayItem.id, '_blank');
+        window.open('/files/' + fileName, '_blank');
       } else {
         const host = visualElement.displayItem.origin;
         const itemId = visualElement.displayItem.id;
-        void openRemoteFileInNewTab(host, itemId)
+        void openRemoteFileInNewTab(host, fileName)
           .catch((e) => {
             console.error(`Could not open remote file '${itemId}' from '${host}':`, e);
           });

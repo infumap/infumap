@@ -8,7 +8,25 @@ const TEXT_PLAIN: &str = "text/plain";
 /// detection would give text/plain, and the raw JSONL would then be indexed as plain text.
 pub const CHAT_TRANSCRIPT_MIME_TYPE: &str = "application/x-infumap-chat";
 
+pub fn is_heif_mime_type(mime_type: &str) -> bool {
+  matches!(mime_type, "image/heic" | "image/heif")
+}
+
+pub fn is_heif_image(data: &[u8]) -> bool {
+  match heifer::check_file_type(data) {
+    heifer::FileTypeResult::Supported => true,
+    // Generic HEIF brands do not name the codec. Keep AVIF on its existing decoder path.
+    heifer::FileTypeResult::MayBe => {
+      data.len() >= 12 && !matches!(infer::get(data), Some(kind) if kind.mime_type() == "image/avif")
+    }
+    _ => false,
+  }
+}
+
 pub fn detect_mime_type(data: &[u8]) -> String {
+  if is_heif_image(data) {
+    return "image/heic".to_owned();
+  }
   if let Some(kind) = infer::get(data) {
     let normalized = normalized_mime_type(kind.mime_type());
     if normalized != "application/xml" {
@@ -60,6 +78,7 @@ pub fn mime_type_from_title_extension(title: &str) -> Option<String> {
     "csv" => "text/csv",
     "gif" => "image/gif",
     "gz" => "application/gzip",
+    "heic" | "heif" | "hif" => "image/heic",
     "jpeg" | "jpg" => "image/jpeg",
     "json" => "application/json",
     "m4a" => "audio/mp4",

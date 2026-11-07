@@ -20,8 +20,6 @@ use futures_util::FutureExt;
 use futures_util::future::{BoxFuture, Shared};
 use http_body_util::combinators::BoxBody;
 use hyper::{Request, Response};
-use image::ImageReader;
-use image::codecs::jpeg::JpegEncoder;
 use image::imageops::FilterType;
 use infusdk::util::geometry::Dimensions;
 use infusdk::util::infu::InfuResult;
@@ -33,7 +31,6 @@ use prometheus::{IntCounterVec, opts};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::future::Future;
-use std::io::Cursor;
 use std::sync::Arc;
 use tokio::fs;
 use tokio::sync::{Mutex, Semaphore};
@@ -44,8 +41,8 @@ use crate::ai::artifact_paths::{
   item_text_manifest_path,
 };
 use crate::ai::image_tagging::is_supported_image_tagging_mime_type;
-use crate::ai::search_processing_activity::{Phase, item_activity, user_summary};
 use crate::ai::search_processing::SearchContentKind;
+use crate::ai::search_processing_activity::{Phase, item_activity, user_summary};
 use crate::config::{
   CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS, CONFIG_MAX_SCALE_IMAGE_DOWN_PERCENT, CONFIG_MAX_SCALE_IMAGE_UP_PERCENT,
 };
@@ -53,10 +50,8 @@ use crate::storage::cache as storage_cache;
 use crate::storage::cache::{ImageCacheKey, ImageSize};
 use crate::storage::db::Db;
 use crate::storage::object;
-use crate::util::image::{
-  IMAGE_PROCESSING_SEMAPHORE, adjust_image_for_exif_orientation, flatten_onto_white, get_exif_orientation,
-};
-use crate::util::mime::CHAT_TRANSCRIPT_MIME_TYPE;
+use crate::util::image::{IMAGE_PROCESSING_SEMAPHORE, decode_image, encode_image_jpeg};
+use crate::util::mime::{CHAT_TRANSCRIPT_MIME_TYPE, is_heif_mime_type};
 use crate::web::serve::{
   cors_response, forbidden_response, full_body, internal_server_error_response, not_found_response,
 };
@@ -413,8 +408,14 @@ async fn get_cached_resized_img(
   }
   let filename = response_filename(&uid, title_maybe.as_deref());
 
-  // Never want to upscale original image. Instead, want to respond with the original image without modification.
-  let respond_with_cached_original = requested_width >= original_dimensions_px.w as u32;
+  // HEIC originals remain downloadable, but display requests always need a JPEG, even at full size.
+  let requested_width = if is_heif_mime_type(&original_mime_type_string) {
+    requested_width.min(original_dimensions_px.w as u32)
+  } else {
+    requested_width
+  };
+  let respond_with_cached_original =
+    !is_heif_mime_type(&original_mime_type_string) && requested_width >= original_dimensions_px.w as u32;
 
   // The largest cached rendition too small to be the response. It can be sent as a partial response whilst the
   // requested rendition is generated.
@@ -714,19 +715,8 @@ fn resize_image_to_jpeg(
   original_dimensions_px: Dimensions<i64>,
   requested_width: u32,
 ) -> InfuResult<Vec<u8>> {
-  let exif_orientation = get_exif_orientation(original_file_bytes.clone(), uid);
-
-  // decode and resize
-  let original_file_cursor = Cursor::new(original_file_bytes);
-  let original_file_reader = ImageReader::new(original_file_cursor).with_guessed_format()?;
-  let mut img = match original_file_reader.decode() {
-    Ok(img) => img,
-    Err(e) => {
-      // TODO (LOW): possibly do something better in this case. Possibly return the image as is if it's not too big. Possibly cache it.
-      return Err(format!("Could not read original image '{}': {}", name, e).into());
-    }
-  };
-  img = adjust_image_for_exif_orientation(img, exif_orientation, uid);
+  let mut img =
+    decode_image(&original_file_bytes, uid).map_err(|e| format!("Could not read original image '{}': {}", name, e))?;
 
   // Calculate the height for passing into the image resize method. The resize method makes the image as large as possible
   // whilst preserving the image aspect ratio. So calculate the exact height, then bump it up a bit to be 100% sure width
@@ -736,15 +726,8 @@ fn resize_image_to_jpeg(
 
   // Using Langczos3 for down scaling, as recommended by: https://crates.io/crates/resize
   img = img.resize(requested_width, requested_height, FilterType::Lanczos3);
-  // JPEG has no alpha channel.
-  let img = flatten_onto_white(&img);
-
-  let buf = Vec::new();
-  let mut cursor = Cursor::new(buf);
-  let encoder = JpegEncoder::new_with_quality(&mut cursor, JPEG_QUALITY);
-  img.write_with_encoder(encoder).map_err(|e| format!("Could not create cached JPEG image for '{}': {}", name, e))?;
-
-  Ok(cursor.into_inner())
+  encode_image_jpeg(&img, JPEG_QUALITY)
+    .map_err(|e| format!("Could not create cached JPEG image for '{}': {}", name, e).into())
 }
 
 async fn get_file(
