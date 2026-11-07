@@ -42,6 +42,7 @@ async fn main() {
     .subcommand(cli::migrate::make_clap_subcommand())
     .subcommand(cli::note::make_clap_subcommand())
     .subcommand(cli::pending::make_clap_subcommand())
+    .subcommand(cli::promote_cr2::make_clap_subcommand())
     .subcommand(cli::promote_heic::make_clap_subcommand())
     .subcommand(cli::reconcile::make_clap_subcommand())
     .subcommand(cli::rekey::make_clap_subcommand())
@@ -72,6 +73,7 @@ async fn main() {
         "migrate" => cli::migrate::execute(&arg_sub_matches).await,
         "note" => cli::note::execute(&arg_sub_matches).await,
         "pending" => cli::pending::execute(&arg_sub_matches).await,
+        "promote-cr2" => cli::promote_cr2::execute(&arg_sub_matches).await,
         "promote-heic" => cli::promote_heic::execute(&arg_sub_matches).await,
         "reconcile" => cli::reconcile::execute(&arg_sub_matches).await,
         "rekey" => cli::rekey::execute(&arg_sub_matches),
@@ -99,7 +101,7 @@ async fn main() {
   match command_result {
     Ok(_) => {}
     Err(e) => {
-      if matches!(arg_matches.subcommand_name(), Some("tool" | "promote-heic")) {
+      if matches!(arg_matches.subcommand_name(), Some("tool" | "promote-heic" | "promote-cr2")) {
         eprintln!("{}", e);
         std::process::exit(1);
       }

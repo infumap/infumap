@@ -1,12 +1,23 @@
 use mime_sniffer::MimeTypeSniffer;
 use std::path::Path;
 
+use crate::util::cr2::is_cr2;
+
 const APPLICATION_OCTET_STREAM: &str = "application/octet-stream";
 const TEXT_PLAIN: &str = "text/plain";
 
 /// The MIME type of a persisted chat: a chat transcript (JSONL) in a `.chat` text item. Always set explicitly, since
 /// detection would give text/plain, and the raw JSONL would then be indexed as plain text.
 pub const CHAT_TRANSCRIPT_MIME_TYPE: &str = "application/x-infumap-chat";
+pub const CR2_MIME_TYPE: &str = "image/x-canon-cr2";
+
+pub fn is_cr2_mime_type(mime_type: &str) -> bool {
+  matches!(mime_type, CR2_MIME_TYPE | "image/cr2")
+}
+
+pub fn requires_jpeg_rendition(mime_type: &str) -> bool {
+  is_heif_mime_type(mime_type) || is_cr2_mime_type(mime_type)
+}
 
 pub fn is_heif_mime_type(mime_type: &str) -> bool {
   matches!(mime_type, "image/heic" | "image/heif")
@@ -24,6 +35,10 @@ pub fn is_heif_image(data: &[u8]) -> bool {
 }
 
 pub fn detect_mime_type(data: &[u8]) -> String {
+  // CR2 begins with a TIFF header, so identify it before the generic TIFF matcher.
+  if is_cr2(data) {
+    return CR2_MIME_TYPE.to_owned();
+  }
   if is_heif_image(data) {
     return "image/heic".to_owned();
   }
@@ -60,6 +75,7 @@ pub fn normalized_mime_type(raw: &str) -> String {
     "application/x-pdf" => "application/pdf",
     "application/x-zip-compressed" => "application/zip",
     "image/jpg" | "image/pjpeg" => "image/jpeg",
+    "image/cr2" => CR2_MIME_TYPE,
     "text/xml" => "application/xml",
     _ => trimmed,
   };
@@ -76,6 +92,7 @@ pub fn mime_type_from_title_extension(title: &str) -> Option<String> {
     "aac" => "audio/aac",
     "avi" => "video/x-msvideo",
     "csv" => "text/csv",
+    "cr2" => CR2_MIME_TYPE,
     "gif" => "image/gif",
     "gz" => "application/gzip",
     "heic" | "heif" | "hif" => "image/heic",

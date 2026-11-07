@@ -51,7 +51,7 @@ use crate::storage::cache::{ImageCacheKey, ImageSize};
 use crate::storage::db::Db;
 use crate::storage::object;
 use crate::util::image::{IMAGE_PROCESSING_SEMAPHORE, decode_image, encode_image_jpeg};
-use crate::util::mime::{CHAT_TRANSCRIPT_MIME_TYPE, is_heif_mime_type};
+use crate::util::mime::{CHAT_TRANSCRIPT_MIME_TYPE, requires_jpeg_rendition};
 use crate::web::serve::{
   cors_response, forbidden_response, full_body, internal_server_error_response, not_found_response,
 };
@@ -408,14 +408,14 @@ async fn get_cached_resized_img(
   }
   let filename = response_filename(&uid, title_maybe.as_deref());
 
-  // HEIC originals remain downloadable, but display requests always need a JPEG, even at full size.
-  let requested_width = if is_heif_mime_type(&original_mime_type_string) {
+  // HEIC and CR2 originals remain downloadable, but display requests need a JPEG, even at full display size.
+  let requested_width = if requires_jpeg_rendition(&original_mime_type_string) {
     requested_width.min(original_dimensions_px.w as u32)
   } else {
     requested_width
   };
   let respond_with_cached_original =
-    !is_heif_mime_type(&original_mime_type_string) && requested_width >= original_dimensions_px.w as u32;
+    !requires_jpeg_rendition(&original_mime_type_string) && requested_width >= original_dimensions_px.w as u32;
 
   // The largest cached rendition too small to be the response. It can be sent as a partial response whilst the
   // requested rendition is generated.

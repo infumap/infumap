@@ -59,13 +59,14 @@ const MAX_EXTERNAL_UPLOAD_FILES = 100;
 const MAX_EXTERNAL_UPLOAD_FILE_BYTES = 190 * 1024 * 1024;
 const TEXT_UPLOAD_MIME_TYPES = new Set(["text/plain", "text/markdown", "text/x-markdown"]);
 const TEXT_UPLOAD_EXTENSIONS = new Set(["txt", "md", "markdown"]);
-// HEIC display requests are converted to JPEG on the server, including at full size. Other image formats must also
+// HEIC and CR2 display requests use JPEG renditions on the server, including at full display size. Other formats must
 // be browser-readable because their original bytes are served at full size.
 const IMAGE_UPLOAD_MIME_TYPES = new Set([
   "image/jpeg", "image/png", "image/webp", "image/gif", "image/bmp", "image/heic", "image/heif",
+  "image/x-canon-cr2", "image/cr2",
 ]);
-// Browsers may leave the MIME type empty or use application/octet-stream for HEIC files.
-const HEIC_UPLOAD_EXTENSIONS = new Set(["heic", "heif", "hif"]);
+// Browsers may leave the MIME type empty or use a generic type for these formats (including image/tiff for CR2).
+const SERVER_DECODED_IMAGE_EXTENSIONS = new Set(["heic", "heif", "hif", "cr2"]);
 
 function normalizedUploadMimeType(file: File): string {
   return file.type.trim().toLowerCase().split(";")[0];
@@ -78,7 +79,7 @@ function uploadExtension(file: File): string {
 
 function uploadItemTypeForFile(file: File): ItemType {
   const mimeType = normalizedUploadMimeType(file);
-  if (IMAGE_UPLOAD_MIME_TYPES.has(mimeType) || HEIC_UPLOAD_EXTENSIONS.has(uploadExtension(file))) {
+  if (IMAGE_UPLOAD_MIME_TYPES.has(mimeType) || SERVER_DECODED_IMAGE_EXTENSIONS.has(uploadExtension(file))) {
     return ItemType.Image;
   }
   if (TEXT_UPLOAD_MIME_TYPES.has(mimeType) || TEXT_UPLOAD_EXTENSIONS.has(uploadExtension(file))) {

@@ -26,6 +26,7 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Semaphore;
 
+use crate::util::cr2::{embedded_preview, is_cr2};
 use crate::util::mime::is_heif_image;
 
 // Decoding and resizing large images is CPU intensive. Bound the number of concurrent image processing tasks,
@@ -59,7 +60,10 @@ pub fn decode_image(image_bytes: &[u8], image_identifier: &str) -> InfuResult<Dy
   }
 
   let exif_orientation = get_exif_orientation(image_bytes.to_vec(), image_identifier);
-  let img = ImageReader::new(Cursor::new(image_bytes))
+  // Use the original CR2's EXIF orientation, and the preview's actual pixel dimensions. Its sensor dimensions
+  // can be much larger (notably on a 350D); displaying the preview must not imply that those pixels were developed.
+  let display_bytes = if is_cr2(image_bytes) { embedded_preview(image_bytes)? } else { image_bytes };
+  let img = ImageReader::new(Cursor::new(display_bytes))
     .with_guessed_format()?
     .decode()
     .map_err(|e| format!("Could not decode image '{}': {}", image_identifier, e))?;

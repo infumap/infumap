@@ -28,7 +28,7 @@ use crate::ai::user_id_for_log;
 use crate::storage::db::Db;
 use crate::storage::object::{self as storage_object, ObjectStore};
 use crate::util::image::{IMAGE_PROCESSING_SEMAPHORE, decode_image, encode_image_jpeg, extract_image_metadata};
-use crate::util::mime::is_heif_mime_type;
+use crate::util::mime::requires_jpeg_rendition;
 use crate::util::retry::endpoint_retry_delay;
 
 mod artifacts;
@@ -178,7 +178,7 @@ pub fn is_supported_image_tagging_mime_type(mime_type: Option<&str>) -> bool {
   let Some(mime_type) = mime_type else {
     return false;
   };
-  SUPPORTED_IMAGE_MIME_TYPES.contains(&mime_type) || is_heif_mime_type(mime_type)
+  SUPPORTED_IMAGE_MIME_TYPES.contains(&mime_type) || requires_jpeg_rendition(mime_type)
 }
 
 pub fn should_tag_image_item(item: &Item) -> bool {
@@ -325,9 +325,9 @@ async fn process_image_tagging_for_candidate_and_bytes(
   {
     return Ok(());
   }
-  // The tagging service accepts JPEG, not HEIC. Convert once before retries, keeping the source bytes and
+  // The tagging service accepts JPEG. Convert HEIC and CR2 once before retries, keeping the source bytes and
   // candidate intact so EXIF extraction and artifact identity still describe the uploaded original.
-  let jpeg = if is_heif_mime_type(&candidate.mime_type) {
+  let jpeg = if requires_jpeg_rendition(&candidate.mime_type) {
     let bytes = file_bytes.to_vec();
     let item_id = candidate.item_id.clone();
     let permit = IMAGE_PROCESSING_SEMAPHORE
@@ -342,7 +342,7 @@ async fn process_image_tagging_for_candidate_and_bytes(
         encode_image_jpeg(&img, 90)
       })
       .await
-      .map_err(|e| format!("HEIC conversion task failed: {}", e))??,
+      .map_err(|e| format!("Image conversion task failed: {}", e))??,
     )
   } else {
     None

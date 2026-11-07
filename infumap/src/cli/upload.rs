@@ -45,7 +45,7 @@ use crate::web::routes::command::CommandResponse;
 fn is_image_filename(filename: &str) -> bool {
   matches!(
     Path::new(filename).extension().and_then(|e| e.to_str()).map(|e| e.to_ascii_lowercase()).as_deref(),
-    Some("png" | "jpg" | "jpeg" | "webp" | "gif" | "bmp" | "heic" | "heif" | "hif")
+    Some("png" | "jpg" | "jpeg" | "webp" | "gif" | "bmp" | "heic" | "heif" | "hif" | "cr2")
   )
 }
 

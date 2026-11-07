@@ -364,8 +364,9 @@ export const ImageFns = {
       VeFns.veidFromPath(visualElement.parentPath).itemId == SOLO_ITEM_HOLDER_PAGE_UID;
     if ((visualElement.flags & VisualElementFlags.Popup) || isSoloImage) {
       const image = visualElement.displayItem as ImageItem;
-      // Open a full-size JPEG rendition for HEIC; most browsers cannot display the downloadable original.
+      // Open a JPEG rendition for HEIC/CR2; browsers cannot reliably display their downloadable originals.
       const fileName = image.mimeType == "image/heic" || image.mimeType == "image/heif"
+        || image.mimeType == "image/x-canon-cr2" || image.mimeType == "image/cr2"
         ? `${image.id}_${image.imageSizePx.w}`
         : image.id;
       if (visualElement.displayItem.origin == null) {

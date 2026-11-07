@@ -119,7 +119,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     store.printMode.get() ? PRINT_IMAGE_RESOLUTION_MULTIPLIER : store.devicePixelRatio.get();
   const imgSrc = () => {
     let widthPx = Math.round(imageWidthToRequestPx(true) * imageResolutionMultiplier());
-    // Requests at or above the original width use the original size (a JPEG rendition for HEIC). Capping gives
+    // Requests at or above the display width use the display size (a JPEG rendition for HEIC/CR2). Capping gives
     // such requests a single url and cache entry.
     const originalWidthPx = imageItem().imageSizePx.w;
     if (originalWidthPx > 0 && widthPx > originalWidthPx) { widthPx = originalWidthPx; }
