@@ -1254,7 +1254,8 @@ export const PageFns = {
     const boundsPx = {
       x: leftMarginBl * blockSizePx.w + CONTAINER_IN_COMPOSITE_PADDING_PX,
       y: topPx,
-      w: (cloned.spatialWidthGr / GRID_SIZE) * blockSizePx.w - (CONTAINER_IN_COMPOSITE_PADDING_PX * 2) - 2,
+      // The padding is a fixed number of px, so exceeds the width of a narrow page in a small document page (a preview).
+      w: Math.max(0, (cloned.spatialWidthGr / GRID_SIZE) * blockSizePx.w - (CONTAINER_IN_COMPOSITE_PADDING_PX * 2) - 2),
       h: sizeBl.h * blockSizePx.h
     };
     let innerBoundsPx = zeroBoundingBoxTopLeft(boundsPx);
