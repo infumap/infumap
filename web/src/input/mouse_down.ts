@@ -513,7 +513,8 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
       if (editingDomEl && isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(editingDomEl.getBoundingClientRect())!) &&
         buttonNumber == MOUSE_LEFT) {
         const hitInfo = HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], false);
-        if (!(hitInfo.hitboxType & (HitboxFlags.Resize | HitboxFlags.WidthResize))) {
+        // The column menu arrow is rendered inside the heading it belongs to, but clicking it isn't placing a caret.
+        if (!(hitInfo.hitboxType & (HitboxFlags.Resize | HitboxFlags.WidthResize | HitboxFlags.TableColumnContextMenu))) {
           store.anItemIsMoving.set(false);
           store.anItemIsResizing.set(false);
           MouseActionState.set(null);
