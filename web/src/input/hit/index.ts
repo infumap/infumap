@@ -402,9 +402,11 @@ export function getHitInfo(
   const hitTop = returnIfHitAndNotIgnored(rootInfo, ignoreItems);
   if (hitTop) { return hitTop; }
   type RootResolver = (info: RootInfo) => RootInfo;
+  // Non-page popups go first: hitPagePopupRootMaybe scans the parent root's own hitboxes when it doesn't enter a
+  // page popup, and those (e.g. calendar month dividers) would otherwise win over a non-page popup above them.
   const resolvers: Array<RootResolver> = [
-    (info) => hitPagePopupRootMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive, ignoreItems, hitboxOptions),
     (info) => hitNonPagePopupMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive, ignoreItems, allowOutsideBoundsHitboxes, hitboxOptions),
+    (info) => hitPagePopupRootMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive, ignoreItems, hitboxOptions),
     (info) => hitPageSelectedRootMaybe(store, info, posOnDesktopPx, canHitEmbeddedInteractive, ignoreItems, hitboxOptions),
     (info) => hitCalendarMiniRootMaybe(store, info, ignoreItems, canHitEmbeddedInteractive, hitboxOptions),
     (info) => hitEmbeddedRootMaybe(store, info, ignoreItems, canHitEmbeddedInteractive, hitboxOptions),
@@ -834,6 +836,12 @@ function hitNonPagePopupMaybe(
     isPage(popupRootVeMaybe.displayItem) ? getBoundingBoxTopLeft(rootVe.viewportBoundsPx!) : getBoundingBoxTopLeft(rootVe.boundsPx)
   );
   const { flags: hitboxType, meta: hitboxMeta } = scanHitboxes(rootVe, posRelativeToRootVeBoundsPx, undefined, hitboxOptions);
+  // The popup covers whatever is under it, so a position inside it that hits nothing more specific still hits the
+  // popup, not the parent page.
+  const popupHitOrParent = (): RootInfo => {
+    if (isIgnored(rootVe.displayItem.id, ignoreItems)) { return parentRootInfo; }
+    return ({ parentRootVe: parentRootInfo.parentRootVe, rootVes, rootVe, posRelativeToRootVeBoundsPx, posRelativeToRootVeViewportPx, hitMaybe: new HitBuilder(parentRootInfo.rootVe, rootVes).over(rootVes).hitboxes(hitboxType, HitboxFlags.None).meta(hitboxMeta).pos(posRelativeToRootVeBoundsPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("hitNonPagePopupMaybe1").build() });
+  };
   if (isTable(rootVe.displayItem)) {
     if (hitboxType != HitboxFlags.None && hitboxType != HitboxFlags.Move && !isIgnored(rootVe.displayItem.id, ignoreItems)) {
       return ({
@@ -886,20 +894,14 @@ function hitNonPagePopupMaybe(
         }
       }
     }
-    if (hitboxType != HitboxFlags.None && !isIgnored(rootVe.displayItem.id, ignoreItems)) {
-      return ({ parentRootVe: parentRootInfo.parentRootVe, rootVes, rootVe, posRelativeToRootVeBoundsPx, posRelativeToRootVeViewportPx, hitMaybe: new HitBuilder(parentRootInfo.rootVe, rootVes).over(rootVes).hitboxes(hitboxType, HitboxFlags.None).meta(hitboxMeta).pos(posRelativeToRootVeBoundsPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("hitNonPagePopupMaybe1").build() });
-    }
-    return parentRootInfo;
+    return popupHitOrParent();
   }
   const rootVeChildren = VesCache.render.getChildren(VeFns.veToPath(rootVe))();
   for (let i = rootVeChildren.length - 1; i >= 0; --i) {
     const hitMaybe = hitChildMaybe(store, posOnDesktopPx, rootVes, parentRootInfo.parentRootVe, posRelativeToRootVeViewportPx, rootVeChildren[i], ignoreItems, canHitEmbeddedInteractive, allowOutsideBoundsHitboxes, hitboxOptions);
     if (hitMaybe) { return ({ parentRootVe: parentRootInfo.parentRootVe, rootVes, rootVe, posRelativeToRootVeBoundsPx, posRelativeToRootVeViewportPx, hitMaybe }); }
   }
-  if (hitboxType != HitboxFlags.None && !isIgnored(rootVe.displayItem.id, ignoreItems)) {
-    return ({ parentRootVe: parentRootInfo.parentRootVe, rootVes, rootVe, posRelativeToRootVeBoundsPx, posRelativeToRootVeViewportPx, hitMaybe: new HitBuilder(parentRootInfo.rootVe, rootVes).over(rootVes).hitboxes(hitboxType, HitboxFlags.None).meta(hitboxMeta).pos(posRelativeToRootVeBoundsPx).allowEmbeddedInteractive(canHitEmbeddedInteractive).createdAt("hitNonPagePopupMaybe1").build() });
-  }
-  return parentRootInfo;
+  return popupHitOrParent();
 }
 
 
