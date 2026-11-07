@@ -1892,9 +1892,11 @@ function mouseUpHandler_moving_toOrderedPage(store: StoreContextModel, activeIte
   const pageItem = asPageItem(overContainerVe.displayItem);
   const path = VeFns.veToPath(overContainerVe);
   const idx = store.perVe.getMoveOverIndex(path);
-  // A list page draws a group move stacked in order under the cursor, so a drop inserts the whole group there, in that
-  // order. Other ordered pages take just the active item.
-  const movingItems = pageItem.arrangeAlgorithm == ArrangeAlgorithm.List
+  // List, grid and justified pages draw a group move together under the cursor, so a drop inserts the whole group
+  // there, in order. Other ordered pages take just the active item.
+  const movingItems = pageItem.arrangeAlgorithm == ArrangeAlgorithm.List ||
+    pageItem.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
+    pageItem.arrangeAlgorithm == ArrangeAlgorithm.Justified
     ? orderedGroupMoveItems(activeItem).map(item => asPositionalItem(item))
     : [activeItem];
   const movingIds = movingItems.map(item => item.id);

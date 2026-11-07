@@ -33,6 +33,7 @@ import { isQuerySearchResultLink } from "../../items/search-item";
 import { LINK_TRIANGLE_SIZE_PX, MIN_DETAILED_CHILD_SCALE } from "../../constants";
 import { NoteFlags } from "../../items/base/flags-item";
 import { asNoteItem, isNote } from "../../items/note-item";
+import { PageItem } from "../../items/page-item";
 import { getTextStyleForNote } from "../text";
 
 
@@ -150,6 +151,25 @@ export function getMovingTreeItemInParentMaybe(parentId: string): Item | null {
   }
 
   return movingItem;
+}
+
+/**
+ * The children a grid or justified page is sized for during a move, in order: those not moving (movingIds), and those
+ * that were its children when the move started, even if they have since left. Sizing the page for just the children it
+ * lays out would change its height as items are lifted out and, since scroll position is proportional to height, shift
+ * everything in it under the cursor. Items moving in from elsewhere don't count until they are dropped.
+ */
+export function childIdsSizingPageDuringMove(page: PageItem, movingIds: Set<string>): Array<string> {
+  const moveIsActive = !MouseActionState.empty() && MouseActionState.isAction(MouseAction.Moving);
+  const startChildIds = moveIsActive
+    ? (MouseActionState.getMoveRollback() ?? []).filter(entry => entry.parentId == page.id).map(entry => entry.id)
+    : [];
+  const startChildIdSet = new Set(startChildIds);
+  const childIdSet = new Set(page.computed_children);
+  return [
+    ...page.computed_children.filter(id => !movingIds.has(id) || startChildIdSet.has(id)),
+    ...startChildIds.filter(id => !childIdSet.has(id)),
+  ];
 }
 
 export function addContiguousStackedGapHitboxes(

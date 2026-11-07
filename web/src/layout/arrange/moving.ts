@@ -16,13 +16,20 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { LINE_HEIGHT_PX } from "../../constants";
+import { groupMoveStackWindow } from "../../input/move_group";
 import { CursorEventState, MouseActionState } from "../../input/state";
+import { Item } from "../../items/base/item";
+import { ItemFns } from "../../items/base/item-polymorphism";
+import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
+import { ArrangeAlgorithm, PageItem } from "../../items/page-item";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, Dimensions } from "../../util/geometry";
 import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, Veid, VisualElementPath } from "../visual-element";
-import { ArrangeItemFlags } from "./item";
+import { setNaturalAttachmentBlockSizePx } from "./attachments";
+import { ArrangeItemFlags, arrangeItemPath } from "./item";
 
 
 function fallbackPageViewportBoundsRelativeToDesktopPx(
@@ -85,4 +92,54 @@ export function movingItemCellBoundsInPagePx(
   cellBoundsPx.y -= clickOffsetProp.y * cellBoundsPx.h;
 
   return cellBoundsPx;
+}
+
+const MOVING_PILE_OFFSET_PX = 8;
+
+/**
+ * Arrange the items moving in grid or justified page pagePath (orderedItems, from orderedGroupMoveItems) as a pile:
+ * activeItem on top under the cursor, where it was grabbed, and the others behind it, each further down and to the
+ * right. They aren't stacked in a column as in a list page, because they are drawn at their spatial size, and images
+ * in particular are often large enough that a column would run off the screen. At most GROUP_MOVE_STACK_MAX_ITEMS are
+ * drawn, and MovingItemsOverlay badges the pile with the count of the rest. The result is back to front.
+ */
+export function arrangeMovingPile(
+  store: StoreContextModel,
+  pagePath: VisualElementPath,
+  page: PageItem,
+  pageLinkItemMaybe: LinkItem | null,
+  geometry: ItemGeometry,
+  childAreaBoundsPx: BoundingBox,
+  orderedItems: Array<Item>,
+  activeItem: Item,
+  flags: ArrangeItemFlags,
+): Array<VisualElementPath> {
+  const scale = geometry.boundsPx.w / store.desktopBoundsPx().w;
+  const sizePx = (item: Item): Dimensions => {
+    const dimensionsBl = ItemFns.calcSpatialDimensionsBl(item);
+    return { w: dimensionsBl.w * LINE_HEIGHT_PX * scale, h: dimensionsBl.h * LINE_HEIGHT_PX * scale };
+  };
+  const scrollVeid = flags & ArrangeItemFlags.IsPopupRoot
+    ? store.history.currentPopupSpec()!.actualVeid
+    : VeFns.veidFromItems(page, pageLinkItemMaybe);
+  const activeCellBoundsPx = movingItemCellBoundsInPagePx(
+    store, pagePath, geometry, childAreaBoundsPx, scrollVeid, sizePx(activeItem), flags);
+  const attachmentBlockSizePx = LINE_HEIGHT_PX * geometry.boundsPx.w / store.desktopMainAreaBoundsPx().w;
+
+  const pile = [
+    ...groupMoveStackWindow(orderedItems, activeItem.id).items.filter(item => item.id != activeItem.id),
+    activeItem,
+  ];
+  return pile.map((item, i) => {
+    const offsetPx = (pile.length - 1 - i) * MOVING_PILE_OFFSET_PX * scale;
+    const cellBoundsPx = { x: activeCellBoundsPx.x + offsetPx, y: activeCellBoundsPx.y + offsetPx, ...sizePx(item) };
+    const cellGeometry = ItemFns.calcGeometry_InCell(
+      item, cellBoundsPx, false, !!(flags & ArrangeItemFlags.ParentIsPopup),
+      false, false, false, false, false, false, store.smallScreenMode());
+    setNaturalAttachmentBlockSizePx(store, item, cellGeometry, attachmentBlockSizePx, false);
+    return arrangeItemPath(
+      store, pagePath, ArrangeAlgorithm.Grid, item, isLink(item) ? asLinkItem(item) : null, cellGeometry,
+      ArrangeItemFlags.RenderChildrenAsFull |
+      (flags & ArrangeItemFlags.IsPopupRoot ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
+  });
 }

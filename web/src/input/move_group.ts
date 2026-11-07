@@ -170,9 +170,14 @@ export function getGroupMoveEntriesInParent(
   return result;
 }
 
+/** Reading order of the items of a group move: top to bottom then left to right, where the drag started. */
+export function compareGroupMoveItems(a: GroupMoveItem, b: GroupMoveItem): number {
+  return a.startPosGr.y - b.startPosGr.y || a.startPosGr.x - b.startPosGr.x;
+}
+
 /**
- * All items moving with activeItem, in the order they go into an ordered page (list, dock): their reading order, top
- * to bottom then left to right, where the drag started. Just activeItem when it isn't part of a group move.
+ * All items moving with activeItem, in the order they go into an ordered page (list, dock, grid, justified): their
+ * reading order, where the drag started. Just activeItem when it isn't part of a group move.
  */
 export function orderedGroupMoveItems(activeItem: Item): Array<Item> {
   const entries = getGroupMoveEntriesInParent(MouseActionState.getGroupMoveItems(), activeItem.parentId);
@@ -180,15 +185,15 @@ export function orderedGroupMoveItems(activeItem: Item): Array<Item> {
     return [activeItem];
   }
   return entries
-    .sort((a, b) => a.entry.startPosGr.y - b.entry.startPosGr.y || a.entry.startPosGr.x - b.entry.startPosGr.x)
+    .sort((a, b) => compareGroupMoveItems(a.entry, b.entry))
     .map(({ item }) => item);
 }
 
-/** The most items of a group move drawn stacked under the cursor over an ordered page. A badge counts the rest. */
+/** The most items of a group move drawn stacked or piled under the cursor over an ordered page. A badge counts the rest. */
 export const GROUP_MOVE_STACK_MAX_ITEMS = 5;
 
 /**
- * The run of orderedItems (from orderedGroupMoveItems) drawn stacked under the cursor over an ordered page: at most
+ * The run of orderedItems (from orderedGroupMoveItems) drawn under the cursor over an ordered page: at most
  * GROUP_MOVE_STACK_MAX_ITEMS, with the active item as near the middle as the ends allow, so it stays under the cursor
  * with its neighbours either side of it.
  */

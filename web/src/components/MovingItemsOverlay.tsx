@@ -18,9 +18,9 @@
 
 import { Component, createMemo, For, Show } from "solid-js";
 import { Z_INDEX_GLOBAL_MOVING } from "../constants";
-import { groupMoveStackWindow, orderedGroupMoveItems } from "../input/move_group";
+import { compareGroupMoveItems, groupMoveStackWindow, orderedGroupMoveItems } from "../input/move_group";
 import { MouseAction, MouseActionState } from "../input/state";
-import { isPage } from "../items/page-item";
+import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { isTable } from "../items/table-item";
 import { VesCache } from "../layout/ves-cache";
 import { isVeTranslucentPage, VeFns, Veid, VisualElement, VisualElementFlags } from "../layout/visual-element";
@@ -126,14 +126,11 @@ function movingOverlayVisualElements(store: StoreContextModel): Array<VisualElem
 
   if (activeVisualElement) {
     seenPaths.add(movingOverlayPath(activeVisualElement));
-    movingElements.push(movingOverlayVe(store, activeVisualElement));
-  }
-
-  if (activeVisualElement) {
     seenVeids.add(movingOverlayVeidKey(VeFns.veidFromVe(activeVisualElement)));
   }
 
-  const groupMoveItems = MouseActionState.getGroupMoveItems() ?? [];
+  // Back to front: where the moving items overlap, as in a pile (see arrangeMovingPile), the active item goes on top.
+  const groupMoveItems = [...(MouseActionState.getGroupMoveItems() ?? [])].sort(compareGroupMoveItems);
   for (const groupMoveItem of groupMoveItems) {
     const veidKey = movingOverlayVeidKey(groupMoveItem.veid);
     if (seenVeids.has(veidKey)) { continue; }
@@ -142,13 +139,17 @@ function movingOverlayVisualElements(store: StoreContextModel): Array<VisualElem
     addMovingOverlayVisualElementsForVeid(store, groupMoveItem.veid, movingElements, seenPaths);
   }
 
+  if (activeVisualElement) {
+    movingElements.push(movingOverlayVe(store, activeVisualElement));
+  }
+
   return movingElements;
 }
 
 /**
- * Over a list page, table page or the dock, at most GROUP_MOVE_STACK_MAX_ITEMS of a group move are drawn, stacked under
- * the cursor (see groupMoveStackWindow), and by the page itself rather than here. This is where the badge counting the
- * rest goes: the bottom right of the stack.
+ * Over a list, table, grid or justified page or the dock, at most GROUP_MOVE_STACK_MAX_ITEMS of a group move are drawn,
+ * stacked or piled under the cursor (see groupMoveStackWindow), and by the page itself rather than here. This is where
+ * the badge counting the rest goes: the bottom right of the stack.
  */
 function movingOverlayStackBadgeMaybe(store: StoreContextModel): { x: number, y: number, hiddenCount: number } | null {
   if (!store.anItemIsMoving.get()) { return null; }
@@ -165,7 +166,10 @@ function movingOverlayStackBadgeMaybe(store: StoreContextModel): { x: number, y:
   if (stackVes.length == 0 || parentVisualElement == null ||
     !((parentVisualElement.flags & VisualElementFlags.IsDock) ||
       parentVisualElement.listViewportBoundsPx != null ||
-      parentVisualElement.tableBodyViewportBoundsPx != null)) {
+      parentVisualElement.tableBodyViewportBoundsPx != null ||
+      (isPage(parentVisualElement.displayItem) &&
+        (asPageItem(parentVisualElement.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Grid ||
+          asPageItem(parentVisualElement.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Justified)))) {
     return null;
   }
 

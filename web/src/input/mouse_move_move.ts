@@ -443,7 +443,10 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
       y: activeItem.spatialPositionGr.y / GRID_SIZE
     });
 
-    MouseActionState.setGroupMoveItems(groupMoveItemsFromSelectionMaybe(store, activeVisualElement, parentItem));
+    // A copy or link is made of the active item only.
+    MouseActionState.setGroupMoveItems(shouldCreateLink || shouldClone
+      ? undefined
+      : groupMoveItemsFromSelectionMaybe(store, activeVisualElement, parentItem));
 
     if (shouldClone) {
       const toClone = activeVisualElement.displayItem;
@@ -592,12 +595,12 @@ function groupMoveItemsFromSelectionMaybe(
     return entries.map((e, i) => ({ veid: e.veid, startPosGr: startPositionsGr[i], parentId: e.item.parentId }));
   }
 
-  // Dock items' spatial positions are unused, and a marquee selects them in no particular order: stack them in the
-  // order they appear in the dock.
+  // The spatial positions of the items in the dock or a grid or justified page are unused, and a marquee selects them
+  // in no particular order: stack them in the order they are laid out.
   const parentVe = activeVisualElement.parentPath ? VesCache.current.readNode(activeVisualElement.parentPath) : null;
-  if (parentVe && (parentVe.flags & VisualElementFlags.IsDock) && isPage(parentItem)) {
-    const dockOrder = asPageItem(parentItem).computed_children;
-    entries.sort((a, b) => dockOrder.indexOf(a.item.id) - dockOrder.indexOf(b.item.id));
+  if (isPage(parentItem) && (pageLaysOutChildrenInReadingOrder(parentItem) || (parentVe && (parentVe.flags & VisualElementFlags.IsDock)))) {
+    const childOrder = asPageItem(parentItem).computed_children;
+    entries.sort((a, b) => childOrder.indexOf(a.item.id) - childOrder.indexOf(b.item.id));
     const startPositionsGr = stackedGroupMoveStartPositionsGr(entries.map(e => e.item));
     return entries.map((e, i) => ({ veid: e.veid, startPosGr: startPositionsGr[i], parentId: e.item.parentId }));
   }
@@ -615,6 +618,11 @@ function groupMoveItemsFromSelectionMaybe(
     })(),
     parentId: e.item.parentId,
   }));
+}
+
+function pageLaysOutChildrenInReadingOrder(page: Item): boolean {
+  const arrangeAlgorithm = asPageItem(page).arrangeAlgorithm;
+  return arrangeAlgorithm == ArrangeAlgorithm.Grid || arrangeAlgorithm == ArrangeAlgorithm.Justified;
 }
 
 function shouldArrangeDocumentPageMoveOutOnStart(parentItem: Item, activeVisualElement: VisualElement): boolean {
@@ -888,10 +896,14 @@ export function mouseAction_moving(deltaPx: Vector, desktopPosPx: Vector, store:
         x: newPosGr.x - (activeEntry ? activeEntry.startPosGr.x : activeItem.spatialPositionGr.x),
         y: newPosGr.y - (activeEntry ? activeEntry.startPosGr.y : activeItem.spatialPositionGr.y),
       };
-      for (const g of group) {
-        const itm = asPositionalItem(itemState.get(g.veid.linkIdMaybe ? g.veid.linkIdMaybe : g.veid.itemId)!);
-        if (itm.parentId === activeItem.parentId) {
-          itm.spatialPositionGr = { x: g.startPosGr.x + deltaFromStart.x, y: g.startPosGr.y + deltaFromStart.y };
+      // A group's start positions in these pages are just a stack (see groupMoveItemsFromSelectionMaybe). A drop here
+      // doesn't use the items' spatial positions, so leave them for if the page is switched back to spatial.
+      if (!pageLaysOutChildrenInReadingOrder(inElement)) {
+        for (const g of group) {
+          const itm = asPositionalItem(itemState.get(g.veid.linkIdMaybe ? g.veid.linkIdMaybe : g.veid.itemId)!);
+          if (itm.parentId === activeItem.parentId) {
+            itm.spatialPositionGr = { x: g.startPosGr.x + deltaFromStart.x, y: g.startPosGr.y + deltaFromStart.y };
+          }
         }
       }
       arrangeNow(store, "moving-update-group-position");
@@ -1263,9 +1275,9 @@ function updatePageMoveOverIndex(
     const cellX = Math.max(0, Math.min(asPageItem(inElement).gridNumberOfColumns, rawCellX));
     const cellY = Math.max(0, rawCellY);
     let index = cellY * asPageItem(inElement).gridNumberOfColumns + cellX;
-    const numChildren = asContainerItem(inElement).computed_children.length;
+    const numNonMovingChildren = VesCache.render.getNonMovingChildren(VeFns.veToPath(inElementVe))().length;
     if (index < 0) { index = 0; }
-    if (index >= numChildren) { index = numChildren - 1; } // numChildren is inclusive of the moving item so -1.
+    if (index > numNonMovingChildren) { index = numNonMovingChildren; }
     store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), index);
   }
 

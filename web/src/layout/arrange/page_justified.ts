@@ -17,23 +17,23 @@
 */
 
 import { LINE_HEIGHT_PX } from "../../constants";
+import { orderedGroupMoveItems } from "../../input/move_group";
 import { PageFlags } from "../../items/base/flags-item";
-import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem, asPageItem, isPage, pageUsesEmbeddedInteractiveMode } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
-import { BoundingBox, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { panic } from "../../util/lang";
 import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
-import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItem, arrangeItemPath, arrangedItemIsInOverlaySelection, getCommonVisualElementFlags } from "./item";
+import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItemPath, arrangedItemIsInOverlaySelection, getCommonVisualElementFlags } from "./item";
 import { calcJustifiedBoxSpacingPx, calcJustifiedPagePaddingPx, calcJustifiedTargetRowHeightPx } from "./justified_metrics";
-import { movingItemCellBoundsInPagePx } from "./moving";
+import { arrangeMovingPile } from "./moving";
 import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
-import { getMovingTreeItemInParentMaybe } from "./util";
+import { childIdsSizingPageDuringMove, getMovingTreeItemInParentMaybe } from "./util";
 import { addLinkTriangleHitboxMaybe } from "../link-triangle";
 import { setNaturalAttachmentBlockSizePx } from "./attachments";
 import createJustifiedLayout from "justified-layout";
@@ -51,7 +51,6 @@ export function arrange_justified_page(
   const pageWithChildrenVeid = VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren ? linkItemMaybe_pageWithChildren : actualLinkItemMaybe_pageWithChildren);
   const pageWithChildrenVePath = VeFns.addVeidToPath(pageWithChildrenVeid, parentPath);
 
-  const scale = geometry.boundsPx.w / store.desktopBoundsPx().w;
   const attachmentBlockSizePx = LINE_HEIGHT_PX * geometry.boundsPx.w / store.desktopMainAreaBoundsPx().w;
 
   const parentIsPopup = flags & ArrangeItemFlags.IsPopupRoot;
@@ -61,17 +60,15 @@ export function arrange_justified_page(
     VesCache.titles.pushTopTitledPage(pageWithChildrenVePath);
   }
 
-  let movingItem = null;
   const movingItemInThisPage = getMovingTreeItemInParentMaybe(displayItem_pageWithChildren.id);
-  movingItem = movingItemInThisPage;
-
-
+  const movingItemsInThisPage = movingItemInThisPage ? orderedGroupMoveItems(movingItemInThisPage) : [];
+  const movingIds = new Set(movingItemsInThisPage.map(item => item.id));
 
   let dims = [];
   let items = [];
   for (let i = 0; i < displayItem_pageWithChildren.computed_children.length; ++i) {
     const item = itemState.get(displayItem_pageWithChildren.computed_children[i])!;
-    if (movingItemInThisPage && item.id == movingItemInThisPage!.id) {
+    if (movingIds.has(item.id)) {
       continue;
     }
     let dimensions = ItemFns.calcSpatialDimensionsBl(item);
@@ -79,13 +76,20 @@ export function arrange_justified_page(
     items.push(item);
   }
 
-  const layout = createJustifiedLayout(dims, createJustifyOptions(geometry.boundsPx.w, displayItem_pageWithChildren.justifiedRowAspect));
+  const justifyOptions = createJustifyOptions(geometry.boundsPx.w, displayItem_pageWithChildren.justifiedRowAspect);
+  const layout = createJustifiedLayout(dims, justifyOptions);
   if (layout.boxes.length != items.length) {
     panic(`incorrect number of boxes for items: ${layout.boxes.length} vs ${items.length}.`);
   }
 
   const childAreaBoundsPx = zeroBoundingBoxTopLeft(cloneBoundingBox(geometry.viewportBoundsPx)!);
-  childAreaBoundsPx.h = layout.containerHeight;
+  const sizingChildIds = childIdsSizingPageDuringMove(displayItem_pageWithChildren, movingIds);
+  childAreaBoundsPx.h = sizingChildIds.length == items.length
+    ? layout.containerHeight
+    : createJustifiedLayout(sizingChildIds.map(id => {
+      const dimensions = ItemFns.calcSpatialDimensionsBl(itemState.get(id)!);
+      return { width: dimensions.w, height: dimensions.h };
+    }), justifyOptions).containerHeight;
 
   const isEmbeddedInteractive =
     !!(flags & ArrangeItemFlags.IsDockRoot) ||
@@ -148,10 +152,9 @@ export function arrange_justified_page(
   }
 
   if (movingItemInThisPage) {
-    const movingVes = arrangeMovingItemInJustified(
-      store, movingItemInThisPage, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren,
-      pageWithChildrenVePath, geometry, childAreaBoundsPx, scale, flags, parentIsPopup);
-    childrenPaths.push(VeFns.veToPath(movingVes.get()));
+    childrenPaths.push(...arrangeMovingPile(
+      store, pageWithChildrenVePath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren,
+      geometry, childAreaBoundsPx, movingItemsInThisPage, movingItemInThisPage, flags));
   }
 
   pageRelationships.childrenPaths = childrenPaths;
@@ -166,52 +169,6 @@ export function arrange_justified_page(
   }
 
   return { spec: pageSpec, relationships: pageRelationships };
-}
-
-
-/**
- * Arranges an item that is currently being moved/dragged within a justified page.
- * Positions the item based on the current mouse cursor position.
- */
-function arrangeMovingItemInJustified(
-  store: StoreContextModel,
-  movingItem: Item,
-  displayItem_pageWithChildren: PageItem,
-  linkItemMaybe_pageWithChildren: LinkItem | null,
-  pageWithChildrenVePath: VisualElementPath,
-  geometry: ItemGeometry,
-  childAreaBoundsPx: BoundingBox,
-  scale: number,
-  flags: ArrangeItemFlags,
-  parentIsPopup: number) {
-
-  const actualMovingItemLinkItemMaybe = isLink(movingItem) ? asLinkItem(movingItem) : null;
-
-  const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItem);
-  const scrollVeid = flags & ArrangeItemFlags.IsPopupRoot
-    ? store.history.currentPopupSpec()!.actualVeid
-    : VeFns.veidFromItems(displayItem_pageWithChildren, linkItemMaybe_pageWithChildren);
-  const cellBoundsPx = movingItemCellBoundsInPagePx(
-    store,
-    pageWithChildrenVePath,
-    geometry,
-    childAreaBoundsPx,
-    scrollVeid,
-    {
-      w: dimensionsBl.w * LINE_HEIGHT_PX * scale,
-      h: dimensionsBl.h * LINE_HEIGHT_PX * scale,
-    },
-    flags,
-  );
-
-  const cellGeometry = ItemFns.calcGeometry_InCell(
-    movingItem, cellBoundsPx, false, !!(flags & ArrangeItemFlags.ParentIsPopup),
-    false, false, false, false, false, false, store.smallScreenMode());
-  setNaturalAttachmentBlockSizePx(store, movingItem, cellGeometry, LINE_HEIGHT_PX * geometry.boundsPx.w / store.desktopMainAreaBoundsPx().w, false);
-
-  return arrangeItem(
-    store, pageWithChildrenVePath, ArrangeAlgorithm.Grid, movingItem, actualMovingItemLinkItemMaybe, cellGeometry,
-    ArrangeItemFlags.RenderChildrenAsFull | (parentIsPopup ? ArrangeItemFlags.ParentIsPopup : ArrangeItemFlags.None));
 }
 
 
