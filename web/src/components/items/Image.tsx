@@ -484,11 +484,6 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 style={`${boundsStylePx(frameInnerBoundsPx())} ` +
                   `${highlightStyle(props.visualElement.flags)}`} />
             </Show>
-            <Show when={store.perVe.getMovingItemIsOverAttach(vePath()) &&
-              store.perVe.getMoveOverAttachmentIndex(vePath()) >= 0}>
-              <div class="absolute bg-black"
-                style={`left: ${attachInsertBarPx().x}px; top: ${attachInsertBarPx().y}px; width: ${attachInsertBarPx().w}px; height: ${attachInsertBarPx().h}px;`} />
-            </Show>
             <Show when={store.perVe.getMouseIsOver(vePath()) && !store.anItemIsMoving.get() && (!isInComposite() || isInCompositeInDocumentPage())}>
               <div class="absolute"
                 style={`${boundsStylePx(frameInnerBoundsPx())} background-color: #ffffff33;`} />
@@ -549,6 +544,11 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
           <VisualElement_Desktop visualElement={attachment.get()} suppressLocalShadow={props.suppressLocalShadow} />
         }</For>
         <AttachmentsOverflowMarker visualElement={props.visualElement} />
+        <Show when={store.perVe.getMovingItemIsOverAttach(vePath()) &&
+          store.perVe.getMoveOverAttachmentIndex(vePath()) >= 0}>
+          <div class="absolute bg-black"
+            style={boundsStylePx(attachInsertBarPx())} />
+        </Show>
         <Show when={showMoveOutOfCompositeArea()}>
           <CompositeMoveOutHandle boundsPx={moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(vePath())} vePath={vePath()} />
         </Show>
