@@ -70,7 +70,6 @@ export const Toolbar_PageSizePopup: Component = () => {
   const pageItem = () => asPageItem(getToolbarFocusItem(store));
   const [sizeBl, setSizeBl] = createSignal<Dimensions>(PageFns.calcInnerSpatialDimensionsBl(pageItem()));
   const [dragScale, setDragScale] = createSignal<number | null>(null);
-  const [clamped, setClamped] = createSignal(false);
   let drag: DragState | null = null;
 
   // Children don't change while the popup is open: anywhere else they could be changed from closes it.
@@ -79,15 +78,13 @@ export const Toolbar_PageSizePopup: Component = () => {
     w: childRects.reduce((m, r) => Math.max(m, r.x + r.w), 0),
     h: childRects.reduce((m, r) => Math.max(m, r.y + r.h), 0),
   };
-  // Items can't be placed outside a page, so it can't be made smaller than they reach. An item flush with the
-  // right or bottom edge already counts as outside when arranged (its bounds include a border pixel) and is drawn
-  // with the moved-into-view warning, so the page must reach past it.
-  const itemReachBl: Dimensions = childRects.length == 0
-    ? { w: 0, h: 0 }
-    : { w: Math.floor(extentBl.w) + 1, h: Math.floor(extentBl.h) + 1 };
-  const minSizeBl: Dimensions = {
-    w: Math.max(MIN_SIZE_BL, itemReachBl.w),
-    h: Math.max(MIN_SIZE_BL, itemReachBl.h),
+  // The page may be made smaller than its items reach: arrange moves those items into view and draws them with the
+  // moved-into-view warning, and the schematic marks them. An item flush with the right or bottom edge already counts
+  // as outside when arranged (its bounds include a border pixel), so the page must reach past it to contain it.
+  const reachBl = (r: BoundingBox): Dimensions => ({ w: Math.floor(r.x + r.w) + 1, h: Math.floor(r.y + r.h) + 1 });
+  const isOutside = (r: BoundingBox) => {
+    const reach = reachBl(r);
+    return reach.w > sizeBl().w || reach.h > sizeBl().h;
   };
 
   const restingScale = () => {
@@ -99,13 +96,11 @@ export const Toolbar_PageSizePopup: Component = () => {
   };
   const scale = () => dragScale() ?? restingScale();
 
-  const clampW = (w: number, maxW: number = MAX_SIZE_BL) => Math.max(minSizeBl.w, Math.min(maxW, w));
-  const clampH = (h: number, maxH: number = MAX_SIZE_BL) => Math.max(minSizeBl.h, Math.min(maxH, h));
+  const clampSize = (v: number, max: number = MAX_SIZE_BL) => Math.max(MIN_SIZE_BL, Math.min(max, v));
 
   const setSize = (requestedW: number, requestedH: number, maxW: number = MAX_SIZE_BL, maxH: number = MAX_SIZE_BL) => {
-    const w = clampW(Math.round(requestedW), maxW);
-    const h = clampH(Math.round(requestedH), maxH);
-    setClamped(w > requestedW || h > requestedH);
+    const w = clampSize(Math.round(requestedW), maxW);
+    const h = clampSize(Math.round(requestedH), maxH);
     applySize(w, aspectForSizeBl(w, h));
   };
 
@@ -168,9 +163,8 @@ export const Toolbar_PageSizePopup: Component = () => {
 
   const handleMatchWindow = () => {
     const aspect = autoPageAspect(store);
-    let w = clampW(sizeBl().w);
-    if (Math.floor(w / aspect) < minSizeBl.h) { w = clampW(Math.ceil(minSizeBl.h * aspect)); }
-    setClamped(false);
+    let w = clampSize(sizeBl().w);
+    if (Math.floor(w / aspect) < MIN_SIZE_BL) { w = clampSize(Math.ceil(MIN_SIZE_BL * aspect)); }
     applySize(w, aspect);
     save();
   };
@@ -191,7 +185,7 @@ export const Toolbar_PageSizePopup: Component = () => {
     return Math.round(pageItem().naturalAspect * 100) / 100;
   };
 
-  const itemsOutside = () => sizeBl().w < itemReachBl.w || sizeBl().h < itemReachBl.h;
+  const itemsOutside = () => childRects.some(isOutside);
 
   // Schematic geometry
 
@@ -226,9 +220,9 @@ export const Toolbar_PageSizePopup: Component = () => {
       <div class="px-3 py-3">
         <div class="relative overflow-hidden rounded border border-slate-200 bg-slate-50"
           style={`width: ${SCHEMATIC_W_PX}px; height: ${SCHEMATIC_H_PX}px;`}>
-          <div class="absolute border border-slate-400 bg-white" style={boxStyle(pageRectPx())} />
+          <div class={`absolute border bg-white ${itemsOutside() ? "border-amber-500" : "border-slate-400"}`} style={boxStyle(pageRectPx())} />
           <For each={childRects}>{r =>
-            <div class="absolute rounded-[1px] bg-slate-300" style={boxStyle(childRectPx(r))} />
+            <div class={`absolute rounded-[1px] ${isOutside(r) ? "bg-amber-400" : "bg-slate-300"}`} style={boxStyle(childRectPx(r))} />
           }</For>
           <div class="absolute cursor-ew-resize hover:bg-blue-500/20" style={`${boxStyle({ x: pageRectPx().x + pageRectPx().w - 4, y: pageRectPx().y, w: 8, h: pageRectPx().h })} touch-action: none;`}
             title="Drag to change the width" {...handleProps("right")} />
@@ -240,12 +234,12 @@ export const Toolbar_PageSizePopup: Component = () => {
 
         <div class="mt-[10px] flex items-center gap-2 text-[12px] text-slate-600">
           <label class="flex items-center gap-[6px]">Width
-            <input class={TOOLBAR_DIALOG_INPUT_CLASS} type="number" min={minSizeBl.w} max={MAX_SIZE_BL} step="1" value={sizeBl().w}
+            <input class={TOOLBAR_DIALOG_INPUT_CLASS} type="number" min={MIN_SIZE_BL} max={MAX_SIZE_BL} step="1" value={sizeBl().w}
               {...sizeInput("w")} />
           </label>
           <span class="text-slate-400">×</span>
           <label class="flex items-center gap-[6px]">Height
-            <input class={TOOLBAR_DIALOG_INPUT_CLASS} type="number" min={minSizeBl.h} max={MAX_SIZE_BL} step="1" value={sizeBl().h}
+            <input class={TOOLBAR_DIALOG_INPUT_CLASS} type="number" min={MIN_SIZE_BL} max={MAX_SIZE_BL} step="1" value={sizeBl().h}
               {...sizeInput("h")} />
           </label>
         </div>
@@ -253,10 +247,7 @@ export const Toolbar_PageSizePopup: Component = () => {
         <div class="mt-2 text-[11px] leading-[16px] text-slate-500">
           Aspect {aspectText()}. At full screen it {fullScreenText()}.
         </div>
-        <Show when={itemsOutside()} fallback={
-          <Show when={clamped()}>
-            <div class="text-[11px] leading-[16px] text-amber-700">Items are in the way below {minSizeBl.w} × {minSizeBl.h}. Move them to go smaller.</div>
-          </Show>}>
+        <Show when={itemsOutside()}>
           <div class="text-[11px] leading-[16px] text-amber-700">Some items are outside the page. Fit to items brings them back in.</div>
         </Show>
       </div>
