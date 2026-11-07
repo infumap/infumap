@@ -220,6 +220,21 @@ function maybeEditDocumentPageRowFromBackgroundClick(
 }
 
 /**
+ * Whether a click on a popup is on the editable title shown in its document. DocumentPageTitle's own click handler
+ * edits that, as on a root page, so the click must not also go to the popup, which makes a focused popup the root.
+ */
+function isPopupDocumentTitleClick(popupVe: VisualElement): boolean {
+  if (!isPage(popupVe.displayItem)) { return false; }
+  const page = asPageItem(popupVe.displayItem);
+  if (!itemCanEdit(page) || !PageFns.showDocumentTitleInDocument(page)) { return false; }
+  const titleElement = document.getElementById(VeFns.veToPath(popupVe) + ":title");
+  if (titleElement == null) { return false; }
+  const clientPx = CursorEventState.getLatestClientPx();
+  const target = document.elementFromPoint(clientPx.x, clientPx.y);
+  return target != null && titleElement.contains(target);
+}
+
+/**
  * Clicks beside a page in a document page do nothing.
  */
 function ignoreDocumentChildPageOutsideBoundsClickMaybe(
@@ -1622,6 +1637,10 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         } else if (maybeEditDocumentPageRowFromBackgroundClick(store, activeVisualElement)) {
           DoubleClickState.preventDoubleClick();
           arrangeNow(store, "mouse-up-edit-document-row-from-background");
+
+        } else if ((activeVisualElementSignal.get().flags & VisualElementFlags.Popup) &&
+          isPopupDocumentTitleClick(activeVisualElement)) {
+          DoubleClickState.preventDoubleClick();
 
         } else if (activeVisualElementSignal.get().flags & VisualElementFlags.Popup) {
           DoubleClickState.preventDoubleClick();

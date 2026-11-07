@@ -546,7 +546,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
         onInput={inputListener}>
         <PageGroupBoxes childVes={pageChildren()} childAreaBoundsPx={pageFns().childAreaBoundsPx()} pageItemId={props.visualElement.displayItem.id} />
         <Show when={PageFns.showDocumentTitleInDocument(pageFns().pageItem())}>
-          <DocumentPageTitle visualElement={props.visualElement} pageFns={props.pageFns} />
+          <DocumentPageTitle visualElement={props.visualElement} pageFns={props.pageFns} allowEditing={true} />
         </Show>
         {pageFns().renderCatalogResultSelectionMaybe()}
         <VisualElement_DesktopShadowLayer visualElementSignals={pageChildren()} />
