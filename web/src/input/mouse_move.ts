@@ -69,6 +69,7 @@ let lastMouseOverCatalogPagePath: VisualElementPath | null = null;
 let lastMouseOverSearchGridPagePath: VisualElementPath | null = null;
 let lastSelectionArrangeTimeMs = 0;
 let lastSelectionSignature = "";
+let pendingSelectionArrangeTimeout: ReturnType<typeof setTimeout> | null = null;
 const SELECTION_ARRANGE_THROTTLE_MS = 33;
 const COPY_MOVE_CURSOR_CLASS = "infumap-copy-move-cursor";
 
@@ -753,6 +754,10 @@ function changeMouseActionStateMaybe(
     const startPx = MouseActionState.getStartPx()!;
     store.overlay.selectionMarqueePx.set({ x: startPx.x, y: startPx.y, w: 0, h: 0 });
     store.overlay.selectedVeids.set([]);
+    // Nothing is highlighted at this point. Keeping the signature of the previous marquee would make a first rect
+    // that covers the same items look unchanged, and they would not highlight until the selection changed.
+    lastSelectionSignature = "";
+    cancelPendingSelectionArrange();
   }
 }
 
@@ -765,6 +770,25 @@ function selectionRectFromStartAndCurrent(store: StoreContextModel): { x: number
   const w = Math.abs(current.x - start.x);
   const h = Math.abs(current.y - start.y);
   return { x, y, w, h };
+}
+
+function selectionSignature(selected: Array<{ itemId: string; linkIdMaybe: string | null }>): string {
+  const ids = selected.map(s => s.itemId + (s.linkIdMaybe ? `[${s.linkIdMaybe}]` : ""));
+  ids.sort();
+  return ids.join(",");
+}
+
+function cancelPendingSelectionArrange() {
+  if (pendingSelectionArrangeTimeout != null) {
+    clearTimeout(pendingSelectionArrangeTimeout);
+    pendingSelectionArrangeTimeout = null;
+  }
+}
+
+function arrangeForSelection(store: StoreContextModel, signature: string) {
+  lastSelectionSignature = signature;
+  lastSelectionArrangeTimeMs = Date.now();
+  arrangeNow(store, "selection-marquee-update");
 }
 
 function mouseAction_selecting(store: StoreContextModel) {
@@ -852,16 +876,23 @@ function mouseAction_selecting(store: StoreContextModel) {
   store.overlay.selectedVeids.set(selected);
 
 
-  const signature = (() => {
-    const ids = selected.map(s => s.itemId + (s.linkIdMaybe ? `[${s.linkIdMaybe}]` : ""));
-    ids.sort();
-    return ids.join(",");
-  })();
-  const now = Date.now();
-  if (signature !== lastSelectionSignature && (now - lastSelectionArrangeTimeMs) > SELECTION_ARRANGE_THROTTLE_MS) {
-    lastSelectionSignature = signature;
-    lastSelectionArrangeTimeMs = now;
-    arrangeNow(store, "selection-marquee-update");
+  const signature = selectionSignature(selected);
+  if (signature === lastSelectionSignature) {
+    cancelPendingSelectionArrange();
+    return;
+  }
+  const remainingThrottleMs = SELECTION_ARRANGE_THROTTLE_MS - (Date.now() - lastSelectionArrangeTimeMs);
+  if (remainingThrottleMs <= 0) {
+    cancelPendingSelectionArrange();
+    arrangeForSelection(store, signature);
+  } else if (pendingSelectionArrangeTimeout == null) {
+    // There may not be another mouse move to pick up a throttled change: if the mouse stops here, the items most
+    // recently covered by the marquee would otherwise stay unhighlighted until it moves again or is released.
+    pendingSelectionArrangeTimeout = setTimeout(() => {
+      pendingSelectionArrangeTimeout = null;
+      if (!MouseActionState.isAction(MouseAction.Selecting)) { return; }
+      arrangeForSelection(store, selectionSignature(store.overlay.selectedVeids.get()));
+    }, remainingThrottleMs);
   }
 }
 
