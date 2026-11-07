@@ -301,7 +301,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
             contentEditable={isEditingTitle()}
             spellcheck={isEditingTitle()}
             onKeyDown={keyDownHandler}
-            onInput={ev => { ev.stopPropagation(); edit_inputListener(store, ev, false); }}>
+            onInput={ev => { ev.stopPropagation(); edit_inputListener(store, ev); }}>
             {tableItem().title}
           </div>
         </Show>
