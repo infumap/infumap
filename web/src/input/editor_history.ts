@@ -99,7 +99,7 @@ export function historyCaret(info: TextEditInfo, offset: number): EditorSelectio
   return { info: { ...info }, anchor: endpoint, focus: endpoint, focusPath: info.itemPath };
 }
 
-function restoreSelection(store: StoreContextModel, saved: EditorSelection): void {
+export function restoreEditorSelection(store: StoreContextModel, saved: EditorSelection): void {
   arrangeNow(store, "editor-history");
   if (saved.info && VesCache.current.readNode(saved.info.itemPath)) {
     store.overlay.setTextEditInfo(store.history, saved.info);
@@ -316,7 +316,7 @@ export function makeEditorHistory(getStore: () => StoreContextModel) {
       for (const value of removals) { itemState.delete(value.data.id); }
       (forward ? redo : undo).pop();
       (forward ? undo : redo).push(entry);
-      restoreSelection(store, forward ? entry.after : entry.before);
+      restoreEditorSelection(store, forward ? entry.after : entry.before);
       refresh();
     } catch (error) {
       failedWrite = true;

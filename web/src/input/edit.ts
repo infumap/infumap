@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { historyOwnsTextEdit } from "./editor_history";
+import { applyEditorFormatCommand, captureEditorSelection, historyOwnsTextEdit, restoreEditorSelection } from "./editor_history";
 import { server, serverOrRemote } from "../server";
 import {
   NoteFns,
@@ -57,7 +57,7 @@ import { isTableView, VeFns, VisualElement, VisualElementFlags } from "../layout
 import { asTitledItem, isTitledItem } from "../items/base/titled-item";
 import { StoreContextModel } from "../store/StoreProvider";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
-import { itemCanAcceptManualChildren, NoteFlags, PageFlags } from "../items/base/flags-item";
+import { itemCanAcceptManualChildren, NOTE_INDENT_MAX_LEVEL, NoteFlags, noteHasListStyle, noteIndentLevelFromFlags, PageFlags, setNoteIndentLevel } from "../items/base/flags-item";
 import { textEditElementId, type TextEditSession } from "./text_edit_session";
 import { structuralTextContainerIsEditable, structuralTextNote } from "./structural_text_edit";
 import { asContainerItem } from "../items/base/container-item";
@@ -668,6 +668,8 @@ export function edit_structuralKeyDownGuard(store: StoreContextModel, ev: Keyboa
     if (ev.shiftKey && edit_replaceNoteSelection(store, ev, "\n")) { return true; }
     if (!ev.shiftKey && exitEmptyNoteList(store, ev)) { return true; }
   }
+  if (changeListIndentFromTabKey(store, ev)) { return true; }
+  if (ev.key == "Backspace" && !ev.ctrlKey && !ev.metaKey && !ev.altKey && outdentListNoteFromStart(store, ev)) { return true; }
   const element = linearEditorForEvent(store, ev);
   if (element == null || ev.defaultPrevented) { return false; }
   const deleting = ev.key == "Backspace" || ev.key == "Delete";
@@ -701,6 +703,7 @@ export function edit_structuralBeforeInputGuard(store: StoreContextModel, ev: In
   if (!composing) {
     if (ev.inputType == "insertLineBreak" && edit_replaceNoteSelection(store, ev, "\n")) { return; }
     if (ev.inputType == "insertParagraph" && exitEmptyNoteList(store, ev)) { return; }
+    if (ev.inputType == "deleteContentBackward" && outdentListNoteFromStart(store, ev)) { return; }
   }
   const element = linearEditorForEvent(store, ev);
   if (element == null || ev.defaultPrevented) { return; }
@@ -1464,20 +1467,80 @@ export function prepareNoteParagraphSplit(store: StoreContextModel, element: HTM
     getTextOffsetWithinElement(element, ranges[0].endContainer, ranges[0].endOffset));
 }
 
+/** Enter on an empty list item moves it out one level, and out of the list once it's at the first level. */
 function exitEmptyNoteList(store: StoreContextModel, ev: Event): boolean {
   const element = textEditElementForEvent(store, ev);
   if (element == null) { return false; }
   const split = prepareNoteParagraphSplit(store, element);
-  if (split == null || split.note.title != "" ||
-      (split.note.flags & (NoteFlags.Bullet1 | NoteFlags.Numbered)) == 0) { return false; }
+  if (split == null || split.note.title != "" || !noteHasListStyle(split.note.flags)) { return false; }
   stopStructuralTextEvent(ev);
-  const token = store.editorHistory.begin([split.note.id], "Exit list");
-  split.note.flags &= ~(NoteFlags.Bullet1 | NoteFlags.Numbered | NoteFlags.Indent1 | NoteFlags.Indent2);
+  const level = noteIndentLevelFromFlags(split.note.flags);
+  const token = store.editorHistory.begin([split.note.id], level > 0 ? "Change indent" : "Exit list");
+  if (level > 0) {
+    setNoteIndentLevel(split.note, level - 1);
+  } else {
+    split.note.flags &= ~(NoteFlags.Bullet1 | NoteFlags.Numbered);
+  }
   store.textEdit.saveItem(split.note, true);
   arrangeNow(store, "note-exit-empty-list");
   const currentElement = document.getElementById(element.id);
   if (currentElement instanceof HTMLElement) { setCaretPosition(currentElement, 0); }
   store.editorHistory.commit(token);
+  return true;
+}
+
+/** The note being edited, if ev is in its editor. A table keeps Tab for moving between cells, so this excludes tables. */
+function editedNoteForListCommand(store: StoreContextModel, ev: Event): NoteItem | null {
+  const info = store.overlay.textEditInfo();
+  if (info?.itemType != ItemType.Note || info.colNum != null || textEditElementForEvent(store, ev) == null) { return null; }
+  const ve = VesCache.current.readNode(info.itemPath);
+  const item = itemState.get(VeFns.veidFromPath(info.itemPath).itemId);
+  if (item == null || !isNote(item) || !itemCanEdit(item) || ve == null || !itemCanEdit(ve.displayItem) ||
+      (ve.flags & VisualElementFlags.InsideTable)) { return null; }
+  return asNoteItem(item);
+}
+
+function changeListNoteIndents(store: StoreContextModel, notes: Array<NoteItem>, delta: number): void {
+  const selection = captureEditorSelection(store);
+  applyEditorFormatCommand(store, notes, "Change indent", () => {
+    for (const note of notes) { setNoteIndentLevel(note, noteIndentLevelFromFlags(note.flags) + delta); }
+  });
+  restoreEditorSelection(store, selection);
+}
+
+/**
+ * Tab and Shift+Tab move the list notes in the selection one level in or out. The caret can be anywhere in the text:
+ * Word only indents from the start of an item because Tab elsewhere inserts a tab character, which notes don't use. Each
+ * note moves relative to its own level, so the nesting in a multi-note selection is kept.
+ */
+function changeListIndentFromTabKey(store: StoreContextModel, ev: KeyboardEvent): boolean {
+  if (ev.key != "Tab" || ev.ctrlKey || ev.metaKey || ev.altKey || store.overlay.toolbarPopupInfoMaybe.get()) { return false; }
+  const focusNote = editedNoteForListCommand(store, ev);
+  if (focusNote == null) { return false; }
+  const delta = ev.shiftKey ? -1 : 1;
+  const notes = noteFormatTargets(store, focusNote).filter(note => {
+    const level = noteIndentLevelFromFlags(note.flags);
+    return noteHasListStyle(note.flags) && level + delta >= 0 && level + delta <= NOTE_INDENT_MAX_LEVEL;
+  });
+  if (notes.length == 0) { return false; }
+  stopStructuralTextEvent(ev);
+  changeListNoteIndents(store, notes, delta);
+  return true;
+}
+
+/**
+ * Backspace at the start of an indented list item moves it out one level. At the first level it falls through to the
+ * usual join with the previous item.
+ */
+function outdentListNoteFromStart(store: StoreContextModel, ev: Event): boolean {
+  const note = editedNoteForListCommand(store, ev);
+  if (note == null || !noteHasListStyle(note.flags) || noteIndentLevelFromFlags(note.flags) == 0) { return false; }
+  const element = textEditElementForEvent(store, ev)!;
+  const ranges = currentSelectionRanges();
+  if (ranges.length != 1 || !ranges[0].collapsed || !rangeIsInsideEditor(ranges[0], element) ||
+      getTextOffsetWithinElement(element, ranges[0].startContainer, ranges[0].startOffset) != 0) { return false; }
+  stopStructuralTextEvent(ev);
+  changeListNoteIndents(store, [note], -1);
   return true;
 }
 
