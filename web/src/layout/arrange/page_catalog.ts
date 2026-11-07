@@ -31,13 +31,13 @@ import { addContiguousStackedGapHitboxes, addContiguousStackedRowMarginHitboxes,
 import { addLinkTriangleHitboxMaybe } from "../link-triangle";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
-import { ArrangeItemFlags, arrangeItemPath, arrangePreviewChildPath, arrangedItemIsInOverlaySelection, getCommonVisualElementFlags, pageIsPreview } from "./item";
+import { ArrangeItemFlags, arrangeItemPath, arrangePreviewChildPath, arrangedItemIsInOverlaySelection, getCommonVisualElementFlags, pageContentScale, pageIsPreview } from "./item";
 import { calcCatalogLayout } from "../catalog";
 import { catalogResultControlsTopInsetPx, catalogResultFooterHeightPx, hasCatalogResultContext } from "../catalog-display";
 import { arrangeMovingPile } from "./moving";
 import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
 import { setNaturalAttachmentBlockSizePx } from "./attachments";
-import { LINE_HEIGHT_PX, MIN_NON_ROOT_LIST_PAGE_SCALE, NATURAL_BLOCK_SIZE_PX } from "../../constants";
+import { LINE_HEIGHT_PX, NATURAL_BLOCK_SIZE_PX } from "../../constants";
 
 
 export function arrange_catalog_page(
@@ -70,20 +70,10 @@ export function arrange_catalog_page(
       !(flags & ArrangeItemFlags.IsPopupRoot) &&
       !(flags & ArrangeItemFlags.IsListPageMainRoot));
 
-  // As for list pages, a catalog page drawn below full size is a miniature of the full page: without a minimum scale if
-  // it is a preview (e.g. translucent), otherwise (embedded interactive) with a minimum scale that keeps it usable. The
-  // children of a preview are drawn as for the children of other preview pages: in detail if large enough for their
-  // text to be legible, otherwise as outlines. As for list pages, catalog pages in the dock are drawn at full size.
-  const insidePopup = !!(flags & (ArrangeItemFlags.IsPopupRoot | ArrangeItemFlags.ParentIsPopup));
+  // The children of a preview are drawn as for the children of other preview pages: in detail if large enough for their
+  // text to be legible, otherwise as outlines.
   const isPreview = pageIsPreview(displayItem_pageWithChildren, parentPath, flags);
-  const proportionalScale = geometry.viewportBoundsPx!.w / store.desktopMainAreaBoundsPx().w;
-  const catalogScale = (isFull || insidePopup || (flags & ArrangeItemFlags.IsDockRoot))
-    ? 1.0
-    : isPreview
-      ? proportionalScale
-      : isEmbeddedInteractive
-        ? Math.max(MIN_NON_ROOT_LIST_PAGE_SCALE, proportionalScale)
-        : 1.0;
+  const catalogScale = pageContentScale(store, displayItem_pageWithChildren, parentPath, geometry, isEmbeddedInteractive, flags);
 
   const attachmentBlockSizePx = LINE_HEIGHT_PX * geometry.boundsPx.w / store.desktopMainAreaBoundsPx().w;
   const layout = calcCatalogLayout(geometry.viewportBoundsPx!.w, displayItem_pageWithChildren.gridCellAspect, catalogScale);

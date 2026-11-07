@@ -29,7 +29,7 @@ import { ItemGeometry } from "../item-geometry";
 import { HitboxFlags, HitboxFns } from "../hitbox";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
-import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItemPath, arrangedItemIsInOverlaySelection, getCommonVisualElementFlags } from "./item";
+import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItemPath, arrangedItemIsInOverlaySelection, getCommonVisualElementFlags, pageContentScale } from "./item";
 import { catalogResultControlsTopInsetPx, catalogResultFooterHeightPx, hasCatalogResultContext } from "../catalog-display";
 import { calcJustifiedPagePaddingPx } from "./justified_metrics";
 import { arrangeMovingPile } from "./moving";
@@ -232,7 +232,8 @@ export function arrange_grid_page(
   if (movingItemInThisPage) {
     childrenPaths.push(...arrangeMovingPile(
       store, pageWithChildrenVePath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren,
-      geometry, childAreaBoundsPx, movingItemsInThisPage, movingItemInThisPage, flags));
+      geometry, childAreaBoundsPx, movingItemsInThisPage, movingItemInThisPage, flags,
+      pageContentScale(store, displayItem_pageWithChildren, parentPath, geometry, isEmbeddedInteractive, flags)));
   }
 
   pageRelationships.childrenPaths = childrenPaths;

@@ -31,7 +31,7 @@ import { SOLO_ITEM_HOLDER_PAGE_UID } from "../../util/uid";
 import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
-import { arrangeFlagIsRoot, arrangeItemPath, ArrangeItemFlags, getCommonVisualElementFlags } from "./item";
+import { arrangeFlagIsRoot, arrangeItemPath, ArrangeItemFlags, getCommonVisualElementFlags, pageContentScale } from "./item";
 import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
 import { getMovingTreeItemInParentMaybe } from "./util";
 
@@ -90,8 +90,6 @@ export function arrange_single_cell_page(
   let movingItem = null;
   const movingItemInThisPage = getMovingTreeItemInParentMaybe(displayItem_pageWithChildren.id);
   movingItem = movingItemInThisPage;
-
-  const scale = geometry.boundsPx.w / store.desktopBoundsPx().w;
 
   const pageItem = asPageItem(displayItem_pageWithChildren);
 
@@ -184,6 +182,7 @@ export function arrange_single_cell_page(
     const yOffsetPx = scrollPropY * (childAreaBoundsPx.h - geometry.boundsPx.h);
     const xOffsetPx = scrollPropX * (childAreaBoundsPx.w - geometry.boundsPx.w);
     const dimensionsBl = ItemFns.calcSpatialDimensionsBl(movingItemInThisPage);
+    const scale = pageContentScale(store, displayItem_pageWithChildren, parentPath, geometry, isEmbeddedInteractive, flags);
     const mouseDesktopPosPx = CursorEventState.getLatestDesktopPx(store);
     const popupTitleHeightMaybePx = geometry.boundsPx.h - geometry.viewportBoundsPx!.h;
     // TODO (MEDIUM): adjX is a hack, the calculations should be such that an adjustment here is not necessary.

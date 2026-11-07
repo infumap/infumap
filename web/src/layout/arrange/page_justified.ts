@@ -29,7 +29,7 @@ import { panic } from "../../util/lang";
 import { ItemGeometry } from "../item-geometry";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec } from "../visual-element";
-import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItemPath, arrangedItemIsInOverlaySelection, getCommonVisualElementFlags } from "./item";
+import { ArrangeItemFlags, arrangeFlagIsRoot, arrangeItemPath, arrangedItemIsInOverlaySelection, getCommonVisualElementFlags, pageContentScale } from "./item";
 import { calcJustifiedBoxSpacingPx, calcJustifiedPagePaddingPx, calcJustifiedTargetRowHeightPx } from "./justified_metrics";
 import { arrangeMovingPile } from "./moving";
 import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
@@ -155,7 +155,8 @@ export function arrange_justified_page(
   if (movingItemInThisPage) {
     childrenPaths.push(...arrangeMovingPile(
       store, pageWithChildrenVePath, displayItem_pageWithChildren, linkItemMaybe_pageWithChildren,
-      geometry, childAreaBoundsPx, movingItemsInThisPage, movingItemInThisPage, flags));
+      geometry, childAreaBoundsPx, movingItemsInThisPage, movingItemInThisPage, flags,
+      pageContentScale(store, displayItem_pageWithChildren, parentPath, geometry, isEmbeddedInteractive, flags)));
   }
 
   pageRelationships.childrenPaths = childrenPaths;

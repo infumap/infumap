@@ -102,8 +102,7 @@ const MOVING_PILE_OFFSET_PX = 8;
  * the right. They aren't stacked in a column as in a list page, because they are drawn at their spatial size, and
  * images in particular are often large enough that a column would run off the screen. At most
  * GROUP_MOVE_STACK_MAX_ITEMS are drawn, and MovingItemsOverlay badges the pile with the count of the rest. The result
- * is back to front. They are drawn at scale relative to natural size, by default the page's width as a proportion of
- * the desktop's.
+ * is back to front. They are drawn at scale, relative to natural size (see pageContentScale).
  */
 export function arrangeMovingPile(
   store: StoreContextModel,
@@ -115,7 +114,7 @@ export function arrangeMovingPile(
   orderedItems: Array<Item>,
   activeItem: Item,
   flags: ArrangeItemFlags,
-  scale: number = geometry.boundsPx.w / store.desktopBoundsPx().w,
+  scale: number,
 ): Array<VisualElementPath> {
   const sizePx = (item: Item): Dimensions => {
     const dimensionsBl = ItemFns.calcSpatialDimensionsBl(item);
@@ -126,7 +125,7 @@ export function arrangeMovingPile(
     : VeFns.veidFromItems(page, pageLinkItemMaybe);
   const activeCellBoundsPx = movingItemCellBoundsInPagePx(
     store, pagePath, geometry, childAreaBoundsPx, scrollVeid, sizePx(activeItem), flags);
-  const attachmentBlockSizePx = LINE_HEIGHT_PX * geometry.boundsPx.w / store.desktopMainAreaBoundsPx().w;
+  const attachmentBlockSizePx = LINE_HEIGHT_PX * scale;
 
   const pile = [
     ...groupMoveStackWindow(orderedItems, activeItem.id).items.filter(item => item.id != activeItem.id),

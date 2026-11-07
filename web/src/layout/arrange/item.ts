@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE, LINE_HEIGHT_PX } from "../../constants";
+import { CHILD_ITEMS_VISIBLE_WIDTH_BL, GRID_SIZE, LINE_HEIGHT_PX, MIN_NON_ROOT_LIST_PAGE_SCALE } from "../../constants";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { Item } from "../../items/base/item";
 import { asPageItem, isPage, ArrangeAlgorithm, PageItem } from "../../items/page-item";
@@ -74,8 +74,8 @@ export function arrangeFlagIsRoot(flags: ArrangeItemFlags): boolean {
 }
 
 /**
- * Whether a list, table or catalog page is a non-interactive preview (e.g. a translucent page), so is drawn as a
- * miniature of the full page, without a minimum scale. Query search results are interactive workspaces, so are exempt.
+ * Whether a page is a non-interactive preview (e.g. a translucent page), so is drawn as a miniature of the full page,
+ * without a minimum scale. Query search results are interactive workspaces, so are exempt.
  */
 export function pageIsPreview(page: PageItem, parentPath: VisualElementPath, flags: ArrangeItemFlags): boolean {
   if (flags & ArrangeItemFlags.IsPreview) { return true; }
@@ -84,6 +84,31 @@ export function pageIsPreview(page: PageItem, parentPath: VisualElementPath, fla
   }
   const isEmbeddedInteractive = !!(page.flags & PageFlags.EmbeddedInteractive) && VeFns.pathDepth(parentPath) >= 2;
   return !isEmbeddedInteractive && !isQueryItem(itemState.get(VeFns.itemIdFromPath(parentPath)) ?? null);
+}
+
+/**
+ * The scale, relative to natural size, of what a catalog page draws, and of the items moving in a catalog, grid,
+ * justified or single cell page. A page drawn below full size is a miniature of the full page: without a minimum scale
+ * if it is a preview (e.g. translucent), otherwise (embedded interactive) with a minimum scale that keeps it usable.
+ * Pages in the dock are drawn at full size. The proportion is of the main area rather than the whole desktop, so that a
+ * full size page is at natural size whether or not the dock is visible.
+ */
+export function pageContentScale(
+  store: StoreContextModel,
+  page: PageItem,
+  parentPath: VisualElementPath,
+  geometry: ItemGeometry,
+  isEmbeddedInteractive: boolean,
+  flags: ArrangeItemFlags,
+): number {
+  const mainAreaBoundsPx = store.desktopMainAreaBoundsPx();
+  if (geometry.boundsPx.h == mainAreaBoundsPx.h ||
+    (flags & (ArrangeItemFlags.IsPopupRoot | ArrangeItemFlags.ParentIsPopup | ArrangeItemFlags.IsDockRoot))) {
+    return 1.0;
+  }
+  const proportionalScale = geometry.viewportBoundsPx!.w / mainAreaBoundsPx.w;
+  if (pageIsPreview(page, parentPath, flags)) { return proportionalScale; }
+  return isEmbeddedInteractive ? Math.max(MIN_NON_ROOT_LIST_PAGE_SCALE, proportionalScale) : 1.0;
 }
 
 /**
