@@ -17,9 +17,6 @@ In addition to (or instead of) using a settings file, Infumap web server configu
 
 For more information on configuring the Infumap web server, refer to [configuration.md](configuration.md).
 
-Searches from the user's home page combine lexical title matches with lexical search-fragment matches when the corresponding indexes exist. Search fragments contain derived document text and image descriptions. No embedding service is required. Searches restricted to a page or container use exact title matching only, unless a [scope](scopes.md) is also given: searches with a scope use the lexical indexes, restricted to the items in the scope (and in the page, if one is given).
-
-
 Options:
 - **-s --settings (optional):** Path to a toml settings configuration file, or a directory containing `settings.toml`. If not specified and the `env_only` config value is not defined via an environment variable, `~/.infumap/settings.toml` will be used (and auto-created if it doesn't exist).
 
@@ -36,31 +33,8 @@ A (unique) backup encryption key is generated when a new `settings.toml` file is
 
 Migrate an existing user or item log file to the next version. This manual command migrates one version at a
 time and retains its source with a `.vN` suffix. A log several versions behind needs one run per version.
-
-Web server startup automatically migrates account `user.json` and `items.json` through all supported versions
-before database initialization. Each changed log's original pre-chain file is retained as
-`user.vN.before-migration` or `items.vN.before-migration`, where N is the original schema version. With S3 backup
-enabled, startup first uploads a permanent migration archive containing
-both original account logs; upload failure blocks migration. Unsupported schemas or conversion/validation
-failures stop startup without installing candidates. Installation is per file; if interrupted between files,
-the next startup finishes remaining migrations. Older binaries may not read the upgraded active logs; use the
-retained originals or a pre-migration archive when rolling back.
-
-Automatic migration follows the existing converters, including their supported-version limits; it does not
-invent missing conversions. An unsupported or future schema must be handled with a binary that supports it
-or a compatible recovery copy. Do not edit a descriptor's version to bypass conversion.
-
-The shared `pending_users.json` is also migrated automatically through supported versions. Its original is
-retained locally as `pending_users.vN.before-migration`; no S3 snapshot is taken for this file.
-
-Startup retains the latest snapshot of each operation separately for each account log. For migration
-v37 → v40 followed by compaction, `items.v37.before-migration` retains the pre-chain source and
-`items.v40.before-compaction` retains the current-schema input immediately before compaction. A later compaction
-refreshes only the pre-compaction snapshot; a later migration refreshes only the pre-migration snapshot. No local
-timestamp history is kept. Older snapshots of the same purpose are pruned only after successful installation.
-Existing `.previous` and bare `.vN` files are preserved unchanged, along with manual `.compacted` output,
-`.bk.*` copies, lookalike names, symlinks, and unrelated files. Pruning failures are logged without undoing
-maintenance. The standalone `migrate` command continues to retain its source as a bare `.vN` file.
+Note: Web server startup now automatically migrates account `user.json` and `items.json` - you will generally
+never need to use this command.
 
 Options:
 - **-p --log-path:** The path to the user or item log file to migrate to the next version.
@@ -154,43 +128,6 @@ The old key can still decrypt every copy made with it: the files moved aside and
 
 Decrypt / unpack a user backup file. A backup file includes the `user.json` and `items.json` log files. These will be output to the current directory, and you need to move them manually into the relevant user folder in the configured Infumap data directory.
 
-Accepts regular backups named `<user-id>_<timestamp>` and permanent maintenance archives named
-`maintenance-migration_<user-id>_<timestamp>_<random-id>.infu` or
-`maintenance-compaction_<user-id>_<timestamp>_<random-id>.infu`. Download maintenance archives using your S3
-provider's tools and keep the exact original filename; it is required for decryption. Maintenance archives are
-excluded from Infumap's automatic cleanup and latest-backup recovery selection.
-
-Migration archives contain the original pair before the entire migration chain. Compaction archives contain
-the current pair immediately before compaction installation, after any migration in that startup. These are
-different recovery points; a compaction archive may already require the newer binary. Neither archive includes
-`pending_users.json`, sessions, search indexes, object files, or chat transcripts.
-
-To recover from a maintenance archive:
-
-1. Stop the server and other commands writing the same data directory. Download the desired archive with your
-   S3 provider's tools, keeping its exact filename, and obtain the backup encryption key used when it was created.
-2. Run `infumap restore --backup-file <archive-path> --key <backup-encryption-key>` from an empty directory.
-   This writes `user.json` and `items.json`; it does not install or migrate them and refuses to overwrite existing
-   output files. Preserve both active logs separately before installing the restored pair in the matching
-   `<data_dir>/user_<user-id>/` directory.
-3. Use a binary that supports the restored schemas. Starting the current binary migrates old schemas again;
-   there is no migration-off setting. Keep recovery copies outside the maintenance names if they must survive
-   future startup rotation. Restoring logs does not restore their referenced object data; the matching objects
-   must still be available and decryptable with the restored user's object encryption key.
-
-For local recovery, choose `<stem>.vN.before-migration` to undo the complete migration chain or
-`<stem>.vN.before-compaction` to undo compaction while keeping the migrated schema. Pending users have only the
-local `pending_users.vN.before-migration` snapshot. Snapshots are per file and operation and may come from
-different startups; use a single paired archive when an exact account recovery point is needed. Inspect schema
-versions before using local copies to roll back a binary. Existing legacy recovery files are left untouched.
-
-Regular backup tracking is checked before maintenance. Existing automatic recovery can restore a newer regular
-backup and then exit; restart after that recovery completes. Maintenance archives are never selected by this
-process or by `emergency` and must never be written into `last_backup.txt`. The `restore` command does not
-update tracking. Inspect the existing tracking and any startup recovery messages when installing logs manually.
-Infumap's permanent-retention guarantee excludes bucket lifecycle rules and deletion by other clients; retain
-the encryption keys and original filenames needed to restore archives.
-
 Options:
 - **-b --backup-file (required):** Path to the backup file.
 - **-k --key (required):** The encryption key used to encrypt the data, specified in the configuration for the instance that created the backup file.
@@ -232,21 +169,8 @@ Manually write `items.json.compacted` for a user's item database. Chronological 
 Stop the server before running this command or installing its output. Keep the original log as a recovery
 copy when replacing it with the compacted version. The command refuses to overwrite an existing candidate.
 
-Server startup automatically compacts account `user.json` and `items.json` after migration when each file
-saves at least `startup_compact_min_savings_bytes` (default 1048576 bytes, or 1 MiB). With S3 backup enabled,
-one permanent pre-compaction archive of both active logs must succeed before either qualifying candidate is
-installed. No qualifying files means no compaction archive. Preparation or upload failure skips compaction;
-per-file installation errors keep completed replacements and leave the other active logs available for normal
-loading. Startup proceeds only if the final databases load successfully. Each compacted file retains its immediate
-source as `user.vN.before-compaction` or
-`items.vN.before-compaction`, where N is its current schema version. Any pre-migration snapshot remains intact,
-including across subsequent restarts and compactions.
-
-The output includes every live item reachable from Home, Trash, Dock, and Queries through children and
-attachments, including Scopes and Prompts. Unreachable items are retained and reparented to Home as children,
-with pinning cleared and position set to `(0, 0)` where the item type supports coordinates. Repaired IDs are
-logged. The output preserves container versions, advances the log epoch, and is replay-validated before the
-command succeeds. The active log is unchanged until you install `items.json.compacted`.
+Server startup automatically compacts account `user.json` and `items.json` - you should generally never need
+to use this manual command.
 
 Options:
 
