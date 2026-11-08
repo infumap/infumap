@@ -16,14 +16,45 @@
 
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use infusdk::util::infu::InfuResult;
 use serde_json::de::IoRead;
 use serde_json::{Map, StreamDeserializer, Value};
 
-use super::{LogDescriptor, LogKind, parse_descriptor, read_log_descriptor};
+use super::replacement::discard_temporary;
+use super::{LogDescriptor, LogKind, create_log_temporary, parse_descriptor, read_log_descriptor};
 use crate::storage::db::{item_db, pending_user_db, user_db};
+
+/// Stage the complete chain without installing intermediate versions or changing the active source.
+pub fn prepare_log_migration(source: &Path) -> InfuResult<PathBuf> {
+  let descriptor = read_log_descriptor(source)?;
+  if descriptor.version == descriptor.kind.current_version() {
+    return Err("Log is already at the latest version.".into());
+  }
+  let mut staged = Vec::new();
+  let result = (|| {
+    let mut input = source.to_path_buf();
+    let mut version = descriptor.version;
+    while version < descriptor.kind.current_version() {
+      let output = create_log_temporary(source)?;
+      staged.push(output.clone());
+      let migrated = migrate_log_step(&input, &output)?;
+      if input != source {
+        discard_temporary(&input);
+      }
+      version = migrated.version;
+      input = output;
+    }
+    Ok(input)
+  })();
+  for path in staged {
+    if result.as_ref().ok() != Some(&path) {
+      discard_temporary(&path);
+    }
+  }
+  result
+}
 
 type Records<'de> = StreamDeserializer<'de, IoRead<BufReader<File>>, Value>;
 type Migration = fn(&Path, &Map<String, Value>, &mut Records<'_>) -> InfuResult<()>;

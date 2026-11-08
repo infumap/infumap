@@ -54,7 +54,9 @@ use crate::storage::cache::favicon::FaviconCache;
 use crate::storage::cache::{self as storage_cache, ImageCache};
 use crate::storage::db::Db;
 use crate::storage::db::users_extra::BackupStatus;
-use crate::storage::maintenance::inspect_startup_logs;
+use crate::storage::maintenance::{
+  discover_account_ids, inspect_pending_users, inspect_startup_logs, migrate_pending_users,
+};
 use crate::storage::object::{self as storage_object, ObjectStore};
 use crate::tokiort::TokioIo;
 use crate::util::crypto::{decrypt_file_data, encrypt_file_data};
@@ -117,11 +119,43 @@ pub async fn start_server(config: Config) -> InfuResult<()> {
 pub async fn start_server_with_options(config: Config, skip_backup_validation: bool) -> InfuResult<()> {
   Lazy::force(&LLM_LOG_ENABLED);
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
+  let backup_store = if config.get_bool(CONFIG_ENABLE_S3_BACKUP).map_err(|e| e.to_string())? {
+    let s3_region = config.get_string(CONFIG_S3_BACKUP_REGION).ok();
+    let s3_endpoint = config.get_string(CONFIG_S3_BACKUP_ENDPOINT).ok();
+    let s3_bucket = config.get_string(CONFIG_S3_BACKUP_BUCKET).map_err(|e| e.to_string())?;
+    let s3_key = config.get_string(CONFIG_S3_BACKUP_KEY).map_err(|e| e.to_string())?;
+    let s3_secret = config.get_string(CONFIG_S3_BACKUP_SECRET).map_err(|e| e.to_string())?;
+    Some(
+      storage_backup::new(s3_region.as_ref(), s3_endpoint.as_ref(), &s3_bucket, &s3_key, &s3_secret)
+        .map_err(|e| format!("Failed to initialize backup store: {}", e))?,
+    )
+  } else {
+    None
+  };
+
+  let discovery_data_dir = data_dir.clone();
+  let account_ids = spawn_blocking(move || discover_account_ids(&discovery_data_dir))
+    .await
+    .map_err(|e| format!("Failed to discover account directories: {}", e))??;
+  // Recovery must precede inspection/migration: old or damaged local logs must not block restoring a newer backup.
+  // Skipping tracking reconciliation still leaves the backup store available for maintenance snapshots.
+  if !skip_backup_validation {
+    if let Some(backup_store) = &backup_store {
+      info!("Validating local backup tracking against S3...");
+      validate_backup_tracking(&data_dir, &account_ids, backup_store.clone(), &config).await?;
+      info!("Backup tracking validation completed successfully.");
+    }
+  }
+
   // KVStore::init creates missing logs; inspect first so incomplete accounts are reported, not changed.
   let inspect_data_dir = data_dir.clone();
-  let account_logs = spawn_blocking(move || inspect_startup_logs(&inspect_data_dir))
-    .await
-    .map_err(|e| format!("Failed to inspect account logs: {}", e))??;
+  let (account_logs, pending_users) = spawn_blocking(move || -> InfuResult<_> {
+    let accounts = inspect_startup_logs(&inspect_data_dir, &account_ids)?;
+    let pending_users = inspect_pending_users(&inspect_data_dir)?;
+    Ok((accounts, pending_users))
+  })
+  .await
+  .map_err(|e| format!("Failed to inspect startup logs: {}", e))??;
   for account in &account_logs {
     debug!(
       "Account '{}' logs: '{}' (v{}), '{}' (v{}).",
@@ -132,6 +166,7 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
       account.item_descriptor.version,
     );
   }
+  migrate_pending_users(&data_dir, pending_users).await?;
   let db = Arc::new(tokio::sync::Mutex::new(match Db::new(&data_dir).await {
     Ok(db) => db,
     Err(e) => {
@@ -139,7 +174,6 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
     }
   }));
 
-  let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
   let enable_local_object_storage = config.get_bool(CONFIG_ENABLE_LOCAL_OBJECT_STORAGE).map_err(|e| e.to_string())?;
   let enable_s3_1_object_storage = config.get_bool(CONFIG_ENABLE_S3_1_OBJECT_STORAGE).map_err(|e| e.to_string())?;
   let s3_1_region = config.get_string(CONFIG_S3_1_REGION).ok();
@@ -177,31 +211,6 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
     }
   };
 
-  if config.get_bool(CONFIG_ENABLE_S3_BACKUP).map_err(|e| e.to_string())? {
-    let s3_region = config.get_string(CONFIG_S3_BACKUP_REGION).ok();
-    let s3_endpoint = config.get_string(CONFIG_S3_BACKUP_ENDPOINT).ok();
-    let s3_bucket = config.get_string(CONFIG_S3_BACKUP_BUCKET).map_err(|e| e.to_string())?;
-    let s3_key = config.get_string(CONFIG_S3_BACKUP_KEY).map_err(|e| e.to_string())?;
-    let s3_secret = config.get_string(CONFIG_S3_BACKUP_SECRET).map_err(|e| e.to_string())?;
-    let backup_store =
-      match storage_backup::new(s3_region.as_ref(), s3_endpoint.as_ref(), &s3_bucket, &s3_key, &s3_secret) {
-        Ok(backup_store) => backup_store,
-        Err(e) => {
-          return Err(format!("Failed to initialize backup store: {}", e).into());
-        }
-      };
-
-    init_db_backup(
-      config.get_int(CONFIG_BACKUP_PERIOD_MINUTES).map_err(|e| e.to_string())? as u32,
-      config.get_int(CONFIG_BACKUP_RETENTION_PERIOD_DAYS).map_err(|e| e.to_string())? as u32,
-      config.get_bool(CONFIG_DISABLE_BACKUP_CLEANUP).map_err(|e| e.to_string())?,
-      config.get_string(CONFIG_BACKUP_ENCRYPTION_KEY).map_err(|e| e.to_string())?.clone(),
-      data_dir.clone(),
-      db.clone(),
-      backup_store.clone(),
-    );
-  }
-
   let cache_dir = config.get_string(CONFIG_CACHE_DIR).map_err(|e| e.to_string())?;
   let cache_max_mb = usize::try_from(config.get_int(CONFIG_CACHE_MAX_MB).map_err(|e| e.to_string())?)?;
   let image_cache = match storage_cache::new(&cache_dir, cache_max_mb).await {
@@ -231,27 +240,15 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
 
   let config = Arc::new(config);
 
-  if config.get_bool(CONFIG_ENABLE_PROMETHEUS_METRICS).map_err(|e| e.to_string())? {
-    let prometheus_addr_str = format!(
-      "{}:{}",
-      config.get_string(CONFIG_PROMETHEUS_ADDRESS).map_err(|e| e.to_string())?,
-      config.get_int(CONFIG_PROMETHEUS_PORT).map_err(|e| e.to_string())?
-    );
-    let prometheus_addr: SocketAddr = match prometheus_addr_str.parse() {
-      Ok(addr) => addr,
-      Err(e) => {
-        return Err(format!("Invalid prometheus socket address: {} ({})", addr_str, e).into());
-      }
-    };
-    spawn_prometheus_listener(prometheus_addr).await?;
-  }
-
   {
     info!("Loading all items for all users...");
     let mut db = db.lock().await;
     let all_user_ids: Vec<String> = db.user.all_user_ids().iter().map(|v| v.clone()).collect();
+    for user_id in &all_user_ids {
+      db.item.load_user_items(user_id, false).await?;
+    }
+    // Finish loading every account before startup edits append to any item log.
     for user_id in all_user_ids {
-      db.item.load_user_items(&user_id, false).await?;
       if ensure_scopes_page(&mut db, &user_id).await? {
         info!("Created scopes page for user '{}'.", user_id);
       }
@@ -272,31 +269,39 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
     crate::ai::search_reconciliation::reconcile_search_at_startup(&data_dir, db.clone(), location_enabled).await?,
   );
 
+  if config.get_bool(CONFIG_ENABLE_PROMETHEUS_METRICS).map_err(|e| e.to_string())? {
+    let prometheus_addr_str = format!(
+      "{}:{}",
+      config.get_string(CONFIG_PROMETHEUS_ADDRESS).map_err(|e| e.to_string())?,
+      config.get_int(CONFIG_PROMETHEUS_PORT).map_err(|e| e.to_string())?
+    );
+    let prometheus_addr: SocketAddr = match prometheus_addr_str.parse() {
+      Ok(addr) => addr,
+      Err(e) => {
+        return Err(format!("Invalid prometheus socket address: {} ({})", addr_str, e).into());
+      }
+    };
+    spawn_prometheus_listener(prometheus_addr).await?;
+  }
+
+  if let Some(backup_store) = backup_store {
+    init_db_backup(
+      config.get_int(CONFIG_BACKUP_PERIOD_MINUTES).map_err(|e| e.to_string())? as u32,
+      config.get_int(CONFIG_BACKUP_RETENTION_PERIOD_DAYS).map_err(|e| e.to_string())? as u32,
+      config.get_bool(CONFIG_DISABLE_BACKUP_CLEANUP).map_err(|e| e.to_string())?,
+      config.get_string(CONFIG_BACKUP_ENCRYPTION_KEY).map_err(|e| e.to_string())?,
+      data_dir.clone(),
+      db.clone(),
+      backup_store,
+    );
+  }
+
   init_item_title_indexing_loop(data_dir.clone(), db.clone())?;
   init_fragment_indexing_loop(config.as_ref(), db.clone())?;
   init_document_fragment_pipeline_loop(config.as_ref(), db.clone(), object_store.clone(), startup_work.clone())?;
   init_text_extraction_processing_loop(config.as_ref(), db.clone(), object_store.clone(), startup_work.clone())?;
   init_image_background_pipeline_loop(config.clone(), db.clone(), object_store.clone(), startup_work)?;
   crate::ai::search_processing_activity::spawn_progress_logger(db.clone());
-
-  if config.get_bool(CONFIG_ENABLE_S3_BACKUP).map_err(|e| e.to_string())? && !skip_backup_validation {
-    let s3_region = config.get_string(CONFIG_S3_BACKUP_REGION).ok();
-    let s3_endpoint = config.get_string(CONFIG_S3_BACKUP_ENDPOINT).ok();
-    let s3_bucket = config.get_string(CONFIG_S3_BACKUP_BUCKET).map_err(|e| e.to_string())?;
-    let s3_key = config.get_string(CONFIG_S3_BACKUP_KEY).map_err(|e| e.to_string())?;
-    let s3_secret = config.get_string(CONFIG_S3_BACKUP_SECRET).map_err(|e| e.to_string())?;
-    let backup_store =
-      match storage_backup::new(s3_region.as_ref(), s3_endpoint.as_ref(), &s3_bucket, &s3_key, &s3_secret) {
-        Ok(backup_store) => backup_store,
-        Err(e) => {
-          return Err(format!("Failed to initialize backup store for validation: {}", e).into());
-        }
-      };
-
-    info!("Validating local backup tracking against S3...");
-    validate_backup_tracking(&data_dir, backup_store, config.clone()).await?;
-    info!("Backup tracking validation completed successfully.");
-  }
 
   let result =
     listen(addr, db.clone(), object_store.clone(), image_cache.clone(), favicon_cache.clone(), config.clone()).await;
@@ -566,18 +571,16 @@ async fn process_and_restore_backup(
 
 async fn validate_backup_tracking(
   data_dir: &str,
+  account_ids: &[String],
   backup_store: Arc<BackupStore>,
-  config: Arc<config::Config>,
+  config: &Config,
 ) -> InfuResult<()> {
   use crate::storage::backup::get_latest_backup_filename_for_user;
   use crate::util::fs::read_last_backup_filename;
 
-  let db = crate::storage::db::Db::new(data_dir).await?;
-  let all_user_ids: Vec<String> = db.user.all_user_ids().iter().map(|v| v.clone()).collect();
-
-  for user_id in all_user_ids {
-    let local_last_backup = read_last_backup_filename(data_dir, &user_id).await?;
-    let s3_latest_backup = get_latest_backup_filename_for_user(backup_store.clone(), &user_id).await?;
+  for user_id in account_ids {
+    let local_last_backup = read_last_backup_filename(data_dir, user_id).await?;
+    let s3_latest_backup = get_latest_backup_filename_for_user(backup_store.clone(), user_id).await?;
 
     match (local_last_backup, s3_latest_backup) {
       (Some(local), Some(s3)) => {
@@ -593,16 +596,16 @@ async fn validate_backup_tracking(
                   user_id, s3, local
                 );
 
-                let backup_bytes = storage_backup::get(backup_store.clone(), &user_id, s3_ts)
+                let backup_bytes = storage_backup::get(backup_store.clone(), user_id, s3_ts)
                   .await
                   .map_err(|e| format!("Failed to retrieve backup '{}' for user '{}': {}", s3, user_id, e))?;
 
                 let encryption_key = config.get_string(CONFIG_BACKUP_ENCRYPTION_KEY).map_err(|e| e.to_string())?;
-                process_and_restore_backup(&backup_bytes, data_dir, &user_id, &encryption_key, &s3)
+                process_and_restore_backup(&backup_bytes, data_dir, user_id, &encryption_key, &s3)
                   .await
                   .map_err(|e| format!("Failed to restore backup for user '{}': {}", user_id, e))?;
 
-                crate::util::fs::write_last_backup_filename(data_dir, &user_id, &s3)
+                crate::util::fs::write_last_backup_filename(data_dir, user_id, &s3)
                   .await
                   .map_err(|e| format!("Failed to update last backup tracking file for user '{}': {}", user_id, e))?;
 

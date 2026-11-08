@@ -18,13 +18,14 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
-use infusdk::db::kv_store::JsonLogSerializable;
+use infusdk::db::kv_store::{JsonLogSerializable, KVStore};
 use infusdk::item::Item;
 use infusdk::util::infu::InfuResult;
 use infusdk::util::json;
 use infusdk::util::uid::{Uid, is_uid};
-use log::warn;
+use log::{info, warn};
 use serde_json::Value;
+use tokio::task::spawn_blocking;
 
 use super::db::item_db::CURRENT_ITEM_LOG_VERSION;
 use super::db::user::User;
@@ -33,7 +34,7 @@ use crate::util::fs::expand_tilde;
 
 mod migration;
 mod replacement;
-pub use migration::migrate_log_step;
+pub use migration::{migrate_log_step, prepare_log_migration};
 pub use replacement::{create_log_temporary, discard_log_temporaries, install_log_candidate};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -72,11 +73,10 @@ pub struct AccountLogs {
   pub item_descriptor: LogDescriptor,
 }
 
-/// Discard owned scratch files and inspect account logs without opening a database or creating missing files.
-pub fn inspect_startup_logs(data_dir: &str) -> InfuResult<Vec<AccountLogs>> {
+/// Recovery must discover accounts even when their logs cannot yet be opened with current schemas.
+pub fn discover_account_ids(data_dir: &str) -> InfuResult<Vec<Uid>> {
   let data_dir = expand_tilde(data_dir).ok_or("Could not interpret data directory.")?;
-  discard_log_temporaries(&data_dir.join("pending_users.json"))?;
-  let mut accounts = Vec::new();
+  let mut user_ids = Vec::new();
   for entry in std::fs::read_dir(&data_dir)? {
     let entry = entry?;
     if !entry.file_type()?.is_dir() {
@@ -90,27 +90,92 @@ pub fn inspect_startup_logs(data_dir: &str) -> InfuResult<Vec<AccountLogs>> {
       warn!("Unexpected directory in data directory: '{}'.", entry.path().display());
       continue;
     };
-    let user_log = entry.path().join("user.json");
-    let item_log = entry.path().join("items.json");
-    let user_descriptor = inspect_account_log(&user_log, LogKind::User)?;
-    let item_descriptor = inspect_account_log(&item_log, LogKind::Item)?;
+    user_ids.push(user_id.to_owned());
+  }
+  user_ids.sort();
+  Ok(user_ids)
+}
+
+/// Discard owned scratch files and inspect account logs without opening a database or creating missing files.
+pub fn inspect_startup_logs(data_dir: &str, user_ids: &[Uid]) -> InfuResult<Vec<AccountLogs>> {
+  let data_dir = expand_tilde(data_dir).ok_or("Could not interpret data directory.")?;
+  let mut accounts = Vec::new();
+  for user_id in user_ids {
+    let directory = data_dir.join(format!("user_{}", user_id));
+    let user_log = directory.join("user.json");
+    let item_log = directory.join("items.json");
+    let user_descriptor = inspect_existing_log(&user_log, LogKind::User)?;
+    let item_descriptor = inspect_existing_log(&item_log, LogKind::Item)?;
     accounts.push(AccountLogs { user_id: user_id.to_owned(), user_log, item_log, user_descriptor, item_descriptor });
   }
-  accounts.sort_by(|a, b| a.user_id.cmp(&b.user_id));
   Ok(accounts)
 }
 
-fn inspect_account_log(path: &Path, expected: LogKind) -> InfuResult<LogDescriptor> {
-  if !std::fs::metadata(path)
-    .map_err(|e| format!("Incomplete account: cannot read '{}': {}", path.display(), e))?
-    .is_file()
+/// Missing pending users is normal on a new instance; an existing file must be a supported user log.
+pub fn inspect_pending_users(data_dir: &str) -> InfuResult<Option<LogDescriptor>> {
+  let path = expand_tilde(data_dir).ok_or("Could not interpret data directory.")?.join("pending_users.json");
+  if !path.try_exists()? {
+    return Ok(None);
+  }
+  inspect_existing_log(&path, LogKind::User).map(Some)
+}
+
+/// Pending users are local-only and must be migrated before Db::new opens their store.
+pub async fn migrate_pending_users(data_dir: &str, descriptor: Option<LogDescriptor>) -> InfuResult<()> {
+  let Some(descriptor) = descriptor else {
+    return Ok(());
+  };
+  if descriptor.version == CURRENT_USER_LOG_VERSION {
+    return Ok(());
+  }
+  let source = expand_tilde(data_dir).ok_or("Could not interpret data directory.")?.join("pending_users.json");
+  let prepare_source = source.clone();
+  let candidate = spawn_blocking(move || prepare_log_migration(&prepare_source))
+    .await
+    .map_err(|e| format!("Failed to prepare pending-user migration: {}", e))??;
+  let result = async {
+    // Pending users may contain multiple User records, so replay without per-account single-user checks.
+    KVStore::<User>::init(
+      candidate.to_str().ok_or("Pending-user log path must be valid UTF-8.")?,
+      CURRENT_USER_LOG_VERSION,
+    )
+    .await?;
+    let install_source = source.clone();
+    let install_candidate = candidate.clone();
+    spawn_blocking(move || {
+      let previous = install_source.with_file_name("pending_users.json.previous");
+      install_log_candidate(&install_source, &install_candidate, &previous, true, |path| {
+        let descriptor = read_log_descriptor(path)?;
+        if descriptor.kind != LogKind::User || descriptor.version != CURRENT_USER_LOG_VERSION {
+          return Err("Pending-user migration did not produce the current user-log schema.".into());
+        }
+        Ok(())
+      })
+    })
+    .await
+    .map_err(|e| format!("Failed to install pending-user migration: {}", e))?
+  }
+  .await;
+  replacement::discard_temporary(&candidate);
+  result?;
+  info!(
+    "Migrated '{}' from v{} to v{}; retained its local previous copy.",
+    source.display(),
+    descriptor.version,
+    CURRENT_USER_LOG_VERSION
+  );
+  Ok(())
+}
+
+fn inspect_existing_log(path: &Path, expected: LogKind) -> InfuResult<LogDescriptor> {
+  if !std::fs::metadata(path).map_err(|e| format!("Cannot inspect existing log '{}': {}", path.display(), e))?.is_file()
   {
-    return Err(format!("Account log '{}' is not a file.", path.display()).into());
+    return Err(format!("Log '{}' is not a file.", path.display()).into());
   }
   discard_log_temporaries(path)?;
   let descriptor = read_log_descriptor(path)?;
   if descriptor.kind != expected {
-    return Err(format!("Account log '{}' must contain {} records.", path.display(), expected.value_type()).into());
+    return Err(format!("Log '{}' must contain {} records.", path.display(), expected.value_type()).into());
   }
   migration::validate_source_version(descriptor)
     .map_err(|e| format!("Cannot maintain log '{}': {}", path.display(), e))?;

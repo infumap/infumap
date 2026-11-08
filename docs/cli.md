@@ -36,6 +36,10 @@ A (unique) backup encryption key is generated when a new `settings.toml` file is
 
 Migrate an existing user or item log file to the next version. It migrates one version at a time, so a log several versions behind needs one run per version. This may be required when upgrading to a new version of Infumap. Ultimately log migration will happen automatically on web server startup and this command will be an advanced feature, however this is not implemented yet.
 
+The shared `pending_users.json` is migrated automatically on startup through supported versions, before database
+initialization. Its original is retained locally as `pending_users.json.previous`; no S3 snapshot is taken for
+this file. Account `user.json` and `items.json` still require manual migration for now.
+
 Options:
 - **-p --log-path:** The path to the user or item log file to migrate to the next version.
 
