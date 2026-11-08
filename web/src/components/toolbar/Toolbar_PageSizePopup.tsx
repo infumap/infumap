@@ -256,7 +256,7 @@ export const Toolbar_PageSizePopup: Component = () => {
         <button type="button" class={toolbarDialogButtonClass()} disabled={childRects.length == 0}
           title="Size the page to its items, plus a block of margin" onClick={handleFitToItems}>Fit to items</button>
         <button type="button" class={toolbarDialogButtonClass()}
-          title="Keep the width and set the height so the page fills the window without stretching" onClick={handleMatchWindow}>Match window</button>
+          title="Keep the width and set the height so the page fills the window without stretching" onClick={handleMatchWindow}>Match window aspect</button>
       </div>
     </div>
   );
