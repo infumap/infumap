@@ -42,9 +42,9 @@ use crate::ai::text_extraction::{
 };
 use crate::config::{
   CONFIG_DATA_DIR, CONFIG_ENABLE_LOCAL_OBJECT_STORAGE, CONFIG_ENABLE_S3_1_OBJECT_STORAGE,
-  CONFIG_ENABLE_S3_2_OBJECT_STORAGE, CONFIG_S3_1_BUCKET, CONFIG_S3_1_ENDPOINT, CONFIG_S3_1_KEY, CONFIG_S3_1_REGION,
-  CONFIG_S3_1_SECRET, CONFIG_S3_2_BUCKET, CONFIG_S3_2_ENDPOINT, CONFIG_S3_2_KEY, CONFIG_S3_2_REGION,
-  CONFIG_S3_2_SECRET,
+  CONFIG_ENABLE_S3_2_OBJECT_STORAGE, CONFIG_OBJECT_STORAGE_READ_FROM, CONFIG_S3_1_BUCKET, CONFIG_S3_1_ENDPOINT,
+  CONFIG_S3_1_KEY, CONFIG_S3_1_REGION, CONFIG_S3_1_SECRET, CONFIG_S3_2_BUCKET, CONFIG_S3_2_ENDPOINT, CONFIG_S3_2_KEY,
+  CONFIG_S3_2_REGION, CONFIG_S3_2_SECRET,
 };
 use crate::setup::get_config;
 use crate::storage::db::Db;
@@ -512,6 +512,7 @@ async fn init_runtime(settings_path_maybe: Option<&String>) -> InfuResult<CliRun
     config.get_string(CONFIG_S3_2_BUCKET).ok(),
     config.get_string(CONFIG_S3_2_KEY).ok(),
     config.get_string(CONFIG_S3_2_SECRET).ok(),
+    config.get_string(CONFIG_OBJECT_STORAGE_READ_FROM).ok(),
   )
   .map_err(|e| format!("Failed to initialize object store: {}", e))?;
 

@@ -16,6 +16,7 @@
 
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
 use async_trait::async_trait;
@@ -30,10 +31,38 @@ use crate::util::crypto::{decrypt_file_data, encrypt_file_data};
 
 use super::db::item_db::ItemAndUserId;
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ObjectStoreName {
+  S3_1,
+  S3_2,
+  Local,
+}
+
+impl ObjectStoreName {
+  pub fn as_str(&self) -> &'static str {
+    match self {
+      ObjectStoreName::S3_1 => "s3_1",
+      ObjectStoreName::S3_2 => "s3_2",
+      ObjectStoreName::Local => "local",
+    }
+  }
+
+  pub fn from_str(s: &str) -> InfuResult<ObjectStoreName> {
+    match s {
+      "s3_1" => Ok(ObjectStoreName::S3_1),
+      "s3_2" => Ok(ObjectStoreName::S3_2),
+      "local" => Ok(ObjectStoreName::Local),
+      other => Err(format!("Unknown object store '{}', expected one of: local, s3_1, s3_2.", other).into()),
+    }
+  }
+}
+
 pub struct ObjectStore {
   file_store: Option<Arc<Mutex<storage_file::FileStore>>>,
   s3_1_data_store: Option<Arc<storage_s3::S3Store>>,
   s3_2_data_store: Option<Arc<storage_s3::S3Store>>,
+  read_from: Vec<ObjectStoreName>,
+  next_read: AtomicUsize,
 }
 
 impl ObjectStore {
@@ -52,6 +81,7 @@ impl ObjectStore {
     s3_2_bucket: Option<String>,
     s3_2_key: Option<String>,
     s3_2_secret: Option<String>,
+    read_from: Option<String>,
   ) -> InfuResult<ObjectStore> {
     let file_store = if enable_local_object_storage {
       Some(match storage_file::new(&data_dir) {
@@ -94,7 +124,83 @@ impl ObjectStore {
       None
     };
 
-    Ok(ObjectStore { file_store, s3_1_data_store, s3_2_data_store })
+    let mut object_store =
+      ObjectStore { file_store, s3_1_data_store, s3_2_data_store, read_from: vec![], next_read: AtomicUsize::new(0) };
+    object_store.read_from = object_store.parse_read_from(read_from.as_deref())?;
+    Ok(object_store)
+  }
+
+  fn is_enabled(&self, name: ObjectStoreName) -> bool {
+    match name {
+      ObjectStoreName::Local => self.file_store.is_some(),
+      ObjectStoreName::S3_1 => self.s3_1_data_store.is_some(),
+      ObjectStoreName::S3_2 => self.s3_2_data_store.is_some(),
+    }
+  }
+
+  fn enabled_stores(&self) -> Vec<ObjectStoreName> {
+    [ObjectStoreName::Local, ObjectStoreName::S3_1, ObjectStoreName::S3_2]
+      .into_iter()
+      .filter(|name| self.is_enabled(*name))
+      .collect()
+  }
+
+  /// When not configured, reads go to the first enabled store in the order local, s3_1, s3_2, which is the policy that
+  /// predates object_storage_read_from.
+  fn parse_read_from(&self, read_from: Option<&str>) -> InfuResult<Vec<ObjectStoreName>> {
+    let read_from = read_from.map(|v| v.trim()).unwrap_or("");
+    if read_from.is_empty() {
+      return Ok(self.enabled_stores().into_iter().take(1).collect());
+    }
+    let mut result = vec![];
+    for part in read_from.split(',').map(|p| p.trim()).filter(|p| !p.is_empty()) {
+      let name = ObjectStoreName::from_str(part)?;
+      if !self.is_enabled(name) {
+        return Err(
+          format!("object_storage_read_from lists '{}', but that object store is not enabled.", name.as_str()).into(),
+        );
+      }
+      if result.contains(&name) {
+        return Err(format!("object_storage_read_from lists '{}' more than once.", name.as_str()).into());
+      }
+      result.push(name);
+    }
+    Ok(result)
+  }
+
+  /// The configured stores, rotated so successive reads start at successive stores, followed by any other enabled store
+  /// as a last resort. Falling back to unlisted stores means a store missing an object costs egress elsewhere rather
+  /// than failing the read.
+  fn read_order(&self) -> Vec<ObjectStoreName> {
+    let mut order = vec![];
+    if !self.read_from.is_empty() {
+      let start = self.next_read.fetch_add(1, Ordering::Relaxed) % self.read_from.len();
+      order.extend_from_slice(&self.read_from[start..]);
+      order.extend_from_slice(&self.read_from[..start]);
+    }
+    for name in self.enabled_stores() {
+      if !order.contains(&name) {
+        order.push(name);
+      }
+    }
+    order
+  }
+
+  async fn get_ciphertext(&self, name: ObjectStoreName, user_id: Uid, id: Uid) -> InfuResult<Vec<u8>> {
+    match name {
+      ObjectStoreName::Local => match &self.file_store {
+        Some(file_store) => storage_file::get(file_store.clone(), user_id, id).await,
+        None => Err("Local object store is not enabled.".into()),
+      },
+      ObjectStoreName::S3_1 => match &self.s3_1_data_store {
+        Some(s3_store) => storage_s3::get(s3_store.clone(), user_id, id).await,
+        None => Err("s3_1 object store is not enabled.".into()),
+      },
+      ObjectStoreName::S3_2 => match &self.s3_2_data_store {
+        Some(s3_store) => storage_s3::get(s3_store.clone(), user_id, id).await,
+        None => Err("s3_2 object store is not enabled.".into()),
+      },
+    }
   }
 }
 
@@ -113,6 +219,7 @@ pub fn new(
   s3_2_bucket: Option<String>,
   s3_2_key: Option<String>,
   s3_2_secret: Option<String>,
+  read_from: Option<String>,
 ) -> InfuResult<Arc<ObjectStore>> {
   Ok(Arc::new(ObjectStore::new(
     data_dir,
@@ -129,43 +236,29 @@ pub fn new(
     s3_2_bucket,
     s3_2_key,
     s3_2_secret,
+    read_from,
   )?))
 }
 
 pub async fn get(object_store: Arc<ObjectStore>, user_id: Uid, id: Uid, encryption_key: &str) -> InfuResult<Vec<u8>> {
-  // Local file store takes priority - no fallback needed since it's local
-  if let Some(file_store) = &object_store.file_store {
-    let ciphertext = storage_file::get(file_store.clone(), user_id.clone(), id.clone()).await?;
-    return Ok(decrypt_file_data(encryption_key, ciphertext.as_slice(), filename(&user_id, &id).as_str())?);
-  }
-
-  // For S3 stores: try primary with streaming first-byte timeout detection.
-  // Falls back to secondary on any failure (timeout or error).
-  if let Some(s3_1_store) = &object_store.s3_1_data_store {
-    match storage_s3::get(s3_1_store.clone(), user_id.clone(), id.clone()).await {
+  // Any fetch failure (S3 first-byte timeout, error, missing object) moves on to the next store. A decryption failure
+  // does not, as it more likely indicates a wrong key than a bad copy.
+  let order = object_store.read_order();
+  let mut last_err = None;
+  for (i, name) in order.iter().enumerate() {
+    match object_store.get_ciphertext(*name, user_id.clone(), id.clone()).await {
       Ok(ciphertext) => {
         return Ok(decrypt_file_data(encryption_key, ciphertext.as_slice(), filename(&user_id, &id).as_str())?);
       }
-      Err(s3_1_err) => {
-        // Primary S3 failed - try secondary if available
-        if let Some(s3_2_store) = &object_store.s3_2_data_store {
-          warn!("Primary S3 store failed ({}), falling back to secondary", s3_1_err);
-          let ciphertext = storage_s3::get(s3_2_store.clone(), user_id.clone(), id.clone()).await?;
-          return Ok(decrypt_file_data(encryption_key, ciphertext.as_slice(), filename(&user_id, &id).as_str())?);
-        } else {
-          return Err(s3_1_err);
+      Err(e) => {
+        if let Some(next) = order.get(i + 1) {
+          warn!("Object '{}' get from {} failed ({}), falling back to {}", id, name.as_str(), e, next.as_str());
         }
+        last_err = Some(e);
       }
     }
   }
-
-  // No primary S3, try secondary directly
-  if let Some(s3_2_store) = &object_store.s3_2_data_store {
-    let ciphertext = storage_s3::get(s3_2_store.clone(), user_id.clone(), id.clone()).await?;
-    return Ok(decrypt_file_data(encryption_key, ciphertext.as_slice(), filename(&user_id, &id).as_str())?);
-  }
-
-  Err("No object store configured".into())
+  Err(last_err.unwrap_or_else(|| "No object store configured".into()))
 }
 
 pub async fn put(
@@ -287,4 +380,44 @@ pub trait IndividualObjectStore {
   async fn get(&self, user_id: Uid, item_id: Uid) -> InfuResult<Vec<u8>>;
   async fn put(&self, user_id: Uid, item_id: Uid, val: Arc<Vec<u8>>) -> InfuResult<()>;
   async fn list(&self) -> InfuResult<Vec<ItemAndUserId>>;
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use ObjectStoreName::{S3_1, S3_2};
+
+  fn s3_only_store(read_from: Option<&str>) -> InfuResult<ObjectStore> {
+    let s3 =
+      || (None, Some("s3.example.com".to_owned()), Some("b".to_owned()), Some("k".to_owned()), Some("s".to_owned()));
+    let (r1, e1, b1, k1, s1) = s3();
+    let (r2, e2, b2, k2, s2) = s3();
+    ObjectStore::new("", false, true, r1, e1, b1, k1, s1, true, r2, e2, b2, k2, s2, read_from.map(|v| v.to_owned()))
+  }
+
+  #[test]
+  fn unset_read_from_keeps_primary_then_secondary() {
+    let store = s3_only_store(None).unwrap();
+    assert_eq!(store.read_order(), vec![S3_1, S3_2]);
+    assert_eq!(store.read_order(), vec![S3_1, S3_2]);
+  }
+
+  #[test]
+  fn listed_stores_rotate_and_fall_back_to_unlisted() {
+    let store = s3_only_store(Some(" s3_1, s3_2 ")).unwrap();
+    assert_eq!(store.read_order(), vec![S3_1, S3_2]);
+    assert_eq!(store.read_order(), vec![S3_2, S3_1]);
+    assert_eq!(store.read_order(), vec![S3_1, S3_2]);
+
+    let store = s3_only_store(Some("s3_2")).unwrap();
+    assert_eq!(store.read_order(), vec![S3_2, S3_1]);
+    assert_eq!(store.read_order(), vec![S3_2, S3_1]);
+  }
+
+  #[test]
+  fn read_from_rejects_unknown_disabled_and_duplicate_stores() {
+    assert!(s3_only_store(Some("s3_3")).is_err());
+    assert!(s3_only_store(Some("local")).is_err());
+    assert!(s3_only_store(Some("s3_1,s3_1")).is_err());
+  }
 }

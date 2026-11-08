@@ -141,17 +141,25 @@
 #s3_1_key = 
 #s3_1_secret = 
 
-# Secondary external object store configuration. Objects will be read from the
-# primary object store by default - the secondary is only used as a backup in case
-# of error. For this reason, you should use the vendor with the lowest egress
-# cost for the primary store.
+# Secondary external object store configuration. By default, objects will be
+# read from the primary object store - the secondary is only used as a backup in
+# case of error. For this reason, you should use the vendor with the lowest
+# egress cost for the primary store, or change object_storage_read_from.
 # Endpoint transport is HTTPS-only, same as s3_1_endpoint.
 #enable_s3_2_object_storage = false
-#s3_2_region = 
-#s3_2_endpoint = 
-#s3_2_bucket = 
-#s3_2_key = 
-#s3_2_secret = 
+#s3_2_region =
+#s3_2_endpoint =
+#s3_2_bucket =
+#s3_2_key =
+#s3_2_secret =
+
+# The object store(s) that file and image data is read from, as a comma
+# separated list of: local, s3_1, s3_2. Each listed store must be enabled. If
+# more than one is listed, reads are spread round robin across them. If a read
+# fails, the other listed stores are tried, then any other enabled store. If
+# not set, data is read from the first enabled store in the order local, s3_1,
+# s3_2.
+#object_storage_read_from = "s3_1,s3_2"
 
 # Database backup configuration. If enabled, the user and item database logs
 # will be backed up to the specified AWS S3 compatible object store periodically,

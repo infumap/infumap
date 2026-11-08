@@ -33,7 +33,7 @@ use crate::setup::get_config;
 use crate::storage::db::Db;
 use crate::storage::db::item_db::ItemAndUserId;
 use crate::storage::file as storage_file;
-use crate::storage::object::IndividualObjectStore;
+use crate::storage::object::{IndividualObjectStore, ObjectStoreName};
 use crate::storage::s3 as storage_s3;
 
 /// Stop rather than work through every remaining file if, for example, the credentials or the network have failed.
@@ -48,31 +48,6 @@ const COPY_RETRY_DELAYS: [Duration; 5] = [
   Duration::from_secs(60),
   Duration::from_secs(120),
 ];
-
-enum ObjectStoreName {
-  S3_1,
-  S3_2,
-  Local,
-}
-
-impl ObjectStoreName {
-  pub fn as_str(&self) -> &'static str {
-    match self {
-      ObjectStoreName::S3_1 => "s3_1",
-      ObjectStoreName::S3_2 => "s3_2",
-      ObjectStoreName::Local => "local",
-    }
-  }
-
-  pub fn from_str(s: &str) -> InfuResult<ObjectStoreName> {
-    match s {
-      "s3_1" => Ok(ObjectStoreName::S3_1),
-      "s3_2" => Ok(ObjectStoreName::S3_2),
-      "local" => Ok(ObjectStoreName::Local),
-      other => Err(format!("Invalid Command value: '{}'.", other).into()),
-    }
-  }
-}
 
 pub fn make_clap_subcommand() -> Command {
   Command::new("reconcile")

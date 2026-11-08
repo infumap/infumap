@@ -4714,7 +4714,8 @@ mod live_chat_tests {
     };
     let data_dir = t.db.item.data_dir().to_owned();
     let object_store =
-      object::new(&data_dir, true, false, None, None, None, None, None, false, None, None, None, None, None).unwrap();
+      object::new(&data_dir, true, false, None, None, None, None, None, false, None, None, None, None, None, None)
+        .unwrap();
     Fixture {
       db: Arc::new(tokio::sync::Mutex::new(t.db)),
       object_store,

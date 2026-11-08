@@ -137,6 +137,7 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
   let s3_2_bucket = config.get_string(CONFIG_S3_2_BUCKET).ok();
   let s3_2_key = config.get_string(CONFIG_S3_2_KEY).ok();
   let s3_2_secret = config.get_string(CONFIG_S3_2_SECRET).ok();
+  let object_storage_read_from = config.get_string(CONFIG_OBJECT_STORAGE_READ_FROM).ok();
   let object_store = match storage_object::new(
     &data_dir,
     enable_local_object_storage,
@@ -152,6 +153,7 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
     s3_2_bucket,
     s3_2_key,
     s3_2_secret,
+    object_storage_read_from,
   ) {
     Ok(object_store) => object_store,
     Err(e) => {

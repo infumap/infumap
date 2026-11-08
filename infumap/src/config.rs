@@ -89,6 +89,8 @@ pub const CONFIG_S3_2_BUCKET: &'static str = "s3_2_bucket";
 pub const CONFIG_S3_2_KEY: &'static str = "s3_2_key";
 pub const CONFIG_S3_2_SECRET: &'static str = "s3_2_secret";
 
+pub const CONFIG_OBJECT_STORAGE_READ_FROM: &'static str = "object_storage_read_from";
+
 pub const CONFIG_ENABLE_S3_BACKUP: &'static str = "enable_s3_backup";
 pub const CONFIG_ENABLE_S3_BACKUP_DEFAULT: bool = false;
 
