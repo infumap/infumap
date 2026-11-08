@@ -47,6 +47,12 @@
 # and image data will also be stored here.
 #data_dir = "~/.infumap/data"
 
+# On every server startup, compact each account log if it saves at least this
+# many bytes. Must be a positive integer; default is 1 MiB. Migration and
+# qualifying compaction are always automatic. With S3 backup enabled, a
+# permanent snapshot of both account logs must succeed before compaction installs.
+#startup_compact_min_savings_bytes = 1048576
+
 # The cache directory. Contains images and favicons subdirectories.
 #cache_dir = "~/.infumap/cache"
 

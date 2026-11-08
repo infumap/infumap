@@ -40,6 +40,9 @@ pub const CONFIG_PROMETHEUS_PORT_DEFAULT: &'static str = "9090";
 pub const CONFIG_DATA_DIR: &'static str = "data_dir";
 pub const CONFIG_DATA_DIR_DEFAULT: &'static str = "~/.infumap/data";
 
+pub const CONFIG_STARTUP_COMPACT_MIN_SAVINGS_BYTES: &'static str = "startup_compact_min_savings_bytes";
+pub const CONFIG_STARTUP_COMPACT_MIN_SAVINGS_BYTES_DEFAULT: i64 = 1048576;
+
 pub const CONFIG_CACHE_DIR: &'static str = "cache_dir";
 pub const CONFIG_CACHE_DIR_DEFAULT: &'static str = "~/.infumap/cache";
 

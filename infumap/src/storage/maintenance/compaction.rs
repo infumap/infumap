@@ -15,16 +15,19 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Instant;
 
 use infusdk::db::kv_store::{JsonLogSerializable, KVStore};
 use infusdk::util::infu::InfuResult;
-use log::{debug, info};
+use log::{debug, info, warn};
 use tokio::fs::{self, OpenOptions};
 use tokio::io::{AsyncWriteExt, BufWriter};
+use tokio::task::spawn_blocking;
 
 use super::replacement::discard_temporary;
-use super::{LogKind, create_log_temporary, read_log_descriptor};
+use super::{AccountLogs, LogKind, create_log_temporary, install_log_candidate, read_log_descriptor};
+use crate::storage::backup::{BackupStore, MaintenanceBackupKind, put_maintenance_backup};
 use crate::storage::db::item_db::write_compacted_item_log;
 use crate::storage::db::user::User;
 use crate::storage::db::user_db::CURRENT_USER_LOG_VERSION;
@@ -36,6 +39,105 @@ pub struct CompactionCandidate {
   pub original_bytes: u64,
   pub compacted_bytes: u64,
   pub saved_bytes: u64,
+}
+
+/// Call only after this account's migrations succeed, using its original startup descriptors.
+/// Preparation/archive errors leave the active pair unchanged; installation errors are handled per file.
+pub async fn compact_account_logs(
+  account: &AccountLogs,
+  min_savings_bytes: u64,
+  backup: Option<(&Arc<BackupStore>, &str)>,
+) -> InfuResult<()> {
+  let started = Instant::now();
+  let mut candidates = Vec::new();
+  let result: InfuResult<()> = async {
+    // Temporary replay supplies the current persisted roots without constructing or mutating live indexes.
+    let users = KVStore::<User>::init(
+      account.user_log.to_str().ok_or("User log path must be valid UTF-8.")?,
+      CURRENT_USER_LOG_VERSION,
+    )
+    .await?;
+    let user =
+      users.get(&account.user_id).ok_or_else(|| format!("No user '{}' in its account log.", account.user_id))?;
+    for (source, descriptor) in
+      [(&account.user_log, account.user_descriptor), (&account.item_log, account.item_descriptor)]
+    {
+      if let Some(candidate) = prepare_log_compaction(source, user, min_savings_bytes).await? {
+        candidates.push((source, descriptor, candidate));
+      }
+    }
+    if candidates.is_empty() {
+      debug!("Account '{}' has no qualifying compactions.", account.user_id);
+      return Ok(());
+    }
+    // Both candidates are already validated; snapshot the still-unchanged current pair once before installation.
+    // A migration archive describes an earlier schema and cannot substitute for this recovery point.
+    if let Some((store, encryption_key)) = backup {
+      put_maintenance_backup(
+        store.clone(),
+        MaintenanceBackupKind::Compaction,
+        &account.user_id,
+        &account.item_log,
+        &account.user_log,
+        encryption_key,
+      )
+      .await
+      .map_err(|e| format!("Cannot archive account '{}' before compaction: {}", account.user_id, e))?;
+    }
+    for (original_source, descriptor, candidate) in &candidates {
+      let source = (*original_source).clone();
+      let path = candidate.path.clone();
+      let descriptor = *descriptor;
+      let expected_bytes = candidate.compacted_bytes;
+      // A successful migration already retained the pre-startup original. Keep it through compaction.
+      let save_source = descriptor.version == descriptor.kind.current_version();
+      let installed = spawn_blocking(move || -> InfuResult<PathBuf> {
+        let filename = source.file_name().and_then(|name| name.to_str()).ok_or("Log filename must be valid UTF-8.")?;
+        let previous = source.with_file_name(format!("{}.previous", filename));
+        install_log_candidate(&source, &path, &previous, save_source, |path| {
+          let actual = read_log_descriptor(path)?;
+          if actual.kind != descriptor.kind
+            || actual.version != descriptor.kind.current_version()
+            || std::fs::metadata(path)?.len() != expected_bytes
+          {
+            return Err("Compaction candidate has an unexpected schema or size.".into());
+          }
+          Ok(())
+        })?;
+        Ok(previous)
+      })
+      .await;
+      match installed {
+        Ok(Ok(previous)) => info!(
+          "Compacted '{}': {} -> {} bytes, {} saved; retained original '{}'; elapsed {:?}.",
+          original_source.display(),
+          candidate.original_bytes,
+          candidate.compacted_bytes,
+          candidate.saved_bytes,
+          previous.display(),
+          started.elapsed()
+        ),
+        // Replacement may already have completed if directory sync failed. Keep complete installed logs and
+        // let normal loading verify the final paths; rolling back a successful file is unnecessary.
+        Ok(Err(e)) => warn!(
+          "Could not finish compaction installation for '{}'; keeping its active log: {}",
+          original_source.display(),
+          e
+        ),
+        Err(e) => warn!(
+          "Compaction installation task failed for '{}'; keeping its active log: {}",
+          original_source.display(),
+          e
+        ),
+      }
+    }
+    Ok(())
+  }
+  .await;
+  for (_, _, candidate) in candidates {
+    discard_temporary(&candidate.path);
+  }
+  result
 }
 
 /// Measure actual savings without modifying active files or taking a permanent snapshot.

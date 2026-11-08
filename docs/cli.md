@@ -183,9 +183,17 @@ replaced and may hold a full download of the user's files. Use a different recov
 
 ### compact
 
-Compact a user's item database log. Chronological order is not maintained. In the future, this operation will be handled
-automatically, but for now if you want to compact a log, you must do it explicitly. After creating the compacted log,
-you need to delete or move the original and replace it with the compacted version.
+Manually write `items.json.compacted` for a user's item database. Chronological order is not maintained.
+Stop the server before running this command or installing its output. Keep the original log as a recovery
+copy when replacing it with the compacted version. The command refuses to overwrite an existing candidate.
+
+Server startup automatically compacts account `user.json` and `items.json` after migration when each file
+saves at least `startup_compact_min_savings_bytes` (default 1048576 bytes, or 1 MiB). With S3 backup enabled,
+one permanent pre-compaction archive of both active logs must succeed before either qualifying candidate is
+installed. No qualifying files means no compaction archive. Preparation or upload failure skips compaction;
+per-file installation errors keep completed replacements and leave the other active logs available for normal
+loading. Startup proceeds only if the final databases load successfully. Changed files retain a local
+`.previous` copy; if migration ran first, that copy remains the original pre-migration source.
 
 The output includes every live item reachable from Home, Trash, Dock, and Queries through children and
 attachments, including Scopes and Prompts. Unreachable items are retained and reparented to Home as children,

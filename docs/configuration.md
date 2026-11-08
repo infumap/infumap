@@ -6,6 +6,16 @@ Configuration values specified via environment variables should be prefixed with
 
 For documentation on each of the properties, refer to comments in the auto-generated `settings.toml` file, or [the template file](../infumap/default_settings.toml) in the source tree from which this is derived.
 
+Server startup automatically migrates account logs and then compacts each `user.json` or `items.json` that
+can save at least `startup_compact_min_savings_bytes` (default `1048576`, or 1 MiB). This setting must be a
+positive integer; it can also be supplied as `INFUMAP_STARTUP_COMPACT_MIN_SAVINGS_BYTES`. There are no
+migration/compaction off switches or percentage threshold. With `enable_s3_backup = true`, account maintenance
+requires a permanent snapshot of both logs before migration starts or compaction installs. Compaction
+preparation/upload failure skips the optional operation; a required migration failure blocks startup. The
+shared `pending_users.json` is migrated with a local previous copy and is excluded from these S3 snapshots
+and automatic compaction. See [migration](cli.md#migrate), [compaction](cli.md#compact), and
+[restoring maintenance archives](cli.md#restore) for recovery behavior.
+
 Configure `gpu_tools_url` to point at either the local GPU gateway or a single direct GPU tool service. Infumap calls `GET /gpu-tools` on that URL to discover supported endpoints such as `/image-extract`, `/pdf-extract`, and `/pdf-extract-caption-only`.
 
 When configured and reported by `/gpu-tools`, the web server uses these services to maintain derived artifacts in the background: PDFs are text-extracted, images are tagged, fallback first-page PDF captions can be generated when extracted text produces no search fragments, image/PDF search fragments are generated from those artifacts, and lexical search indexes are updated after fragment or title changes.

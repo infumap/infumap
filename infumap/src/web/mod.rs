@@ -29,7 +29,7 @@ use config::Config;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use infusdk::util::infu::InfuResult;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use once_cell::sync::Lazy;
 use std::io::Cursor;
 use std::net::SocketAddr;
@@ -48,12 +48,13 @@ use crate::ai::image_pipeline::init_image_background_pipeline_loop;
 use crate::ai::text_extraction::init_text_extraction_processing_loop;
 use crate::ai::title_indexing::init_item_title_indexing_loop;
 use crate::config::*;
-use crate::setup::init_fs_maybe_and_get_config;
+use crate::setup::{init_fs_maybe_and_get_config, startup_compact_min_savings_bytes};
 use crate::storage::backup::{self as storage_backup, BackupStore};
 use crate::storage::cache::favicon::FaviconCache;
 use crate::storage::cache::{self as storage_cache, ImageCache};
 use crate::storage::db::Db;
 use crate::storage::db::users_extra::BackupStatus;
+use crate::storage::maintenance::compaction::compact_account_logs;
 use crate::storage::maintenance::{
   discover_account_ids, inspect_pending_users, inspect_startup_logs, migrate_account_logs, migrate_pending_users,
 };
@@ -119,6 +120,7 @@ pub async fn start_server(config: Config) -> InfuResult<()> {
 pub async fn start_server_with_options(config: Config, skip_backup_validation: bool) -> InfuResult<()> {
   Lazy::force(&LLM_LOG_ENABLED);
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
+  let compact_min_savings = startup_compact_min_savings_bytes(&config)?;
   let backup_store = if config.get_bool(CONFIG_ENABLE_S3_BACKUP).map_err(|e| e.to_string())? {
     let s3_region = config.get_string(CONFIG_S3_BACKUP_REGION).ok();
     let s3_endpoint = config.get_string(CONFIG_S3_BACKUP_ENDPOINT).ok();
@@ -167,13 +169,21 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
     );
   }
   migrate_pending_users(&data_dir, pending_users).await?;
-  let migration_backup_key = backup_store
+  let maintenance_backup_key = backup_store
     .as_ref()
     .map(|_| config.get_string(CONFIG_BACKUP_ENCRYPTION_KEY))
     .transpose()
     .map_err(|e| e.to_string())?;
   for account in &account_logs {
-    migrate_account_logs(account, backup_store.as_ref().zip(migration_backup_key.as_deref())).await?;
+    migrate_account_logs(account, backup_store.as_ref().zip(maintenance_backup_key.as_deref())).await?;
+  }
+  for account in &account_logs {
+    if let Err(e) =
+      compact_account_logs(account, compact_min_savings, backup_store.as_ref().zip(maintenance_backup_key.as_deref()))
+        .await
+    {
+      warn!("Skipping optional startup compaction for account '{}'; active logs are unchanged: {}", account.user_id, e);
+    }
   }
   let db = Arc::new(tokio::sync::Mutex::new(match Db::new(&data_dir).await {
     Ok(db) => db,
@@ -254,6 +264,9 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
     let all_user_ids: Vec<String> = db.user.all_user_ids().iter().map(|v| v.clone()).collect();
     for user_id in &all_user_ids {
       db.item.load_user_items(user_id, false).await?;
+      let loaded_epoch = db.item.loaded_log_epoch_for_user(user_id);
+      let loaded_versions = db.item.loaded_container_versions_for_user(user_id);
+      db.container_sync.initialize_user_versions(user_id, loaded_epoch, loaded_versions);
     }
     // Finish loading every account before startup edits append to any item log.
     for user_id in all_user_ids {
@@ -263,6 +276,7 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
       if ensure_prompts_page(&mut db, &user_id).await? {
         info!("Created prompts page for user '{}'.", user_id);
       }
+      // Default page creation appends directly through ItemDb without sync deltas; include those writes too.
       let loaded_epoch = db.item.loaded_log_epoch_for_user(&user_id);
       let loaded_versions = db.item.loaded_container_versions_for_user(&user_id);
       db.container_sync.initialize_user_versions(&user_id, loaded_epoch, loaded_versions);

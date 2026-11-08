@@ -289,6 +289,7 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<&String>) 
     info!("  {} = '{}'", CONFIG_PROMETHEUS_PORT, config.get_string(CONFIG_PROMETHEUS_PORT).map_err(|e| e.to_string())?);
   }
   info!(" {} = '{}'", CONFIG_DATA_DIR, config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?);
+  info!(" {} = {}", CONFIG_STARTUP_COMPACT_MIN_SAVINGS_BYTES, startup_compact_min_savings_bytes(&config)?);
   info!(" {} = '{}'", CONFIG_CACHE_DIR, config.get_string(CONFIG_CACHE_DIR).map_err(|e| e.to_string())?);
   match config.get_string(CONFIG_GPU_TOOLS_URL) {
     Ok(v) => {
@@ -552,8 +553,26 @@ fn build_config(settings_path_maybe: Option<String>) -> InfuResult<Config> {
     return Err(format!("{} must be greater than or equal to zero.", CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS).into());
   }
   crate::web::routes::command::validate_chat_backend_config(&result)?;
+  startup_compact_min_savings_bytes(&result)?;
   crate::web::routes::command::chat_tool_servers_from_config(&result)?;
   return Ok(result);
+}
+
+pub fn startup_compact_min_savings_bytes(config: &Config) -> InfuResult<u64> {
+  let value = config.get::<config::Value>(CONFIG_STARTUP_COMPACT_MIN_SAVINGS_BYTES).map_err(|e| e.to_string())?;
+  // get_int also coerces booleans and rounds floats. Accept actual integers and environment strings only,
+  // and use checked conversion so negative or oversized settings never wrap into an enormous threshold.
+  let bytes = match value.kind {
+    config::ValueKind::I64(value) => u64::try_from(value).ok(),
+    config::ValueKind::I128(value) => u64::try_from(value).ok(),
+    config::ValueKind::U64(value) => Some(value),
+    config::ValueKind::U128(value) => u64::try_from(value).ok(),
+    config::ValueKind::String(value) => value.trim().parse::<u64>().ok(),
+    _ => None,
+  };
+  bytes.filter(|value| *value > 0).ok_or_else(|| {
+    format!("{} must be a positive 64-bit unsigned integer.", CONFIG_STARTUP_COMPACT_MIN_SAVINGS_BYTES).into()
+  })
 }
 
 pub fn add_config_defaults(builder: ConfigBuilder<DefaultState>) -> InfuResult<ConfigBuilder<DefaultState>> {
@@ -576,6 +595,8 @@ pub fn add_config_defaults(builder: ConfigBuilder<DefaultState>) -> InfuResult<C
       .set_default(CONFIG_PROMETHEUS_PORT, CONFIG_PROMETHEUS_PORT_DEFAULT)
       .map_err(|e| e.to_string())?
       .set_default(CONFIG_DATA_DIR, CONFIG_DATA_DIR_DEFAULT)
+      .map_err(|e| e.to_string())?
+      .set_default(CONFIG_STARTUP_COMPACT_MIN_SAVINGS_BYTES, CONFIG_STARTUP_COMPACT_MIN_SAVINGS_BYTES_DEFAULT)
       .map_err(|e| e.to_string())?
       .set_default(CONFIG_CACHE_DIR, CONFIG_CACHE_DIR_DEFAULT)
       .map_err(|e| e.to_string())?
