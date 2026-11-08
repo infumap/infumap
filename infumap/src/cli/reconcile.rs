@@ -391,6 +391,7 @@ fn create_s3_1_data_store_maybe(config: &Config) -> InfuResult<Option<Arc<storag
     return Ok(None);
   }
   Ok(Some(storage_s3::new(
+    "s3_1",
     s3_1_region.as_ref(),
     s3_1_endpoint.as_ref(),
     &s3_1_bucket.unwrap(),
@@ -409,6 +410,7 @@ fn create_s3_2_data_store_maybe(config: &Config) -> InfuResult<Option<Arc<storag
     return Ok(None);
   }
   Ok(Some(storage_s3::new(
+    "s3_2",
     s3_2_region.as_ref(),
     s3_2_endpoint.as_ref(),
     &s3_2_bucket.unwrap(),

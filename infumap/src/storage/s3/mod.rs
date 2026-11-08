@@ -103,29 +103,33 @@ pub fn init_bucket(
 }
 
 pub struct S3Store {
+  /// The store's settings prefix (s3_1 or s3_2), for logging.
+  name: &'static str,
   bucket: Bucket,
 }
 
 impl S3Store {
   fn new(
+    name: &'static str,
     region: Option<&String>,
     endpoint: Option<&String>,
     bucket: &str,
     key: &str,
     secret: &str,
   ) -> InfuResult<S3Store> {
-    Ok(S3Store { bucket: init_bucket(region, endpoint, bucket, key, secret)? })
+    Ok(S3Store { name, bucket: init_bucket(region, endpoint, bucket, key, secret)? })
   }
 }
 
 pub fn new(
+  name: &'static str,
   region: Option<&String>,
   endpoint: Option<&String>,
   bucket: &str,
   key: &str,
   secret: &str,
 ) -> InfuResult<Arc<S3Store>> {
-  Ok(Arc::new(S3Store::new(region, endpoint, bucket, key, secret)?))
+  Ok(Arc::new(S3Store::new(name, region, endpoint, bucket, key, secret)?))
 }
 
 /// Fetches an object from S3 using streaming with first-byte timeout detection.
@@ -167,7 +171,7 @@ pub async fn get_streaming(s3_store: Arc<S3Store>, user_id: Uid, id: Uid) -> Inf
           format!("Error reading S3 stream chunk for '{}' after {} bytes: {}", s3_path, buffer.len(), e)
         })?;
         if !first_chunk_received {
-          debug!("First chunk received for S3 object '{}'", s3_path);
+          debug!("First chunk received for S3 object '{}' from {}", s3_path, s3_store.name);
           first_chunk_received = true;
         }
         buffer.extend_from_slice(&chunk);
@@ -199,7 +203,7 @@ pub async fn get(s3_store: Arc<S3Store>, user_id: Uid, id: Uid) -> InfuResult<Ve
     match get_streaming(s3_store.clone(), user_id.clone(), id.clone()).await {
       Ok(bytes) => {
         if attempt > 0 {
-          debug!("Recovered S3 object read for '{}' after {} attempt(s)", s3_path, attempt + 1);
+          debug!("Recovered S3 object read for '{}' from {} after {} attempt(s)", s3_path, s3_store.name, attempt + 1);
         }
         return Ok(bytes);
       }
@@ -210,8 +214,9 @@ pub async fn get(s3_store: Arc<S3Store>, user_id: Uid, id: Uid) -> InfuResult<Ve
 
         let delay = Duration::from_millis(GET_RETRY_DELAYS_MILLIS[attempt]);
         debug!(
-          "Retrying transient S3 read failure for '{}' after attempt {} of {}: {}",
+          "Retrying transient S3 read failure for '{}' from {} after attempt {} of {}: {}",
           s3_path,
+          s3_store.name,
           attempt + 1,
           GET_MAX_ATTEMPTS,
           err

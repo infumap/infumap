@@ -157,8 +157,7 @@
 # separated list of: local, s3_1, s3_2. Each listed store must be enabled. If
 # more than one is listed, reads are spread round robin across them. If a read
 # fails, the other listed stores are tried, then any other enabled store. If
-# not set, data is read from the first enabled store in the order local, s3_1,
-# s3_2.
+# not set, data is read from the first enabled store in the order local, s3_1, s3_2.
 #object_storage_read_from = "s3_1,s3_2"
 
 # Database backup configuration. If enabled, the user and item database logs
