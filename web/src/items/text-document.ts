@@ -211,7 +211,6 @@ export function isMarkdownTextItem(textItem: TextItem): boolean {
   const mimeType = (textItem.mimeType ?? "").toLowerCase();
   const title = textItem.title.toLowerCase();
   return mimeType == "text/markdown" ||
-    mimeType == "text/x-markdown" ||
     title.endsWith(".md") ||
     title.endsWith(".markdown");
 }

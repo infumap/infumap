@@ -2721,7 +2721,7 @@ fn is_legacy_text_file_entry(kvs: &Map<String, Value>) -> InfuResult<bool> {
 }
 
 fn is_text_item_mime_type(mime_type: &str) -> bool {
-  matches!(mime_type, "text/plain" | "text/markdown" | "text/x-markdown")
+  matches!(mime_type, "text/plain" | "text/markdown")
 }
 
 /// The local items the item refers to: a link's target, or the targets of a note's infumap:// urls.

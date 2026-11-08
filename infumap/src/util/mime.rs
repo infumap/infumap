@@ -12,7 +12,7 @@ pub const CHAT_TRANSCRIPT_MIME_TYPE: &str = "application/x-infumap-chat";
 pub const CR2_MIME_TYPE: &str = "image/x-canon-cr2";
 
 pub fn is_cr2_mime_type(mime_type: &str) -> bool {
-  matches!(mime_type, CR2_MIME_TYPE | "image/cr2")
+  mime_type == CR2_MIME_TYPE
 }
 
 pub fn requires_jpeg_rendition(mime_type: &str) -> bool {
@@ -20,7 +20,7 @@ pub fn requires_jpeg_rendition(mime_type: &str) -> bool {
 }
 
 pub fn is_heif_mime_type(mime_type: &str) -> bool {
-  matches!(mime_type, "image/heic" | "image/heif")
+  mime_type == "image/heic"
 }
 
 pub fn is_heif_image(data: &[u8]) -> bool {
@@ -76,6 +76,9 @@ pub fn normalized_mime_type(raw: &str) -> String {
     "application/x-zip-compressed" => "application/zip",
     "image/jpg" | "image/pjpeg" => "image/jpeg",
     "image/cr2" => CR2_MIME_TYPE,
+    // Detection reports every HEIF brand it decodes as image/heic, so that is the one type stored for the family.
+    "image/heif" => "image/heic",
+    "text/x-markdown" => "text/markdown",
     "text/xml" => "application/xml",
     _ => trimmed,
   };
