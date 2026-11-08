@@ -22,7 +22,7 @@ use log::warn;
 
 pub fn make_clap_subcommand() -> Command {
   Command::new("migrate")
-    .about("Migrates a single user or item log file to the next version, if it is not already at the latest. The existing log is retained with a postfix .vX where X is the existing version number. Note that generally it should not be necessary to migrate log files by hand, because this is done automatically on web server startup (TODO).")
+    .about("Migrates a single user or item log file to the next version, if it is not already at the latest. The existing log is retained with a postfix .vX where X is the existing version number. Account logs and pending_users.json are migrated automatically through all supported versions on web server startup.")
     .arg(Arg::new("log_path")
       .short('p')
       .long("log-path")

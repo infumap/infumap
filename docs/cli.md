@@ -34,11 +34,19 @@ A (unique) backup encryption key is generated when a new `settings.toml` file is
 
 ### migrate
 
-Migrate an existing user or item log file to the next version. It migrates one version at a time, so a log several versions behind needs one run per version. This may be required when upgrading to a new version of Infumap. Ultimately log migration will happen automatically on web server startup and this command will be an advanced feature, however this is not implemented yet.
+Migrate an existing user or item log file to the next version. This manual command migrates one version at a
+time and retains its source with a `.vN` suffix. A log several versions behind needs one run per version.
 
-The shared `pending_users.json` is migrated automatically on startup through supported versions, before database
-initialization. Its original is retained locally as `pending_users.json.previous`; no S3 snapshot is taken for
-this file. Account `user.json` and `items.json` still require manual migration for now.
+Web server startup automatically migrates account `user.json` and `items.json` through all supported versions
+before database initialization. Each changed log's original pre-chain file is retained as `user.json.previous`
+or `items.json.previous`. With S3 backup enabled, startup first uploads a permanent migration archive containing
+both original account logs; upload failure blocks migration. Unsupported schemas or conversion/validation
+failures stop startup without installing candidates. Installation is per file; if interrupted between files,
+the next startup finishes remaining migrations. Older binaries may not read the upgraded active logs; use the
+retained originals or a pre-migration archive when rolling back.
+
+The shared `pending_users.json` is also migrated automatically through supported versions. Its original is
+retained locally as `pending_users.json.previous`; no S3 snapshot is taken for this file.
 
 Options:
 - **-p --log-path:** The path to the user or item log file to migrate to the next version.

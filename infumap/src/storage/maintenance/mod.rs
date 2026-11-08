@@ -17,6 +17,8 @@
 use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::time::Instant;
 
 use infusdk::db::kv_store::{JsonLogSerializable, KVStore};
 use infusdk::item::Item;
@@ -27,7 +29,8 @@ use log::{info, warn};
 use serde_json::Value;
 use tokio::task::spawn_blocking;
 
-use super::db::item_db::CURRENT_ITEM_LOG_VERSION;
+use super::backup::{BackupStore, MaintenanceBackupKind, put_maintenance_backup};
+use super::db::item_db::{CURRENT_ITEM_LOG_VERSION, validate_item_log};
 use super::db::user::User;
 use super::db::user_db::CURRENT_USER_LOG_VERSION;
 use crate::util::fs::expand_tilde;
@@ -118,6 +121,94 @@ pub fn inspect_pending_users(data_dir: &str) -> InfuResult<Option<LogDescriptor>
     return Ok(None);
   }
   inspect_existing_log(&path, LogKind::User).map(Some)
+}
+
+/// Archive the unchanged pair, then stage and validate both chains before replacing either active file.
+pub async fn migrate_account_logs(account: &AccountLogs, backup: Option<(&Arc<BackupStore>, &str)>) -> InfuResult<()> {
+  let logs = [(&account.user_log, account.user_descriptor), (&account.item_log, account.item_descriptor)];
+  if logs.iter().all(|(_, descriptor)| descriptor.version == descriptor.kind.current_version()) {
+    return Ok(());
+  }
+  let started = Instant::now();
+  if let Some((store, encryption_key)) = backup {
+    // Old schemas cannot be replayed with current Rust types. Snapshot the raw pair before any conversion.
+    put_maintenance_backup(
+      store.clone(),
+      MaintenanceBackupKind::Migration,
+      &account.user_id,
+      &account.item_log,
+      &account.user_log,
+      encryption_key,
+    )
+    .await
+    .map_err(|e| {
+      format!("Cannot archive account '{}' before migration; no conversion started: {}", account.user_id, e)
+    })?;
+  }
+
+  let mut candidates = Vec::new();
+  let result: InfuResult<()> = async {
+    for (source, descriptor) in logs {
+      if descriptor.version == descriptor.kind.current_version() {
+        continue;
+      }
+      let prepare_source = source.clone();
+      let candidate = spawn_blocking(move || prepare_log_migration(&prepare_source))
+        .await
+        .map_err(|e| format!("Migration preparation task failed for '{}': {}", source.display(), e))?
+        .map_err(|e| format!("Cannot migrate '{}': {}", source.display(), e))?;
+      candidates.push((source, candidate, descriptor));
+      let candidate = &candidates.last().unwrap().1;
+      let candidate_path = candidate.to_str().ok_or("Migration candidate path must be valid UTF-8.")?;
+      let replay: InfuResult<()> = match descriptor.kind {
+        LogKind::User => KVStore::<User>::init(candidate_path, CURRENT_USER_LOG_VERSION).await.map(|_| ()),
+        LogKind::Item => validate_item_log(candidate_path).await,
+      };
+      replay.map_err(|e| format!("Cannot replay migrated log '{}': {}", source.display(), e))?;
+    }
+
+    // Preparing both first keeps both originals intact on conversion/replay failure. Installation is per-file:
+    // if a later installation fails, stop startup and let the next run migrate the remaining old log.
+    for (original_source, candidate, descriptor) in &candidates {
+      let source = (*original_source).clone();
+      let candidate = candidate.clone();
+      let descriptor = *descriptor;
+      spawn_blocking(move || -> InfuResult<()> {
+        let filename = source.file_name().and_then(|name| name.to_str()).ok_or("Log filename must be valid UTF-8.")?;
+        let previous = source.with_file_name(format!("{}.previous", filename));
+        let input_bytes = std::fs::metadata(&source)?.len();
+        let output_bytes = std::fs::metadata(&candidate)?.len();
+        install_log_candidate(&source, &candidate, &previous, true, |path| {
+          let migrated = read_log_descriptor(path)?;
+          if migrated.kind != descriptor.kind || migrated.version != descriptor.kind.current_version() {
+            return Err("Migration candidate has an unexpected schema.".into());
+          }
+          Ok(())
+        })
+        .map_err(|e| format!("Cannot install migrated log '{}': {}", source.display(), e))?;
+        info!(
+          "Migrated '{}' from v{} to v{} ({} -> {} bytes); retained original '{}'.",
+          source.display(),
+          descriptor.version,
+          descriptor.kind.current_version(),
+          input_bytes,
+          output_bytes,
+          previous.display()
+        );
+        Ok(())
+      })
+      .await
+      .map_err(|e| format!("Migration installation task failed for '{}': {}", original_source.display(), e))??;
+    }
+    Ok(())
+  }
+  .await;
+  for (_, candidate, _) in candidates {
+    replacement::discard_temporary(&candidate);
+  }
+  result?;
+  info!("Account '{}' startup migration completed in {:?}.", account.user_id, started.elapsed());
+  Ok(())
 }
 
 /// Pending users are local-only and must be migrated before Db::new opens their store.

@@ -43,6 +43,14 @@ use super::user::User;
 
 pub const CURRENT_ITEM_LOG_VERSION: i64 = 40;
 
+/// Replay a staged log without adding its items to the live database's indexes.
+pub(crate) async fn validate_item_log(path: &str) -> InfuResult<()> {
+  // Item logs include epochs and container-version records; plain KVStore::init cannot validate those.
+  let mut container_version_state = ContainerVersionReplayState::new();
+  KVStore::<Item>::init_with_observer(path, CURRENT_ITEM_LOG_VERSION, &mut container_version_state).await?;
+  Ok(())
+}
+
 #[derive(Clone, Default)]
 pub struct MimeTypeMigrationState {
   pub is_data_item: bool,

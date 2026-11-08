@@ -55,7 +55,7 @@ use crate::storage::cache::{self as storage_cache, ImageCache};
 use crate::storage::db::Db;
 use crate::storage::db::users_extra::BackupStatus;
 use crate::storage::maintenance::{
-  discover_account_ids, inspect_pending_users, inspect_startup_logs, migrate_pending_users,
+  discover_account_ids, inspect_pending_users, inspect_startup_logs, migrate_account_logs, migrate_pending_users,
 };
 use crate::storage::object::{self as storage_object, ObjectStore};
 use crate::tokiort::TokioIo;
@@ -167,6 +167,14 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
     );
   }
   migrate_pending_users(&data_dir, pending_users).await?;
+  let migration_backup_key = backup_store
+    .as_ref()
+    .map(|_| config.get_string(CONFIG_BACKUP_ENCRYPTION_KEY))
+    .transpose()
+    .map_err(|e| e.to_string())?;
+  for account in &account_logs {
+    migrate_account_logs(account, backup_store.as_ref().zip(migration_backup_key.as_deref())).await?;
+  }
   let db = Arc::new(tokio::sync::Mutex::new(match Db::new(&data_dir).await {
     Ok(db) => db,
     Err(e) => {
