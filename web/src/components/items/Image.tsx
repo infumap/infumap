@@ -117,14 +117,15 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   // images are requested at a fixed higher resolution than they are displayed at, so they print sharply.
   const imageResolutionMultiplier = () =>
     store.printMode.get() ? PRINT_IMAGE_RESOLUTION_MULTIPLIER : store.devicePixelRatio.get();
-  const imgSrc = () => {
+  const imgWidthToRequestDevicePx = (): number => {
     let widthPx = Math.round(imageWidthToRequestPx(true) * imageResolutionMultiplier());
     // Requests at or above the display width use the display size (a JPEG rendition for HEIC/CR2). Capping gives
     // such requests a single url and cache entry.
     const originalWidthPx = imageItem().imageSizePx.w;
     if (originalWidthPx > 0 && widthPx > originalWidthPx) { widthPx = originalWidthPx; }
-    return "/files/" + props.visualElement.displayItem.id + "_" + widthPx;
+    return widthPx;
   };
+  const imgSrc = () => "/files/" + props.visualElement.displayItem.id + "_" + imgWidthToRequestDevicePx();
   const showTriangleDetail = () => (boundsPx().w / (imageItem().spatialWidthGr / GRID_SIZE)) > 0.5;
 
   const imgSrcSignal = createInfuSignal<string | undefined>(undefined);
@@ -266,19 +267,21 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   // rounding errors, which there may be, so this adds the perfect degree of safety).
 
   let isDetailed_OnLoad = isDetailed();
-  // The path of the image rendition currently held (acquired from the image manager), "" if none is held because the
-  // placeholder suffices, or null before the first evaluation.
+  // The path of the image rendition wanted, "" if the placeholder suffices, or null before the first evaluation. It is
+  // held (acquired from the image manager) if currentImgSrcIsHeld, which it is not when the stand-in image suffices.
   let currentImgSrc: string | null = null;
+  let currentImgSrcIsHeld = false;
   let imgOriginOnLoad = imgOrigin();
   let isMounting = true;
   let isShowingThumbnail = createInfuSignal<boolean>(true);
-  // When printing, an already fetched rendition of the image is shown whilst the print resolution one is fetched.
-  let printStandInImage: { path: string, origin: string | null } | null = null;
+  // An already fetched rendition of the image, shown instead of the placeholder whilst the wanted one is fetched (when
+  // printing, or in a translucent page), or instead of fetching the wanted one (in a translucent page).
+  let standInImage: { path: string, origin: string | null } | null = null;
 
-  const releasePrintStandInImageMaybe = () => {
-    if (printStandInImage == null) { return; }
-    releaseImage(printStandInImage.path, printStandInImage.origin);
-    printStandInImage = null;
+  const releaseStandInImageMaybe = () => {
+    if (standInImage == null) { return; }
+    releaseImage(standInImage.path, standInImage.origin);
+    standInImage = null;
   };
 
   // The printed page is laid out as soon as printing starts, before a fetch could complete, so the image must not
@@ -288,12 +291,29 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     if (!untrack(() => isShowingThumbnail.get())) { return true; }
     const fetched = acquireFetchedImageMaybe(props.visualElement.displayItem.id, imgOriginOnLoad);
     if (fetched == null) { return false; }
-    releasePrintStandInImageMaybe();
-    printStandInImage = { path: fetched.path, origin: imgOriginOnLoad };
+    releaseStandInImageMaybe();
+    standInImage = { path: fetched.path, origin: imgOriginOnLoad };
     imgSrcSignal.set(fetched.objectUrl);
     isShowingThumbnail.set(false);
     shownImageKind.set("final");
     return true;
+  };
+
+  // Images in translucent pages are fetched at low priority, behind those of the interactive page, but often a
+  // rendition is already in memory: e.g. the translucent page was just navigated up from, where its images were shown
+  // larger. Such a rendition is shown instead of the placeholder, and if it is at least wantedWidthPx wide, the wanted
+  // rendition is not fetched at all ("sufficient"). Returns "none" if there is no fetched rendition to show.
+  const showFetchedImageForTranslucentMaybe = (wantedWidthPx: number): "none" | "interim" | "sufficient" => {
+    if (store.printMode.get() || !untrack(() => isInsideTranslucentPage(props.visualElement))) { return "none"; }
+    const fetched = acquireFetchedImageMaybe(props.visualElement.displayItem.id, imgOriginOnLoad);
+    if (fetched == null) { return "none"; }
+    releaseStandInImageMaybe();
+    standInImage = { path: fetched.path, origin: imgOriginOnLoad };
+    imgSrcSignal.set(fetched.objectUrl);
+    isShowingThumbnail.set(false);
+    const sufficient = fetched.widthPx >= wantedWidthPx;
+    shownImageKind.set(sufficient ? "final" : "interim");
+    return sufficient ? "sufficient" : "interim";
   };
 
   // When the image is displayed no wider (in device pixels) than its placeholder, the placeholder is already at (or
@@ -315,14 +335,15 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     if (currentImgSrc != wantedImgSrc && !store.anItemIsResizing.get()) {
       if (isDetailed_OnLoad) {
         if (!isMounting) {
-          if (currentImgSrc != null && currentImgSrc !== "") {
-            releaseImage(currentImgSrc, imgOriginOnLoad);
+          if (currentImgSrcIsHeld) {
+            releaseImage(currentImgSrc!, imgOriginOnLoad);
+            currentImgSrcIsHeld = false;
           }
         }
         isMounting = false;
         currentImgSrc = wantedImgSrc;
         if (wantedImgSrc == "") {
-          releasePrintStandInImageMaybe();
+          releaseStandInImageMaybe();
           imgSrcSignal.set(thumbnailSrc());
           isShowingThumbnail.set(true);
           shownImageKind.set("placeholder");
@@ -332,9 +353,13 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
         const imgOriginOnRequest = imgOriginOnLoad;
         const imageIdOnRequest = props.visualElement.displayItem.id;
         if (!showFetchedImageForPrintMaybe()) {
-          imgSrcSignal.set(thumbnailSrc());
-          isShowingThumbnail.set(true);
-          shownImageKind.set("placeholder");
+          const translucentStandIn = showFetchedImageForTranslucentMaybe(imgWidthToRequestDevicePx());
+          if (translucentStandIn == "sufficient") { return; }
+          if (translucentStandIn == "none") {
+            imgSrcSignal.set(thumbnailSrc());
+            isShowingThumbnail.set(true);
+            shownImageKind.set("placeholder");
+          }
         }
         const priority = isPopup()
           ? ImageFetchPriority.High
@@ -361,6 +386,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
           isShowingThumbnail.set(false);
           shownImageKind.set("interim");
         };
+        currentImgSrcIsHeld = true;
         getImage(imgSrcOnRequest, imgOriginOnRequest, priority, onInterim)
           .then((objectUrl) => {
             try {
@@ -387,10 +413,13 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 setTimeout(() => { imgSrcSignal.set(prevObjectUrl) }, 0);
               }
             } else {
+              // Superseded by a later request, whose result (or the stand-in image) is shown instead. This
+              // request's rendition has been released.
+              if (currentImgSrc != imgSrcOnRequest) { return; }
               imgSrcSignal.set(objectUrl);
               isShowingThumbnail.set(false);
               shownImageKind.set("final");
-              releasePrintStandInImageMaybe();
+              releaseStandInImageMaybe();
             }
           })
           .catch((error) => {
@@ -402,11 +431,9 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   });
 
   onCleanup(() => {
-    releasePrintStandInImageMaybe();
-    if (isDetailed_OnLoad) {
-      if (currentImgSrc != null && currentImgSrc !== "") {
-        releaseImage(currentImgSrc, imgOriginOnLoad);
-      }
+    releaseStandInImageMaybe();
+    if (currentImgSrcIsHeld) {
+      releaseImage(currentImgSrc!, imgOriginOnLoad);
     }
   });
 

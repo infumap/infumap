@@ -315,7 +315,7 @@ export function releaseImage(path: string, origin: string | null) {
  * Synchronously acquires the widest rendition of an image that has already been fetched, if any. The caller must
  * release it with releaseImage(path, origin).
  */
-export function acquireFetchedImageMaybe(itemId: string, origin: string | null): { path: string, objectUrl: string } | null {
+export function acquireFetchedImageMaybe(itemId: string, origin: string | null): { path: string, objectUrl: string, widthPx: number } | null {
   const pathPrefix = `/files/${itemId}_`;
   const keyPrefix = cacheKey(pathPrefix, origin);
   let bestKey: string | null = null;
@@ -336,7 +336,7 @@ export function acquireFetchedImageMaybe(itemId: string, origin: string | null):
     waitingForCleanup.delete(bestKey);
   }
   objectUrlsRefCount.set(bestKey, (objectUrlsRefCount.get(bestKey) as number) + 1);
-  return { path: pathPrefix + bestWidthPx, objectUrl: objectUrls.get(bestKey) as string };
+  return { path: pathPrefix + bestWidthPx, objectUrl: objectUrls.get(bestKey) as string, widthPx: bestWidthPx };
 }
 
 /**
