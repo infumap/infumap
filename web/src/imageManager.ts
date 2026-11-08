@@ -134,9 +134,13 @@ export function getImage(
 };
 
 // High priority requests (initial or follow-up) come first. Then all other initial requests come before all other
-// follow-up requests, then by priority.
+// follow-up requests, then by priority. Except Low priority requests come after everything else (initial before
+// follow-up): an initial request for a translucent page image can return a full image, and that must not delay
+// generating the images of the interactive page it is in.
 const taskRank = (task: ImageFetchTask): number =>
-  task.priority == ImageFetchPriority.High ? 0 : (task.isFollowUp ? IMAGE_FETCH_PRIORITY_COUNT : 0) + task.priority;
+  task.priority == ImageFetchPriority.High ? 0
+    : task.priority == ImageFetchPriority.Low ? 2 * IMAGE_FETCH_PRIORITY_COUNT + (task.isFollowUp ? 1 : 0)
+    : (task.isFollowUp ? IMAGE_FETCH_PRIORITY_COUNT : 0) + task.priority;
 
 function enqueue(task: ImageFetchTask) {
   if (task.priority == ImageFetchPriority.High) {
