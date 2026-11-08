@@ -246,6 +246,13 @@ function startFetch(task: ImageFetchTask) {
       const blob = await resp.blob();
       fetchInProgress.delete(task.key);
       revokeInterimLater(task);
+      if (!objectUrlsRefCount.has(task.key)) {
+        // Released, and its bookkeeping cleaned up, whilst the fetch was in progress. Storing the image now would
+        // leave objectUrls and objectUrlsRefCount out of sync, and nothing would revoke it. The task's promise is left
+        // unsettled: whoever requested the image has released it, so is not using the result.
+        if (debug) { console.debug(`fetch complete but no longer required: ${task.key}.`); }
+        return;
+      }
       if (objectUrls.get(task.key) != null) {
         // it's possible another fetch request for the same filename completed whilst this one was waiting for the blob.
         if (debug) { console.debug(`fetched complete but task already resolved: ${task.key}.`); }
