@@ -69,6 +69,7 @@ const LABEL_HIT_EXACT: &'static str = "hit_exact";
 const LABEL_HIT_ORIG: &'static str = "hit_orig";
 const LABEL_MISS_ORIG: &'static str = "miss_orig";
 const LABEL_MISS_CREATE: &'static str = "miss";
+const LABEL_MISS_DERIVED: &'static str = "miss_derived";
 const LABEL_MISS_SHARED: &'static str = "miss_shared";
 const LABEL_PARTIAL: &'static str = "partial";
 const LABEL_PENDING: &'static str = "pending";
@@ -420,6 +421,10 @@ async fn get_cached_resized_img(
   // The largest cached rendition too small to be the response. It can be sent as a partial response whilst the
   // requested rendition is generated.
   let mut smaller_width_maybe: Option<u32> = None;
+  // The smallest cached rendition too large to be the response, and whether the original is cached. If either is,
+  // the requested rendition is generated from it rather than from the original in the object store.
+  let mut larger_width_maybe: Option<u32> = None;
+  let mut original_is_cached = false;
 
   {
     if let Some(candidates) = storage_cache::keys_for_item_id(image_cache.clone(), &owner_id, &uid)? {
@@ -441,6 +446,7 @@ async fn get_cached_resized_img(
               return Ok(original_image_response(data, &filename, &original_mime_type_string, &cache_control_value));
             } else {
               // TODO (LOW): It's appropriate and more optimal to return + cache the original in other circumstances as well.
+              original_is_cached = true;
               continue;
             }
           }
@@ -456,6 +462,9 @@ async fn get_cached_resized_img(
               continue;
             }
             if (requested_width as f64 / candidate_width as f64) < (1.0 - max_scale_image_down_percent / 100.0) {
+              if larger_width_maybe.map_or(true, |w| candidate_width < w) {
+                larger_width_maybe = Some(candidate_width);
+              }
               continue;
             }
             best_candidate_maybe = match best_candidate_maybe {
@@ -518,6 +527,17 @@ async fn get_cached_resized_img(
     size: if respond_with_cached_original { ImageSize::Original } else { ImageSize::Width(requested_width) },
   }
   .to_string();
+  // The smallest larger rendition is the cheapest to decode. Since it was too large to serve, it is at least
+  // 1 / (1 - max_scale_image_down_percent / 100) times the requested width, so downscaling it loses little.
+  let cached_source_maybe = if respond_with_cached_original {
+    None
+  } else if let Some(larger_width) = larger_width_maybe {
+    Some(ImageSize::Width(larger_width))
+  } else if original_is_cached {
+    Some(ImageSize::Original)
+  } else {
+    None
+  };
   let (job, job_was_started) = IMAGE_JOBS.get_or_start(
     job_key,
     fetch_and_cache_image(
@@ -528,6 +548,7 @@ async fn get_cached_resized_img(
       object_encryption_key,
       original_dimensions_px,
       if respond_with_cached_original { None } else { Some(requested_width) },
+      cached_source_maybe,
       priority,
     ),
   );
@@ -596,7 +617,9 @@ fn pending_image_response() -> Response<BoxBody<Bytes, hyper::Error>> {
 }
 
 /// Fetches the original image from the object store, resizes it to requested_width_maybe (None => the unmodified
-/// original), and inserts the result into the image cache. See IMAGE_PRIORITY_HEADER_NAME for priority.
+/// original), and inserts the result into the image cache. If cached_source_maybe is given, the resized image is
+/// generated from that cached rendition instead, if it is still in the cache. See IMAGE_PRIORITY_HEADER_NAME for
+/// priority.
 async fn fetch_and_cache_image(
   object_store: Arc<object::ObjectStore>,
   image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
@@ -605,6 +628,7 @@ async fn fetch_and_cache_image(
   object_encryption_key: String,
   original_dimensions_px: Dimensions<i64>,
   requested_width_maybe: Option<u32>,
+  cached_source_maybe: Option<ImageSize>,
   priority: ImageJobPriority,
 ) -> Result<Bytes, String> {
   let job_semaphore = match priority {
@@ -613,16 +637,34 @@ async fn fetch_and_cache_image(
     ImageJobPriority::Normal => IMAGE_JOB_SEMAPHORE.clone(),
   };
   let _job_permit = job_semaphore.acquire_owned().await.map_err(|e| format!("Image job semaphore closed: {}", e))?;
-  let original_file_bytes = object::get(object_store, owner_id.clone(), uid.clone(), &object_encryption_key)
-    .await
-    .map_err(|e| e.to_string())?;
 
   let (cache_key, data) = match requested_width_maybe {
     None => {
+      let original_file_bytes = object::get(object_store, owner_id.clone(), uid.clone(), &object_encryption_key)
+        .await
+        .map_err(|e| e.to_string())?;
       METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_ORIG]).inc();
       (ImageCacheKey { item_id: uid.clone(), size: ImageSize::Original }, original_file_bytes)
     }
     Some(requested_width) => {
+      let mut cached_source_bytes_maybe = None;
+      if let Some(cached_source) = cached_source_maybe {
+        let source_key = ImageCacheKey { item_id: uid.clone(), size: cached_source };
+        let source_key_for_log = source_key.to_string();
+        cached_source_bytes_maybe =
+          storage_cache::get(image_cache.clone(), &owner_id, source_key).await.map_err(|e| e.to_string())?;
+        match &cached_source_bytes_maybe {
+          Some(_) => debug!("Generating image '{}_{}' from cached '{}'.", uid, requested_width, source_key_for_log),
+          None => warn!("Image cache entry '{}' disappeared before it could be resized.", source_key_for_log),
+        }
+      }
+      let derived = cached_source_bytes_maybe.is_some();
+      let source_bytes = match cached_source_bytes_maybe {
+        Some(bytes) => bytes,
+        None => object::get(object_store, owner_id.clone(), uid.clone(), &object_encryption_key)
+          .await
+          .map_err(|e| e.to_string())?,
+      };
       // The permit is moved into the blocking task so it is held until the work completes.
       let permit = if priority != ImageJobPriority::Normal {
         None
@@ -639,12 +681,13 @@ async fn fetch_and_cache_image(
       let name = format!("{}_{}", uid, requested_width);
       let data = spawn_blocking(move || {
         let _permit = permit;
-        resize_image_to_jpeg(original_file_bytes, &uid_for_resize, &name, original_dimensions_px, requested_width)
+        resize_image_to_jpeg(source_bytes, &uid_for_resize, &name, original_dimensions_px, requested_width)
       })
       .await
       .map_err(|e| format!("Image resize task failed: {}", e))?
       .map_err(|e| e.to_string())?;
-      METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[LABEL_MISS_CREATE]).inc();
+      let metric_label = if derived { LABEL_MISS_DERIVED } else { LABEL_MISS_CREATE };
+      METRIC_CACHED_IMAGE_REQUESTS_TOTAL.with_label_values(&[metric_label]).inc();
       (ImageCacheKey { item_id: uid.clone(), size: ImageSize::Width(requested_width) }, data)
     }
   };
@@ -707,16 +750,19 @@ impl ImageJobs {
   }
 }
 
+/// source_bytes is either the original image or a cached (JPEG) rendition of it. Renditions are oriented and carry no
+/// EXIF, so decoding them applies no further rotation.
+///
 /// CPU intensive - must not be called on an async worker thread.
 fn resize_image_to_jpeg(
-  original_file_bytes: Vec<u8>,
+  source_bytes: Vec<u8>,
   uid: &str,
   name: &str,
   original_dimensions_px: Dimensions<i64>,
   requested_width: u32,
 ) -> InfuResult<Vec<u8>> {
   let mut img =
-    decode_image(&original_file_bytes, uid).map_err(|e| format!("Could not read original image '{}': {}", name, e))?;
+    decode_image(&source_bytes, uid).map_err(|e| format!("Could not read source image for '{}': {}", name, e))?;
 
   // Calculate the height for passing into the image resize method. The resize method makes the image as large as possible
   // whilst preserving the image aspect ratio. So calculate the exact height, then bump it up a bit to be 100% sure width
