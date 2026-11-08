@@ -176,7 +176,7 @@ function listPageRowOfPath(itemPath: VisualElementPath): { pageVe: VisualElement
 function sortAfterTitleEdit(store: StoreContextModel, item: Item, itemPath: VisualElementPath): void {
   const listRowYPxBefore = listPageRowOfPath(itemPath)?.rowVe.boundsPx.y ?? null;
   const before = tableRowOfPath(store, itemPath);
-  itemState.sortParentChildrenIfTitleOrdered(item);
+  itemState.sortParentChildrenIfSorted(item);
   if (listRowYPxBefore != null) {
     // List rows are positioned by arranging. Microtasks run in order, so this one runs after the requested arrange.
     requestArrange(store, "text-edit-sorted-list-row");

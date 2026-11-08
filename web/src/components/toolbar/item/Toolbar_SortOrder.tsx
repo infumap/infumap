@@ -29,9 +29,11 @@ export const Toolbar_SortOrder: Component = () => {
   let button: HTMLButtonElement | undefined;
 
   const order = () => asContainerItem(getToolbarFocusItem(store)).orderChildrenBy;
-  const icon = () => order() == "title[DESC]" ? "bi-sort-alpha-up" : "bi-sort-alpha-down";
+  const icon = () => order() == "title[DESC]" ? "bi-sort-alpha-up"
+    : order() == "type[ASC]" ? "bi-sort-down-alt" : "bi-sort-alpha-down";
   const label = () => order() == "title[ASC]" ? "Title: A to Z"
-    : order() == "title[DESC]" ? "Title: Z to A" : "Manual order";
+    : order() == "title[DESC]" ? "Title: Z to A"
+      : order() == "type[ASC]" ? "Type" : "Manual order";
 
   const handleClick = () => {
     if (store.overlay.toolbarPopupInfoMaybe.get()?.type == ToolbarPopupType.ChildSortOrder) {

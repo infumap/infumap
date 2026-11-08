@@ -309,7 +309,7 @@ export function makeEditorHistory(getStore: () => StoreContextModel) {
           item.pinnedTo = parsed.pinnedTo;
         }
         for (const field of value.fields) { (item as any)[field] = (parsed as any)[field]; }
-        itemState.sortParentChildrenIfTitleOrdered(item);
+        itemState.sortParentChildrenIfSorted(item);
         if (moved || value.fields.includes("ordering") || value.fields.includes("pinnedTo")) { itemState.sortChildren(item.parentId); }
         if (!isStructural) { store.textEdit.saveItem(item, true); }
       }

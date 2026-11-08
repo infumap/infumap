@@ -368,7 +368,7 @@ function toolbarPopupHeight(store: StoreContextModel, overlayType: ToolbarPopupT
   if (overlayType == ToolbarPopupType.PageShape) { return toolbarDialogHeightPx(PAGE_SHAPE_POPUP_HEIGHT_PX); }
   if (overlayType == ToolbarPopupType.PageJustifiedLayout) { return toolbarDialogHeightPx(PAGE_JUSTIFIED_LAYOUT_POPUP_HEIGHT_PX); }
   if (overlayType == ToolbarPopupType.PageCalendarDisplayMode) { return toolbarMenuHeightPx(5); }
-  if (overlayType == ToolbarPopupType.ChildSortOrder) { return toolbarMenuHeightPx(3); }
+  if (overlayType == ToolbarPopupType.ChildSortOrder) { return toolbarMenuHeightPx(4); }
   if (overlayType == ToolbarPopupType.MoreActions) { return toolbarMenuHeightPx(moreActionsRows(store)); }
   if (overlayType == ToolbarPopupType.Info) { return infoPopupHeightPx(store); }
   if (overlayType == ToolbarPopupType.Backlinks) { return BACKLINKS_POPUP_HEIGHT_PX; }
@@ -1143,7 +1143,7 @@ export const Toolbar_Popup: Component = () => {
     const focusItem = getToolbarFocusItem(store);
     return isPage(focusItem) || isTable(focusItem) ? asContainerItem(focusItem).orderChildrenBy : "";
   };
-  const handleSortOrderChange = (order: "" | "title[ASC]" | "title[DESC]") => {
+  const handleSortOrderChange = (order: "" | "title[ASC]" | "title[DESC]" | "type[ASC]") => {
     const focusItem = getToolbarFocusItem(store);
     if ((!isPage(focusItem) && !isTable(focusItem)) || !itemCanEdit(focusItem)) {
       store.overlay.toolbarPopupInfoMaybe.set(null);
@@ -1159,7 +1159,7 @@ export const Toolbar_Popup: Component = () => {
     }
     store.overlay.toolbarPopupInfoMaybe.set(null);
   };
-  const sortOrderChoiceClass = (order: "" | "title[ASC]" | "title[DESC]"): string =>
+  const sortOrderChoiceClass = (order: "" | "title[ASC]" | "title[DESC]" | "type[ASC]"): string =>
     toolbarMenuItemClass(sortOrder() == order);
   const handleSortOrderKeyDown = (event: KeyboardEvent) => {
     event.stopPropagation();
@@ -1332,6 +1332,8 @@ export const Toolbar_Popup: Component = () => {
               onClick={() => handleSortOrderChange("title[ASC]")}>Title: A → Z</button>
             <button type="button" class={sortOrderChoiceClass("title[DESC]")} aria-pressed={sortOrder() == "title[DESC]"}
               onClick={() => handleSortOrderChange("title[DESC]")}>Title: Z → A</button>
+            <button type="button" class={sortOrderChoiceClass("type[ASC]")} aria-pressed={sortOrder() == "type[ASC]"}
+              onClick={() => handleSortOrderChange("type[ASC]")}>Type</button>
           </div>
         </Match>
         <Match when={overlayType() == ToolbarPopupType.PageCalendarDisplayMode}>

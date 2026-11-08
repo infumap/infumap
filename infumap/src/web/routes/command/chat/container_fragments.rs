@@ -1147,6 +1147,16 @@ fn entries<'a>(children: Vec<&'a Item>) -> Vec<Entry<'a>> {
   entries
 }
 
+/// What children sorted by type are grouped by, as the web client groups them: files, images and text by format
+/// (their normalized mime type), after the other items by item type.
+fn type_sort_key(item: &Item) -> String {
+  if is_data_item_type(item.item_type) {
+    format!("1{}", item.mime_type.as_deref().unwrap_or(""))
+  } else {
+    format!("0{}", item.item_type)
+  }
+}
+
 /// Readable children in the order the container displays them.
 pub(in crate::web::routes::command) fn readable_children_in_display_order<'a>(
   db: &'a Db,
@@ -1166,12 +1176,14 @@ pub(in crate::web::routes::command) fn readable_children_in_display_order<'a>(
       items.sort_by(|a, b| a.datetime.cmp(&b.datetime).then_with(|| by_ordering(a, b)))
     }
     _ => match container.order_children_by.as_deref() {
-      Some(order @ ("title[ASC]" | "title[DESC]")) => {
+      Some(order @ ("title[ASC]" | "title[DESC]" | "type[ASC]")) => {
         let descending = order == "title[DESC]";
+        let by_type = order == "type[ASC]";
         items.sort_by_cached_key(|item| {
           let content = access.content(db, item);
+          let type_key = content.filter(|_| by_type).map(type_sort_key).unwrap_or_default();
           let title = content.and_then(|content| content.title.as_deref()).unwrap_or("").to_lowercase();
-          (content.is_none(), title, item.id.clone())
+          (content.is_none(), type_key, title, item.id.clone())
         });
         if descending {
           // Unresolved links stay last, as they do on screen.
@@ -2291,6 +2303,25 @@ mod tests {
       t.note_with(&pinned, title, |item| item.pinned_to = pinned_to).await;
     }
     assert_eq!(titles(&t.texts(&pinned)[0]), ["top z", "top a", "b", "m", "a bottom"]);
+
+    let typed = t.arranged_page(&home, "Typed", ArrangeAlgorithm::List, "type[ASC]").await;
+    for (title, item_type, mime_type) in [
+      ("b.jpg", ItemType::Image, "image/jpeg"),
+      ("a.cr2", ItemType::File, "image/x-canon-cr2"),
+      ("a.jpg", ItemType::Image, "image/jpeg"),
+      ("b.cr2", ItemType::Image, "image/x-canon-cr2"),
+      ("z.zip", ItemType::File, "application/zip"),
+    ] {
+      t.non_note(&typed, title, |item| {
+        item.item_type = item_type;
+        item.mime_type = Some(mime_type.to_owned());
+        item.file_size_bytes = Some(1);
+        item.original_creation_date = Some(0);
+      })
+      .await;
+    }
+    t.note(&typed, "z note", RelationshipToParent::Child).await;
+    assert_eq!(titles(&t.texts(&typed)[0]), ["z note", "z.zip", "a.jpg", "b.jpg", "a.cr2", "b.cr2"]);
   }
 
   #[tokio::test]

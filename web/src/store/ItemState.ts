@@ -18,6 +18,7 @@
 
 import { AttachmentsItem, asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { ContainerItem, asContainerItem, isContainer } from "../items/base/container-item";
+import { asDataItem, isDataItem } from "../items/base/data-item";
 import { Item, PinnedTo } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { TabularFns } from "../items/base/tabular-item";
@@ -121,6 +122,21 @@ export function wouldCreateRelationshipCycle(itemId: Uid, moveToParentId: Uid): 
   }
 
   return false;
+}
+
+
+/** Whether orderChildrenBy sorts the children, rather than leaving them in the order of their orderings. */
+function isSortedOrder(orderChildrenBy: string | null): boolean {
+  return orderChildrenBy == "title[ASC]" || orderChildrenBy == "title[DESC]" || orderChildrenBy == "type[ASC]";
+}
+
+/**
+ * The type children sorted by type are grouped by. Files, images and text are grouped by format, not item type, so a
+ * CR2 that is still a file sits with the CR2 images. Their mime types are normalized on the server, so a format has one.
+ * The other items (pages, tables, notes...) come first, as folders do in a file manager.
+ */
+function typeSortKey(item: Item): string {
+  return isDataItem(item) ? "1" + asDataItem(item).mimeType : "0" + item.itemType;
 }
 
 
@@ -259,8 +275,9 @@ export const itemState = {
         if (cmp !== 0) { return cmp; }
         return a < b ? -1 : (a > b ? 1 : 0);
       });
-    } else if (container.orderChildrenBy == "title[ASC]" || container.orderChildrenBy == "title[DESC]") {
+    } else if (isSortedOrder(container.orderChildrenBy)) {
       const descending = container.orderChildrenBy == "title[DESC]";
+      const byType = container.orderChildrenBy == "type[ASC]";
       // The sort order is for the children that aren't pinned. The pinned ones are in the top and bottom bands of a
       // list page, in the order the user put them (their ordering). Elsewhere pins mean nothing, so are ignored: a
       // grid sorted by title stays sorted by title.
@@ -293,6 +310,12 @@ export const itemState = {
         const aForSort = aTarget ? aTarget : aItemOriginal;
         const bForSort = bTarget ? bTarget : bItemOriginal;
 
+        if (byType) {
+          const aType = typeSortKey(aForSort);
+          const bType = typeSortKey(bForSort);
+          if (aType != bType) { return aType < bType ? -1 : 1; }
+        }
+
         const aTitle = isTitledItem(aForSort) ? asTitledItem(aForSort).title.toLocaleLowerCase() : "";
         const bTitle = isTitledItem(bForSort) ? asTitledItem(bForSort).title.toLocaleLowerCase() : "";
         const cmp = aTitle.localeCompare(bTitle);
@@ -303,25 +326,25 @@ export const itemState = {
   },
 
   /**
-   * Re-sort the title ordered container(s) whose order depends on the title of item: its own parent, and
-   * the parents of any loaded links that resolve to it (links sort by their target's title).
+   * Re-sort the sorted container(s) whose order depends on the title of item: its own parent, and the parents of any
+   * loaded links that resolve to it (links sort by their target's title). Title is also the order within a type.
    */
-  sortParentChildrenIfTitleOrdered: (item: Item): void => {
-    const sortIfTitleOrdered = (child: Item) => {
+  sortParentChildrenIfSorted: (item: Item): void => {
+    const sortIfSorted = (child: Item) => {
       if (child.relationshipToParent != RelationshipToParent.Child) { return; }
       const parentItem = itemState.get(child.parentId);
       if (!parentItem || !isContainer(parentItem)) { return; }
       const parentContainer = asContainerItem(parentItem);
-      if (parentContainer.orderChildrenBy == "title[ASC]" || parentContainer.orderChildrenBy == "title[DESC]") {
+      if (isSortedOrder(parentContainer.orderChildrenBy)) {
         itemState.sortChildren(parentContainer.id);
       }
     };
 
-    sortIfTitleOrdered(item);
+    sortIfSorted(item);
     if (isLink(item)) { return; }
     for (const candidate of items.values()) {
       if (isLink(candidate) && LinkFns.getLinkToId(asLinkItem(candidate)) == item.id) {
-        sortIfTitleOrdered(candidate);
+        sortIfSorted(candidate);
       }
     }
   },

@@ -112,7 +112,7 @@ export const Toolbar_Link: Component = () => {
     // a resolved id refers to the previous target.
     linkItemOnMount.linkToResolvedId = null;
     // if the new target is not yet loaded, the link sorts last until the load completes and re-sorts.
-    itemState.sortParentChildrenIfTitleOrdered(linkItemOnMount);
+    itemState.sortParentChildrenIfSorted(linkItemOnMount);
   }
 
   const showTransientMessage = (text: string, type: TransientMessageType) => {

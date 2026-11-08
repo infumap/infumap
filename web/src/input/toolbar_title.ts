@@ -62,7 +62,7 @@ export function commitActiveToolbarTitleEdit(store: StoreContextModel, immediate
 
   if (pageItem.title != activeElement.innerText) {
     pageItem.title = activeElement.innerText;
-    itemState.sortParentChildrenIfTitleOrdered(pageItem);
+    itemState.sortParentChildrenIfSorted(pageItem);
     store.textEdit.saveItem(pageItem, immediately);
   } else if (immediately) {
     void store.textEdit.flush();
