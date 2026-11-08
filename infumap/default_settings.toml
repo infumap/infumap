@@ -23,9 +23,6 @@
 # Only Infumap messages are logged (no messages from dependencies).
 # Valid values: off, error, warn, info, debug, trace.
 # Infumap currently doesn't emit any messages a trace level.
-# Startup maintenance progress, migration steps, compaction decisions, archive
-# uploads, and completion summaries are visible at info. Use debug for temporary
-# files, per-root traversal counts, retained-source rotation/reuse, and replacement.
 #log_level = "info"
 
 # The address and port to listen on for web and API requests. Should not be
@@ -52,14 +49,7 @@
 
 # After startup migration, compact each account's user.json and items.json
 # independently if it saves at least this many actual bytes, including equality.
-# Must be a positive integer; default is 1 MiB. No percentage threshold or
-# enable/disable switches apply to migration or compaction. Changed logs keep
-# their pre-startup source as <log-name>.previous, including migration + compaction.
-# With enable_s3_backup = true, a permanent snapshot of both account logs must
-# succeed before migration starts; a separate snapshot must succeed before
-# qualifying compaction installs. Migration failure blocks startup; compaction
-# preparation/upload failure skips compaction. pending_users.json is migrated
-# locally only, without S3 backup or automatic compaction.
+# Must be a positive integer; default is 1 MiB.
 #startup_compact_min_savings_bytes = 1048576
 
 # The cache directory. Contains images and favicons subdirectories.

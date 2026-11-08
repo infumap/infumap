@@ -46,7 +46,7 @@ async fn migrate_log(log_path: &str) -> InfuResult<()> {
     if previous.try_exists()? {
       return Err(format!("Log file already migrated to version {}.", from_version).into());
     }
-    install_log_candidate(&expanded_log_path, &candidate, &previous, true, |path| {
+    install_log_candidate(&expanded_log_path, &candidate, &previous, |path| {
       // Conversion has parsed every record; check its descriptor again before installing the result.
       let descriptor = read_log_descriptor(path)?;
       if descriptor.kind != migrated.kind || descriptor.version != migrated.version {

@@ -38,8 +38,9 @@ Migrate an existing user or item log file to the next version. This manual comma
 time and retains its source with a `.vN` suffix. A log several versions behind needs one run per version.
 
 Web server startup automatically migrates account `user.json` and `items.json` through all supported versions
-before database initialization. Each changed log's original pre-chain file is retained as `user.json.previous`
-or `items.json.previous`. With S3 backup enabled, startup first uploads a permanent migration archive containing
+before database initialization. Each changed log's original pre-chain file is retained as
+`user.vN.before-migration` or `items.vN.before-migration`, where N is the original schema version. With S3 backup
+enabled, startup first uploads a permanent migration archive containing
 both original account logs; upload failure blocks migration. Unsupported schemas or conversion/validation
 failures stop startup without installing candidates. Installation is per file; if interrupted between files,
 the next startup finishes remaining migrations. Older binaries may not read the upgraded active logs; use the
@@ -50,14 +51,16 @@ invent missing conversions. An unsupported or future schema must be handled with
 or a compatible recovery copy. Do not edit a descriptor's version to bypass conversion.
 
 The shared `pending_users.json` is also migrated automatically through supported versions. Its original is
-retained locally as `pending_users.json.previous`; no S3 snapshot is taken for this file.
+retained locally as `pending_users.vN.before-migration`; no S3 snapshot is taken for this file.
 
-After a successful startup migration or compaction, older recognized migration copies (`user.vN`, `items.vN`,
-or `pending_users.vN` for older schema versions) are pruned for the changed file. The single `.previous` copy
-keeps the source from before that startup's first installed change, including when migration and compaction
-both run. Unchanged files keep their existing copies. Manual `.compacted` output, `.bk.*` copies, lookalike
-names, symlinks, and unrelated files are preserved. Pruning failures are logged without undoing maintenance.
-The standalone `migrate` command continues to retain its `.vN` copies; startup pruning is separate.
+Startup retains the latest snapshot of each operation separately for each account log. For migration
+v37 → v40 followed by compaction, `items.v37.before-migration` retains the pre-chain source and
+`items.v40.before-compaction` retains the current-schema input immediately before compaction. A later compaction
+refreshes only the pre-compaction snapshot; a later migration refreshes only the pre-migration snapshot. No local
+timestamp history is kept. Older snapshots of the same purpose are pruned only after successful installation.
+Existing `.previous` and bare `.vN` files are preserved unchanged, along with manual `.compacted` output,
+`.bk.*` copies, lookalike names, symlinks, and unrelated files. Pruning failures are logged without undoing
+maintenance. The standalone `migrate` command continues to retain its source as a bare `.vN` file.
 
 Options:
 - **-p --log-path:** The path to the user or item log file to migrate to the next version.
@@ -175,10 +178,11 @@ To recover from a maintenance archive:
    future startup rotation. Restoring logs does not restore their referenced object data; the matching objects
    must still be available and decryptable with the restored user's object encryption key.
 
-For local recovery, `.previous` retains the input to each changed log's first installed maintenance operation
-in that startup. Pending users have only this local recovery copy. Different logs' `.previous` files can be
-from different startups; use a single paired archive when an exact account recovery point is needed. Inspect
-schema versions before using local copies to roll back a binary.
+For local recovery, choose `<stem>.vN.before-migration` to undo the complete migration chain or
+`<stem>.vN.before-compaction` to undo compaction while keeping the migrated schema. Pending users have only the
+local `pending_users.vN.before-migration` snapshot. Snapshots are per file and operation and may come from
+different startups; use a single paired archive when an exact account recovery point is needed. Inspect schema
+versions before using local copies to roll back a binary. Existing legacy recovery files are left untouched.
 
 Regular backup tracking is checked before maintenance. Existing automatic recovery can restore a newer regular
 backup and then exit; restart after that recovery completes. Maintenance archives are never selected by this
@@ -233,8 +237,10 @@ saves at least `startup_compact_min_savings_bytes` (default 1048576 bytes, or 1 
 one permanent pre-compaction archive of both active logs must succeed before either qualifying candidate is
 installed. No qualifying files means no compaction archive. Preparation or upload failure skips compaction;
 per-file installation errors keep completed replacements and leave the other active logs available for normal
-loading. Startup proceeds only if the final databases load successfully. Changed files retain a local
-`.previous` copy; if migration ran first, that copy remains the original pre-migration source.
+loading. Startup proceeds only if the final databases load successfully. Each compacted file retains its immediate
+source as `user.vN.before-compaction` or
+`items.vN.before-compaction`, where N is its current schema version. Any pre-migration snapshot remains intact,
+including across subsequent restarts and compactions.
 
 The output includes every live item reachable from Home, Trash, Dock, and Queries through children and
 attachments, including Scopes and Prompts. Unreachable items are retained and reparented to Home as children,

@@ -15,14 +15,20 @@ supplied as `INFUMAP_STARTUP_COMPACT_MIN_SAVINGS_BYTES`. There are no
 migration/compaction off switches or percentage threshold. With `enable_s3_backup = true`, account maintenance
 requires a permanent snapshot of both logs before migration starts or compaction installs. Compaction
 preparation/upload failure skips the optional operation; a required migration failure blocks startup. The
-shared `pending_users.json` is migrated with a local previous copy and is excluded from these S3 snapshots
+shared `pending_users.json` is migrated with a local pre-migration snapshot and is excluded from these S3 snapshots
 and automatic compaction. See [migration](cli.md#migrate), [compaction](cli.md#compact), and
 [restoring maintenance archives](cli.md#restore) for recovery behavior.
 
-Each log changed by startup maintenance keeps one local `<log-name>.previous` copy of its original input.
-Migration followed by compaction preserves the pre-migration original. After a successful installation,
-recognized older `.vN` migration copies for that log are removed; custom/manual copies and permanent S3
-maintenance archives remain untouched. This local rotation also applies to `pending_users.json` migration.
+Each account log has two independent local recovery slots, named from the source schema version:
+`<stem>.vN.before-migration` and `<stem>.vN.before-compaction`. Migration v37 → v40 followed by compaction
+retains both `items.v37.before-migration` and `items.v40.before-compaction`. Keep the latest snapshot of each
+purpose per log; a subsequent compaction refreshes only the pre-compaction recovery point, and a subsequent
+migration refreshes only the pre-migration recovery point. Older snapshots of that same purpose are pruned
+only after successful installation. A same-version snapshot is replaced atomically with the newly synced source
+copy before installing the candidate, so the immediate input is available if replacement is interrupted.
+Pending users keep only `pending_users.vN.before-migration`. Existing `.previous` and bare `.vN` recovery files
+are preserved unchanged, as are manual/unrelated files and permanent S3 archives. No timestamps or additional
+local snapshot history are introduced.
 
 Savings are measured from the actual candidate file after migration, independently for each account log.
 Saving exactly the configured number of bytes qualifies. With the default, 100 MiB becoming 99 MiB qualifies,
@@ -44,7 +50,7 @@ Run only one Infumap binary against a data directory at a time, including offlin
 replaced individually; an interruption can leave files at different schema versions. The next startup finishes
 required migrations before serving. Unfinished maintenance scratch files are discarded rather than promoted.
 A failure reported after the final rename may mean the new file is already installed; inspect the active log
-and the reported `.previous` path before manually replacing anything.
+and the reported retained-snapshot path before manually replacing anything.
 
 At the default `info` log level, maintenance reports transformations and measured candidates with account/file,
 schema versions, input/output bytes, bytes saved, elapsed time, archive key, and retained source where applicable.
@@ -53,7 +59,7 @@ replay/validation, archive preparation/upload, per-account compaction completion
 counts, epochs, and container sync versions. Already-current schemas, absent pending users, small-file skips,
 and insufficient savings have explicit explanations at `info`, so a startup with nothing to change is visible.
 Use `log_level = "debug"` or `INFUMAP_LOG_LEVEL=debug` for temporary-file paths and cleanup, per-root traversal
-counts, candidate syncing, retained-source rotation/reuse, and atomic replacement details. Encryption keys and
+counts, candidate syncing, purpose-specific snapshot rotation, and atomic replacement details. Encryption keys and
 log contents are not included in these diagnostic messages.
 
 ### GPU tools and chat

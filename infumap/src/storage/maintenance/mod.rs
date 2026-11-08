@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::collections::HashSet;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
@@ -40,6 +39,7 @@ pub mod compaction;
 mod migration;
 mod replacement;
 pub use migration::{migrate_log_step, prepare_log_migration};
+use replacement::{SnapshotPurpose, prune_snapshot_copies, snapshot_path};
 pub use replacement::{create_log_temporary, discard_log_temporaries, install_log_candidate};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -126,11 +126,7 @@ pub fn inspect_pending_users(data_dir: &str) -> InfuResult<Option<LogDescriptor>
 }
 
 /// Archive the unchanged pair, then stage and validate both chains before replacing either active file.
-pub async fn migrate_account_logs(
-  account: &AccountLogs,
-  backup: Option<(&Arc<BackupStore>, &str)>,
-  retained_logs: &mut HashSet<PathBuf>,
-) -> InfuResult<()> {
+pub async fn migrate_account_logs(account: &AccountLogs, backup: Option<(&Arc<BackupStore>, &str)>) -> InfuResult<()> {
   let logs = [(&account.user_log, account.user_descriptor), (&account.item_log, account.item_descriptor)];
   if logs.iter().all(|(_, descriptor)| descriptor.version == descriptor.kind.current_version()) {
     info!(
@@ -207,15 +203,13 @@ pub async fn migrate_account_logs(
       let source = (*original_source).clone();
       let candidate = candidate.clone();
       let descriptor = *descriptor;
-      let save_source = !retained_logs.contains(*original_source);
       let user_id = account.user_id.clone();
       let archive = archive.clone();
       spawn_blocking(move || -> InfuResult<()> {
-        let filename = source.file_name().and_then(|name| name.to_str()).ok_or("Log filename must be valid UTF-8.")?;
-        let previous = source.with_file_name(format!("{}.previous", filename));
+        let previous = snapshot_path(&source, descriptor, SnapshotPurpose::Migration)?;
         let input_bytes = std::fs::metadata(&source)?.len();
         let output_bytes = std::fs::metadata(&candidate)?.len();
-        install_log_candidate(&source, &candidate, &previous, save_source, |path| {
+        install_log_candidate(&source, &candidate, &previous, |path| {
           let migrated = read_log_descriptor(path)?;
           if migrated.kind != descriptor.kind || migrated.version != descriptor.kind.current_version() {
             return Err("Migration candidate has an unexpected schema.".into());
@@ -223,7 +217,7 @@ pub async fn migrate_account_logs(
           Ok(())
         })
         .map_err(|e| format!("Cannot install migrated log '{}' (retained-copy path '{}'): {}", source.display(), previous.display(), e))?;
-        if let Err(e) = replacement::prune_legacy_log_copies(&source, descriptor.kind) {
+        if let Err(e) = prune_snapshot_copies(&source, &previous, SnapshotPurpose::Migration) {
           warn!("Migrated '{}', but could not finish pruning older local copies: {}", source.display(), e);
         }
         info!(
@@ -243,7 +237,6 @@ pub async fn migrate_account_logs(
       })
       .await
       .map_err(|e| format!("Migration installation task failed for '{}': {}", original_source.display(), e))??;
-      retained_logs.insert((*original_source).clone());
     }
     Ok(())
   }
@@ -265,11 +258,7 @@ pub async fn migrate_account_logs(
 }
 
 /// Pending users are local-only and must be migrated before Db::new opens their store.
-pub async fn migrate_pending_users(
-  data_dir: &str,
-  descriptor: Option<LogDescriptor>,
-  retained_logs: &mut HashSet<PathBuf>,
-) -> InfuResult<()> {
+pub async fn migrate_pending_users(data_dir: &str, descriptor: Option<LogDescriptor>) -> InfuResult<()> {
   let Some(descriptor) = descriptor else {
     info!("Skipping pending-user migration: log is absent; normal initialization will create it.");
     return Ok(());
@@ -317,12 +306,11 @@ pub async fn migrate_pending_users(
     info!("Validated pending-user migration candidate '{}'.", candidate.display());
     let install_source = source.clone();
     let install_candidate = candidate.clone();
-    let save_source = !retained_logs.contains(&source);
     spawn_blocking(move || -> InfuResult<(u64, u64, PathBuf)> {
-      let previous = install_source.with_file_name("pending_users.json.previous");
+      let previous = snapshot_path(&install_source, descriptor, SnapshotPurpose::Migration)?;
       let input_bytes = std::fs::metadata(&install_source)?.len();
       let output_bytes = std::fs::metadata(&install_candidate)?.len();
-      install_log_candidate(&install_source, &install_candidate, &previous, save_source, |path| {
+      install_log_candidate(&install_source, &install_candidate, &previous, |path| {
         let descriptor = read_log_descriptor(path)?;
         if descriptor.kind != LogKind::User || descriptor.version != CURRENT_USER_LOG_VERSION {
           return Err("Pending-user migration did not produce the current user-log schema.".into());
@@ -337,7 +325,7 @@ pub async fn migrate_pending_users(
           e
         )
       })?;
-      if let Err(e) = replacement::prune_legacy_log_copies(&install_source, LogKind::User) {
+      if let Err(e) = prune_snapshot_copies(&install_source, &previous, SnapshotPurpose::Migration) {
         warn!("Migrated '{}', but could not finish pruning older local copies: {}", install_source.display(), e);
       }
       Ok((input_bytes, output_bytes, previous))
@@ -350,7 +338,6 @@ pub async fn migrate_pending_users(
   let (input_bytes, output_bytes, previous) = result.map_err(|e| {
     format!("Pending-user migration failed for '{}' after {:?}: {}", source.display(), started.elapsed(), e)
   })?;
-  retained_logs.insert(source.clone());
   info!(
     "Migrated '{}' from v{} to v{} ({} -> {} bytes, {} saved); archive not applicable; retained original '{}'; elapsed {:?}.",
     source.display(),

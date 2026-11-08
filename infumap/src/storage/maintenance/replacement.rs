@@ -22,7 +22,7 @@ use infusdk::util::infu::InfuResult;
 use infusdk::util::uid::{is_uid, new_uid};
 use log::{debug, info, warn};
 
-use super::{LogKind, read_log_descriptor};
+use super::{LogDescriptor, LogKind, read_log_descriptor};
 
 fn parent_directory(path: &Path) -> &Path {
   path.parent().filter(|parent| !parent.as_os_str().is_empty()).unwrap_or(Path::new("."))
@@ -49,21 +49,19 @@ pub fn create_log_temporary(source: &Path) -> InfuResult<PathBuf> {
 }
 
 /// Install a validated sibling candidate, keeping the active path present throughout.
-/// Set save_source to false only when an earlier operation this startup already retained its original.
+/// Always retain this operation's immediate source, independently of other maintenance snapshots.
 /// A directory-sync failure after the final rename reports an error but does not undo the replacement.
 pub fn install_log_candidate(
   source: &Path,
   candidate: &Path,
   previous: &Path,
-  save_source: bool,
   validate: impl FnOnce(&Path) -> InfuResult<()>,
 ) -> InfuResult<()> {
   debug!(
-    "Preparing replacement of '{}' from '{}'; retained-copy path '{}'; retain source: {}.",
+    "Preparing replacement of '{}' from '{}'; retained-copy path '{}'.",
     source.display(),
     candidate.display(),
-    previous.display(),
-    save_source
+    previous.display()
   );
   let directory = parent_directory(source);
   let canonical_directory = directory.canonicalize()?;
@@ -86,7 +84,7 @@ pub fn install_log_candidate(
   validate(candidate)?;
   debug!("Synced and validated candidate '{}' before replacing '{}'.", candidate.display(), source.display());
 
-  if save_source {
+  {
     let previous_temporary = create_log_temporary(source)?;
     let retain_result = (|| -> InfuResult<()> {
       let mut original = File::open(source)?;
@@ -107,10 +105,6 @@ pub fn install_log_candidate(
     })();
     discard_temporary(&previous_temporary);
     retain_result?;
-  } else if !fs::metadata(previous)?.is_file() {
-    return Err(format!("Retained original '{}' is not a file.", previous.display()).into());
-  } else {
-    debug!("Reusing original '{}' retained earlier this startup for '{}'.", previous.display(), source.display());
   }
 
   // Moving the source aside first leaves its path missing on interruption; replace it only after retention.
@@ -122,49 +116,82 @@ pub fn install_log_candidate(
   Ok(())
 }
 
-/// Startup-only pruning, after successful installation. Manual migrate still keeps its one-step .vN copies.
-pub(super) fn prune_legacy_log_copies(source: &Path, kind: LogKind) -> InfuResult<()> {
-  // Limit this policy to the exact startup log names, and require both complete active and retained files.
-  let stem = match (source.file_name().and_then(|name| name.to_str()), kind) {
-    (Some("items.json"), LogKind::Item) => "items",
-    (Some("user.json"), LogKind::User) => "user",
-    (Some("pending_users.json"), LogKind::User) => "pending_users",
-    _ => return Err("Legacy-copy pruning requires a recognized startup log path.".into()),
-  };
-  let previous = source.with_file_name(format!("{}.json.previous", stem));
-  if !fs::symlink_metadata(source)?.is_file() || !fs::symlink_metadata(&previous)?.is_file() {
-    return Err("Cannot prune recovery copies without regular active and previous files.".into());
+#[derive(Clone, Copy, Debug)]
+pub(super) enum SnapshotPurpose {
+  Migration,
+  Compaction,
+}
+
+impl SnapshotPurpose {
+  fn suffix(self) -> &'static str {
+    match self {
+      Self::Migration => ".before-migration",
+      Self::Compaction => ".before-compaction",
+    }
+  }
+}
+
+fn startup_log_stem(source: &Path, kind: LogKind) -> InfuResult<&'static str> {
+  match (source.file_name().and_then(|name| name.to_str()), kind) {
+    (Some("items.json"), LogKind::Item) => Ok("items"),
+    (Some("user.json"), LogKind::User) => Ok("user"),
+    (Some("pending_users.json"), LogKind::User) => Ok("pending_users"),
+    _ => Err("Local snapshots require a recognized startup log path.".into()),
+  }
+}
+
+/// Version describes the retained input schema, never the candidate's target schema.
+pub(super) fn snapshot_path(source: &Path, descriptor: LogDescriptor, purpose: SnapshotPurpose) -> InfuResult<PathBuf> {
+  let stem = startup_log_stem(source, descriptor.kind)?;
+  if descriptor.version < 1 || descriptor.version > descriptor.kind.current_version() {
+    return Err("Snapshot source has an unsupported schema version.".into());
+  }
+  Ok(source.with_file_name(format!("{}.v{}{}", stem, descriptor.version, purpose.suffix())))
+}
+
+/// Call only after successful installation. The other purpose's latest recovery point must survive.
+pub(super) fn prune_snapshot_copies(source: &Path, retained: &Path, purpose: SnapshotPurpose) -> InfuResult<()> {
+  if !fs::symlink_metadata(source)?.is_file() || !fs::symlink_metadata(retained)?.is_file() {
+    return Err("Cannot prune snapshots without regular active and retained files.".into());
   }
   let active = read_log_descriptor(source)?;
-  if active.kind != kind || active.version != kind.current_version() {
-    return Err("Cannot prune recovery copies before the active log is at its current schema.".into());
+  let original = read_log_descriptor(retained)?;
+  if active.kind != original.kind
+    || active.version != active.kind.current_version()
+    || snapshot_path(source, original, purpose)? != retained
+  {
+    return Err("Cannot prune snapshots without a current active log and matching retained input.".into());
   }
-
-  // The CLI used with_extension("vN"), not an appended ".json.vN". Do not broaden this to .bk.*, .new,
-  // .compacted, or lookalike names: those may be deliberately retained operator copies or uninstalled output.
-  let prefix = format!("{}.v", stem);
+  let prefix = format!("{}.v", startup_log_stem(source, active.kind)?);
   let directory = parent_directory(source);
   let mut removed = 0;
   for entry in fs::read_dir(directory)? {
     let entry = entry?;
     let name = entry.file_name();
-    let recognized = name.to_str().and_then(|name| name.strip_prefix(&prefix)).is_some_and(|suffix| {
-      suffix
-        .parse::<i64>()
-        .ok()
-        .is_some_and(|version| version > 0 && version < kind.current_version() && suffix == version.to_string())
-    });
-    if recognized && entry.file_type()?.is_file() {
+    // Exact purpose and canonical version matching avoid the other recovery point, manual outputs,
+    // lookalike names, and files from a future binary. The retained path itself is never removed.
+    // Preserve legacy .previous and bare .vN copies: their names do not identify the two recovery purposes.
+    let recognized = name
+      .to_str()
+      .and_then(|name| name.strip_prefix(&prefix))
+      .and_then(|name| name.strip_suffix(purpose.suffix()))
+      .is_some_and(|suffix| {
+        suffix.parse::<i64>().ok().is_some_and(|version| {
+          version > 0 && version <= active.kind.current_version() && suffix == version.to_string()
+        })
+      });
+    if recognized && entry.path() != retained && entry.file_type()?.is_file() {
       match fs::remove_file(entry.path()) {
         Ok(()) => {
           info!(
-            "Removed superseded local migration copy '{}'; retained '{}'.",
+            "Removed superseded {:?} snapshot '{}'; retained '{}'.",
+            purpose,
             entry.path().display(),
-            previous.display()
+            retained.display()
           );
           removed += 1;
         }
-        Err(e) => warn!("Could not prune local migration copy '{}': {}", entry.path().display(), e),
+        Err(e) => warn!("Could not prune local snapshot '{}': {}", entry.path().display(), e),
       }
     }
   }
