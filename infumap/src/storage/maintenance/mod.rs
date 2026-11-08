@@ -26,7 +26,7 @@ use infusdk::item::Item;
 use infusdk::util::infu::InfuResult;
 use infusdk::util::json;
 use infusdk::util::uid::{Uid, is_uid};
-use log::{info, warn};
+use log::{debug, info, warn};
 use serde_json::Value;
 use tokio::task::spawn_blocking;
 
@@ -133,24 +133,48 @@ pub async fn migrate_account_logs(
 ) -> InfuResult<()> {
   let logs = [(&account.user_log, account.user_descriptor), (&account.item_log, account.item_descriptor)];
   if logs.iter().all(|(_, descriptor)| descriptor.version == descriptor.kind.current_version()) {
+    debug!(
+      "Skipping migration for account '{}': both logs are current (user v{}, items v{}).",
+      account.user_id, account.user_descriptor.version, account.item_descriptor.version
+    );
     return Ok(());
   }
   let started = Instant::now();
-  if let Some((store, encryption_key)) = backup {
+  info!(
+    "Starting migration for account '{}': '{}' v{} -> v{}, '{}' v{} -> v{}; S3 snapshot {}.",
+    account.user_id,
+    account.user_log.display(),
+    account.user_descriptor.version,
+    CURRENT_USER_LOG_VERSION,
+    account.item_log.display(),
+    account.item_descriptor.version,
+    CURRENT_ITEM_LOG_VERSION,
+    if backup.is_some() { "required" } else { "disabled" }
+  );
+  let archive = if let Some((store, encryption_key)) = backup {
     // Old schemas cannot be replayed with current Rust types. Snapshot the raw pair before any conversion.
-    put_maintenance_backup(
-      store.clone(),
-      MaintenanceBackupKind::Migration,
-      &account.user_id,
-      &account.item_log,
-      &account.user_log,
-      encryption_key,
+    Some(
+      put_maintenance_backup(
+        store.clone(),
+        MaintenanceBackupKind::Migration,
+        &account.user_id,
+        &account.item_log,
+        &account.user_log,
+        encryption_key,
+      )
+      .await
+      .map_err(|e| {
+        format!(
+          "Cannot archive account '{}' before migration; no conversion started (elapsed {:?}): {}",
+          account.user_id,
+          started.elapsed(),
+          e
+        )
+      })?,
     )
-    .await
-    .map_err(|e| {
-      format!("Cannot archive account '{}' before migration; no conversion started: {}", account.user_id, e)
-    })?;
-  }
+  } else {
+    None
+  };
 
   let mut candidates = Vec::new();
   let result: InfuResult<()> = async {
@@ -180,6 +204,8 @@ pub async fn migrate_account_logs(
       let candidate = candidate.clone();
       let descriptor = *descriptor;
       let save_source = !retained_logs.contains(*original_source);
+      let user_id = account.user_id.clone();
+      let archive = archive.clone();
       spawn_blocking(move || -> InfuResult<()> {
         let filename = source.file_name().and_then(|name| name.to_str()).ok_or("Log filename must be valid UTF-8.")?;
         let previous = source.with_file_name(format!("{}.previous", filename));
@@ -192,18 +218,22 @@ pub async fn migrate_account_logs(
           }
           Ok(())
         })
-        .map_err(|e| format!("Cannot install migrated log '{}': {}", source.display(), e))?;
+        .map_err(|e| format!("Cannot install migrated log '{}' (retained-copy path '{}'): {}", source.display(), previous.display(), e))?;
         if let Err(e) = replacement::prune_legacy_log_copies(&source, descriptor.kind) {
           warn!("Migrated '{}', but could not finish pruning older local copies: {}", source.display(), e);
         }
         info!(
-          "Migrated '{}' from v{} to v{} ({} -> {} bytes); retained original '{}'.",
+          "Migrated account '{}' log '{}' from v{} to v{} ({} -> {} bytes, {} saved); archive '{}'; retained original '{}'; elapsed {:?}.",
+          user_id,
           source.display(),
           descriptor.version,
           descriptor.kind.current_version(),
           input_bytes,
           output_bytes,
-          previous.display()
+          input_bytes.saturating_sub(output_bytes),
+          archive.as_deref().unwrap_or("S3 backup disabled"),
+          previous.display(),
+          started.elapsed()
         );
         Ok(())
       })
@@ -217,7 +247,15 @@ pub async fn migrate_account_logs(
   for (_, candidate, _) in candidates {
     replacement::discard_temporary(&candidate);
   }
-  result?;
+  result.map_err(|e| {
+    format!(
+      "Startup migration failed for account '{}' (archive '{}') after {:?}: {}",
+      account.user_id,
+      archive.as_deref().unwrap_or("S3 backup disabled"),
+      started.elapsed(),
+      e
+    )
+  })?;
   info!("Account '{}' startup migration completed in {:?}.", account.user_id, started.elapsed());
   Ok(())
 }
@@ -229,16 +267,37 @@ pub async fn migrate_pending_users(
   retained_logs: &mut HashSet<PathBuf>,
 ) -> InfuResult<()> {
   let Some(descriptor) = descriptor else {
+    debug!("Skipping pending-user migration: log is absent; normal initialization will create it.");
     return Ok(());
   };
   if descriptor.version == CURRENT_USER_LOG_VERSION {
+    debug!("Skipping pending-user migration: log is current (v{}).", descriptor.version);
     return Ok(());
   }
   let source = expand_tilde(data_dir).ok_or("Could not interpret data directory.")?.join("pending_users.json");
+  let started = Instant::now();
+  info!(
+    "Starting local-only migration of '{}' from v{} to v{}; no S3 snapshot required.",
+    source.display(),
+    descriptor.version,
+    CURRENT_USER_LOG_VERSION
+  );
   let prepare_source = source.clone();
   let candidate = spawn_blocking(move || prepare_log_migration(&prepare_source))
     .await
-    .map_err(|e| format!("Failed to prepare pending-user migration: {}", e))??;
+    .map_err(|e| {
+      format!("Pending-user migration task failed for '{}' after {:?}: {}", source.display(), started.elapsed(), e)
+    })?
+    .map_err(|e| {
+      format!(
+        "Cannot migrate '{}' from v{} to v{} after {:?}: {}",
+        source.display(),
+        descriptor.version,
+        CURRENT_USER_LOG_VERSION,
+        started.elapsed(),
+        e
+      )
+    })?;
   let result = async {
     // Pending users may contain multiple User records, so replay without per-account single-user checks.
     KVStore::<User>::init(
@@ -249,32 +308,49 @@ pub async fn migrate_pending_users(
     let install_source = source.clone();
     let install_candidate = candidate.clone();
     let save_source = !retained_logs.contains(&source);
-    spawn_blocking(move || -> InfuResult<()> {
+    spawn_blocking(move || -> InfuResult<(u64, u64, PathBuf)> {
       let previous = install_source.with_file_name("pending_users.json.previous");
+      let input_bytes = std::fs::metadata(&install_source)?.len();
+      let output_bytes = std::fs::metadata(&install_candidate)?.len();
       install_log_candidate(&install_source, &install_candidate, &previous, save_source, |path| {
         let descriptor = read_log_descriptor(path)?;
         if descriptor.kind != LogKind::User || descriptor.version != CURRENT_USER_LOG_VERSION {
           return Err("Pending-user migration did not produce the current user-log schema.".into());
         }
         Ok(())
+      })
+      .map_err(|e| {
+        format!(
+          "Cannot install migrated log '{}' (retained-copy path '{}'): {}",
+          install_source.display(),
+          previous.display(),
+          e
+        )
       })?;
       if let Err(e) = replacement::prune_legacy_log_copies(&install_source, LogKind::User) {
         warn!("Migrated '{}', but could not finish pruning older local copies: {}", install_source.display(), e);
       }
-      Ok(())
+      Ok((input_bytes, output_bytes, previous))
     })
     .await
     .map_err(|e| format!("Failed to install pending-user migration: {}", e))?
   }
   .await;
   replacement::discard_temporary(&candidate);
-  result?;
+  let (input_bytes, output_bytes, previous) = result.map_err(|e| {
+    format!("Pending-user migration failed for '{}' after {:?}: {}", source.display(), started.elapsed(), e)
+  })?;
   retained_logs.insert(source.clone());
   info!(
-    "Migrated '{}' from v{} to v{}; retained its local previous copy.",
+    "Migrated '{}' from v{} to v{} ({} -> {} bytes, {} saved); archive not applicable; retained original '{}'; elapsed {:?}.",
     source.display(),
     descriptor.version,
-    CURRENT_USER_LOG_VERSION
+    CURRENT_USER_LOG_VERSION,
+    input_bytes,
+    output_bytes,
+    input_bytes.saturating_sub(output_bytes),
+    previous.display(),
+    started.elapsed()
   );
   Ok(())
 }
@@ -284,7 +360,14 @@ fn inspect_existing_log(path: &Path, expected: LogKind) -> InfuResult<LogDescrip
   {
     return Err(format!("Log '{}' is not a file.", path.display()).into());
   }
-  discard_log_temporaries(path)?;
+  let discarded = discard_log_temporaries(path)?;
+  if discarded > 0 {
+    info!(
+      "Discarded {} unfinished maintenance temporary files for '{}'; kept the active log.",
+      discarded,
+      path.display()
+    );
+  }
   let descriptor = read_log_descriptor(path)?;
   if descriptor.kind != expected {
     return Err(format!("Log '{}' must contain {} records.", path.display(), expected.value_type()).into());

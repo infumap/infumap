@@ -93,11 +93,22 @@ pub async fn put_maintenance_backup(
   user_path: &Path,
   encryption_key: &str,
 ) -> InfuResult<String> {
+  let started = std::time::Instant::now();
   if !is_uid(user_id) {
     return Err(format!("Invalid account id for maintenance backup: '{}'.", user_id).into());
   }
   let filename = format!("{}{}_{}_{}.infu", kind.prefix(), user_id, unix_now_secs_u64()?, new_uid());
-  let raw = create_raw_backup(items_path, user_path).await?;
+  info!(
+    "Preparing permanent archive '{}' for account '{}': items '{}', user '{}'.",
+    filename,
+    user_id,
+    items_path.display(),
+    user_path.display()
+  );
+  let raw = create_raw_backup(items_path, user_path)
+    .await
+    .map_err(|e| format!("Cannot read sources for maintenance archive '{}': {}", filename, e))?;
+  let raw_bytes = raw.len();
   let encryption_key = encryption_key.to_owned();
   let authenticated_filename = filename.clone();
   let encrypted = spawn_blocking(move || {
@@ -105,10 +116,21 @@ pub async fn put_maintenance_backup(
     encrypt_file_data(&encryption_key, &compressed, &authenticated_filename)
   })
   .await
-  .map_err(|e| format!("Failed to prepare maintenance backup '{}': {}", filename, e))??;
+  .map_err(|e| format!("Maintenance backup preparation task failed for '{}': {}", filename, e))?
+  .map_err(|e| format!("Failed to prepare maintenance backup '{}': {}", filename, e))?;
+  let encrypted_bytes = encrypted.len();
   // Generate the name and ciphertext once: the existing S3 retry must resend the same object and bytes.
-  put(backup_store, &filename, encrypted).await?;
-  info!("Archived account '{}' logs to permanent backup '{}'.", user_id, filename);
+  put(backup_store, &filename, encrypted)
+    .await
+    .map_err(|e| format!("Failed to upload maintenance archive '{}': {}", filename, e))?;
+  info!(
+    "Archived account '{}' logs to permanent backup '{}': {} raw payload bytes -> {} encrypted bytes; elapsed {:?}.",
+    user_id,
+    filename,
+    raw_bytes,
+    encrypted_bytes,
+    started.elapsed()
+  );
   Ok(filename)
 }
 

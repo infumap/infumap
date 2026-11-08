@@ -6,9 +6,12 @@ Configuration values specified via environment variables should be prefixed with
 
 For documentation on each of the properties, refer to comments in the auto-generated `settings.toml` file, or [the template file](../infumap/default_settings.toml) in the source tree from which this is derived.
 
+### Startup maintenance
+
 Server startup automatically migrates account logs and then compacts each `user.json` or `items.json` that
 can save at least `startup_compact_min_savings_bytes` (default `1048576`, or 1 MiB). This setting must be a
-positive integer; it can also be supplied as `INFUMAP_STARTUP_COMPACT_MIN_SAVINGS_BYTES`. There are no
+positive integer; zero, negative, fractional, boolean, and out-of-range values are rejected. It can also be
+supplied as `INFUMAP_STARTUP_COMPACT_MIN_SAVINGS_BYTES`. There are no
 migration/compaction off switches or percentage threshold. With `enable_s3_backup = true`, account maintenance
 requires a permanent snapshot of both logs before migration starts or compaction installs. Compaction
 preparation/upload failure skips the optional operation; a required migration failure blocks startup. The
@@ -20,6 +23,36 @@ Each log changed by startup maintenance keeps one local `<log-name>.previous` co
 Migration followed by compaction preserves the pre-migration original. After a successful installation,
 recognized older `.vN` migration copies for that log are removed; custom/manual copies and permanent S3
 maintenance archives remain untouched. This local rotation also applies to `pending_users.json` migration.
+
+Savings are measured from the actual candidate file after migration, independently for each account log.
+Saving exactly the configured number of bytes qualifies. With the default, 100 MiB becoming 99 MiB qualifies,
+while 500 KiB becoming 100 KiB does not. Candidate generation, validation, and any required upload can add startup
+time proportional to the logs' size; compaction runs only on startup and does not bound growth between restarts.
+
+With S3 backup enabled, maintenance uses the backup provider and `backup_encryption_key`, independently of
+the object stores configured for file/image data. A migration chain creates one pre-chain archive; qualifying
+compaction creates its own pre-compaction archive of the current pair. Neither updates regular backup tracking.
+All binaries sharing the bucket must support these archive names before the first maintenance upload;
+older binaries may reject them when listing backups. Existing regular backups remain readable.
+
+Permanent archives are excluded from every Infumap automatic cleanup path, including regular backup retention.
+Bucket lifecycle rules, manual deletion, and other clients remain outside that guarantee. Keep the original
+archive filenames and the encryption keys used to create them. Archives consume storage until removed externally;
+rotating the configured key does not re-encrypt existing archives. See [restore](cli.md#restore) for manual recovery.
+
+Run only one Infumap binary against a data directory at a time, including offline writing commands. Logs are
+replaced individually; an interruption can leave files at different schema versions. The next startup finishes
+required migrations before serving. Unfinished maintenance scratch files are discarded rather than promoted.
+A failure reported after the final rename may mean the new file is already installed; inspect the active log
+and the reported `.previous` path before manually replacing anything.
+
+At the default `info` log level, maintenance reports transformations and measured candidates with account/file,
+schema versions, input/output bytes, bytes saved, elapsed time, archive key, and retained source where applicable.
+Failed and skipped measured candidates report the reason. Use `log_level = "debug"` for no-op details such as
+already-current schemas and files too small to meet the threshold. Encryption keys and log contents are not
+included in these diagnostic messages.
+
+### GPU tools and chat
 
 Configure `gpu_tools_url` to point at either the local GPU gateway or a single direct GPU tool service. Infumap calls `GET /gpu-tools` on that URL to discover supported endpoints such as `/image-extract`, `/pdf-extract`, and `/pdf-extract-caption-only`.
 

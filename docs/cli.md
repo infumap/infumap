@@ -45,6 +45,10 @@ failures stop startup without installing candidates. Installation is per file; i
 the next startup finishes remaining migrations. Older binaries may not read the upgraded active logs; use the
 retained originals or a pre-migration archive when rolling back.
 
+Automatic migration follows the existing converters, including their supported-version limits; it does not
+invent missing conversions. An unsupported or future schema must be handled with a binary that supports it
+or a compatible recovery copy. Do not edit a descriptor's version to bypass conversion.
+
 The shared `pending_users.json` is also migrated automatically through supported versions. Its original is
 retained locally as `pending_users.json.previous`; no S3 snapshot is taken for this file.
 
@@ -152,6 +156,36 @@ Accepts regular backups named `<user-id>_<timestamp>` and permanent maintenance 
 `maintenance-compaction_<user-id>_<timestamp>_<random-id>.infu`. Download maintenance archives using your S3
 provider's tools and keep the exact original filename; it is required for decryption. Maintenance archives are
 excluded from Infumap's automatic cleanup and latest-backup recovery selection.
+
+Migration archives contain the original pair before the entire migration chain. Compaction archives contain
+the current pair immediately before compaction installation, after any migration in that startup. These are
+different recovery points; a compaction archive may already require the newer binary. Neither archive includes
+`pending_users.json`, sessions, search indexes, object files, or chat transcripts.
+
+To recover from a maintenance archive:
+
+1. Stop the server and other commands writing the same data directory. Download the desired archive with your
+   S3 provider's tools, keeping its exact filename, and obtain the backup encryption key used when it was created.
+2. Run `infumap restore --backup-file <archive-path> --key <backup-encryption-key>` from an empty directory.
+   This writes `user.json` and `items.json`; it does not install or migrate them and refuses to overwrite existing
+   output files. Preserve both active logs separately before installing the restored pair in the matching
+   `<data_dir>/user_<user-id>/` directory.
+3. Use a binary that supports the restored schemas. Starting the current binary migrates old schemas again;
+   there is no migration-off setting. Keep recovery copies outside the maintenance names if they must survive
+   future startup rotation. Restoring logs does not restore their referenced object data; the matching objects
+   must still be available and decryptable with the restored user's object encryption key.
+
+For local recovery, `.previous` retains the input to each changed log's first installed maintenance operation
+in that startup. Pending users have only this local recovery copy. Different logs' `.previous` files can be
+from different startups; use a single paired archive when an exact account recovery point is needed. Inspect
+schema versions before using local copies to roll back a binary.
+
+Regular backup tracking is checked before maintenance. Existing automatic recovery can restore a newer regular
+backup and then exit; restart after that recovery completes. Maintenance archives are never selected by this
+process or by `emergency` and must never be written into `last_backup.txt`. The `restore` command does not
+update tracking. Inspect the existing tracking and any startup recovery messages when installing logs manually.
+Infumap's permanent-retention guarantee excludes bucket lifecycle rules and deletion by other clients; retain
+the encryption keys and original filenames needed to restore archives.
 
 Options:
 - **-b --backup-file (required):** Path to the backup file.

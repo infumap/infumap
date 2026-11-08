@@ -47,10 +47,16 @@
 # and image data will also be stored here.
 #data_dir = "~/.infumap/data"
 
-# On every server startup, compact each account log if it saves at least this
-# many bytes. Must be a positive integer; default is 1 MiB. Migration and
-# qualifying compaction are always automatic. With S3 backup enabled, a
-# permanent snapshot of both account logs must succeed before compaction installs.
+# After startup migration, compact each account's user.json and items.json
+# independently if it saves at least this many actual bytes, including equality.
+# Must be a positive integer; default is 1 MiB. No percentage threshold or
+# enable/disable switches apply to migration or compaction. Changed logs keep
+# their pre-startup source as <log-name>.previous, including migration + compaction.
+# With enable_s3_backup = true, a permanent snapshot of both account logs must
+# succeed before migration starts; a separate snapshot must succeed before
+# qualifying compaction installs. Migration failure blocks startup; compaction
+# preparation/upload failure skips compaction. pending_users.json is migrated
+# locally only, without S3 backup or automatic compaction.
 #startup_compact_min_savings_bytes = 1048576
 
 # The cache directory. Contains images and favicons subdirectories.
@@ -171,6 +177,11 @@
 # but only if there have been changes since the last backup. Old backups are
 # removed from the object store as new ones are added, unless this would cause
 # a gap between historic backups greater than backup_retention_period_days.
+# Startup maintenance archives use maintenance-migration_ and
+# maintenance-compaction_ prefixes and never enter Infumap's automatic cleanup,
+# regular backup tracking, or latest-backup recovery selection. Bucket lifecycle
+# rules and manual deletion can still remove them. Preserve their original names
+# and the backup encryption keys used to create them for manual restoration.
 # backup_encryption_key must be a 32 byte hex encoded value. Infumap generates
 # a unique one automatically for you when it creates a default settings.toml file.
 # You can also generate a suitable one manually using the infumap keygen cli command.

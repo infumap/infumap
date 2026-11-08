@@ -69,13 +69,14 @@ pub async fn compact_account_logs(
       }
     }
     if candidates.is_empty() {
-      debug!("Account '{}' has no qualifying compactions.", account.user_id);
+      debug!("Account '{}' has no qualifying compactions (minimum {} bytes); no archive created; elapsed {:?}.",
+        account.user_id, min_savings_bytes, started.elapsed());
       return Ok(());
     }
-    // Both candidates are already validated; snapshot the still-unchanged current pair once before installation.
+    // Qualifying candidates are validated; snapshot the still-unchanged current pair once before installation.
     // A migration archive describes an earlier schema and cannot substitute for this recovery point.
-    if let Some((store, encryption_key)) = backup {
-      put_maintenance_backup(
+    let archive = if let Some((store, encryption_key)) = backup {
+      Some(put_maintenance_backup(
         store.clone(),
         MaintenanceBackupKind::Compaction,
         &account.user_id,
@@ -84,8 +85,8 @@ pub async fn compact_account_logs(
         encryption_key,
       )
       .await
-      .map_err(|e| format!("Cannot archive account '{}' before compaction: {}", account.user_id, e))?;
-    }
+      .map_err(|e| format!("Cannot archive account '{}' before compaction: {}", account.user_id, e))?)
+    } else { None };
     for (original_source, descriptor, candidate) in &candidates {
       let source = (*original_source).clone();
       let path = candidate.path.clone();
@@ -105,7 +106,8 @@ pub async fn compact_account_logs(
             return Err("Compaction candidate has an unexpected schema or size.".into());
           }
           Ok(())
-        })?;
+        }).map_err(|e| format!("Cannot install compacted log '{}' (retained-copy path '{}'): {}",
+          source.display(), previous.display(), e))?;
         if let Err(e) = prune_legacy_log_copies(&source, descriptor.kind) {
           warn!("Compacted '{}', but could not finish pruning older local copies: {}", source.display(), e);
         }
@@ -116,11 +118,14 @@ pub async fn compact_account_logs(
         Ok(Ok(previous)) => {
           retained_logs.insert((*original_source).clone());
           info!(
-            "Compacted '{}': {} -> {} bytes, {} saved; retained original '{}'; elapsed {:?}.",
+            "Compacted account '{}' log '{}' at v{} -> v{}: {} -> {} bytes, {} saved; archive '{}'; retained original '{}'; elapsed {:?}.",
+            account.user_id,
             original_source.display(),
+            descriptor.kind.current_version(), descriptor.kind.current_version(),
             candidate.original_bytes,
             candidate.compacted_bytes,
             candidate.saved_bytes,
+            archive.as_deref().unwrap_or("S3 backup disabled"),
             previous.display(),
             started.elapsed()
           );
@@ -128,13 +133,17 @@ pub async fn compact_account_logs(
         // Replacement may already have completed if directory sync failed. Keep complete installed logs and
         // let normal loading verify the final paths; rolling back a successful file is unnecessary.
         Ok(Err(e)) => warn!(
-          "Could not finish compaction installation for '{}'; keeping its active log: {}",
+          "Could not finish compaction installation for account '{}' log '{}'; archive '{}'; elapsed {:?}; keeping its active log: {}",
+          account.user_id,
           original_source.display(),
+          archive.as_deref().unwrap_or("S3 backup disabled"), started.elapsed(),
           e
         ),
         Err(e) => warn!(
-          "Compaction installation task failed for '{}'; keeping its active log: {}",
+          "Compaction installation task failed for account '{}' log '{}'; archive '{}'; elapsed {:?}; keeping its active log: {}",
+          account.user_id,
           original_source.display(),
+          archive.as_deref().unwrap_or("S3 backup disabled"), started.elapsed(),
           e
         ),
       }
@@ -145,7 +154,17 @@ pub async fn compact_account_logs(
   for (_, _, candidate) in candidates {
     discard_temporary(&candidate.path);
   }
-  result
+  result.map_err(|e| {
+    format!(
+      "Compaction preparation/archive failed for account '{}' (user '{}', items '{}') after {:?}: {}",
+      account.user_id,
+      account.user_log.display(),
+      account.item_log.display(),
+      started.elapsed(),
+      e
+    )
+    .into()
+  })
 }
 
 /// Measure actual savings without modifying active files or taking a permanent snapshot.
@@ -158,14 +177,17 @@ pub async fn prepare_log_compaction(
   if min_savings_bytes == 0 {
     return Err("Compaction minimum savings must be positive.".into());
   }
+  let started = Instant::now();
   let original_bytes = fs::metadata(source).await?.len();
   if original_bytes <= min_savings_bytes {
     // A valid candidate contains at least a descriptor, so even equality cannot recover this many bytes.
     debug!(
-      "Skipping compaction of '{}': {} bytes cannot save {} bytes.",
+      "Skipping compaction for account '{}' log '{}': {} bytes cannot save {} bytes; no candidate or archive needed; elapsed {:?}.",
+      user.id,
       source.display(),
       original_bytes,
-      min_savings_bytes
+      min_savings_bytes,
+      started.elapsed()
     );
     return Ok(None);
   }
@@ -173,7 +195,6 @@ pub async fn prepare_log_compaction(
   if descriptor.version != descriptor.kind.current_version() {
     return Err(format!("Log '{}' must be migrated before compaction.", source.display()).into());
   }
-  let started = Instant::now();
   let candidate = create_log_temporary(source)?;
   let result: InfuResult<Option<CompactionCandidate>> = async {
     match descriptor.kind {
@@ -183,12 +204,15 @@ pub async fn prepare_log_compaction(
     let compacted_bytes = fs::metadata(&candidate).await?.len();
     let saved_bytes = original_bytes.checked_sub(compacted_bytes).unwrap_or(0);
     info!(
-      "Measured compaction of '{}': {} -> {} bytes, {} saved (minimum {}), elapsed {:?}.",
+      "Measured compaction for account '{}' log '{}' at v{} -> v{}: {} -> {} bytes, {} saved (minimum {}), {}; elapsed {:?}.",
+      user.id,
       source.display(),
+      descriptor.version, descriptor.kind.current_version(),
       original_bytes,
       compacted_bytes,
       saved_bytes,
       min_savings_bytes,
+      if saved_bytes >= min_savings_bytes { "qualifies" } else { "skipped: savings below minimum" },
       started.elapsed()
     );
     if saved_bytes < min_savings_bytes {
