@@ -48,9 +48,13 @@ and the reported `.previous` path before manually replacing anything.
 
 At the default `info` log level, maintenance reports transformations and measured candidates with account/file,
 schema versions, input/output bytes, bytes saved, elapsed time, archive key, and retained source where applicable.
-Failed and skipped measured candidates report the reason. Use `log_level = "debug"` for no-op details such as
-already-current schemas and files too small to meet the threshold. Encryption keys and log contents are not
-included in these diagnostic messages.
+Startup logs also show account discovery, migration requirements, each intermediate migration step, candidate
+replay/validation, archive preparation/upload, per-account compaction completion/errors, and final loaded item
+counts, epochs, and container sync versions. Already-current schemas, absent pending users, small-file skips,
+and insufficient savings have explicit explanations at `info`, so a startup with nothing to change is visible.
+Use `log_level = "debug"` or `INFUMAP_LOG_LEVEL=debug` for temporary-file paths and cleanup, per-root traversal
+counts, candidate syncing, retained-source rotation/reuse, and atomic replacement details. Encryption keys and
+log contents are not included in these diagnostic messages.
 
 ### GPU tools and chat
 

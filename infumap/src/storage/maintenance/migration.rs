@@ -17,8 +17,10 @@
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 use infusdk::util::infu::InfuResult;
+use log::info;
 use serde_json::de::IoRead;
 use serde_json::{Map, StreamDeserializer, Value};
 
@@ -39,7 +41,31 @@ pub fn prepare_log_migration(source: &Path) -> InfuResult<PathBuf> {
     while version < descriptor.kind.current_version() {
       let output = create_log_temporary(source)?;
       staged.push(output.clone());
-      let migrated = migrate_log_step(&input, &output)?;
+      let started = Instant::now();
+      info!(
+        "Migrating '{}': step v{} -> v{} (target v{}); active source remains unchanged.",
+        source.display(),
+        version,
+        version + 1,
+        descriptor.kind.current_version()
+      );
+      let migrated = migrate_log_step(&input, &output).map_err(|e| {
+        format!(
+          "Migration step v{} -> v{} failed for '{}' after {:?}: {}",
+          version,
+          version + 1,
+          source.display(),
+          started.elapsed(),
+          e
+        )
+      })?;
+      info!(
+        "Prepared migration step for '{}': v{} -> v{}; elapsed {:?}.",
+        source.display(),
+        version,
+        migrated.version,
+        started.elapsed()
+      );
       if input != source {
         discard_temporary(&input);
       }

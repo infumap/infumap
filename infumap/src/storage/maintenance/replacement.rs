@@ -20,7 +20,7 @@ use std::path::{Path, PathBuf};
 
 use infusdk::util::infu::InfuResult;
 use infusdk::util::uid::{is_uid, new_uid};
-use log::{info, warn};
+use log::{debug, info, warn};
 
 use super::{LogKind, read_log_descriptor};
 
@@ -44,6 +44,7 @@ pub fn create_log_temporary(source: &Path) -> InfuResult<PathBuf> {
     options.mode(0o600);
   }
   options.open(&path)?;
+  debug!("Reserved maintenance temporary '{}' for '{}'.", path.display(), source.display());
   Ok(path)
 }
 
@@ -57,6 +58,13 @@ pub fn install_log_candidate(
   save_source: bool,
   validate: impl FnOnce(&Path) -> InfuResult<()>,
 ) -> InfuResult<()> {
+  debug!(
+    "Preparing replacement of '{}' from '{}'; retained-copy path '{}'; retain source: {}.",
+    source.display(),
+    candidate.display(),
+    previous.display(),
+    save_source
+  );
   let directory = parent_directory(source);
   let canonical_directory = directory.canonicalize()?;
   for path in [candidate, previous] {
@@ -76,28 +84,42 @@ pub fn install_log_candidate(
   file.sync_all()?;
   drop(file);
   validate(candidate)?;
+  debug!("Synced and validated candidate '{}' before replacing '{}'.", candidate.display(), source.display());
 
   if save_source {
     let previous_temporary = create_log_temporary(source)?;
     let retain_result = (|| -> InfuResult<()> {
       let mut original = File::open(source)?;
       let mut retained = OpenOptions::new().write(true).open(&previous_temporary)?;
-      std::io::copy(&mut original, &mut retained)?;
+      let copied_bytes = std::io::copy(&mut original, &mut retained)?;
       retained.set_permissions(original.metadata()?.permissions())?;
       retained.sync_all()?;
       drop(retained);
       fs::rename(&previous_temporary, previous)?;
-      sync_directory(directory)
+      sync_directory(directory)?;
+      debug!(
+        "Retained {} source bytes from '{}' in '{}' before installation.",
+        copied_bytes,
+        source.display(),
+        previous.display()
+      );
+      Ok(())
     })();
     discard_temporary(&previous_temporary);
     retain_result?;
   } else if !fs::metadata(previous)?.is_file() {
     return Err(format!("Retained original '{}' is not a file.", previous.display()).into());
+  } else {
+    debug!("Reusing original '{}' retained earlier this startup for '{}'.", previous.display(), source.display());
   }
 
   // Moving the source aside first leaves its path missing on interruption; replace it only after retention.
   fs::rename(candidate, source)?;
-  sync_directory(directory)
+  sync_directory(directory).map_err(|e| format!(
+    "Installed '{}', but failed to sync its directory; the new active log is already present and its retained original is '{}': {}",
+    source.display(), previous.display(), e))?;
+  debug!("Installed '{}' after the directory-sync step; retained original '{}'.", source.display(), previous.display());
+  Ok(())
 }
 
 /// Startup-only pruning, after successful installation. Manual migrate still keeps its one-step .vN copies.
@@ -184,10 +206,10 @@ pub fn discard_log_temporaries(source: &Path) -> InfuResult<usize> {
 }
 
 pub(super) fn discard_temporary(path: &Path) {
-  if let Err(e) = fs::remove_file(path) {
-    if e.kind() != ErrorKind::NotFound {
-      warn!("Could not remove maintenance temporary '{}': {}", path.display(), e);
-    }
+  match fs::remove_file(path) {
+    Ok(()) => debug!("Removed maintenance temporary '{}'.", path.display()),
+    Err(e) if e.kind() == ErrorKind::NotFound => {}
+    Err(e) => warn!("Could not remove maintenance temporary '{}': {}", path.display(), e),
   }
 }
 
@@ -195,10 +217,12 @@ fn sync_directory(directory: &Path) -> InfuResult<()> {
   #[cfg(unix)]
   match File::open(directory)?.sync_all() {
     Ok(()) => {}
-    Err(e) if matches!(e.kind(), ErrorKind::Unsupported | ErrorKind::InvalidInput) => {}
+    Err(e) if matches!(e.kind(), ErrorKind::Unsupported | ErrorKind::InvalidInput) => {
+      debug!("Directory sync is unsupported for '{}': {}", directory.display(), e);
+    }
     Err(e) => return Err(e.into()),
   }
   #[cfg(not(unix))]
-  let _ = directory;
+  debug!("Directory sync is unavailable on this platform for '{}'.", directory.display());
   Ok(())
 }

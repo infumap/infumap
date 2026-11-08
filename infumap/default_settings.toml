@@ -23,6 +23,9 @@
 # Only Infumap messages are logged (no messages from dependencies).
 # Valid values: off, error, warn, info, debug, trace.
 # Infumap currently doesn't emit any messages a trace level.
+# Startup maintenance progress, migration steps, compaction decisions, archive
+# uploads, and completion summaries are visible at info. Use debug for temporary
+# files, per-root traversal counts, retained-source rotation/reuse, and replacement.
 #log_level = "info"
 
 # The address and port to listen on for web and API requests. Should not be

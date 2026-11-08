@@ -35,7 +35,7 @@ use std::collections::HashSet;
 use std::io::Cursor;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
@@ -137,9 +137,17 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
   };
 
   let discovery_data_dir = data_dir.clone();
+  let maintenance_started = Instant::now();
+  info!(
+    "Starting startup maintenance in '{}': automatic migration and compaction; minimum savings {} bytes; S3 snapshots {}.",
+    data_dir,
+    compact_min_savings,
+    if backup_store.is_some() { "required for account changes" } else { "disabled" }
+  );
   let account_ids = spawn_blocking(move || discover_account_ids(&discovery_data_dir))
     .await
     .map_err(|e| format!("Failed to discover account directories: {}", e))??;
+  info!("Discovered {} accounts for startup recovery and maintenance.", account_ids.len());
   // Recovery must precede inspection/migration: old or damaged local logs must not block restoring a newer backup.
   // Skipping tracking reconciliation still leaves the backup store available for maintenance snapshots.
   if !skip_backup_validation {
@@ -148,6 +156,10 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
       validate_backup_tracking(&data_dir, &account_ids, backup_store.clone(), &config).await?;
       info!("Backup tracking validation completed successfully.");
     }
+  } else {
+    info!(
+      "Regular backup tracking validation skipped; required maintenance snapshots remain enabled when S3 backup is configured."
+    );
   }
 
   // KVStore::init creates missing logs; inspect first so incomplete accounts are reported, not changed.
@@ -159,6 +171,19 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
   })
   .await
   .map_err(|e| format!("Failed to inspect startup logs: {}", e))??;
+  let migration_accounts = account_logs
+    .iter()
+    .filter(|account| {
+      account.user_descriptor.version != account.user_descriptor.kind.current_version()
+        || account.item_descriptor.version != account.item_descriptor.kind.current_version()
+    })
+    .count();
+  info!(
+    "Startup log inspection complete: {} of {} accounts need migration; pending-user log {}.",
+    migration_accounts,
+    account_logs.len(),
+    pending_users.map(|descriptor| format!("v{}", descriptor.version)).unwrap_or_else(|| "absent".to_owned())
+  );
   for account in &account_logs {
     debug!(
       "Account '{}' logs: '{}' (v{}), '{}' (v{}).",
@@ -180,7 +205,9 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
     migrate_account_logs(account, backup_store.as_ref().zip(maintenance_backup_key.as_deref()), &mut retained_logs)
       .await?;
   }
-  for account in &account_logs {
+  info!("Required startup migrations complete; checking {} accounts for compaction.", account_logs.len());
+  for (index, account) in account_logs.iter().enumerate() {
+    info!("Checking startup compaction for account '{}' ({}/{}).", account.user_id, index + 1, account_logs.len());
     if let Err(e) = compact_account_logs(
       account,
       compact_min_savings,
@@ -192,6 +219,11 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
       warn!("Skipping optional startup compaction for account '{}'; active logs are unchanged: {}", account.user_id, e);
     }
   }
+  info!(
+    "Startup maintenance operations finished: {} logs completed maintenance with retained originals; elapsed {:?}. Loading final active logs.",
+    retained_logs.len(),
+    maintenance_started.elapsed()
+  );
   let db = Arc::new(tokio::sync::Mutex::new(match Db::new(&data_dir).await {
     Ok(db) => db,
     Err(e) => {
@@ -273,6 +305,12 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
       db.item.load_user_items(user_id, false).await?;
       let loaded_epoch = db.item.loaded_log_epoch_for_user(user_id);
       let loaded_versions = db.item.loaded_container_versions_for_user(user_id);
+      info!(
+        "Initializing container sync for account '{}': epoch {}, {} recorded container versions.",
+        user_id,
+        loaded_epoch,
+        loaded_versions.len()
+      );
       db.container_sync.initialize_user_versions(user_id, loaded_epoch, loaded_versions);
     }
     // Finish loading every account before startup edits append to any item log.
@@ -290,6 +328,10 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
     }
     info!("Done loading all items for all users.");
   }
+  info!(
+    "Final maintained databases loaded and container sync initialized; startup can proceed (maintenance/loading elapsed {:?}).",
+    maintenance_started.elapsed()
+  );
 
   crate::web::routes::command::remove_orphan_chat_transcripts(&db).await?;
 

@@ -26,7 +26,7 @@ use infusdk::item::Item;
 use infusdk::util::infu::InfuResult;
 use infusdk::util::json;
 use infusdk::util::uid::{Uid, is_uid};
-use log::{debug, info, warn};
+use log::{info, warn};
 use serde_json::Value;
 use tokio::task::spawn_blocking;
 
@@ -133,7 +133,7 @@ pub async fn migrate_account_logs(
 ) -> InfuResult<()> {
   let logs = [(&account.user_log, account.user_descriptor), (&account.item_log, account.item_descriptor)];
   if logs.iter().all(|(_, descriptor)| descriptor.version == descriptor.kind.current_version()) {
-    debug!(
+    info!(
       "Skipping migration for account '{}': both logs are current (user v{}, items v{}).",
       account.user_id, account.user_descriptor.version, account.item_descriptor.version
     );
@@ -189,12 +189,16 @@ pub async fn migrate_account_logs(
         .map_err(|e| format!("Cannot migrate '{}': {}", source.display(), e))?;
       candidates.push((source, candidate, descriptor));
       let candidate = &candidates.last().unwrap().1;
+      info!("Replaying migrated account '{}' log '{}' from candidate '{}' at v{} before installation.",
+        account.user_id, source.display(), candidate.display(), descriptor.kind.current_version());
       let candidate_path = candidate.to_str().ok_or("Migration candidate path must be valid UTF-8.")?;
       let replay: InfuResult<()> = match descriptor.kind {
         LogKind::User => KVStore::<User>::init(candidate_path, CURRENT_USER_LOG_VERSION).await.map(|_| ()),
         LogKind::Item => validate_item_log(candidate_path).await,
       };
       replay.map_err(|e| format!("Cannot replay migrated log '{}': {}", source.display(), e))?;
+      info!("Validated migrated account '{}' log '{}'; active source is unchanged until installation.",
+        account.user_id, source.display());
     }
 
     // Preparing both first keeps both originals intact on conversion/replay failure. Installation is per-file:
@@ -267,11 +271,11 @@ pub async fn migrate_pending_users(
   retained_logs: &mut HashSet<PathBuf>,
 ) -> InfuResult<()> {
   let Some(descriptor) = descriptor else {
-    debug!("Skipping pending-user migration: log is absent; normal initialization will create it.");
+    info!("Skipping pending-user migration: log is absent; normal initialization will create it.");
     return Ok(());
   };
   if descriptor.version == CURRENT_USER_LOG_VERSION {
-    debug!("Skipping pending-user migration: log is current (v{}).", descriptor.version);
+    info!("Skipping pending-user migration: log is current (v{}).", descriptor.version);
     return Ok(());
   }
   let source = expand_tilde(data_dir).ok_or("Could not interpret data directory.")?.join("pending_users.json");
@@ -299,12 +303,18 @@ pub async fn migrate_pending_users(
       )
     })?;
   let result = async {
+    info!(
+      "Replaying pending-user migration candidate '{}' at v{} before installation.",
+      candidate.display(),
+      CURRENT_USER_LOG_VERSION
+    );
     // Pending users may contain multiple User records, so replay without per-account single-user checks.
     KVStore::<User>::init(
       candidate.to_str().ok_or("Pending-user log path must be valid UTF-8.")?,
       CURRENT_USER_LOG_VERSION,
     )
     .await?;
+    info!("Validated pending-user migration candidate '{}'.", candidate.display());
     let install_source = source.clone();
     let install_candidate = candidate.clone();
     let save_source = !retained_logs.contains(&source);

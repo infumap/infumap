@@ -69,7 +69,7 @@ pub async fn compact_account_logs(
       }
     }
     if candidates.is_empty() {
-      debug!("Account '{}' has no qualifying compactions (minimum {} bytes); no archive created; elapsed {:?}.",
+      info!("Account '{}' has no qualifying compactions (minimum {} bytes); no compaction archive created; elapsed {:?}.",
         account.user_id, min_savings_bytes, started.elapsed());
       return Ok(());
     }
@@ -87,6 +87,8 @@ pub async fn compact_account_logs(
       .await
       .map_err(|e| format!("Cannot archive account '{}' before compaction: {}", account.user_id, e))?)
     } else { None };
+    let mut installed_count = 0;
+    let mut failed_count = 0;
     for (original_source, descriptor, candidate) in &candidates {
       let source = (*original_source).clone();
       let path = candidate.path.clone();
@@ -116,6 +118,7 @@ pub async fn compact_account_logs(
       .await;
       match installed {
         Ok(Ok(previous)) => {
+          installed_count += 1;
           retained_logs.insert((*original_source).clone());
           info!(
             "Compacted account '{}' log '{}' at v{} -> v{}: {} -> {} bytes, {} saved; archive '{}'; retained original '{}'; elapsed {:?}.",
@@ -132,22 +135,24 @@ pub async fn compact_account_logs(
         }
         // Replacement may already have completed if directory sync failed. Keep complete installed logs and
         // let normal loading verify the final paths; rolling back a successful file is unnecessary.
-        Ok(Err(e)) => warn!(
+        Ok(Err(e)) => { failed_count += 1; warn!(
           "Could not finish compaction installation for account '{}' log '{}'; archive '{}'; elapsed {:?}; keeping its active log: {}",
           account.user_id,
           original_source.display(),
           archive.as_deref().unwrap_or("S3 backup disabled"), started.elapsed(),
           e
-        ),
-        Err(e) => warn!(
+        ); },
+        Err(e) => { failed_count += 1; warn!(
           "Compaction installation task failed for account '{}' log '{}'; archive '{}'; elapsed {:?}; keeping its active log: {}",
           account.user_id,
           original_source.display(),
           archive.as_deref().unwrap_or("S3 backup disabled"), started.elapsed(),
           e
-        ),
+        ); },
       }
     }
+    info!("Finished startup compaction for account '{}': {} of {} qualifying file installations completed, {} installation errors; elapsed {:?}.",
+      account.user_id, installed_count, candidates.len(), failed_count, started.elapsed());
     Ok(())
   }
   .await;
@@ -181,7 +186,7 @@ pub async fn prepare_log_compaction(
   let original_bytes = fs::metadata(source).await?.len();
   if original_bytes <= min_savings_bytes {
     // A valid candidate contains at least a descriptor, so even equality cannot recover this many bytes.
-    debug!(
+    info!(
       "Skipping compaction for account '{}' log '{}': {} bytes cannot save {} bytes; no candidate or archive needed; elapsed {:?}.",
       user.id,
       source.display(),
@@ -196,6 +201,15 @@ pub async fn prepare_log_compaction(
     return Err(format!("Log '{}' must be migrated before compaction.", source.display()).into());
   }
   let candidate = create_log_temporary(source)?;
+  info!(
+    "Preparing compaction for account '{}' log '{}' at v{}: {} source bytes; candidate '{}'; minimum savings {} bytes.",
+    user.id,
+    source.display(),
+    descriptor.version,
+    original_bytes,
+    candidate.display(),
+    min_savings_bytes
+  );
   let result: InfuResult<Option<CompactionCandidate>> = async {
     match descriptor.kind {
       LogKind::User => write_compacted_user_log(source, &candidate).await?,
@@ -216,6 +230,7 @@ pub async fn prepare_log_compaction(
       started.elapsed()
     );
     if saved_bytes < min_savings_bytes {
+      debug!("Discarding nonqualifying compaction candidate '{}' for '{}'; no source replacement authorized.", candidate.display(), source.display());
       return Ok(None);
     }
     Ok(Some(CompactionCandidate { path: candidate.clone(), original_bytes, compacted_bytes, saved_bytes }))
@@ -231,6 +246,12 @@ async fn write_compacted_user_log(source: &Path, candidate: &Path) -> InfuResult
   let store =
     KVStore::<User>::init(source.to_str().ok_or("User log path must be valid UTF-8.")?, CURRENT_USER_LOG_VERSION)
       .await?;
+  info!(
+    "Replayed user log '{}': {} live user records; writing compaction candidate '{}'.",
+    source.display(),
+    store.get_iter().len(),
+    candidate.display()
+  );
   let file = OpenOptions::new().write(true).truncate(true).open(candidate).await?;
   let mut writer = BufWriter::new(file);
   let descriptor = serde_json::json!({
@@ -248,6 +269,11 @@ async fn write_compacted_user_log(source: &Path, candidate: &Path) -> InfuResult
   writer.flush().await?;
   writer.into_inner().sync_all().await?;
 
+  info!(
+    "Replaying user compaction candidate '{}' to verify all {} live values.",
+    candidate.display(),
+    store.get_iter().len()
+  );
   let compacted = KVStore::<User>::init(
     candidate.to_str().ok_or("Compaction candidate path must be valid UTF-8.")?,
     CURRENT_USER_LOG_VERSION,
@@ -262,5 +288,10 @@ async fn write_compacted_user_log(source: &Path, candidate: &Path) -> InfuResult
       return Err(format!("Compaction changed user '{}'.", id).into());
     }
   }
+  info!(
+    "Validated user compaction candidate '{}': {} live user records preserved.",
+    candidate.display(),
+    store.get_iter().len()
+  );
   Ok(())
 }

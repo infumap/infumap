@@ -362,6 +362,7 @@ async fn initialize_item_log(path: &PathBuf, epoch: u64) -> InfuResult<()> {
 
 /// Prepare current-schema output without loading temporary data into live indexes or advancing live epochs.
 pub(crate) async fn write_compacted_item_log(source: &Path, candidate: &Path, user: &User) -> InfuResult<()> {
+  info!("Replaying item log '{}' for account '{}' before compaction.", source.display(), user.id);
   let mut replay = ContainerVersionReplayState::new();
   let store = KVStore::<Item>::init_with_observer(
     source.to_str().ok_or("Item log path must be valid UTF-8.")?,
@@ -370,6 +371,15 @@ pub(crate) async fn write_compacted_item_log(source: &Path, candidate: &Path, us
   )
   .await?;
   let (epoch, versions) = replay.into_loaded_sync_state();
+  info!(
+    "Replayed item log '{}' for account '{}': {} live items, epoch {}, {} container versions; candidate '{}'.",
+    source.display(),
+    user.id,
+    store.get_iter().len(),
+    epoch,
+    versions.len(),
+    candidate.display()
+  );
   let file = OpenOptions::new().write(true).truncate(true).open(candidate).await?;
   write_compacted_items(&store, epoch, &versions, user, file, candidate).await
 }
@@ -416,6 +426,7 @@ async fn write_compacted_items(
   let mut visited = HashSet::new();
   let mut ordered_ids = Vec::new();
   for root in roots {
+    let before = visited.len();
     store.get(root).ok_or_else(|| format!("Root item '{}' does not exist.", root))?;
     let mut stack = vec![root.as_str()];
     while let Some(id) = stack.pop() {
@@ -427,6 +438,13 @@ async fn write_compacted_items(
         stack.extend(ids.iter().rev().copied());
       }
     }
+    debug!(
+      "Compaction traversal for account '{}': root '{}', {} newly visited items ({} total).",
+      user.id,
+      root,
+      visited.len() - before,
+      visited.len()
+    );
   }
   // Only persisted roots confer reachability. Queries includes hidden Scopes/Prompts descendants;
   // virtual search-status pages are not roots, and detached parentless items still need repair.
@@ -468,6 +486,15 @@ async fn write_compacted_items(
   writer.flush().await?;
   writer.into_inner().sync_all().await?;
 
+  info!(
+    "Replaying item compaction candidate '{}' for account '{}': verifying {} live values, {} container versions, epoch {} -> {}.",
+    candidate.display(),
+    user.id,
+    store.get_iter().len(),
+    expected_versions.len(),
+    epoch,
+    next_epoch
+  );
   let mut replay = ContainerVersionReplayState::new();
   let compacted = KVStore::<Item>::init_with_observer(
     candidate.to_str().ok_or("Compaction candidate path must be valid UTF-8.")?,
@@ -557,6 +584,14 @@ impl ItemDb {
     let (loaded_log_epoch, loaded_container_versions) = container_version_state.into_loaded_sync_state();
     self.loaded_log_epoch_by_user_id.insert(String::from(user_id), loaded_log_epoch);
     self.loaded_container_versions_by_user_id.insert(String::from(user_id), loaded_container_versions);
+
+    info!(
+      "Loaded items for account '{}': {} live items, epoch {}, {} recorded container versions.",
+      user_id,
+      self.store_by_user_id.get(user_id).map(|store| store.get_iter().len()).unwrap_or(0),
+      loaded_log_epoch,
+      self.loaded_container_versions_by_user_id.get(user_id).map(HashMap::len).unwrap_or(0)
+    );
 
     Ok(())
   }

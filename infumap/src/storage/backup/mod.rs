@@ -119,6 +119,13 @@ pub async fn put_maintenance_backup(
   .map_err(|e| format!("Maintenance backup preparation task failed for '{}': {}", filename, e))?
   .map_err(|e| format!("Failed to prepare maintenance backup '{}': {}", filename, e))?;
   let encrypted_bytes = encrypted.len();
+  info!(
+    "Uploading permanent archive '{}' for account '{}': {} encrypted bytes; preparation elapsed {:?}.",
+    filename,
+    user_id,
+    encrypted_bytes,
+    started.elapsed()
+  );
   // Generate the name and ciphertext once: the existing S3 retry must resend the same object and bytes.
   put(backup_store, &filename, encrypted)
     .await
