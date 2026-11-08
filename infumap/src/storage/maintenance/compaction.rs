@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
@@ -25,7 +26,7 @@ use tokio::fs::{self, OpenOptions};
 use tokio::io::{AsyncWriteExt, BufWriter};
 use tokio::task::spawn_blocking;
 
-use super::replacement::discard_temporary;
+use super::replacement::{discard_temporary, prune_legacy_log_copies};
 use super::{AccountLogs, LogKind, create_log_temporary, install_log_candidate, read_log_descriptor};
 use crate::storage::backup::{BackupStore, MaintenanceBackupKind, put_maintenance_backup};
 use crate::storage::db::item_db::write_compacted_item_log;
@@ -41,12 +42,13 @@ pub struct CompactionCandidate {
   pub saved_bytes: u64,
 }
 
-/// Call only after this account's migrations succeed, using its original startup descriptors.
+/// Call after this account's migrations succeed, sharing their retained-log set for this startup.
 /// Preparation/archive errors leave the active pair unchanged; installation errors are handled per file.
 pub async fn compact_account_logs(
   account: &AccountLogs,
   min_savings_bytes: u64,
   backup: Option<(&Arc<BackupStore>, &str)>,
+  retained_logs: &mut HashSet<PathBuf>,
 ) -> InfuResult<()> {
   let started = Instant::now();
   let mut candidates = Vec::new();
@@ -90,7 +92,7 @@ pub async fn compact_account_logs(
       let descriptor = *descriptor;
       let expected_bytes = candidate.compacted_bytes;
       // A successful migration already retained the pre-startup original. Keep it through compaction.
-      let save_source = descriptor.version == descriptor.kind.current_version();
+      let save_source = !retained_logs.contains(*original_source);
       let installed = spawn_blocking(move || -> InfuResult<PathBuf> {
         let filename = source.file_name().and_then(|name| name.to_str()).ok_or("Log filename must be valid UTF-8.")?;
         let previous = source.with_file_name(format!("{}.previous", filename));
@@ -104,19 +106,25 @@ pub async fn compact_account_logs(
           }
           Ok(())
         })?;
+        if let Err(e) = prune_legacy_log_copies(&source, descriptor.kind) {
+          warn!("Compacted '{}', but could not finish pruning older local copies: {}", source.display(), e);
+        }
         Ok(previous)
       })
       .await;
       match installed {
-        Ok(Ok(previous)) => info!(
-          "Compacted '{}': {} -> {} bytes, {} saved; retained original '{}'; elapsed {:?}.",
-          original_source.display(),
-          candidate.original_bytes,
-          candidate.compacted_bytes,
-          candidate.saved_bytes,
-          previous.display(),
-          started.elapsed()
-        ),
+        Ok(Ok(previous)) => {
+          retained_logs.insert((*original_source).clone());
+          info!(
+            "Compacted '{}': {} -> {} bytes, {} saved; retained original '{}'; elapsed {:?}.",
+            original_source.display(),
+            candidate.original_bytes,
+            candidate.compacted_bytes,
+            candidate.saved_bytes,
+            previous.display(),
+            started.elapsed()
+          );
+        }
         // Replacement may already have completed if directory sync failed. Keep complete installed logs and
         // let normal loading verify the final paths; rolling back a successful file is unnecessary.
         Ok(Err(e)) => warn!(

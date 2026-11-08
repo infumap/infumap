@@ -48,6 +48,13 @@ retained originals or a pre-migration archive when rolling back.
 The shared `pending_users.json` is also migrated automatically through supported versions. Its original is
 retained locally as `pending_users.json.previous`; no S3 snapshot is taken for this file.
 
+After a successful startup migration or compaction, older recognized migration copies (`user.vN`, `items.vN`,
+or `pending_users.vN` for older schema versions) are pruned for the changed file. The single `.previous` copy
+keeps the source from before that startup's first installed change, including when migration and compaction
+both run. Unchanged files keep their existing copies. Manual `.compacted` output, `.bk.*` copies, lookalike
+names, symlinks, and unrelated files are preserved. Pruning failures are logged without undoing maintenance.
+The standalone `migrate` command continues to retain its `.vN` copies; startup pruning is separate.
+
 Options:
 - **-p --log-path:** The path to the user or item log file to migrate to the next version.
 

@@ -20,7 +20,9 @@ use std::path::{Path, PathBuf};
 
 use infusdk::util::infu::InfuResult;
 use infusdk::util::uid::{is_uid, new_uid};
-use log::warn;
+use log::{info, warn};
+
+use super::{LogKind, read_log_descriptor};
 
 fn parent_directory(path: &Path) -> &Path {
   path.parent().filter(|parent| !parent.as_os_str().is_empty()).unwrap_or(Path::new("."))
@@ -96,6 +98,58 @@ pub fn install_log_candidate(
   // Moving the source aside first leaves its path missing on interruption; replace it only after retention.
   fs::rename(candidate, source)?;
   sync_directory(directory)
+}
+
+/// Startup-only pruning, after successful installation. Manual migrate still keeps its one-step .vN copies.
+pub(super) fn prune_legacy_log_copies(source: &Path, kind: LogKind) -> InfuResult<()> {
+  // Limit this policy to the exact startup log names, and require both complete active and retained files.
+  let stem = match (source.file_name().and_then(|name| name.to_str()), kind) {
+    (Some("items.json"), LogKind::Item) => "items",
+    (Some("user.json"), LogKind::User) => "user",
+    (Some("pending_users.json"), LogKind::User) => "pending_users",
+    _ => return Err("Legacy-copy pruning requires a recognized startup log path.".into()),
+  };
+  let previous = source.with_file_name(format!("{}.json.previous", stem));
+  if !fs::symlink_metadata(source)?.is_file() || !fs::symlink_metadata(&previous)?.is_file() {
+    return Err("Cannot prune recovery copies without regular active and previous files.".into());
+  }
+  let active = read_log_descriptor(source)?;
+  if active.kind != kind || active.version != kind.current_version() {
+    return Err("Cannot prune recovery copies before the active log is at its current schema.".into());
+  }
+
+  // The CLI used with_extension("vN"), not an appended ".json.vN". Do not broaden this to .bk.*, .new,
+  // .compacted, or lookalike names: those may be deliberately retained operator copies or uninstalled output.
+  let prefix = format!("{}.v", stem);
+  let directory = parent_directory(source);
+  let mut removed = 0;
+  for entry in fs::read_dir(directory)? {
+    let entry = entry?;
+    let name = entry.file_name();
+    let recognized = name.to_str().and_then(|name| name.strip_prefix(&prefix)).is_some_and(|suffix| {
+      suffix
+        .parse::<i64>()
+        .ok()
+        .is_some_and(|version| version > 0 && version < kind.current_version() && suffix == version.to_string())
+    });
+    if recognized && entry.file_type()?.is_file() {
+      match fs::remove_file(entry.path()) {
+        Ok(()) => {
+          info!(
+            "Removed superseded local migration copy '{}'; retained '{}'.",
+            entry.path().display(),
+            previous.display()
+          );
+          removed += 1;
+        }
+        Err(e) => warn!("Could not prune local migration copy '{}': {}", entry.path().display(), e),
+      }
+    }
+  }
+  if removed > 0 {
+    sync_directory(directory)?;
+  }
+  Ok(())
 }
 
 /// Discard only this log's maintenance-owned scratch files, never a manual .new/.compacted or retained copy.

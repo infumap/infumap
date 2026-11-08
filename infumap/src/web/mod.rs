@@ -31,6 +31,7 @@ use hyper::service::service_fn;
 use infusdk::util::infu::InfuResult;
 use log::{debug, error, info, warn};
 use once_cell::sync::Lazy;
+use std::collections::HashSet;
 use std::io::Cursor;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -168,19 +169,25 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
       account.item_descriptor.version,
     );
   }
-  migrate_pending_users(&data_dir, pending_users).await?;
+  let mut retained_logs = HashSet::new();
+  migrate_pending_users(&data_dir, pending_users, &mut retained_logs).await?;
   let maintenance_backup_key = backup_store
     .as_ref()
     .map(|_| config.get_string(CONFIG_BACKUP_ENCRYPTION_KEY))
     .transpose()
     .map_err(|e| e.to_string())?;
   for account in &account_logs {
-    migrate_account_logs(account, backup_store.as_ref().zip(maintenance_backup_key.as_deref())).await?;
+    migrate_account_logs(account, backup_store.as_ref().zip(maintenance_backup_key.as_deref()), &mut retained_logs)
+      .await?;
   }
   for account in &account_logs {
-    if let Err(e) =
-      compact_account_logs(account, compact_min_savings, backup_store.as_ref().zip(maintenance_backup_key.as_deref()))
-        .await
+    if let Err(e) = compact_account_logs(
+      account,
+      compact_min_savings,
+      backup_store.as_ref().zip(maintenance_backup_key.as_deref()),
+      &mut retained_logs,
+    )
+    .await
     {
       warn!("Skipping optional startup compaction for account '{}'; active logs are unchanged: {}", account.user_id, e);
     }

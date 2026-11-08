@@ -16,6 +16,11 @@ shared `pending_users.json` is migrated with a local previous copy and is exclud
 and automatic compaction. See [migration](cli.md#migrate), [compaction](cli.md#compact), and
 [restoring maintenance archives](cli.md#restore) for recovery behavior.
 
+Each log changed by startup maintenance keeps one local `<log-name>.previous` copy of its original input.
+Migration followed by compaction preserves the pre-migration original. After a successful installation,
+recognized older `.vN` migration copies for that log are removed; custom/manual copies and permanent S3
+maintenance archives remain untouched. This local rotation also applies to `pending_users.json` migration.
+
 Configure `gpu_tools_url` to point at either the local GPU gateway or a single direct GPU tool service. Infumap calls `GET /gpu-tools` on that URL to discover supported endpoints such as `/image-extract`, `/pdf-extract`, and `/pdf-extract-caption-only`.
 
 When configured and reported by `/gpu-tools`, the web server uses these services to maintain derived artifacts in the background: PDFs are text-extracted, images are tagged, fallback first-page PDF captions can be generated when extracted text produces no search fragments, image/PDF search fragments are generated from those artifacts, and lexical search indexes are updated after fragment or title changes.
