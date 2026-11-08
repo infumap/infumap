@@ -20,6 +20,7 @@ use infusdk::db::kv_store::LogReplayObserver;
 use infusdk::item::TableColumn;
 use infusdk::item::is_attachments_item_type;
 use infusdk::item::is_container_item_type;
+use infusdk::item::is_positionable_type;
 use infusdk::item::{Item, ItemType, RelationshipToParent};
 use infusdk::util::geometry::GRID_SIZE;
 use infusdk::util::geometry::Vector;
@@ -32,7 +33,7 @@ use serde::Serialize;
 use serde::ser::SerializeStruct;
 use serde_json::{Map, Number, Value};
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tokio::fs::{File, OpenOptions};
 use tokio::io::{AsyncWriteExt, BufWriter};
 
@@ -359,6 +360,145 @@ async fn initialize_item_log(path: &PathBuf, epoch: u64) -> InfuResult<()> {
   Ok(())
 }
 
+/// Prepare current-schema output without loading temporary data into live indexes or advancing live epochs.
+pub(crate) async fn write_compacted_item_log(source: &Path, candidate: &Path, user: &User) -> InfuResult<()> {
+  let mut replay = ContainerVersionReplayState::new();
+  let store = KVStore::<Item>::init_with_observer(
+    source.to_str().ok_or("Item log path must be valid UTF-8.")?,
+    CURRENT_ITEM_LOG_VERSION,
+    &mut replay,
+  )
+  .await?;
+  let (epoch, versions) = replay.into_loaded_sync_state();
+  let file = OpenOptions::new().write(true).truncate(true).open(candidate).await?;
+  write_compacted_items(&store, epoch, &versions, user, file, candidate).await
+}
+
+fn compacted_item_json(item: &Item, orphaned_ids: &HashSet<Uid>, home_id: &Uid) -> InfuResult<Map<String, Value>> {
+  if !orphaned_ids.contains(&item.id) {
+    return item.to_json();
+  }
+  let mut repaired = item.clone();
+  repaired.parent_id = Some(home_id.clone());
+  repaired.relationship_to_parent = RelationshipToParent::Child;
+  // Placeholder records forbid spatial coordinates; preserving that absence keeps orphan repair replayable.
+  if is_positionable_type(repaired.item_type) {
+    repaired.spatial_position_gr = Some(Vector { x: 0, y: 0 });
+  }
+  repaired.pinned_to = None;
+  repaired.to_json()
+}
+
+async fn write_compacted_items(
+  store: &KVStore<Item>,
+  epoch: u64,
+  container_versions: &HashMap<Uid, u64>,
+  user: &User,
+  file: File,
+  candidate: &Path,
+) -> InfuResult<()> {
+  // The increment belongs only to the candidate. Discarding it leaves the active log and client epoch unchanged.
+  // Replay accepts signed JSON integers, so reject an increment it would not be able to load.
+  let next_epoch = epoch.checked_add(1).filter(|epoch| *epoch <= i64::MAX as u64).ok_or("Item log epoch overflow.")?;
+  let roots = [&user.home_page_id, &user.trash_page_id, &user.dock_page_id, &user.queries_page_id];
+  let mut descendants: HashMap<&str, Vec<&str>> = HashMap::new();
+  for (_, item) in store.get_iter() {
+    if matches!(item.relationship_to_parent, RelationshipToParent::Child | RelationshipToParent::Attachment) {
+      if let Some(parent) = &item.parent_id {
+        descendants.entry(parent.as_str()).or_default().push(item.id.as_str());
+      }
+    }
+  }
+  // Stable sibling order makes repeated candidate generation deterministic.
+  for ids in descendants.values_mut() {
+    ids.sort();
+  }
+  let mut visited = HashSet::new();
+  let mut ordered_ids = Vec::new();
+  for root in roots {
+    store.get(root).ok_or_else(|| format!("Root item '{}' does not exist.", root))?;
+    let mut stack = vec![root.as_str()];
+    while let Some(id) = stack.pop() {
+      if !visited.insert(id) {
+        continue;
+      }
+      ordered_ids.push(id);
+      if let Some(ids) = descendants.get(id) {
+        stack.extend(ids.iter().rev().copied());
+      }
+    }
+  }
+  // Only persisted roots confer reachability. Queries includes hidden Scopes/Prompts descendants;
+  // virtual search-status pages are not roots, and detached parentless items still need repair.
+  let orphaned_ids: HashSet<Uid> =
+    store.get_iter().filter(|(id, _)| !visited.contains(id.as_str())).map(|(id, _)| id.clone()).collect();
+  let mut orphan_order: Vec<&str> = orphaned_ids.iter().map(String::as_str).collect();
+  orphan_order.sort();
+  for id in &orphan_order {
+    warn!("Compaction candidate '{}' reparents unreachable item '{}' to Home as a child.", candidate.display(), id);
+  }
+
+  let mut writer = BufWriter::new(file);
+  let descriptor = ItemLogDescriptorRecord {
+    version: CURRENT_ITEM_LOG_VERSION,
+    value_type: Item::value_type_identifier(),
+    epoch: next_epoch,
+  };
+  writer.write_all(serde_json::to_string(&descriptor)?.as_bytes()).await?;
+  writer.write_all(b"\n").await?;
+  for id in ordered_ids.into_iter().chain(orphan_order) {
+    let item = store.get(id).ok_or_else(|| format!("Item '{}' disappeared during compaction.", id))?;
+    let record = compacted_item_json(item, &orphaned_ids, &user.home_page_id)?;
+    writer.write_all(serde_json::to_string(&record)?.as_bytes()).await?;
+    writer.write_all(b"\n").await?;
+  }
+  // Preserve the loaded versions, including records for deleted containers. Live containers without
+  // a recorded version need an explicit zero so entry replay cannot invent new versions after compaction.
+  let mut expected_versions = container_versions.clone();
+  for (_, item) in store.get_iter().filter(|(_, item)| is_container_item_type(item.item_type)) {
+    expected_versions.entry(item.id.clone()).or_insert(0);
+  }
+  let mut version_ids: Vec<&Uid> = expected_versions.keys().collect();
+  version_ids.sort();
+  for id in version_ids {
+    let record = ContainerVersionRecord { container_id: id.clone(), version: expected_versions[id] };
+    writer.write_all(serde_json::to_string(&record)?.as_bytes()).await?;
+    writer.write_all(b"\n").await?;
+  }
+  writer.flush().await?;
+  writer.into_inner().sync_all().await?;
+
+  let mut replay = ContainerVersionReplayState::new();
+  let compacted = KVStore::<Item>::init_with_observer(
+    candidate.to_str().ok_or("Compaction candidate path must be valid UTF-8.")?,
+    CURRENT_ITEM_LOG_VERSION,
+    &mut replay,
+  )
+  .await?;
+  if compacted.get_iter().count() != store.get_iter().count() {
+    return Err("Compaction changed the number of live items.".into());
+  }
+  for (id, original) in store.get_iter() {
+    let actual = compacted.get(id).ok_or_else(|| format!("Compaction lost item '{}'.", id))?;
+    if actual.to_json()? != compacted_item_json(original, &orphaned_ids, &user.home_page_id)? {
+      return Err(format!("Compaction unexpectedly changed item '{}'.", id).into());
+    }
+  }
+  let (actual_epoch, actual_versions) = replay.into_loaded_sync_state();
+  if actual_epoch != next_epoch || actual_versions != expected_versions {
+    return Err("Compaction changed container versions or produced an incorrect epoch.".into());
+  }
+  info!(
+    "Validated compaction candidate '{}': {} items, {} orphan repairs, epoch {} -> {}.",
+    candidate.display(),
+    store.get_iter().count(),
+    orphaned_ids.len(),
+    epoch,
+    next_epoch
+  );
+  Ok(())
+}
+
 impl ItemDb {
   pub fn init(data_dir: &str) -> ItemDb {
     ItemDb {
@@ -379,111 +519,15 @@ impl ItemDb {
     &self.data_dir
   }
 
-  /// Compact a user's item database.
-  ///
-  /// In general it is not possible to maintain chronological ordering because items can be moved between parents
-  /// and deleted arbitrarily, so no attempt is made to do so to any degree at all.
-  ///
-  /// Ordering in the output log is according to the parent/child hierarchy - no item is written in the compacted
-  /// log before it's parent.
+  /// Write a compacted candidate, leaving installation to the operator.
   pub async fn compact(&self, user: &User) -> InfuResult<()> {
     let store = self.store_by_user_id.get(&user.id).ok_or(format!("no item store for user: {}", &user.id))?;
-    let next_log_epoch = self.loaded_log_epoch_by_user_id.get(&user.id).copied().unwrap_or(0) + 1;
-    let container_versions = self.loaded_container_versions_by_user_id.get(&user.id).cloned().unwrap_or_default();
-    let root_ids = vec![
-      user.trash_page_id.as_str(),
-      user.dock_page_id.as_str(),
-      user.home_page_id.as_str(),
-      user.queries_page_id.as_str(),
-    ];
-
-    let mut all_ids = store.get_iter().map(|e| e.1.id.as_str()).collect::<HashSet<&str>>();
-    let mut ordered_ids = vec![];
-    for root_id in root_ids {
-      let _ = store.get(root_id).ok_or(format!("root item doesn't exist: {}", root_id))?;
-      let mut stack = vec![root_id];
-      loop {
-        let current_id = match stack.pop() {
-          Some(s) => s,
-          None => {
-            break;
-          }
-        };
-        ordered_ids.push(current_id);
-        all_ids.remove(current_id);
-        if let Some(children) = self.children_of.get(current_id) {
-          for c in children {
-            stack.push(c);
-          }
-        }
-        if let Some(attachments) = self.attachments_of.get(current_id) {
-          for a in attachments {
-            stack.push(a);
-          }
-        }
-      }
-    }
-    let orphaned_ids = all_ids;
-
-    if orphaned_ids.len() > 0 {
-      warn!("There are {} unreachable items that will not be written to the compacted database.", orphaned_ids.len());
-      for id in &orphaned_ids {
-        let item = store.get(id).ok_or(format!("Orphaned item {} was not present in the store", id))?;
-        println!("Orphaned item: {:?}", item);
-      }
-    } else {
-      info!("All items are reachable and will be written to the compacted database.");
-    }
-
-    let mut log_path = expand_tilde(&self.data_dir).ok_or("Could not interpret path.")?;
-    log_path.push(String::from("user_") + &user.id);
-    log_path.push("items.json.compacted");
-    if path_exists(&log_path).await {
-      return Err(format!("Compacted log path already exists: {:?}", log_path).into());
-    }
-
-    initialize_item_log(&log_path, next_log_epoch).await?;
-    // All records are written via a single buffered writer (KVStore::add opens the file for every record).
-    let file = OpenOptions::new().append(true).open(&log_path).await?;
-    let mut writer = BufWriter::new(file);
-    let mut written_ids = HashSet::new();
-    async fn write_item(writer: &mut BufWriter<File>, written_ids: &mut HashSet<Uid>, item: &Item) -> InfuResult<()> {
-      if !written_ids.insert(item.id.clone()) {
-        return Err(format!("Item {} would be written to the compacted log more than once.", item.id).into());
-      }
-      writer.write_all(serde_json::to_string(&item.to_json()?)?.as_bytes()).await?;
-      writer.write_all("\n".as_bytes()).await?;
-      Ok(())
-    }
-    for item_id in &ordered_ids {
-      write_item(&mut writer, &mut written_ids, store.get(item_id).unwrap()).await?;
-    }
-    // TODO (MEDIUM): make a new "orphaned" folder under home_page for these and put them in that, not directly on the home page.
-    for item_id in &orphaned_ids {
-      let mut item = store.get(item_id).unwrap().clone();
-      item.parent_id = Some(user.home_page_id.clone());
-      item.spatial_position_gr = Some(Vector { x: 0, y: 0 });
-      item.pinned_to = None;
-      write_item(&mut writer, &mut written_ids, &item).await?;
-    }
-    let mut compacted_container_ids = store
-      .get_iter()
-      .filter(|(_, item)| is_container_item_type(item.item_type))
-      .map(|(_, item)| item.id.clone())
-      .collect::<Vec<_>>();
-    compacted_container_ids.sort();
-    for container_id in compacted_container_ids {
-      let version_record =
-        ContainerVersionRecord { version: *container_versions.get(&container_id).unwrap_or(&0), container_id };
-      writer.write_all(serde_json::to_string(&version_record)?.as_bytes()).await?;
-      writer.write_all("\n".as_bytes()).await?;
-    }
-    writer.flush().await?;
-    writer.into_inner().sync_all().await?;
-    let number_written = ordered_ids.len() + orphaned_ids.len();
-    info!("Wrote {} items to the compacted log.", number_written);
-
-    Ok(())
+    let log_epoch = self.loaded_log_epoch_for_user(&user.id);
+    let container_versions = self.loaded_container_versions_for_user(&user.id);
+    let log_path = self.log_path(&user.id)?.with_file_name("items.json.compacted");
+    // Keep the manual command's existing output path and refusal to overwrite a previous candidate.
+    let file = OpenOptions::new().write(true).create_new(true).open(&log_path).await?;
+    write_compacted_items(store, log_epoch, &container_versions, user, file, &log_path).await
   }
 
   pub async fn load_user_items(&mut self, user_id: &str, creating: bool) -> InfuResult<()> {

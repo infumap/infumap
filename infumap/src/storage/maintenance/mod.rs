@@ -35,6 +35,7 @@ use super::db::user::User;
 use super::db::user_db::CURRENT_USER_LOG_VERSION;
 use crate::util::fs::expand_tilde;
 
+pub mod compaction;
 mod migration;
 mod replacement;
 pub use migration::{migrate_log_step, prepare_log_migration};

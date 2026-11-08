@@ -187,6 +187,12 @@ Compact a user's item database log. Chronological order is not maintained. In th
 automatically, but for now if you want to compact a log, you must do it explicitly. After creating the compacted log,
 you need to delete or move the original and replace it with the compacted version.
 
+The output includes every live item reachable from Home, Trash, Dock, and Queries through children and
+attachments, including Scopes and Prompts. Unreachable items are retained and reparented to Home as children,
+with pinning cleared and position set to `(0, 0)` where the item type supports coordinates. Repaired IDs are
+logged. The output preserves container versions, advances the log epoch, and is replay-validated before the
+command succeeds. The active log is unchanged until you install `items.json.compacted`.
+
 Options:
 
 - **-i --id:** The user id.
