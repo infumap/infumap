@@ -1085,7 +1085,11 @@ pub fn migrate_record_v1_to_v2(kvs: &Map<String, Value>) -> InfuResult<Map<Strin
       if item_type == "table" {
         let existing = result.insert(
           String::from("tableColumns"),
-          json::table_columns_to_array(&vec![TableColumn { name: String::from("Title"), width_gr: 8 * GRID_SIZE, align: None }]),
+          json::table_columns_to_array(&vec![TableColumn {
+            name: String::from("Title"),
+            width_gr: 8 * GRID_SIZE,
+            align: None,
+          }]),
         );
         if existing.is_some() {
           return Err("tableColumns field already exists.".into());
@@ -2676,10 +2680,7 @@ pub fn migrate_record_v39_to_v40(
       }
       let pinned_to = state.flags_pin.filter(|_| state.is_child);
       if pinned_to != state.pinned_to {
-        result.insert(
-          String::from("pinnedTo"),
-          pinned_to.map(|p| Value::String(p.to_owned())).unwrap_or(Value::Null),
-        );
+        result.insert(String::from("pinnedTo"), pinned_to.map(|p| Value::String(p.to_owned())).unwrap_or(Value::Null));
         state.pinned_to = pinned_to;
       }
       Ok(result)

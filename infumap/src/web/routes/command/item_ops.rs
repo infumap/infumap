@@ -1410,10 +1410,7 @@ pub(super) async fn handle_empty_trash<'a>(
   result.insert("itemCount".to_owned(), Value::Number(count.into()));
   result.insert("imageCacheCount".to_owned(), Value::Number(img_cache_count.into()));
   result.insert("objectCount".to_owned(), Value::Number(object_count.into()));
-  result.insert(
-    "deletedItemIds".to_owned(),
-    Value::Array(deleted_item_ids.into_iter().map(Value::String).collect()),
-  );
+  result.insert("deletedItemIds".to_owned(), Value::Array(deleted_item_ids.into_iter().map(Value::String).collect()));
   insert_sync_ack(&mut result, sync_ack)?;
 
   Ok(Some(serde_json::to_string(&result)?))

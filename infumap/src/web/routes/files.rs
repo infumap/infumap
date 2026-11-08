@@ -40,6 +40,7 @@ use crate::ai::artifact_paths::{
   item_fragments_manifest_path, item_fragments_path, item_geo_content_path, item_text_content_path,
   item_text_manifest_path,
 };
+use crate::ai::fragment::sources::{is_local_text_copy_item, read_or_create_local_text_copy};
 use crate::ai::image_tagging::is_supported_image_tagging_mime_type;
 use crate::ai::search_processing::SearchContentKind;
 use crate::ai::search_processing_activity::{Phase, item_activity, user_summary};
@@ -787,7 +788,7 @@ async fn get_file(
     return Ok(not_found_response());
   }
 
-  let (item, object_encryption_key) = {
+  let (item, object_encryption_key, data_dir) = {
     let db = db.lock().await;
     let item = match db.item.get(&String::from(uid)) {
       Ok(item) => item.clone(),
@@ -799,15 +800,20 @@ async fn get_file(
     }
     let object_encryption_key =
       db.user.get(&item.owner_id).ok_or(format!("User '{}' not found.", item.owner_id))?.object_encryption_key.clone();
-    (item, object_encryption_key)
+    (item, object_encryption_key, db.item.data_dir().to_owned())
   };
 
   let mime_type_string = item.mime_type.as_ref().ok_or(format!("Mime type is not available for item '{}'.", uid))?;
   let filename = response_filename(uid, item.title.as_deref());
 
-  // TODO (MEDIUM): Consider putting non-image files in the cache. Not highest priority though since
-  // by default, configuration is such that these are cached browser side.
-  let data = object::get(object_store, item.owner_id, String::from(uid), &object_encryption_key).await?;
+  // Text items are served from the local copy the fragment pipeline keeps of them, rather than from object storage.
+  // Opening one waits on this response before its document page is arranged, and the object storage round trip was
+  // a noticeable delay. Other files are cached browser side only.
+  let data = if is_local_text_copy_item(&item) {
+    read_or_create_local_text_copy(&data_dir, object_store, &item, &object_encryption_key, "text file").await?
+  } else {
+    object::get(object_store, item.owner_id, String::from(uid), &object_encryption_key).await?
+  };
 
   let browser_cache_max_age_seconds =
     config.get_int(CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS).map_err(|e| e.to_string())?;

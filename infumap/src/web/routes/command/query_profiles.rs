@@ -278,11 +278,7 @@ mod tests {
   fn collection() -> QueryProfileCollection {
     let profiles: Vec<QueryProfile> = ["A", "B", "C"]
       .iter()
-      .map(|name| QueryProfile {
-        id: new_uid(),
-        name: (*name).to_owned(),
-        configuration: configuration(),
-      })
+      .map(|name| QueryProfile { id: new_uid(), name: (*name).to_owned(), configuration: configuration() })
       .collect();
     QueryProfileCollection {
       revision: 0,
@@ -344,10 +340,7 @@ mod tests {
       run(&c, ProfileOperation::Rename { id: c.profiles[1].id.clone(), name: "  Bee  ".to_owned() }).unwrap();
     assert_eq!(order(&renamed), ["A", "Bee", "C"]);
     assert!(run(&c, ProfileOperation::Rename { id: c.profiles[1].id.clone(), name: "c".to_owned() }).is_err());
-    assert!(
-      run(&c, ProfileOperation::Create { name: "a".to_owned(), configuration: configuration() })
-        .is_err()
-    );
+    assert!(run(&c, ProfileOperation::Create { name: "a".to_owned(), configuration: configuration() }).is_err());
     assert!(run(&c, ProfileOperation::Rename { id: c.profiles[1].id.clone(), name: " ".to_owned() }).is_err());
     assert!(run(&c, ProfileOperation::Rename { id: c.profiles[1].id.clone(), name: "a\nb".to_owned() }).is_err());
   }
@@ -383,11 +376,7 @@ mod tests {
 
     let mut full = collection();
     full.profiles = (0..MAX_PROFILES)
-      .map(|n| QueryProfile {
-        id: new_uid(),
-        name: format!("P{n}"),
-        configuration: configuration(),
-      })
+      .map(|n| QueryProfile { id: new_uid(), name: format!("P{n}"), configuration: configuration() })
       .collect();
     full.preferences = QueryProfilePreferences {
       default_profile_id: full.profiles[0].id.clone(),
@@ -395,11 +384,7 @@ mod tests {
       model_favorites: vec![],
     };
     assert!(
-      run(
-        &full,
-        ProfileOperation::Create { name: "One more".to_owned(), configuration: configuration() }
-      )
-      .is_err()
+      run(&full, ProfileOperation::Create { name: "One more".to_owned(), configuration: configuration() }).is_err()
     );
   }
 

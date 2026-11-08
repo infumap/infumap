@@ -1727,9 +1727,9 @@ impl<'a, 'b> Renderer<'a, 'b> {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use infusdk::item::TableFlags;
   use crate::web::routes::command::scope::resolve_scope;
   use crate::web::routes::command::scope::test_db::TestDb;
+  use infusdk::item::TableFlags;
 
   impl TestDb {
     async fn arranged_page(&mut self, parent_id: &Uid, title: &str, arrange: ArrangeAlgorithm, order: &str) -> Uid {

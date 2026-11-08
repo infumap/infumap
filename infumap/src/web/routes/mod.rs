@@ -15,9 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use infusdk::{
-  item::{
-    ArrangeAlgorithm, Item, ItemType, PinnedTo, RelationshipToParent, TableColumn,
-  },
+  item::{ArrangeAlgorithm, Item, ItemType, PinnedTo, RelationshipToParent, TableColumn},
   util::{
     geometry::{GRID_SIZE, Vector},
     infu::InfuResult,

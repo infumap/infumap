@@ -62,7 +62,12 @@ pub async fn read_local_text_copy(data_dir: &str, item: &Item) -> InfuResult<Opt
   }
 }
 
-async fn read_or_create_local_text_copy(
+/// Whether the item is of a type that has a local copy of its original.
+pub fn is_local_text_copy_item(item: &Item) -> bool {
+  item.mime_type.as_deref().is_some_and(|mime_type| LOCAL_COPY_MIME_TYPES.contains(&mime_type))
+}
+
+pub async fn read_or_create_local_text_copy(
   data_dir: &str,
   object_store: Arc<ObjectStore>,
   item: &Item,

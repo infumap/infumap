@@ -287,12 +287,7 @@ fn chat_response_table_json(
           now,
           attachment_ordering,
           new_uid(),
-          ChatMarkdownNote {
-            title: cell.title,
-            flags: 0,
-            inline_marks: cell.inline_marks,
-            urls: cell.urls,
-          },
+          ChatMarkdownNote { title: cell.title, flags: 0, inline_marks: cell.inline_marks, urls: cell.urls },
         ));
       }
     }
