@@ -80,6 +80,13 @@ pub async fn read_or_create_local_text_copy(
   let bytes = storage_object::get(object_store, item.owner_id.clone(), item.id.clone(), object_encryption_key)
     .await
     .map_err(|e| format!("Could not read source {} object for '{}': {}", source_label, item.id, e))?;
+  write_local_text_copy(data_dir, item, &bytes).await?;
+  Ok(bytes)
+}
+
+/// Writes the local copy of an item's original. The manifest is written last, so a copy is only trusted once its
+/// content is complete.
+pub async fn write_local_text_copy(data_dir: &str, item: &Item, bytes: &[u8]) -> InfuResult<()> {
   let mime_type = item.mime_type.clone().unwrap_or_default();
   let manifest = LocalCopyManifest {
     schema_version: 1,
@@ -88,10 +95,10 @@ pub async fn read_or_create_local_text_copy(
     content_mime_type: mime_type,
     copied_at_unix_secs: unix_now_secs_i64()?,
   };
-  atomic_write(&item_text_content_path(data_dir, &item.owner_id, &item.id)?, &bytes).await?;
+  atomic_write(&item_text_content_path(data_dir, &item.owner_id, &item.id)?, bytes).await?;
   atomic_write(&item_text_manifest_path(data_dir, &item.owner_id, &item.id)?, &serde_json::to_vec_pretty(&manifest)?)
     .await?;
-  Ok(bytes)
+  Ok(())
 }
 
 async fn markdown_fragment_source_for_item(

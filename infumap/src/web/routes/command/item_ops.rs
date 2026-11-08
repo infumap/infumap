@@ -16,6 +16,7 @@
 
 use super::*;
 use crate::ai::document_pipeline::requeue_document_fragment_item_now;
+use crate::ai::fragment::sources::{is_local_text_copy_item, write_local_text_copy};
 use crate::ai::fragment_indexing::enqueue_fragment_lexical_index_update;
 use crate::ai::image_pipeline::requeue_image_background_pipeline_item_now;
 use crate::ai::text_extraction::{MAX_PDF_CONVERSION_TIMEOUT_SECS, requeue_pdf_item_now};
@@ -386,6 +387,7 @@ pub(super) async fn add_item_for_user_with_mime_type(
   let mut decode_ms = 0;
   let mut storage_ms = 0;
   let mut image_ms = 0;
+  let mut local_text_copy_maybe = None;
 
   // ========================================================================
   // PHASE 2: I/O Operations without database lock
@@ -488,6 +490,9 @@ pub(super) async fn add_item_for_user_with_mime_type(
     let storage_started = Instant::now();
     object::put(object_store.clone(), &session_user_id, &item.id, &decoded, object_encryption_key).await?;
     storage_ms = storage_started.elapsed().as_millis();
+    if is_local_text_copy_item(&item) {
+      local_text_copy_maybe = Some(decoded);
+    }
   } else {
     if base64_data_maybe.is_some() {
       return Err("Add item request has base64 data, when this is not expected.".into());
@@ -536,7 +541,17 @@ pub(super) async fn add_item_for_user_with_mime_type(
     }
     let sync_ack = build_sync_ack(&db, &queued_item.owner_id, &touched_container_ids);
     debug!("Executed 'add-item' command for item '{}'.", item_id);
+    let data_dir = db.item.data_dir().to_owned();
     drop(db);
+    // The local copy is written now, from the bytes in hand, because a text item is very often opened just after it
+    // is added, and without a copy that is a fetch from object storage (see get_file). It is written after the insert
+    // so a failed insert leaves no copy behind, but before the response, so the item can't be opened before it
+    // exists. A failure here is not an error: the copy is made later from the object anyway.
+    if let Some(bytes) = local_text_copy_maybe {
+      if let Err(e) = write_local_text_copy(&data_dir, &queued_item, &bytes).await {
+        warn!("Could not write the local copy of new text item '{}': {}", item_id, e);
+      }
+    }
     enqueue_item_title_index_update(&queued_item.owner_id, &queued_item.id);
     if should_tag_image_item(&queued_item) {
       enqueue_image_background_pipeline_item_if_active(&queued_item);
