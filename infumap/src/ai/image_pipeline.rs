@@ -92,7 +92,7 @@ struct ImageBackgroundPipelineConfig {
 
 enum SourceImageReconcileOutcome {
   ReadyForDownstream,
-  Gone,
+  Skipped,
   Deferred(Duration),
 }
 
@@ -240,7 +240,7 @@ async fn run_source_image_loop(
     };
     let result: InfuResult<SourceImageReconcileOutcome> = async {
       if !item_still_supported(db.clone(), &candidate).await? {
-        return Ok(SourceImageReconcileOutcome::Gone);
+        return Ok(SourceImageReconcileOutcome::Skipped);
       }
       // Deliberate trade-off: accepted output is kept when GPU tools or models
       // change; reprocessing is manual (see handle_reprocess_item).
@@ -250,14 +250,16 @@ async fn run_source_image_loop(
       ) {
         return Ok(SourceImageReconcileOutcome::ReadyForDownstream);
       }
+      // Keep using existing extraction output without GPU tools, but do not
+      // retry missing output when extraction is intentionally unconfigured.
+      if config.gpu_tools_url.is_none() {
+        return Ok(SourceImageReconcileOutcome::Skipped);
+      }
       let delay =
         manifest_retry_delay(&item_text_manifest_path(&config.data_dir, &candidate.user_id, &candidate.item_id)?)
           .await?;
       if !delay.is_zero() {
         return Ok(SourceImageReconcileOutcome::Deferred(delay));
-      }
-      if config.gpu_tools_url.is_none() {
-        return Err("Image processing service is not configured.".into());
       }
       let endpoint = image_tagging_endpoint_url(&config)
         .await?
@@ -295,7 +297,7 @@ async fn run_source_image_loop(
         record_image_pipeline_processed(PipelineStage::Source, "success");
         enqueue_source_candidate_downstream_if_needed(&config, &mut state, candidate, "after tag");
       }
-      Ok(SourceImageReconcileOutcome::Gone) => {
+      Ok(SourceImageReconcileOutcome::Skipped) => {
         state.lock().await.source.retries.clear(&candidate.item_id);
         activity::done(&candidate.user_id, &candidate.item_id, Stage::ImageExtraction);
       }
@@ -399,6 +401,11 @@ async fn run_reverse_geo_loop(
     };
     let check: InfuResult<Option<Duration>> = async {
       if !item_still_supported(db.clone(), &candidate).await? {
+        return Ok(None);
+      }
+      if config.gpu_tools_url.is_none()
+        && !image_tagging_manifest_is_successful(&config.data_dir, &candidate.user_id, &candidate.item_id).await?
+      {
         return Ok(None);
       }
       Ok(Some(
@@ -519,7 +526,9 @@ async fn run_image_fragment_loop(
         // reports the item's outstanding work meanwhile.
         state.lock().await.fragment.retries.clear(&candidate.item_id);
         activity::forget_stage(&candidate.user_id, &candidate.item_id, Stage::Fragments);
-        debug!("Image '{}' fragments wait for successful image extraction.", candidate.item_id);
+        if config.gpu_tools_url.is_some() {
+          debug!("Image '{}' fragments wait for successful image extraction.", candidate.item_id);
+        }
       }
       Err(e) => {
         retry_image(&config, &state, PipelineStage::Fragment, candidate, &e.to_string(), Duration::ZERO).await;

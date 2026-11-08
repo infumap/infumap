@@ -488,6 +488,12 @@ pub fn start_text_extraction_processing_loop(
   object_store: Arc<ObjectStore>,
   startup_work: Arc<StartupWork>,
 ) -> InfuResult<()> {
+  // Missing configuration disables extraction; it is not a per-item failure
+  // and must not populate retry queues or persist retry hints.
+  if gpu_tools_url.trim().is_empty() {
+    info!("{} is not configured; GPU image and PDF extraction are disabled.", CONFIG_GPU_TOOLS_URL);
+    return Ok(());
+  }
   if let Some(state) = PROCESSING_STATE.get() {
     enqueue_all_loaded_pdfs(data_dir, db, state.clone(), startup_work);
     return Ok(());
@@ -590,9 +596,6 @@ async fn run_text_extraction_loop(
         state.retries.defer(candidate.item_id.clone(), delay);
         enqueue_candidate(&mut state, candidate.clone());
         return Ok(PdfAttemptOutcome::Skipped);
-      }
-      if gpu_tools_url.trim().is_empty() {
-        return Err(format!("PDF processing service is not configured ({}).", CONFIG_GPU_TOOLS_URL).into());
       }
       let endpoint = with_pdf_stage_progress(
         &candidate,

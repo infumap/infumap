@@ -343,7 +343,9 @@ async fn reconcile_document_fragment_item(
         return Ok(DocumentFragmentReconcileOutcome::WaitingForExtraction);
       }
       PdfTextArtifactState::Failed | PdfTextArtifactState::Pending => {
-        debug!("PDF '{}' fragments wait for successful text extraction.", candidate.item_id);
+        if config.gpu_tools_url.is_some() {
+          debug!("PDF '{}' fragments wait for successful text extraction.", candidate.item_id);
+        }
         return Ok(DocumentFragmentReconcileOutcome::WaitingForExtraction);
       }
     }
