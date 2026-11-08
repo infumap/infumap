@@ -128,6 +128,12 @@ The old key can still decrypt every copy made with it: the files moved aside and
 
 Decrypt / unpack a user backup file. A backup file includes the `user.json` and `items.json` log files. These will be output to the current directory, and you need to move them manually into the relevant user folder in the configured Infumap data directory.
 
+Accepts regular backups named `<user-id>_<timestamp>` and permanent maintenance archives named
+`maintenance-migration_<user-id>_<timestamp>_<random-id>.infu` or
+`maintenance-compaction_<user-id>_<timestamp>_<random-id>.infu`. Download maintenance archives using your S3
+provider's tools and keep the exact original filename; it is required for decryption. Maintenance archives are
+excluded from Infumap's automatic cleanup and latest-backup recovery selection.
+
 Options:
 - **-b --backup-file (required):** Path to the backup file.
 - **-k --key (required):** The encryption key used to encrypt the data, specified in the configuration for the instance that created the backup file.

@@ -14,23 +14,11 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use crate::storage::db::item_db::CURRENT_ITEM_LOG_VERSION;
-use crate::storage::db::user::User;
-use crate::storage::db::user_db::CURRENT_USER_LOG_VERSION;
-use crate::util::fs::{expand_tilde, path_exists};
+use crate::storage::maintenance::{create_log_temporary, install_log_candidate, migrate_log_step, read_log_descriptor};
+use crate::util::fs::expand_tilde;
 use clap::{Arg, ArgMatches, Command};
-use infusdk::db::kv_store::JsonLogSerializable;
-use infusdk::item::Item;
 use infusdk::util::infu::InfuResult;
-use infusdk::util::json;
-use serde_json::Value::Object;
-use serde_json::de::IoRead;
-use serde_json::{Map, StreamDeserializer, Value};
-use std::any::Any;
-use std::fs::File;
-use std::io::{BufReader, BufWriter, Write};
-use std::path::PathBuf;
-use tokio::fs::rename;
+use log::warn;
 
 pub fn make_clap_subcommand() -> Command {
   Command::new("migrate")
@@ -50,290 +38,27 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
 
 async fn migrate_log(log_path: &str) -> InfuResult<()> {
   let expanded_log_path = expand_tilde(log_path).ok_or("Could not interpret log path.")?;
-
-  let from_version = {
-    let f = BufReader::new(File::open(&expanded_log_path)?);
-    let deserializer = serde_json::Deserializer::from_reader(f);
-    let mut iterator = deserializer.into_iter::<serde_json::Value>();
-    let first = iterator.next().ok_or("Log has no records.")??;
-    let (from_version, value_type, updated_descriptor) = match first {
-      Object(kvs) => process_descriptor(&kvs)?,
-      unexpected_type => {
-        return Err(
-          format!("Descriptor log record has JSON type '{:?}', but 'Object' was expected.", unexpected_type.type_id())
-            .into(),
-        );
+  let candidate = create_log_temporary(&expanded_log_path)?;
+  let result = (|| -> InfuResult<()> {
+    let migrated = migrate_log_step(&expanded_log_path, &candidate)?;
+    let from_version = migrated.version - 1;
+    let previous = expanded_log_path.with_extension(format!("v{}", from_version));
+    if previous.try_exists()? {
+      return Err(format!("Log file already migrated to version {}.", from_version).into());
+    }
+    install_log_candidate(&expanded_log_path, &candidate, &previous, true, |path| {
+      // Conversion has parsed every record; check its descriptor again before installing the result.
+      let descriptor = read_log_descriptor(path)?;
+      if descriptor.kind != migrated.kind || descriptor.version != migrated.version {
+        return Err("Migration candidate has an unexpected descriptor.".into());
       }
-    };
-
-    // TODO (LOW): it would be better if the two migrate log functions were consolidated.
-    if value_type == Item::value_type_identifier() {
-      migrate_item_log(&expanded_log_path, from_version, updated_descriptor, &mut iterator)?
-    } else if value_type == User::value_type_identifier() {
-      migrate_user_log(&expanded_log_path, from_version, updated_descriptor, &mut iterator)?
-    } else {
-      return Err(format!("Unexpected value type {}", value_type).into());
-    };
-
-    from_version
-  };
-
-  if path_exists(&expanded_log_path.with_extension(format!("v{}", from_version))).await {
-    return Err(format!("Log file already migrated to version {}.", from_version).into());
-  }
-
-  rename(&expanded_log_path, &expanded_log_path.with_extension(format!("v{}", from_version))).await?;
-  rename(&expanded_log_path.with_extension("new"), &expanded_log_path).await?;
-
-  Ok(())
-}
-
-fn migrate_item_log(
-  log_path: &PathBuf,
-  from_version: i64,
-  updated_descriptor: Map<String, Value>,
-  iterator: &mut StreamDeserializer<IoRead<BufReader<File>>, Value>,
-) -> InfuResult<()> {
-  if from_version == CURRENT_ITEM_LOG_VERSION {
-    return Err("Item log is already at the latest version.".into());
-  }
-  if from_version > CURRENT_ITEM_LOG_VERSION {
-    return Err(
-      format!("Item log version {} is in the future - latest supported is {}.", from_version, CURRENT_ITEM_LOG_VERSION)
-        .into(),
-    );
-  }
-
-  let file = File::create(log_path.with_extension("new"))?;
-  let mut writer = BufWriter::new(file);
-
-  if from_version == 29 {
-    writer.write_all(serde_json::to_string(&updated_descriptor)?.as_bytes())?;
-    writer.write_all("\n".as_bytes())?;
-
-    let mut records = Vec::<Map<String, Value>>::new();
-    for item in iterator {
-      match item? {
-        Object(kvs) => records.push(kvs),
-        unexpected_type => {
-          return Err(
-            format!("Log record has JSON type '{:?}', but 'Object' was expected.", unexpected_type.type_id()).into(),
-          );
-        }
-      }
-    }
-
-    for migrated in crate::storage::db::item_db::migrate_records_v29_to_v30(&records)? {
-      writer.write_all(serde_json::to_string(&migrated)?.as_bytes())?;
-      writer.write_all("\n".as_bytes())?;
-    }
-    writer.flush()?;
-    return Ok(());
-  }
-
-  if from_version == 31 {
-    let mut records = Vec::<Map<String, Value>>::new();
-    for item in iterator {
-      match item? {
-        Object(kvs) => records.push(kvs),
-        unexpected_type => {
-          return Err(
-            format!("Log record has JSON type '{:?}', but 'Object' was expected.", unexpected_type.type_id()).into(),
-          );
-        }
-      }
-    }
-
-    let (migrated_descriptor, migrated_records) =
-      crate::storage::db::item_db::migrate_records_v31_to_v32(&updated_descriptor, &records)?;
-    writer.write_all(serde_json::to_string(&migrated_descriptor)?.as_bytes())?;
-    writer.write_all("\n".as_bytes())?;
-    for migrated in migrated_records {
-      writer.write_all(serde_json::to_string(&migrated)?.as_bytes())?;
-      writer.write_all("\n".as_bytes())?;
-    }
-    writer.flush()?;
-    return Ok(());
-  }
-
-  if from_version == 35 {
-    let mut records = Vec::<Map<String, Value>>::new();
-    for item in iterator {
-      match item? {
-        Object(kvs) => records.push(kvs),
-        unexpected_type => {
-          return Err(
-            format!("Log record has JSON type '{:?}', but 'Object' was expected.", unexpected_type.type_id()).into(),
-          );
-        }
-      }
-    }
-
-    let (migrated_descriptor, migrated_records) =
-      crate::storage::db::item_db::migrate_records_v35_to_v36(&updated_descriptor, &records)?;
-    writer.write_all(serde_json::to_string(&migrated_descriptor)?.as_bytes())?;
-    writer.write_all("\n".as_bytes())?;
-    for migrated in migrated_records {
-      writer.write_all(serde_json::to_string(&migrated)?.as_bytes())?;
-      writer.write_all("\n".as_bytes())?;
-    }
-    writer.flush()?;
-    return Ok(());
-  }
-
-  writer.write_all(serde_json::to_string(&updated_descriptor)?.as_bytes())?;
-  writer.write_all("\n".as_bytes())?;
-
-  let mut mime_type_migration_state_by_id = std::collections::HashMap::new();
-  let mut mime_type_migration_stats = crate::storage::db::item_db::MimeTypeMigrationStats::default();
-  let mut pinned_to_migration_state_by_id = std::collections::HashMap::new();
-
-  for item in iterator {
-    match item? {
-      Object(kvs) => {
-        let migrated = match from_version {
-          1 => crate::storage::db::item_db::migrate_record_v1_to_v2(&kvs)?,
-          2 => crate::storage::db::item_db::migrate_record_v2_to_v3(&kvs)?,
-          3 => crate::storage::db::item_db::migrate_record_v3_to_v4(&kvs)?,
-          4 => crate::storage::db::item_db::migrate_record_v4_to_v5(&kvs)?,
-          5 => crate::storage::db::item_db::migrate_record_v5_to_v6(&kvs)?,
-          6 => crate::storage::db::item_db::migrate_record_v6_to_v7(&kvs)?,
-          7 => crate::storage::db::item_db::migrate_record_v7_to_v8(&kvs)?,
-          8 => crate::storage::db::item_db::migrate_record_v8_to_v9(&kvs)?,
-          9 => crate::storage::db::item_db::migrate_record_v9_to_v10(&kvs)?,
-          10 => crate::storage::db::item_db::migrate_record_v10_to_v11(&kvs)?,
-          11 => crate::storage::db::item_db::migrate_record_v11_to_v12(&kvs)?,
-          12 => crate::storage::db::item_db::migrate_record_v12_to_v13(&kvs)?,
-          13 => crate::storage::db::item_db::migrate_record_v13_to_v14(&kvs)?,
-          14 => crate::storage::db::item_db::migrate_record_v14_to_v15(&kvs)?,
-          15 => crate::storage::db::item_db::migrate_record_v15_to_v16(&kvs)?,
-          16 => crate::storage::db::item_db::migrate_record_v16_to_v17(&kvs)?,
-          17 => crate::storage::db::item_db::migrate_record_v17_to_v18(&kvs)?,
-          18 => crate::storage::db::item_db::migrate_record_v18_to_v19(&kvs)?,
-          19 => crate::storage::db::item_db::migrate_record_v19_to_v20(&kvs)?,
-          20 => crate::storage::db::item_db::migrate_record_v20_to_v21(&kvs)?,
-          21 => crate::storage::db::item_db::migrate_record_v21_to_v22(&kvs)?,
-          22 => crate::storage::db::item_db::migrate_record_v22_to_v23(&kvs)?,
-          23 => crate::storage::db::item_db::migrate_record_v23_to_v24(&kvs)?,
-          24 => crate::storage::db::item_db::migrate_record_v24_to_v25(&kvs)?,
-          25 => crate::storage::db::item_db::migrate_record_v25_to_v26(&kvs)?,
-          26 => crate::storage::db::item_db::migrate_record_v26_to_v27(&kvs)?,
-          27 => crate::storage::db::item_db::migrate_record_v27_to_v28(&kvs)?,
-          28 => crate::storage::db::item_db::migrate_record_v28_to_v29(
-            &kvs,
-            &mut mime_type_migration_state_by_id,
-            &mut mime_type_migration_stats,
-          )?,
-          29 => {
-            return Err(
-              "Version 29 item logs require whole-log migration and should have been handled earlier.".into(),
-            );
-          }
-          30 => crate::storage::db::item_db::migrate_record_v30_to_v31(&kvs)?,
-          31 => {
-            return Err(
-              "Version 31 item logs require whole-log migration and should have been handled earlier.".into(),
-            );
-          }
-          32 => crate::storage::db::item_db::migrate_record_v32_to_v33(&kvs)?,
-          33 => crate::storage::db::item_db::migrate_record_v33_to_v34(&kvs)?,
-          34 => crate::storage::db::item_db::migrate_record_v34_to_v35(&kvs)?,
-          35 => {
-            return Err(
-              "Version 35 item logs require whole-log migration and should have been handled earlier.".into(),
-            );
-          }
-          36 => crate::storage::db::item_db::migrate_record_v36_to_v37(&kvs)?,
-          37 => crate::storage::db::item_db::migrate_record_v37_to_v38(&kvs)?,
-          38 => crate::storage::db::item_db::migrate_record_v38_to_v39(&kvs)?,
-          39 => crate::storage::db::item_db::migrate_record_v39_to_v40(&kvs, &mut pinned_to_migration_state_by_id)?,
-          _ => {
-            return Err(format!("Unexpected item log version: {}.", from_version).into());
-          }
-        };
-        writer.write_all(serde_json::to_string(&migrated)?.as_bytes())?;
-        writer.write_all("\n".as_bytes())?;
-      }
-      unexpected_type => {
-        return Err(
-          format!("Log record has JSON type '{:?}', but 'Object' was expected.", unexpected_type.type_id()).into(),
-        );
-      }
+      Ok(())
+    })
+  })();
+  if let Err(e) = std::fs::remove_file(&candidate) {
+    if e.kind() != std::io::ErrorKind::NotFound {
+      warn!("Could not remove migration temporary '{}': {}", candidate.display(), e);
     }
   }
-  writer.flush()?;
-
-  if from_version == 28 {
-    for line in mime_type_migration_stats.render_summary() {
-      println!("{}", line);
-    }
-  }
-
-  Ok(())
-}
-
-fn migrate_user_log(
-  log_path: &PathBuf,
-  from_version: i64,
-  updated_descriptor: Map<String, Value>,
-  iterator: &mut StreamDeserializer<IoRead<BufReader<File>>, Value>,
-) -> InfuResult<()> {
-  if from_version == CURRENT_USER_LOG_VERSION {
-    return Err("User log is already at the latest version.".into());
-  }
-  if from_version > CURRENT_USER_LOG_VERSION {
-    return Err(
-      format!("User log version {} is in the future - latest supported is {}.", from_version, CURRENT_USER_LOG_VERSION)
-        .into(),
-    );
-  }
-
-  let file = File::create(log_path.with_extension("new"))?;
-  let mut writer = BufWriter::new(file);
-
-  writer.write_all(serde_json::to_string(&updated_descriptor)?.as_bytes())?;
-  writer.write_all("\n".as_bytes())?;
-
-  for item in iterator {
-    match item? {
-      Object(kvs) => {
-        let migrated = match from_version {
-          1 => crate::storage::db::pending_user_db::migrate_record_v1_to_v2(&kvs)?,
-          5 => crate::storage::db::user_db::migrate_record_v5_to_v6(&kvs)?,
-          6 => crate::storage::db::user_db::migrate_record_v6_to_v7(&kvs)?,
-          7 => crate::storage::db::user_db::migrate_record_v7_to_v8(&kvs)?,
-          8 => crate::storage::db::user_db::migrate_record_v8_to_v9(&kvs)?,
-          _ => {
-            return Err(format!("Unexpected user log version: {}.", from_version).into());
-          }
-        };
-        writer.write_all(serde_json::to_string(&migrated)?.as_bytes())?;
-        writer.write_all("\n".as_bytes())?;
-      }
-      unexpected_type => {
-        return Err(
-          format!("Log record has JSON type '{:?}', but 'Object' was expected.", unexpected_type.type_id()).into(),
-        );
-      }
-    }
-  }
-  writer.flush()?;
-
-  Ok(())
-}
-
-fn process_descriptor(kvs: &Map<String, Value>) -> InfuResult<(i64, String, Map<String, Value>)> {
-  if json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str()
-    != "descriptor"
-  {
-    return Err("First log record was not of type 'descriptor'.".into());
-  }
-  let descriptor_version =
-    json::get_integer_field(kvs, "version")?.ok_or("Descriptor 'version' field is not present.")?;
-  let value_type = json::get_string_field(kvs, "valueType")?.ok_or("Descriptor 'valueType' field is not present.")?;
-  let mut updated_descriptor = kvs.clone();
-  updated_descriptor.insert(String::from("version"), Value::Number(((descriptor_version + 1) as i64).into()));
-
-  // TODO (LOW): Returning the migrated descriptor here smells bad.
-  Ok((descriptor_version, value_type, updated_descriptor))
+  result
 }

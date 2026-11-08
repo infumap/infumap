@@ -24,6 +24,7 @@ use tokio::{
   io::AsyncWriteExt,
 };
 
+use crate::storage::backup::parse_backup_filename;
 use crate::util::crypto::decrypt_file_data;
 
 pub fn make_clap_subcommand() -> Command {
@@ -33,7 +34,7 @@ pub fn make_clap_subcommand() -> Command {
       Arg::new("backup_file")
         .short('b')
         .long("backup-file")
-        .help("Backup file taken from S3 compatible backup object store. File should not be renamed.")
+        .help("Regular or maintenance backup downloaded from S3. Keep its exact original filename.")
         .num_args(1)
         .required(true),
     )
@@ -51,12 +52,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   let path = sub_matches.get_one::<String>("backup_file").ok_or("Backup file must be specified.")?;
   let path = PathBuf::from(path);
   let filename = path.file_name().ok_or("No filename present.")?.to_str().ok_or("Filename is empty.")?;
-  let parts = filename.split("_").into_iter().map(|s| String::from(s)).collect::<Vec<String>>();
-  if parts.len() != 2 {
-    return Err(format!("Invalid backup filename: '{}'.", filename).into());
-  }
-  let user_id = parts.iter().nth(0).unwrap();
-  let _timestamp = parts.iter().nth(1).unwrap();
+  let (user_id, _timestamp) = parse_backup_filename(filename)?;
 
   let encryption_key = sub_matches.get_one::<String>("encryption_key").unwrap();
 

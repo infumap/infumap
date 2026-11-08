@@ -34,7 +34,7 @@ use serde_json::{Map, Number, Value};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 use tokio::fs::{File, OpenOptions};
-use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
+use tokio::io::{AsyncWriteExt, BufWriter};
 
 use crate::util::fs::{expand_tilde, path_exists};
 use crate::util::mime::{mime_type_from_title_extension, normalized_mime_type};
@@ -1012,19 +1012,7 @@ impl ItemDb {
     result
   }
 
-  pub async fn get_log_size_bytes_for_user(&self, user_id: &str) -> InfuResult<u32> {
-    let log_path = self.log_path(user_id)?;
-    Ok(tokio::fs::metadata(log_path).await?.len() as u32)
-  }
-
-  pub async fn backup_user(&self, user_id: &str, buf: &mut [u8]) -> InfuResult<()> {
-    let log_path = self.log_path(user_id)?;
-    let mut f = BufReader::new(File::open(&log_path).await?);
-    f.read_exact(buf).await?;
-    Ok(())
-  }
-
-  fn log_path(&self, user_id: &str) -> InfuResult<PathBuf> {
+  pub(super) fn log_path(&self, user_id: &str) -> InfuResult<PathBuf> {
     let mut log_path = expand_tilde(&self.data_dir).ok_or("Could not interpret path.")?;
     log_path.push(String::from("user_") + user_id);
     log_path.push("items.json");

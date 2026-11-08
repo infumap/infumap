@@ -14,12 +14,10 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use byteorder::{BigEndian, WriteBytesExt};
 use container_sync::ContainerSyncState;
 use infusdk::util::infu::InfuResult;
 use ingest_session_db::IngestSessionDb;
 use log::debug;
-use std::io::Cursor;
 use users_extra_db::UsersExtraDb;
 
 use self::item_db::ItemDb;
@@ -73,28 +71,9 @@ impl Db {
   }
 
   pub async fn create_user_backup_raw(&self, user_id: &str) -> InfuResult<Vec<u8>> {
-    let item_log_size_bytes = self.item.get_log_size_bytes_for_user(&user_id).await? as usize;
-    let user_log_size_bytes = self.user.get_log_size_bytes_for_user(&user_id).await? as usize;
-    let buf_size = item_log_size_bytes + user_log_size_bytes + 8 * 2;
-    let mut buf = vec![0; buf_size];
-    debug!("Creating database log backup for user {} with uncompressed size {} bytes.", user_id, buf_size);
-
-    let mut wtr = Cursor::new(&mut buf[0..8]);
-    wtr.write_u64::<BigEndian>(item_log_size_bytes as u64)?;
-    self
-      .item
-      .backup_user(&user_id, &mut buf[8..(8 + item_log_size_bytes)])
-      .await
-      .map_err(|e| format!("Failed to get user database log for user {}: {}", user_id, e))?;
-
-    let mut wtr = Cursor::new(&mut buf[(8 + item_log_size_bytes)..(16 + item_log_size_bytes)]);
-    wtr.write_u64::<BigEndian>(user_log_size_bytes as u64)?;
-    self
-      .user
-      .backup_user(&user_id, &mut buf[(16 + item_log_size_bytes)..(16 + item_log_size_bytes + user_log_size_bytes)])
-      .await
-      .map_err(|e| format!("Failed to get item database log for user {}: {}", user_id, e))?;
-
-    Ok(buf)
+    let bytes =
+      crate::storage::backup::create_raw_backup(&self.item.log_path(user_id)?, &self.user.log_path(user_id)?).await?;
+    debug!("Created database log backup for user {} with uncompressed size {} bytes.", user_id, bytes.len());
+    Ok(bytes)
   }
 }

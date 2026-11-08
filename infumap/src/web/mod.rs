@@ -54,6 +54,7 @@ use crate::storage::cache::favicon::FaviconCache;
 use crate::storage::cache::{self as storage_cache, ImageCache};
 use crate::storage::db::Db;
 use crate::storage::db::users_extra::BackupStatus;
+use crate::storage::maintenance::inspect_startup_logs;
 use crate::storage::object::{self as storage_object, ObjectStore};
 use crate::tokiort::TokioIo;
 use crate::util::crypto::{decrypt_file_data, encrypt_file_data};
@@ -116,6 +117,21 @@ pub async fn start_server(config: Config) -> InfuResult<()> {
 pub async fn start_server_with_options(config: Config, skip_backup_validation: bool) -> InfuResult<()> {
   Lazy::force(&LLM_LOG_ENABLED);
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
+  // KVStore::init creates missing logs; inspect first so incomplete accounts are reported, not changed.
+  let inspect_data_dir = data_dir.clone();
+  let account_logs = spawn_blocking(move || inspect_startup_logs(&inspect_data_dir))
+    .await
+    .map_err(|e| format!("Failed to inspect account logs: {}", e))??;
+  for account in &account_logs {
+    debug!(
+      "Account '{}' logs: '{}' (v{}), '{}' (v{}).",
+      account.user_id,
+      account.user_log.display(),
+      account.user_descriptor.version,
+      account.item_log.display(),
+      account.item_descriptor.version,
+    );
+  }
   let db = Arc::new(tokio::sync::Mutex::new(match Db::new(&data_dir).await {
     Ok(db) => db,
     Err(e) => {
@@ -335,19 +351,8 @@ fn init_db_backup(
         // This is very CPU intensive, so spawn a blocking task to avoid the potential for
         // HTTP requests to get backed up (which they do otherwise).
         debug!("Compressing backup data for user '{}' .", user_id);
-        let compress_result = spawn_blocking(move || {
-          let mut compressed = Vec::with_capacity(raw_backup_bytes.len() + 8);
-          // Write 4-byte magic header for zstd
-          compressed.extend_from_slice(b"IMZ1");
-          match zstd::stream::encode_all(&raw_backup_bytes[..], 3) {
-            Ok(zstd_bytes) => {
-              compressed.extend_from_slice(&zstd_bytes);
-              Ok(compressed)
-            }
-            Err(e) => Err(format!("{}", e)),
-          }
-        })
-        .await;
+        let compress_result =
+          spawn_blocking(move || storage_backup::compress_backup(&raw_backup_bytes).map_err(|e| e.to_string())).await;
         let compress_result = match compress_result {
           Ok(r) => r,
           Err(e) => {
