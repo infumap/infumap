@@ -178,14 +178,13 @@ async function navigateToContainingPageOfItemWithOptions(
     if (isPage(parentItem) && relationshipToParent === RelationshipToParent.Child) {
       const page = asPageItem(parentItem);
       const pageVeid = { itemId: parentId, linkIdMaybe: null };
-      let focusPath: VisualElementPath | undefined = undefined;
-      if (options.focusTarget) {
-        focusPath = focusPathForItemChain(pageVeid, bottomUpItemChain);
-        if (page.arrangeAlgorithm == ArrangeAlgorithm.List) {
-          const directChildVeid = bottomUpItemChain[bottomUpItemChain.length - 1];
-          store.perItem.setSelectedListPageItem(pageVeid, directChildVeid);
-        }
+      // Select the item in a list page even without focusing it: otherwise the page opens on its previous selection,
+      // e.g. New Query rather than the chat a search result points to.
+      if (page.arrangeAlgorithm == ArrangeAlgorithm.List) {
+        const directChildVeid = bottomUpItemChain[bottomUpItemChain.length - 1];
+        store.perItem.setSelectedListPageItem(pageVeid, directChildVeid);
       }
+      const focusPath = options.focusTarget ? focusPathForItemChain(pageVeid, bottomUpItemChain) : undefined;
       switchToPage(store, pageVeid, true, false, false, focusPath);
       await revealItemInTables(store, pageVeid, bottomUpItemChain);
       return true;

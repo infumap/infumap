@@ -316,7 +316,11 @@ export const ItemFns = {
       return;
     }
     if (hitboxMeta?.openActualItem) {
-      if (isPage(item)) {
+      if (isQueryItem(item)) {
+        // A query shows its chat or search only as the selected item of the Queries page; on its own it is drawn as
+        // a title. Query items only live there (a chat moved elsewhere becomes a .chat text item).
+        void navigateToContainingPageOfItem(store, item.id);
+      } else if (isPage(item)) {
         switchToPage(store, { itemId: item.id, linkIdMaybe: null }, true, false, false);
       } else {
         switchToItem(store, item.id, false);
