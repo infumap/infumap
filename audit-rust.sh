@@ -28,7 +28,8 @@ print_usage() {
   cat <<'EOF'
 Usage: ./audit-rust.sh
 
-Audit the Rust dependency graph for all checked-in crates.
+Audit the Rust dependency graph for all checked-in crates, then require every
+crate version to be vetted (cargo-vet, supply-chain/ in each crate directory).
 
 The script prefers cargo-deny for advisories, source policy, and duplicate-version
 checks. If cargo-deny is unavailable but cargo-audit is installed, it falls back
@@ -85,6 +86,9 @@ run_cargo_deny() {
   local crate_dir=""
   local source_cargo_home="${CARGO_HOME:-$HOME/.cargo}"
   local deny_args=()
+  # Callers invoke this as `run_cargo_deny || ...`, which disables set -e in here, so a
+  # failing crate must be recorded explicitly or only the last crate's result counts.
+  local status=0
 
   prepare_local_cargo_home "$source_cargo_home"
   if [[ -d "$LOCAL_CARGO_HOME/advisory-dbs" ]]; then
@@ -110,12 +114,15 @@ run_cargo_deny() {
     deny_cmd+=(advisories bans sources)
 
     echo "Running cargo-deny for $crate_dir"
-    CARGO_HOME="$LOCAL_CARGO_HOME" "${deny_cmd[@]}"
+    CARGO_HOME="$LOCAL_CARGO_HOME" "${deny_cmd[@]}" || status=1
   done
+  return "$status"
 }
 
 run_cargo_audit() {
   local crate_dir=""
+  # See run_cargo_deny: set -e is off in here.
+  local status=0
 
   echo "cargo-deny is not installed; falling back to cargo-audit advisories only." >&2
 
@@ -124,8 +131,9 @@ run_cargo_audit() {
     ensure_lockfile "$crate_dir"
 
     echo "Running cargo-audit for $crate_dir"
-    cargo audit --file "$lockfile_path"
+    cargo audit --file "$lockfile_path" || status=1
   done
+  return "$status"
 }
 
 if [[ $# -gt 0 ]]; then
@@ -182,6 +190,39 @@ fi
 if [[ "$audit_exit" -ne 0 ]]; then
   print_fix_guidance
   exit "$audit_exit"
+fi
+
+# Advisory checks only catch known vulnerabilities; cargo-vet fails when a crate version
+# nobody has reviewed (us, or an imported audit set in supply-chain/config.toml) enters
+# the graph, which is what catches a malicious release.
+print_vet_guidance() {
+  cat <<'EOF'
+
+How to resolve unvetted crates (run in the failing crate's directory):
+  cargo vet suggest                       # list what needs review, smallest diffs first
+  cargo vet diff <crate> <old> <new>      # review the change, then:
+  cargo vet certify <crate> <old> <new>
+  cargo vet inspect <crate> <version>     # review a crate with no prior audited version
+  cargo vet trust <crate> <publisher>     # accept future releases by a trusted publisher
+  cargo vet add-exemption <crate> <ver>   # last resort: accept without review
+Commit the supply-chain/ changes, then re-run ./audit.sh --server.
+EOF
+}
+
+if ! cargo vet --version >/dev/null 2>&1; then
+  skip "cargo-vet is not installed.
+  Run from any directory:
+    cargo install cargo-vet --locked"
+fi
+
+vet_exit=0
+for crate_dir in "${CRATE_DIRS[@]}"; do
+  echo "Running cargo-vet for $crate_dir"
+  cargo vet --manifest-path "$ROOT_DIR/$crate_dir/Cargo.toml" || vet_exit=1
+done
+if [[ "$vet_exit" -ne 0 ]]; then
+  print_vet_guidance
+  exit 1
 fi
 
 # Check publish-date age of all crates.io dependencies.
