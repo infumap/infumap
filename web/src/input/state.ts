@@ -51,6 +51,9 @@ export enum MouseAction {
   Selecting,
 }
 
+/** What a click with a selection modifier held does to the selection (see click_selection.ts). */
+export type SelectionClick = "toggle" | "range";
+
 export interface MoveRollbackSnapshotEntry {
   id: string,
   parentId: string,
@@ -129,6 +132,9 @@ export interface MouseActionStateType {
   hitEmbeddedInteractive: boolean,
 
   groupMoveItems?: Array<{ veid: { itemId: string, linkIdMaybe: string | null }, startPosGr: { x: number, y: number }, parentId: string }>,
+
+  /** Taken from the modifiers held on mouse down, so letting go of one before mouse up doesn't change the click. */
+  selectionClick?: SelectionClick | null,
 }
 
 type MouseActionStateInit = Omit<
@@ -563,6 +569,10 @@ export let MouseActionState = {
     mouseActionState.groupMoveItems = groupMoveItems;
   },
 
+  getSelectionClick: (): SelectionClick | null => {
+    return mouseActionState?.selectionClick ?? null;
+  },
+
   getLinkCreatedOnMoveStart: (): boolean => {
     return mouseActionState?.linkCreatedOnMoveStart ?? false;
   },
@@ -750,6 +760,7 @@ export interface TouchOrMouseEvent {
   clientY: number,
   shiftDown: boolean,
   ctrlDown: boolean,
+  metaDown: boolean,
 }
 
 let lastMoveEvent: TouchOrMouseEvent = {
@@ -757,6 +768,7 @@ let lastMoveEvent: TouchOrMouseEvent = {
   clientY: 0,
   shiftDown: false,
   ctrlDown: false,
+  metaDown: false,
 };
 
 export const CursorEventState = {
@@ -766,6 +778,7 @@ export const CursorEventState = {
       clientY,
       shiftDown,
       ctrlDown,
+      metaDown: false,
     };
   },
 
@@ -775,6 +788,7 @@ export const CursorEventState = {
       clientY: ev.clientY,
       shiftDown: ev.shiftKey,
       ctrlDown: ev.ctrlKey,
+      metaDown: ev.metaKey,
     };
   },
 
@@ -784,6 +798,7 @@ export const CursorEventState = {
       clientY: ev.touches[0].clientY,
       shiftDown: false,
       ctrlDown: false,
+      metaDown: false,
     }
   },
 

@@ -53,6 +53,7 @@ import { assert, currentUnixTimeSeconds, panic } from "../util/lang";
 import { HitInfoFns } from "./hit";
 import { dockListPageIconMoveTargetMaybe, moveTargetWouldCreateRelationshipCycle, resolveInternalMoveTarget, resolveMoveTargetPageVe } from "./move_target";
 import { CursorEventState, MouseAction, MouseActionState } from "./state";
+import { veIsSelected } from "./click_selection";
 import { dockInsertIndexAndPositionFromDockChildAreaY, getDockScrollYPx } from "../layout/arrange/dock";
 import { asContainerItem, isContainer } from "../items/base/container-item";
 import { markChildrenLoadAsInitiatedOrComplete } from "../layout/load";
@@ -263,8 +264,8 @@ function preserveListSelectionWhenMovingSelectedChild(
 }
 
 /** A chat attachment is copied as a text item instead, since the chat it is in can't hold a page. */
-function textDocumentMaterializeMoveRequested(activeVisualElement: VisualElement): boolean {
-  return CursorEventState.get().shiftDown &&
+function textDocumentMaterializeMoveRequested(activeVisualElement: VisualElement, shiftDown: boolean): boolean {
+  return shiftDown &&
     isText(activeVisualElement.displayItem) &&
     !isChatAttachmentItem(activeVisualElement.displayItem);
 }
@@ -385,13 +386,32 @@ export function moving_initiateQueryChatTurnMarkdown(store: StoreContextModel, c
   arrangeNow(store, "moving-init-query-chat-turn-markdown");
 }
 
+/**
+ * The modifiers that change a drag of activeVisualElement: Shift to copy, Ctrl to link. Neither applies to a drag of a
+ * selected item, which always moves the selection. Copying or linking only the item dragged (as these did) ignores the
+ * rest of the selection, and doing it to every selected item is rarely wanted. The modifiers used to make the selection
+ * are also often still held when the drag starts.
+ */
+export function dragModifiers(store: StoreContextModel, activeVisualElement: VisualElement): { shiftDown: boolean, ctrlDown: boolean } {
+  if (veIsSelected(store, activeVisualElement)) {
+    return { shiftDown: false, ctrlDown: false };
+  }
+  return { shiftDown: CursorEventState.get().shiftDown, ctrlDown: CursorEventState.get().ctrlDown };
+}
+
 export function moving_initiate(store: StoreContextModel, activeItem: PositionalItem, activeVisualElement: VisualElement, desktopPosPx: Vector) {
   activeVisualElement = normalizeMovingListPageSelectedMainVe(store, activeVisualElement, desktopPosPx);
   activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
-  const materializeTextDocument = textDocumentMaterializeMoveRequested(activeVisualElement);
-  const copyOnlyMove = CursorEventState.get().shiftDown && itemCanCopy(activeItem) && !itemCanMove(activeItem);
+  const { shiftDown, ctrlDown } = dragModifiers(store, activeVisualElement);
+  const materializeTextDocument = textDocumentMaterializeMoveRequested(activeVisualElement, shiftDown);
+  const copyOnlyMove = shiftDown && itemCanCopy(activeItem) && !itemCanMove(activeItem);
   if (!itemCanMove(activeItem) && !materializeTextDocument && !copyOnlyMove) {
     return;
+  }
+  // With a selection modifier held, mouse down didn't clear the selection, since the press might have been a click
+  // adding to it (see mouseLeftDownHandler). Dragging an item that isn't in it does.
+  if (!veIsSelected(store, activeVisualElement) && store.overlay.selectedVeids.get().length > 0) {
+    store.overlay.selectedVeids.set([]);
   }
   captureMoveRollbackSnapshot(store, activeVisualElement, activeItem);
   if (materializeTextDocument) {
@@ -402,9 +422,9 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
   }
   const isActiveLinkItem = isLink(activeItem);
   // A data item's copy would need its content; a chat attachment's is in its chat (`clientTextCopyData`).
-  const shiftWantsClone = CursorEventState.get().shiftDown &&
+  const shiftWantsClone = shiftDown &&
     (!isDataItem(activeVisualElement.displayItem) || isChatAttachmentItem(activeVisualElement.displayItem));
-  const shouldCreateLink = CursorEventState.get().ctrlDown || (shiftWantsClone && isActiveLinkItem);
+  const shouldCreateLink = ctrlDown || (shiftWantsClone && isActiveLinkItem);
   const shouldClone = shiftWantsClone && !isActiveLinkItem; // For link items, shift behaves like ctrl (create link)
   const parentItem = itemState.get(activeItem.parentId)!;
   if (isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {

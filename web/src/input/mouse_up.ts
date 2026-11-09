@@ -57,6 +57,7 @@ import { itemState, wouldCreateRelationshipCycle } from "../store/ItemState";
 import { panic } from "../util/lang";
 import { HitInfoFns } from "./hit";
 import { DoubleClickState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState, CursorEventState, MoveRollbackSnapshotEntry } from "./state";
+import { applySelectionClick } from "./click_selection";
 import { MouseEventActionFlags } from "./enums";
 import { boundingBoxFromDOMRect, isInside } from "../util/geometry";
 import {
@@ -1458,8 +1459,16 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
 
     case MouseAction.Ambiguous:
       {
+        const selectionClick = MouseActionState.getSelectionClick();
+        if (selectionClick != null && applySelectionClick(store, activeVisualElement, selectionClick)) {
+          DoubleClickState.preventDoubleClick();
+          break;
+        }
+      }
+
+      {
         const sel = store.overlay.selectedVeids.get();
-        if (sel && sel.length > 1) {
+        if (sel && sel.length > 0) {
           const clickedVeid = VeFns.veidFromVe(activeVisualElement);
           const clickedIsSelected = sel.some(v => v.itemId === clickedVeid.itemId && v.linkIdMaybe === clickedVeid.linkIdMaybe);
           if (clickedIsSelected) {

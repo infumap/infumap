@@ -35,6 +35,7 @@ import { UMBRELLA_PAGE_UID } from "../util/uid";
 import { HitInfoFns } from "./hit";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { DoubleClickState, CursorEventState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState } from "./state";
+import { selectionClickFromModifiers } from "./click_selection";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage, pageUsesEmbeddedInteractiveMode } from "../items/page-item";
 import { GRID_SIZE, NATURAL_BLOCK_SIZE_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL } from "../constants";
 import { toolbarPopupBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
@@ -154,13 +155,13 @@ function documentNoteBodyClick(hitVe: VisualElement, hitInfo: ReturnType<typeof 
 }
 
 function shouldAllowReadOnlyDocumentNoteTextSelection(hitVe: VisualElement, hitInfo: ReturnType<typeof HitInfoFns.hit>): boolean {
-  return !CursorEventState.get().shiftDown &&
+  return selectionClickFromModifiers() == null &&
     !itemCanEdit(VeFns.treeItem(hitVe)) &&
     documentNoteBodyClick(hitVe, hitInfo);
 }
 
 function shouldEditDocumentNoteOnMouseDown(hitVe: VisualElement, hitInfo: ReturnType<typeof HitInfoFns.hit>): boolean {
-  return !CursorEventState.get().shiftDown &&
+  return selectionClickFromModifiers() == null &&
     itemCanEdit(VeFns.treeItem(hitVe)) &&
     documentNoteBodyClick(hitVe, hitInfo);
 }
@@ -183,7 +184,7 @@ function startLinearNoteTextSelection(hitVe: VisualElement): MouseEventActionFla
 
 function continueCompositeNoteEditingOnMouseDown(store: StoreContextModel): MouseEventActionFlags | null {
   const editingInfo = store.overlay.textEditInfo();
-  if (editingInfo?.itemType != ItemType.Note || CursorEventState.get().shiftDown ||
+  if (editingInfo?.itemType != ItemType.Note || selectionClickFromModifiers() != null ||
       ClickState.getLinkWasClicked() || store.overlay.contextMenuInfo.get() != null ||
       store.overlay.tableColumnContextMenuInfo.get() != null || store.overlay.editUserSettingsInfo.get() != null) {
     return null;
@@ -847,8 +848,10 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   }
 
   const overDisplayItem = hitVe.displayItem;
+  const selectionClick = selectionClickFromModifiers();
   longHoldTimeoutId = setTimeout(() => {
     if (MouseActionState.empty()) { return; }
+    if (selectionClick != null) { return; }
     if (!MouseActionState.isAction(MouseAction.Ambiguous)) { return; }
     if (MouseActionState.getHitMeta()?.queryChatTurnMarkdown) { return; }
     // A move handle is only a drag affordance. Entering edit mode from it hides the handle, and presses where it was
@@ -920,12 +923,15 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     clickOffsetProp,
     onePxSizeBl,
     hitMeta: hitInfo.overElementMeta,
+    selectionClick,
   });
 
-  // Clear selection set when clicking away from current selection
+  // Clear selection set when clicking away from current selection. With a selection modifier held, the click may add
+  // to it, or start a drag that ends up clearing it (see moving_initiate): that isn't known until the mouse moves or
+  // is released.
   try {
     const currentSelection = store.overlay.selectedVeids.get();
-    if (currentSelection && currentSelection.length > 0) {
+    if (selectionClick == null && currentSelection && currentSelection.length > 0) {
       const clickedVeid = VeFns.veidFromPath(activeElementPath);
       const clickedIsSelected = currentSelection.some(v => v.itemId === clickedVeid.itemId && v.linkIdMaybe === clickedVeid.linkIdMaybe);
       const clickedIsBackground = veFlagIsRoot(hitVe.flags) && !(hitInfo.hitboxType & HitboxFlags.ContentEditable);

@@ -39,7 +39,7 @@ import { MouseAction, MouseActionState, CursorEventState, UserSettingsMoveState 
 import { arrangeNow } from "../layout/arrange";
 import { catalogResultControlsTopInsetPx, hasCatalogResultContext } from "../layout/catalog-display";
 import { editUserSettingsSizePx } from "../components/overlay/UserSettings";
-import { mouseAction_moving, moving_initiate, moving_initiateQueryChatTurnMarkdown } from "./mouse_move_move";
+import { dragModifiers, mouseAction_moving, moving_initiate, moving_initiateQueryChatTurnMarkdown } from "./mouse_move_move";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../layout/arrange/page_list";
 import { asCompositeItem, isComposite } from "../items/composite-item";
 import { toolbarPopupBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
@@ -77,8 +77,8 @@ function setCopyMoveCursorOverride(active: boolean): void {
   document.body.classList.toggle(COPY_MOVE_CURSOR_CLASS, active);
 }
 
-function isCopyOnlyMoveHover(hitInfo: ReturnType<typeof HitInfoFns.hit>): boolean {
-  if (!CursorEventState.get().shiftDown || !(hitInfo.hitboxType & HitboxFlags.Move)) {
+function isCopyOnlyMoveHover(store: StoreContextModel, hitInfo: ReturnType<typeof HitInfoFns.hit>): boolean {
+  if (!dragModifiers(store, HitInfoFns.getHitVe(hitInfo)).shiftDown || !(hitInfo.hitboxType & HitboxFlags.Move)) {
     return false;
   }
   if (hitInfo.hitboxType & (HitboxFlags.Resize | HitboxFlags.WidthResize | HitboxFlags.HorizontalResize | HitboxFlags.VerticalResize)) {
@@ -685,7 +685,7 @@ function changeMouseActionStateMaybe(
       activeVisualElement = newActiveSignal.get();
       activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
     }
-    const shiftDown = CursorEventState.get().shiftDown;
+    const { shiftDown } = dragModifiers(store, activeVisualElement);
     const shiftTextMaterializeMove = shiftDown && isText(activeVisualElement.displayItem);
     const shiftItemCopyMove = shiftDown && itemCanCopy(VeFns.treeItem(activeVisualElement));
     if (!itemCanMove(VeFns.treeItem(activeVisualElement)) && !shiftTextMaterializeMove && !shiftItemCopyMove) {
@@ -1496,7 +1496,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
   const readOnlyDocumentMoveOutPath = readOnlyDocumentMoveOutVe != null
     ? VeFns.veToPath(readOnlyDocumentMoveOutVe)
     : null;
-  const copyOnlyMoveHover = isCopyOnlyMoveHover(hitInfo);
+  const copyOnlyMoveHover = isCopyOnlyMoveHover(store, hitInfo);
   const copyOnlyMoveOutHover = isCopyOnlyMoveOutHover(hitInfo);
   setCopyMoveCursorOverride(copyOnlyMoveHover && hasUser && !hasModal && !isInsideToolbarPopup);
   if (hitInfo.overElementMeta && (hitInfo.hitboxType & HitboxFlags.TableColumnContextMenu) && hitInfoCanEditTableColumns(hitInfo) &&
