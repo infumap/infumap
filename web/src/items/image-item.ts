@@ -364,10 +364,8 @@ export const ImageFns = {
       VeFns.veidFromPath(visualElement.parentPath).itemId == SOLO_ITEM_HOLDER_PAGE_UID;
     if ((visualElement.flags & VisualElementFlags.Popup) || isSoloImage) {
       const image = visualElement.displayItem as ImageItem;
-      // Open a JPEG rendition for HEIC/CR2; browsers cannot reliably display their downloadable originals.
-      const fileName = image.mimeType == "image/heic" || image.mimeType == "image/x-canon-cr2"
-        ?`${image.id}_${image.imageSizePx.w}`
-        : image.id;
+      // Open the original so the browser can display supported formats or download unsupported ones.
+      const fileName = image.id;
       if (visualElement.displayItem.origin == null) {
         window.open('/files/' + fileName, '_blank');
       } else {
