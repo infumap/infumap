@@ -19,6 +19,8 @@ use crate::ai::document_pipeline::requeue_document_fragment_item_now;
 use crate::ai::fragment::sources::{is_local_text_copy_item, write_local_text_copy};
 use crate::ai::fragment_indexing::enqueue_fragment_lexical_index_update;
 use crate::ai::image_pipeline::requeue_image_background_pipeline_item_now;
+use crate::ai::search_eligibility::is_in_trash;
+use crate::ai::search_processing::SearchContentKind;
 use crate::ai::text_extraction::{MAX_PDF_CONVERSION_TIMEOUT_SECS, requeue_pdf_item_now};
 
 #[derive(Deserialize)]
@@ -542,6 +544,7 @@ pub(super) async fn add_item_for_user_with_mime_type(
     let sync_ack = build_sync_ack(&db, &queued_item.owner_id, &touched_container_ids);
     debug!("Executed 'add-item' command for item '{}'.", item_id);
     let data_dir = db.item.data_dir().to_owned();
+    let trashed = is_in_trash(&db, &queued_item);
     drop(db);
     // The local copy is written now, from the bytes in hand, because a text item is very often opened just after it
     // is added, and without a copy that is a fetch from object storage (see get_file). It is written after the insert
@@ -552,12 +555,14 @@ pub(super) async fn add_item_for_user_with_mime_type(
         warn!("Could not write the local copy of new text item '{}': {}", item_id, e);
       }
     }
-    enqueue_item_title_index_update(&queued_item.owner_id, &queued_item.id);
-    if should_tag_image_item(&queued_item) {
-      enqueue_image_background_pipeline_item_if_active(&queued_item);
+    if !trashed {
+      enqueue_item_title_index_update(&queued_item.owner_id, &queued_item.id);
+      if should_tag_image_item(&queued_item) {
+        enqueue_image_background_pipeline_item_if_active(&queued_item);
+      }
+      enqueue_pdf_item_if_active(&queued_item);
+      enqueue_document_fragment_item_if_active(&queued_item);
     }
-    enqueue_pdf_item_if_active(&queued_item);
-    enqueue_document_fragment_item_if_active(&queued_item);
     if is_data_item_type(queued_item.item_type) {
       info!(
         "Upload item '{}' completed: validation={} ms, decode={} ms, storage={} ms, image={} ms, database={} ms, total={} ms",
@@ -594,13 +599,16 @@ pub(super) async fn set_item_title_if_unchanged(
   }
   item.title = Some(title.to_owned());
   db.item.update(&item).await?;
+  let trashed = is_in_trash(&db, &item);
   let mut deltas_by_container = HashMap::new();
   if let Some(container_id) = maybe_container_id_for_child_item(&item) {
     merge_container_delta(&mut deltas_by_container, &container_id, build_child_upsert_delta(&db, &item)?);
   }
   flush_container_sync_changes(&mut db, user_id, deltas_by_container, HashSet::new());
   drop(db);
-  enqueue_item_title_index_update(user_id, item_id);
+  if !trashed {
+    enqueue_item_title_index_update(user_id, item_id);
+  }
   Ok(title.to_owned())
 }
 
@@ -703,7 +711,10 @@ async fn update_item(
     validate_link_target_for_item(&db, &item)?;
   }
 
+  let was_trashed = is_in_trash(&db, &old_item);
   db.item.update(&item).await?;
+  let trashed = is_in_trash(&db, &item);
+  let trash_transition_items = if was_trashed != trashed { search_subtree_items(&db, &item)? } else { Vec::new() };
   let mut deltas_by_container = HashMap::new();
   let snapshot_required_container_ids = HashSet::new();
 
@@ -745,7 +756,10 @@ async fn update_item(
   let owner_id = item.owner_id.clone();
   let old_title_parent_id = old_item.parent_id.clone().filter(|parent_id| item.parent_id.as_ref() != Some(parent_id));
   let image_fragment_context_dependents =
-    image_fragment_context_dependents_for_parent_title_change(&db, &old_item, &item)?;
+    image_fragment_context_dependents_for_parent_title_change(&db, &old_item, &item)?
+      .into_iter()
+      .filter(|dependent| !is_in_trash(&db, dependent))
+      .collect::<Vec<_>>();
   debug!("Executed 'update-item' command for item '{}'.", item.id);
   drop(db);
   // Deliberate trade-off: most updates (moving, resizing, restyling) change
@@ -758,27 +772,66 @@ async fn update_item(
     || old_item.parent_id != item.parent_id
     || old_item.relationship_to_parent != item.relationship_to_parent;
   let mime_type_changed = old_item.mime_type != item.mime_type;
-  if title_inputs_changed {
+  if title_inputs_changed && !trashed && trash_transition_items.is_empty() {
     enqueue_item_title_index_update(&owner_id, &item.id);
   }
   if let Some(parent_id) = old_title_parent_id {
     enqueue_item_title_index_update(&owner_id, &parent_id);
   }
-  if should_tag_image_item(&item) {
+  // A container move changes search eligibility for its whole containment tree. Keep artifacts so a rare
+  // restoration can reuse extraction output; merely skipping indexing would leave old entries searchable.
+  for affected in &trash_transition_items {
+    if trashed {
+      dequeue_image_background_pipeline_item_if_active(&affected.id);
+      dequeue_pdf_item_if_active(&affected.id);
+      dequeue_document_fragment_item_if_active(&affected.id);
+      enqueue_item_search_index_removal(&affected.owner_id, &affected.id);
+    } else {
+      enqueue_item_title_index_update(&affected.owner_id, &affected.id);
+      if should_tag_image_item(affected) {
+        // Image fragments must first refresh their parent context, even when extraction is cached.
+        enqueue_image_background_pipeline_item_if_active(affected);
+      } else if SearchContentKind::from_mime_type(affected.mime_type.as_deref()).is_some() {
+        enqueue_pdf_item_if_active(affected);
+        enqueue_document_fragment_item_if_active(affected);
+        enqueue_fragment_lexical_index_update(&affected.owner_id, &affected.id);
+      }
+    }
+  }
+  if !trashed && trash_transition_items.is_empty() && should_tag_image_item(&item) {
     if title_inputs_changed || mime_type_changed || !should_tag_image_item(&old_item) {
       enqueue_image_background_pipeline_item_if_active(&item);
     }
-  } else if should_tag_image_item(&old_item) {
+  } else if !should_tag_image_item(&item) && should_tag_image_item(&old_item) {
     dequeue_image_background_pipeline_item_if_active(&old_item.id);
   }
   for dependent in image_fragment_context_dependents {
     enqueue_image_background_pipeline_item_if_active(&dependent);
   }
-  if should_fragment_document_item(&item) && (mime_type_changed || !should_fragment_document_item(&old_item)) {
+  if !trashed
+    && trash_transition_items.is_empty()
+    && should_fragment_document_item(&item)
+    && (mime_type_changed || !should_fragment_document_item(&old_item))
+  {
     enqueue_document_fragment_item_if_active(&item);
   }
 
   json_with_sync_ack(sync_ack, None)
+}
+
+fn search_subtree_items(db: &Db, root: &Item) -> InfuResult<Vec<Item>> {
+  let mut pending = vec![root.id.clone()];
+  let mut seen = HashSet::new();
+  let mut items = Vec::new();
+  while let Some(id) = pending.pop() {
+    if !seen.insert(id.clone()) {
+      continue;
+    }
+    pending.extend(db.item.get_children_ids(&id)?);
+    pending.extend(db.item.get_attachment_ids(&id)?);
+    items.push(db.item.get(&id)?.clone());
+  }
+  Ok(items)
 }
 
 #[derive(Deserialize)]
@@ -1357,6 +1410,9 @@ pub(super) async fn handle_reprocess_item(
     let item = db.item.get(&request.id)?.clone();
     if item.owner_id != session.user_id {
       return Err(format!("User '{}' does not own item '{}'.", session.user_id, request.id).into());
+    }
+    if is_in_trash(&db, &item) {
+      return Err(format!("Item '{}' cannot be reprocessed while in trash.", request.id).into());
     }
     if request.pdf_conversion_timeout_secs.is_some() && item.mime_type.as_deref() != Some("application/pdf") {
       return Err(format!("Item '{}' is not a PDF; a PDF conversion timeout does not apply.", request.id).into());

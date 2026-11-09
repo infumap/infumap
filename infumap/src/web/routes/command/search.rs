@@ -707,6 +707,10 @@ fn search_result_path_for_item(
   user_id: &Uid,
   root_id_maybe: Option<&Uid>,
 ) -> InfuResult<Option<SearchResult>> {
+  // Removal is batched, so suppress stale hits immediately, including searches scoped to trash.
+  if db.item.get(item_id).is_ok_and(|item| crate::ai::search_eligibility::is_in_trash(db, item)) {
+    return Ok(None);
+  }
   let Some(path) = item_path(db, item_id, user_id)? else {
     return Ok(None);
   };
@@ -1172,7 +1176,7 @@ fn search_recursive(
 
   {
     let item = db.item.get(&item_id)?;
-    if &item.owner_id != user_id {
+    if &item.owner_id != user_id || crate::ai::search_eligibility::is_in_trash(db, item) {
       return Ok(());
     } // paranoid.
     if item.item_type != ItemType::Password {

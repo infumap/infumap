@@ -281,6 +281,9 @@ pub(crate) async fn load_pdf_for_extraction(
     let db = db.lock().await;
     let id = item_id.to_string();
     let item = db.item.get(&id).map_err(|e| e.to_string())?;
+    if crate::ai::search_eligibility::is_in_trash(&db, item) {
+      return Err(format!("PDF '{}' is in trash.", item_id).into());
+    }
     if item.mime_type.as_deref() != Some("application/pdf") {
       return Err(format!("Item '{}' is not a PDF (mime_type: {:?}).", item_id, item.mime_type).into());
     }
@@ -1058,7 +1061,9 @@ async fn populate_initial_pdf_queue(
       .all_loaded_items()
       .into_iter()
       .filter(|item_and_user_id| startup_work.content_item_ids.contains(&item_and_user_id.item_id))
-      .filter_map(|item_and_user_id| db.item.get(&item_and_user_id.item_id).ok().and_then(pdf_candidate_for_item))
+      .filter_map(|item_and_user_id| db.item.get(&item_and_user_id.item_id).ok())
+      .filter(|item| !crate::ai::search_eligibility::is_in_trash(&db, item))
+      .filter_map(pdf_candidate_for_item)
       .collect::<Vec<PdfCandidate>>();
     candidates.sort_by(|a, b| {
       let a_size = a.file_size_bytes.unwrap_or(i64::MAX);
@@ -1132,6 +1137,7 @@ async fn candidate_still_current(db: Arc<Mutex<Db>>, candidate: &PdfCandidate) -
   };
   Ok(
     item.owner_id == candidate.user_id
+      && !crate::ai::search_eligibility::is_in_trash(&db, item)
       && item.creation_date == candidate.creation_date
       && item.mime_type.as_deref() == Some(PDF_SOURCE_MIME_TYPE),
   )

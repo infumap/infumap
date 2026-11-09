@@ -320,7 +320,9 @@ async fn reconcile_document_fragment_item(
     let db = db.lock().await;
     match db.item.get(&candidate.item_id) {
       Ok(item)
-        if item.owner_id == candidate.user_id && DocumentFragmentKind::from_item(item) == Some(candidate.kind) =>
+        if item.owner_id == candidate.user_id
+          && !crate::ai::search_eligibility::is_in_trash(&db, item)
+          && DocumentFragmentKind::from_item(item) == Some(candidate.kind) =>
       {
         item.clone()
       }
@@ -489,6 +491,7 @@ async fn populate_initial_document_fragment_queue(
       .into_iter()
       .filter(|item_key| startup_work.content_item_ids.contains(&item_key.item_id))
       .filter_map(|item_key| db.item.get(&item_key.item_id).ok())
+      .filter(|item| !crate::ai::search_eligibility::is_in_trash(&db, item))
       .filter_map(DocumentFragmentCandidate::from_item)
       .collect::<Vec<_>>()
   };

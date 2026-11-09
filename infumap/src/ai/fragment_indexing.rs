@@ -112,8 +112,8 @@ pub async fn load_item_search_fragments(
   )
 }
 
-/// Queue removal of a deleted item's title and content entries with the next
-/// index batches. Search already ignores hits for items that no longer exist.
+/// Queue removal of a deleted or trashed item's title and content entries with the next
+/// index batches. Search already ignores hits for deleted and trashed items.
 /// Deliberate trade-off: removal is batched rather than committed immediately,
 /// to avoid a commit per deletion (see the batch window).
 pub fn enqueue_item_search_index_removal(user_id: &str, item_id: &str) {
@@ -294,6 +294,7 @@ async fn run_fragment_indexing_loop(
           let db = db.lock().await;
           db.item.get(&item_id).is_ok_and(|item| {
             item.owner_id == user_id
+              && !crate::ai::search_eligibility::is_in_trash(&db, item)
               && crate::ai::search_processing::SearchContentKind::from_mime_type(item.mime_type.as_deref()).is_some()
           })
         };

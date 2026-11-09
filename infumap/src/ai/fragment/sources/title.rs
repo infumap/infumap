@@ -20,7 +20,7 @@ pub struct ItemTitleFragment {
 }
 
 pub fn item_title_fragment_for_item(db: &Db, item: &Item) -> InfuResult<Option<ItemTitleFragment>> {
-  if item.item_type == ItemType::Password {
+  if item.item_type == ItemType::Password || crate::ai::search_eligibility::is_in_trash(db, item) {
     return Ok(None);
   }
 

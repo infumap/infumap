@@ -77,6 +77,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     .item
     .all_loaded_items()
     .into_iter()
+    .filter(|key| db.item.get(&key.item_id).is_ok_and(|item| !crate::ai::search_eligibility::is_in_trash(&db, item)))
     .map(|key| RebuildItem { user_id: key.user_id, item_id: key.item_id })
     .collect::<Vec<_>>();
   items.sort_by(|a, b| a.user_id.cmp(&b.user_id).then(a.item_id.cmp(&b.item_id)));

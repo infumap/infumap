@@ -275,6 +275,7 @@ where
       .all_loaded_items()
       .into_iter()
       .filter_map(|item_and_user_id| db.item.get(&item_and_user_id.item_id).ok().cloned())
+      .filter(|item| !crate::ai::search_eligibility::is_in_trash(&db, item))
       .filter(predicate)
       .collect::<Vec<Item>>()
   };
@@ -300,6 +301,9 @@ where
   PredicateFn: Fn(&Item) -> bool + Copy,
 {
   if !visited_item_ids.insert(item_id.to_owned()) {
+    return Ok(());
+  }
+  if crate::ai::search_eligibility::is_in_trash(db, db.item.get(&item_id.to_owned())?) {
     return Ok(());
   }
 

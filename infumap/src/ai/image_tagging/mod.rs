@@ -225,6 +225,9 @@ pub(crate) async fn load_image_for_tagging(
     let db = db.lock().await;
     let id = item_id.to_string();
     let item = db.item.get(&id).map_err(|e| e.to_string())?;
+    if crate::ai::search_eligibility::is_in_trash(&db, item) {
+      return Err(format!("Image '{}' is in trash.", item_id).into());
+    }
     let Some(candidate) = ImageCandidate::from_item(item) else {
       return Err(format!("Item '{}' is not a supported taggable image.", item_id).into());
     };
@@ -677,6 +680,7 @@ async fn candidate_still_current(db: Arc<Mutex<Db>>, candidate: &ImageCandidate)
   };
   Ok(
     item.owner_id == candidate.user_id
+      && !crate::ai::search_eligibility::is_in_trash(&db, item)
       && item.creation_date == candidate.creation_date
       && item.mime_type.as_deref() == Some(candidate.mime_type.as_str())
       && item.file_size_bytes == candidate.file_size_bytes

@@ -155,11 +155,11 @@ pub async fn reconcile_search_at_startup(
             let item = db.item.get(id)?;
             let context = search_fragment_context_title_for_item(&db, item);
             let title = item_title_fragment_for_item(&db, item)?.map(lexical_fragment_from_item_title_fragment);
-            Ok((item.clone(), context, title))
+            Ok((item.clone(), context, title, super::search_eligibility::is_in_trash(&db, item)))
           })
           .collect::<InfuResult<Vec<_>>>()?
       };
-      for (item, _, title) in &snapshots {
+      for (item, _, title, _) in &snapshots {
         let desired = title.as_ref().map(std::slice::from_ref).unwrap_or_default();
         let indexed = indexed_titles.remove(&item.id).unwrap_or_default();
         if indexed.as_slice() != desired {
@@ -168,8 +168,15 @@ pub async fn reconcile_search_at_startup(
       }
 
       let mut updates = Vec::new();
-      for (item, context, _) in &snapshots {
+      for (item, context, _, trashed) in &snapshots {
         checked += 1;
+        // Keep cached artifacts for restoration, but never inspect, rebuild or index them while in trash.
+        if *trashed {
+          if content_ids.contains(&item.id) {
+            updates.push((item.id.clone(), vec![]));
+          }
+          continue;
+        }
         if SearchContentKind::from_mime_type(item.mime_type.as_deref()).is_some() {
           if let Ok(stamp) = item_check_stamp(data_dir, item, context.as_deref(), &index_identity_before).await {
             if let Some(previous) = previous_stamps.get(&item.id).filter(|previous| previous.stamp == stamp) {

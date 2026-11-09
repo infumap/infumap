@@ -14,7 +14,7 @@ use tokio::time::sleep;
 use crate::ai::artifact_paths::{item_geo_manifest_path, item_text_manifest_path};
 use crate::ai::fragment::clear_item_fragments;
 use crate::ai::fragment::sources::{build_image_fragment_artifact, search_fragment_context_title_for_item};
-use crate::ai::fragment_indexing::enqueue_fragment_lexical_index_update;
+use crate::ai::fragment_indexing::{enqueue_fragment_lexical_index_update, item_fragment_index_is_current};
 use crate::ai::geo::{
   GeoCandidate, GeoManifestStatus, GeoProcessOutcome, GeoRequestThrottle, geo_manifest_status,
   geoapify_api_key_from_config, geoapify_max_requests_per_minute_from_config, geoapify_url_from_config,
@@ -545,7 +545,13 @@ async fn reconcile_image_fragment_item(
   let item_snapshot = {
     let db = db.lock().await;
     match db.item.get(&candidate.item_id) {
-      Ok(item) if item.owner_id == candidate.user_id && should_tag_image_item(item) => item.clone(),
+      Ok(item)
+        if item.owner_id == candidate.user_id
+          && !crate::ai::search_eligibility::is_in_trash(&db, item)
+          && should_tag_image_item(item) =>
+      {
+        item.clone()
+      }
       _ => {
         record_image_pipeline_processed(PipelineStage::Fragment, "skipped");
         return Ok(ImageFragmentOutcome::Unchanged);
@@ -587,7 +593,11 @@ async fn reconcile_image_fragment_item(
     record_image_pipeline_processed(PipelineStage::Fragment, "skipped");
   }
 
-  Ok(if fragment_result.outcome.wrote_fragments || fragment_result.outcome.cleared_existing_fragments {
+  // A restored image can reuse unchanged fragments after its index entries were removed in trash.
+  let needs_index_update = fragment_result.outcome.wrote_fragments
+    || fragment_result.outcome.cleared_existing_fragments
+    || !item_fragment_index_is_current(&config.data_dir, &item_snapshot.owner_id, &item_snapshot.id).await?;
+  Ok(if needs_index_update {
     ImageFragmentOutcome::Changed(item_snapshot.owner_id)
   } else {
     ImageFragmentOutcome::Unchanged
@@ -595,7 +605,7 @@ async fn reconcile_image_fragment_item(
 }
 
 enum ImageFragmentOutcome {
-  /// Fragments were written or removed; the content index needs updating.
+  /// Fragments changed or cached fragments need their index entries restored.
   Changed(String),
   Unchanged,
   /// No successful extraction yet. Extraction success wakes the stage again.
@@ -607,7 +617,11 @@ async fn item_still_supported(db: Arc<Mutex<Db>>, candidate: &ImagePipelineCandi
   let Ok(item) = db.item.get(&candidate.item_id) else {
     return Ok(false);
   };
-  Ok(item.owner_id == candidate.user_id && should_tag_image_item(item))
+  Ok(
+    item.owner_id == candidate.user_id
+      && !crate::ai::search_eligibility::is_in_trash(&db, item)
+      && should_tag_image_item(item),
+  )
 }
 
 /// Only images the startup check could not confirm as complete are queued, plus
@@ -632,7 +646,13 @@ fn enqueue_all_loaded_images(
         if !needs_content && !needs_location {
           continue;
         }
-        let Some(candidate) = db.item.get(&key.item_id).ok().and_then(ImagePipelineCandidate::from_item) else {
+        let Some(candidate) = db
+          .item
+          .get(&key.item_id)
+          .ok()
+          .filter(|item| !crate::ai::search_eligibility::is_in_trash(&db, item))
+          .and_then(ImagePipelineCandidate::from_item)
+        else {
           continue;
         };
         if needs_content { content.push(candidate) } else { location_only.push(candidate) }
