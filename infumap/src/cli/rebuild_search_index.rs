@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tokio::fs;
 
-use crate::ai::fragment::sources::item_title_fragment_for_item;
+use crate::ai::fragment::sources::{build_live_chat_fragment_artifact, item_title_fragment_for_item};
 use crate::ai::fragment_indexing::load_item_search_fragments;
 use crate::ai::lexical_index::{
   LexicalFragment, TantivyDocumentFragmentIndex, TantivyItemTitleIndex, document_fragment_lexical_index_dir,
@@ -133,6 +133,10 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     let mut document_updates = Vec::<(String, Vec<LexicalFragment>)>::new();
     let mut title_updates = Vec::<(String, Vec<LexicalFragment>)>::new();
     for item in &items[batch_start..batch_end] {
+      let current = db.item.get(&item.item_id)?;
+      if current.item_type == infusdk::item::ItemType::Search {
+        build_live_chat_fragment_artifact(&data_dir, current).await?;
+      }
       let document_fragments = load_item_search_fragments(&data_dir, &item.user_id, &item.item_id).await?;
       indexed_fragments += document_fragments.len();
       document_updates.push((item.item_id.clone(), document_fragments));
@@ -320,6 +324,9 @@ fn format_duration(duration: Duration) -> String {
 
 fn rebuild_corpus_digest(user_ids: &[String], items: &[RebuildItem]) -> String {
   let mut hasher = Sha256::new();
+  // Old checkpoints may have passed query items without indexing their transcripts. Restart those rebuilds
+  // rather than resuming a partially built index with the previous content-selection policy.
+  hasher.update(b"query-chat-content-v1\0");
   for user_id in user_ids {
     hasher.update(user_id.as_bytes());
     hasher.update([0_u8]);

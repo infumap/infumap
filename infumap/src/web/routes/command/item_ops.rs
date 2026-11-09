@@ -791,7 +791,7 @@ async fn update_item(
       if should_tag_image_item(affected) {
         // Image fragments must first refresh their parent context, even when extraction is cached.
         enqueue_image_background_pipeline_item_if_active(affected);
-      } else if SearchContentKind::from_mime_type(affected.mime_type.as_deref()).is_some() {
+      } else if SearchContentKind::from_item(affected).is_some() {
         enqueue_pdf_item_if_active(affected);
         enqueue_document_fragment_item_if_active(affected);
         enqueue_fragment_lexical_index_update(&affected.owner_id, &affected.id);

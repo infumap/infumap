@@ -336,14 +336,7 @@ impl Transcript {
 }
 
 pub(super) fn transcript_path(data_dir: &str, user_id: &Uid, query_item_id: &Uid) -> InfuResult<PathBuf> {
-  if !is_uid(user_id) || !is_uid(query_item_id) {
-    return Err(format!("Invalid transcript id '{}' for user '{}'.", query_item_id, user_id).into());
-  }
-  let mut path = expand_tilde(data_dir).ok_or("Could not interpret path.")?;
-  path.push(format!("user_{}", user_id));
-  path.push(CHATS_DIR_NAME);
-  path.push(format!("{}.chat", query_item_id));
-  Ok(path)
+  crate::ai::chat_transcripts::transcript_path(data_dir, user_id, query_item_id)
 }
 
 /// The length of the complete records: everything up to and including the last newline.
@@ -551,7 +544,8 @@ impl LockedTranscript {
 
   /// Removes the file, under the lock.
   pub(super) async fn remove(self) -> InfuResult<()> {
-    remove_file_if_present(&self.path).await
+    remove_file_if_present(&self.path).await?;
+    remove_file_if_present(&self.path.with_extension("sources.json")).await
   }
 
   pub(super) async fn append_user(&mut self, user: UserRecord) -> InfuResult<()> {
@@ -605,6 +599,7 @@ pub(super) async fn remove_transcript_unless_locked(
     return Ok(false);
   };
   remove_file_if_present(&path).await?;
+  remove_file_if_present(&path.with_extension("sources.json")).await?;
   Ok(true)
 }
 
@@ -628,6 +623,12 @@ pub(super) async fn remove_orphan_transcripts(
     let name = entry.file_name().to_string_lossy().into_owned();
     if name.starts_with(".artifact-") && name.ends_with(".tmp") {
       remove_file_if_present(&entry.path()).await?;
+      continue;
+    }
+    if let Some(id) = name.strip_suffix(".sources.json").filter(|id| is_uid(id)) {
+      if !is_live(&id.to_owned()) {
+        remove_file_if_present(&entry.path()).await?;
+      }
       continue;
     }
     let Some(query_item_id) = name.strip_suffix(".chat").filter(|id| is_uid(id)).map(str::to_owned) else {

@@ -97,7 +97,10 @@ async fn item_text(
     let db = db.lock().await;
     let content = db.item.get(item_id).ok().and_then(|item| access.content(&db, item))?;
     let (heading, location) = container_fragments::item_heading(&db, access, content);
-    if !is_data_item_type(content.item_type) && content.item_type != ItemType::Note {
+    if !is_data_item_type(content.item_type)
+      && content.item_type != ItemType::Note
+      && content.item_type != ItemType::Search
+    {
       return Some((heading, location, String::new()));
     }
     let note_text = (content.item_type == ItemType::Note).then(|| container_fragments::note_text(content));

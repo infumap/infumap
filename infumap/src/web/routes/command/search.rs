@@ -58,7 +58,7 @@ pub struct SearchRequest {
   pub page_num: Option<i64>,
   /// Command scope; chat tools resolve their scope once per run and pass it to run_lexical_search.
   pub scope_id: Option<Uid>,
-  /// Leaves out persisted chats so models cannot cite their own earlier answers as sources.
+  /// Optional exclusion of saved chat files. Chat runs allow earlier chats and exclude themselves through their scope.
   pub exclude_chats: bool,
 }
 
@@ -714,8 +714,14 @@ fn search_result_path_for_item(
   let Some(path) = item_path(db, item_id, user_id)? else {
     return Ok(None);
   };
-  if root_id_maybe.is_some_and(|root_id| !search_result_is_under_root_path(&path, root_id)) {
-    return Ok(None);
+  if let Some(root_id) = root_id_maybe {
+    // Queries are a separate root. Default home search also discovers their conversations, without exposing
+    // the other configuration pages stored beneath Queries or changing an explicit page restriction.
+    let default_chat = db.user.get(user_id).is_some_and(|user| &user.home_page_id == root_id)
+      && db.item.get(item_id).is_ok_and(|item| super::scope::is_query_chat(db, item));
+    if !search_result_is_under_root_path(&path, root_id) && !default_chat {
+      return Ok(None);
+    }
   }
   let stats = search_result_stats_for_item(db, db.item.get(item_id)?)?;
   Ok(Some(SearchResult { path, score: 0.0, stats, fragment_match: None, additional_fragment_matches: Vec::new() }))

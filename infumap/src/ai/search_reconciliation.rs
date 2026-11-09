@@ -177,7 +177,7 @@ pub async fn reconcile_search_at_startup(
           }
           continue;
         }
-        if SearchContentKind::from_mime_type(item.mime_type.as_deref()).is_some() {
+        if SearchContentKind::from_item(item).is_some() {
           if let Ok(stamp) = item_check_stamp(data_dir, item, context.as_deref(), &index_identity_before).await {
             if let Some(previous) = previous_stamps.get(&item.id).filter(|previous| previous.stamp == stamp) {
               if previous.location_pending && location_enabled {
@@ -200,7 +200,7 @@ pub async fn reconcile_search_at_startup(
             verified_in_detail.push((item.clone(), context.clone()));
           }
           Ok(false) => {
-            if SearchContentKind::from_mime_type(item.mime_type.as_deref()).is_some() {
+            if SearchContentKind::from_item(item).is_some() {
               work.content_item_ids.insert(item.id.clone());
             }
             if delete_item_fragment_artifacts(data_dir, user_id, &item.id).await? {
@@ -363,7 +363,7 @@ async fn item_check_stamp(
   index_identity: &str,
 ) -> InfuResult<String> {
   let (user_id, item_id) = (item.owner_id.as_str(), item.id.as_str());
-  let paths = [
+  let mut paths = vec![
     item_text_content_path(data_dir, user_id, item_id)?,
     item_text_manifest_path(data_dir, user_id, item_id)?,
     item_geo_content_path(data_dir, user_id, item_id)?,
@@ -372,6 +372,9 @@ async fn item_check_stamp(
     item_fragments_manifest_path(data_dir, user_id, item_id)?,
     item_fragments_dir(data_dir, user_id, item_id)?.join("index_receipt.json"),
   ];
+  if item.item_type == infusdk::item::ItemType::Search {
+    paths.push(super::chat_transcripts::transcript_path(data_dir, user_id, item_id)?);
+  }
   let mut files = Vec::with_capacity(paths.len());
   for path in paths {
     files.push(match fs::metadata(&path).await {
@@ -409,10 +412,13 @@ fn search_metadata_needs_repair(status: InfuResult<Option<FragmentLexicalIndexRe
 
 /// Return true only when the fragments still describe their current inputs.
 async fn reconcile_item_artifacts(data_dir: &str, item: &Item, context: Option<&str>) -> InfuResult<bool> {
-  let Some(kind) = SearchContentKind::from_mime_type(item.mime_type.as_deref()) else {
+  let Some(kind) = SearchContentKind::from_item(item) else {
     return Ok(false);
   };
   let input = match kind {
+    SearchContentKind::Chat if item.item_type == infusdk::item::ItemType::Search => {
+      sha256(&super::chat_transcripts::read_transcript_bytes(data_dir, &item.owner_id, &item.id).await?)
+    }
     // Without a local copy the worker must read the original once to make one.
     SearchContentKind::Markdown | SearchContentKind::Text | SearchContentKind::Chat => {
       match read_local_text_copy(data_dir, item).await? {

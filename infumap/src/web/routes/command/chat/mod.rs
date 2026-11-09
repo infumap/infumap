@@ -1148,6 +1148,12 @@ pub async fn serve_chat_stream_route(
       };
       match result {
         Ok(result) => {
+          if let Some(query_item_id) = &request.query_item_id {
+            let db = db.lock().await;
+            if let Ok(item) = db.item.get(query_item_id) {
+              crate::ai::document_pipeline::enqueue_document_fragment_item_if_active(item);
+            }
+          }
           progress.send(ChatStreamEventKind::Materializing).await;
           let response = chat_response_items_json(&user_id, &result.assistant_text);
           let items = response.get("items").cloned().unwrap_or_else(|| Value::Array(Vec::new()));
@@ -1751,6 +1757,12 @@ async fn continue_persisted_chat(
     created_at: unix_now_millis(),
   };
   transcript.create_copy(header, &source).await?;
+  let mut source_ids =
+    crate::ai::chat_transcripts::source_chat_ids(&data_dir, user_id, &source.header.query_item_id).await?;
+  source_ids.extend([request.chat_item_id.clone(), source.header.query_item_id.clone()]);
+  source_ids.sort();
+  source_ids.dedup();
+  crate::ai::chat_transcripts::write_source_chat_ids(&data_dir, user_id, &query_item_id, &source_ids).await?;
 
   let mut query_item = Item::new_query(
     &queries_page_id,
@@ -2608,14 +2620,19 @@ fn chat_system_prompt(
   mode: ChatRunMode,
 ) -> String {
   let scope_part = infumap_data.and_then(InfumapData::scope).and_then(|scope| match &scope.source {
+    ScopeSource::All => None,
     ScopeSource::Named { name, .. } => Some(format!(
       "The tools only see the scope {}; an item not found may lie outside it.",
       serde_json::Value::String(name.clone())
     )),
     // The user chose these for this question, so the model is told where to start, not only what it cannot see.
     ScopeSource::Items(item_ids) => {
-      let links =
-        item_ids.iter().filter_map(|id| db.item.get(id).ok()).map(container_fragments::item_link).collect::<Vec<_>>();
+      let links = item_ids
+        .iter()
+        .filter_map(|id| db.item.get(id).ok())
+        .filter(|item| scope.contains(db, item))
+        .map(container_fragments::item_link)
+        .collect::<Vec<_>>();
       (!links.is_empty()).then(|| {
         format!(
           "The user has limited the Infumap tools to these items and everything inside them: {}. Each is attached to \
@@ -3238,6 +3255,21 @@ async fn prepare_chat_resources(
         None => None,
       }
     };
+    let scope = if let Some(query_item_id) = &request.query_item_id {
+      let data_dir = db.lock().await.item.data_dir().to_owned();
+      let mut excluded = crate::ai::chat_transcripts::source_chat_ids(&data_dir, &session.user_id, query_item_id)
+        .await
+        .map_err(|error| error.message().to_owned())?
+        .into_iter()
+        .collect::<HashSet<_>>();
+      excluded.insert(query_item_id.clone());
+      Some(
+        ResolvedScope::for_chat(&*db.lock().await, &session.user_id, scope, excluded)
+          .map_err(|error| error.message().to_owned())?,
+      )
+    } else {
+      scope
+    };
     Some(InfumapData { scope })
   } else {
     None
@@ -3457,7 +3489,7 @@ async fn execute_search_tool_call(
     num_results: CHAT_SEARCH_TOOL_PAGE_SIZE,
     page_num,
     scope_id: None,
-    exclude_chats: true,
+    exclude_chats: false,
   };
 
   match search::run_lexical_search(db, search_request, session, scope).await {
@@ -3520,7 +3552,7 @@ async fn execute_get_fragment_tool_call(
         Source::Container
       } else if content.item_type == ItemType::Note {
         Source::Note(container_fragments::note_fragments(content))
-      } else if is_data_item_type(content.item_type) {
+      } else if is_data_item_type(content.item_type) || content.item_type == ItemType::Search {
         Source::Stored
       } else {
         return Ok(tool_error_json("This item has no readable text."));

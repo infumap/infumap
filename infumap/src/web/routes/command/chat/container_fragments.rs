@@ -70,12 +70,14 @@ pub(in crate::web::routes::command) struct Access<'a> {
 
 impl Access<'_> {
   pub fn can_read(&self, db: &Db, item: &Item) -> bool {
-    readable(item, self.user_id) && self.scope.is_none_or(|scope| scope.contains(db, item))
+    readable(item, self.user_id)
+      && !crate::ai::search_eligibility::is_in_trash(db, item)
+      && self.scope.is_none_or(|scope| scope.contains(db, item))
   }
 
   /// The item a placement displays. A link whose target is outside the scope has no content.
   pub fn content<'a>(&self, db: &'a Db, item: &'a Item) -> Option<&'a Item> {
-    resolve_content(db, item, self.user_id).filter(|content| self.scope.is_none_or(|scope| scope.contains(db, content)))
+    resolve_content(db, item, self.user_id).filter(|content| self.can_read(db, content))
   }
 }
 
@@ -600,17 +602,21 @@ pub(super) fn fragment_position(ordinal: usize, last: usize) -> String {
 /// The start of a note's or document's fragment headers, as for containers: its link and kind, then " in " and its
 /// breadcrumb. The location is left out when the chat cannot read the item's ancestors.
 pub(super) fn item_heading(db: &Db, access: &Access, content: &Item) -> (String, String) {
-  let heading = match content.item_type {
-    // A note's text follows its header, so the label need only identify it.
-    ItemType::Note => match note_label(content, NOTE_LABEL_MAX_CHARS) {
-      Some((label, _)) => format!("[{}]({}) (note)", escape_label(&label), link_url(content)),
-      None => format!("{} (note)", item_link(content)),
-    },
-    ItemType::File => match content.mime_type.as_deref().filter(|mime_type| !mime_type.is_empty()) {
-      Some(mime_type) => format!("{} (file, {mime_type})", item_link(content)),
-      None => format!("{} (file)", item_link(content)),
-    },
-    item_type => format!("{} ({})", item_link(content), item_type.as_str()),
+  let heading = if crate::ai::chat_transcripts::is_chat_item(content) {
+    format!("{} (chat)", item_link(content))
+  } else {
+    match content.item_type {
+      // A note's text follows its header, so the label need only identify it.
+      ItemType::Note => match note_label(content, NOTE_LABEL_MAX_CHARS) {
+        Some((label, _)) => format!("[{}]({}) (note)", escape_label(&label), link_url(content)),
+        None => format!("{} (note)", item_link(content)),
+      },
+      ItemType::File => match content.mime_type.as_deref().filter(|mime_type| !mime_type.is_empty()) {
+        Some(mime_type) => format!("{} (file, {mime_type})", item_link(content)),
+        None => format!("{} (file)", item_link(content)),
+      },
+      item_type => format!("{} ({})", item_link(content), item_type.as_str()),
+    }
   };
   let path = ancestors(db, content, access.user_id).unwrap_or_default();
   let location = location(db, access, &path, Some(content));
@@ -1700,10 +1706,11 @@ impl<'a, 'b> Renderer<'a, 'b> {
         let repeated = if self.active.contains(&content.id) { ", shown above" } else { "" };
         pieces.text(&format!("[composite]({}) (composite, {count}{repeated})", link_url(content)));
       }
-      ItemType::File | ItemType::Text | ItemType::Image => {
+      ItemType::File | ItemType::Text | ItemType::Image | ItemType::Search => {
         self.data_item_ids.insert(content.id.clone());
         self.untold(content);
-        pieces.text(&format!("{} ({}", item_link(content), content.item_type.as_str()));
+        let kind = if crate::ai::chat_transcripts::is_chat_item(content) { "chat" } else { content.item_type.as_str() };
+        pieces.text(&format!("{} ({}", item_link(content), kind));
         if content.item_type == ItemType::File
           && let Some(mime_type) = content.mime_type.as_deref().filter(|mime_type| !mime_type.is_empty())
         {
@@ -1716,7 +1723,7 @@ impl<'a, 'b> Renderer<'a, 'b> {
       ItemType::Divider => pieces.text("---"),
       ItemType::Placeholder => pieces.text("(empty)"),
       ItemType::Note => pieces.text(&item_link(content)),
-      ItemType::Search | ItemType::Link | ItemType::Password => {
+      ItemType::Link | ItemType::Password => {
         pieces.text(&format!("{} ({})", item_link(content), content.item_type.as_str()))
       }
     }

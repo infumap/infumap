@@ -8,6 +8,7 @@
 // Not yet populated by workers; kept as the reference lifecycle contract.
 #![allow(dead_code)]
 
+use infusdk::item::{Item, ItemType};
 use infusdk::util::infu::InfuResult;
 
 use crate::ai::image_tagging::is_supported_image_tagging_mime_type;
@@ -23,6 +24,10 @@ pub enum SearchContentKind {
 }
 
 impl SearchContentKind {
+  pub fn from_item(item: &Item) -> Option<Self> {
+    if item.item_type == ItemType::Search { Some(Self::Chat) } else { Self::from_mime_type(item.mime_type.as_deref()) }
+  }
+
   pub fn from_mime_type(mime_type: Option<&str>) -> Option<Self> {
     match mime_type? {
       "application/pdf" => Some(Self::Pdf),

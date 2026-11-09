@@ -28,6 +28,12 @@ All of these are derived from the items and their original files, and are regene
 - They are stored as plain text, not encrypted like objects.
 - Each file is JSON Lines: a header, then a record for each message sent and for how its response ended, with the model's messages and the turn's activity. It is appended to and synced as a chat runs.
 
+Search fragments for these chats are generated locally from their transcripts, without uploading objects. They
+contain user messages and completed assistant answers, excluding reasoning and tool exchanges. They are refreshed
+after completed turns and checked against the transcript at startup. Saved `.chat` items use the same visible-text
+selection. `chats/<query_item_id>.sources.json`, when present, records the saved source conversations that a continued
+chat's own tools must exclude. This local metadata is removed with its transcript and is not part of backups.
+
 Do not edit or delete them while the server runs. At startup, a file whose query item no longer exists is removed, along with temporary files left by an interrupted write. A query item whose file is missing, as after restoring the item database from a backup, shows as an empty chat.
 
 ### Deleting derived files

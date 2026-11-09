@@ -1,6 +1,7 @@
 pub mod artifact_io;
 pub mod artifact_paths;
 pub mod batch_processing;
+pub mod chat_transcripts;
 pub mod document_pipeline;
 pub mod fragment;
 pub mod fragment_indexing;

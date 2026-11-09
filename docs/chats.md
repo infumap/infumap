@@ -176,13 +176,16 @@ unchanged.
 
 ## Search
 
-- `.chat` items are searchable by their conversation: your messages and the responses. What the model read and its
-  reasoning are not searched.
-- Chats in the Queries page are not found by search. Keep a chat to make it searchable.
+- Chats on the Queries page and saved `.chat` items are searchable by their conversation: your messages and
+  completed assistant answers. Reasoning, tool calls and tool results are not searched. Query-chat fragments
+  refresh after completed turns, and search follows the normal indexing delay.
+- Default search includes query chats alongside your home-page tree. Chat tools can retrieve earlier conversations
+  within their scope, identifying both live and saved conversations as `chat`.
 - Attachments are not searched, in `.chat` items either, and `infumap_search` doesn't see them. To make an
   attachment's text searchable, copy it out of the chat as a text item.
-- `infumap_search` never returns `.chat` items, so a model does not find its earlier answers, including
-  wrong ones, and cite them as sources.
+- A chat's tools cannot search or read that same conversation, including through links or container listings.
+  For new continuations of a saved `.chat` item, its saved source is excluded too. This source exclusion is not
+  retroactive for older continuations. Trash remains excluded.
 
 ## Things to know
 

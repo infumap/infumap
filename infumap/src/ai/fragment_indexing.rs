@@ -295,7 +295,7 @@ async fn run_fragment_indexing_loop(
           db.item.get(&item_id).is_ok_and(|item| {
             item.owner_id == user_id
               && !crate::ai::search_eligibility::is_in_trash(&db, item)
-              && crate::ai::search_processing::SearchContentKind::from_mime_type(item.mime_type.as_deref()).is_some()
+              && crate::ai::search_processing::SearchContentKind::from_item(item).is_some()
           })
         };
         let loaded = if live { load_item_search_fragments(&data_dir, &user_id, &item_id).await } else { Ok(vec![]) };

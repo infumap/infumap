@@ -216,6 +216,14 @@ pub async fn build_chat_fragment_artifact(
   Ok(ObjectTextFragmentBuildResult { had_fragment_source, outcome })
 }
 
+/// Live transcripts are mutable local primary data, never object-store text copies.
+pub async fn build_live_chat_fragment_artifact(data_dir: &str, item: &Item) -> InfuResult<FragmentBuildOutcome> {
+  let bytes = crate::ai::chat_transcripts::read_transcript_bytes(data_dir, &item.owner_id, &item.id).await?;
+  let source =
+    chat_visible_text(&bytes, &item.id)?.and_then(|text| markdown_fragment_source(FragmentSourceKind::Chat, &text));
+  write_fragment_source_artifact(data_dir, item, source, FragmentSourceKind::Chat, sha256(&bytes)).await
+}
+
 fn normalize_utf8_text_source(bytes: &[u8], item_id: &str, source_label: &str) -> InfuResult<Option<String>> {
   let bytes = bytes.strip_prefix(&[0xef, 0xbb, 0xbf]).unwrap_or(bytes);
   let text =

@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use config::Config;
-use infusdk::item::Item;
+use infusdk::item::{Item, ItemType};
 use infusdk::util::infu::InfuResult;
 use log::{debug, info};
 use once_cell::sync::OnceCell;
@@ -14,8 +14,8 @@ use tokio::task;
 use tokio::time::sleep;
 
 use crate::ai::fragment::sources::{
-  build_chat_fragment_artifact, build_markdown_fragment_artifact, build_pdf_fragment_artifact,
-  build_text_fragment_artifact, pdf_fragment_source_for_item,
+  build_chat_fragment_artifact, build_live_chat_fragment_artifact, build_markdown_fragment_artifact,
+  build_pdf_fragment_artifact, build_text_fragment_artifact, pdf_fragment_source_for_item,
 };
 use crate::ai::fragment::{FragmentBuildOutcome, item_fragment_artifact_files_exist};
 use crate::ai::fragment_indexing::enqueue_fragment_lexical_index_update;
@@ -51,10 +51,14 @@ enum DocumentFragmentKind {
   Markdown,
   Text,
   Chat,
+  LiveChat,
 }
 
 impl DocumentFragmentKind {
   fn from_item(item: &Item) -> Option<DocumentFragmentKind> {
+    if item.item_type == ItemType::Search {
+      return Some(Self::LiveChat);
+    }
     match item.mime_type.as_deref()? {
       PDF_SOURCE_MIME_TYPE => Some(DocumentFragmentKind::Pdf),
       MARKDOWN_SOURCE_MIME_TYPE => Some(DocumentFragmentKind::Markdown),
@@ -70,6 +74,7 @@ impl DocumentFragmentKind {
       DocumentFragmentKind::Markdown => "Markdown",
       DocumentFragmentKind::Text => "text",
       DocumentFragmentKind::Chat => "chat",
+      DocumentFragmentKind::LiveChat => "live chat",
     }
   }
 
@@ -330,7 +335,9 @@ async fn reconcile_document_fragment_item(
     }
   };
 
-  if item_fragment_artifact_files_exist(&config.data_dir, &item_snapshot.owner_id, &item_snapshot.id).await? {
+  if candidate.kind != DocumentFragmentKind::LiveChat
+    && item_fragment_artifact_files_exist(&config.data_dir, &item_snapshot.owner_id, &item_snapshot.id).await?
+  {
     return Ok(DocumentFragmentReconcileOutcome::Skipped);
   }
 
@@ -420,6 +427,7 @@ async fn build_document_fragment_artifact(
   pdf_caption_url: Option<String>,
 ) -> InfuResult<FragmentBuildOutcome> {
   match kind {
+    DocumentFragmentKind::LiveChat => build_live_chat_fragment_artifact(&config.data_dir, item).await,
     DocumentFragmentKind::Pdf => Ok(
       build_pdf_fragment_artifact(
         &config.data_dir,

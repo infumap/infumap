@@ -20,7 +20,7 @@
 //! children are include roots. Links inside a child container titled "Exclude" (case-insensitive)
 //! are exclude roots. A scope covers its include roots and their descendants (children and
 //! attachments, never link targets), minus the exclude roots and their descendants. Exclusion
-//! wins over inclusion. A scope with no include links covers the user's home page tree; a scope
+//! wins over inclusion. A scope with no include links covers the user's home page tree and query chats; a scope
 //! whose include links all fail to resolve covers nothing.
 //!
 //! A chat can instead be limited to items chosen in it, without a scope page. Each covers itself and its
@@ -57,7 +57,7 @@ pub(super) enum ScopeProblem {
 struct ScopeSummary<'a> {
   id: &'a Uid,
   name: &'a str,
-  /// Null when the scope has no include links and so covers the home page tree.
+  /// Null when the scope has no include links and so covers the default home tree and query chats.
   include_count: Option<usize>,
   exclude_count: usize,
   problems: &'a [ScopeProblem],
@@ -73,6 +73,8 @@ struct ListScopesResponse<'a> {
 /// What a scope was resolved from.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum ScopeSource {
+  /// Default retrieval, including earlier query chats, with any per-run exclusions.
+  All,
   /// A scope page, named by its title.
   Named { id: Uid, name: String },
   /// Items chosen in a chat: each one that resolved, a link as its target, in the order chosen.
@@ -82,13 +84,29 @@ pub(super) enum ScopeSource {
 pub(super) struct ResolvedScope {
   pub source: ScopeSource,
   home_page_id: Uid,
-  /// None means the home page tree.
+  /// None means the home page tree and query chats.
   include_roots: Option<HashSet<Uid>>,
   exclude_roots: HashSet<Uid>,
   pub problems: Vec<ScopeProblem>,
 }
 
 impl ResolvedScope {
+  /// Reuse the same scope checks for search, direct reads, resolved links and container listings.
+  pub fn for_chat(db: &Db, user_id: &Uid, scope: Option<Self>, excluded: HashSet<Uid>) -> InfuResult<Self> {
+    let mut scope = match scope {
+      Some(scope) => scope,
+      None => Self {
+        source: ScopeSource::All,
+        home_page_id: db.user.get(user_id).ok_or("The user was not found.")?.home_page_id.clone(),
+        include_roots: None,
+        exclude_roots: HashSet::new(),
+        problems: Vec::new(),
+      },
+    };
+    scope.exclude_roots.extend(excluded);
+    Ok(scope)
+  }
+
   pub fn include_root_count(&self) -> Option<usize> {
     self.include_roots.as_ref().map(HashSet::len)
   }
@@ -99,7 +117,9 @@ impl ResolvedScope {
 
   /// Whether the item lies within the scope. Ownership and item type are not checked here.
   pub fn contains(&self, db: &Db, item: &Item) -> bool {
-    let mut included = false;
+    // An unscoped run can still directly read any owned item, as before. Its default search roots remain
+    // home and query chats; the runtime scope only adds exclusions to those otherwise unrestricted reads.
+    let mut included = matches!(&self.source, ScopeSource::All);
     let mut seen = HashSet::new();
     let mut current = item;
     loop {
@@ -109,7 +129,7 @@ impl ResolvedScope {
       included = included
         || match &self.include_roots {
           Some(include_roots) => include_roots.contains(&current.id),
-          None => current.id == self.home_page_id,
+          None => current.id == self.home_page_id || is_query_chat(db, current),
         };
       let Some(parent_id) = current.parent_id.as_ref().filter(|parent_id| !is_empty_uid(parent_id)) else {
         return included;
@@ -123,7 +143,17 @@ impl ResolvedScope {
 
   /// The ids of all readable items in the scope, sorted.
   pub fn allowed_item_ids(&self, db: &Db, user_id: &Uid) -> InfuResult<Vec<Uid>> {
-    let home_roots = HashSet::from([self.home_page_id.clone()]);
+    let mut home_roots = HashSet::from([self.home_page_id.clone()]);
+    if self.include_roots.is_none() {
+      let user = db.user.get(user_id).ok_or("The user was not found.")?;
+      home_roots.extend(
+        db.item
+          .get_children(&user.queries_page_id)?
+          .into_iter()
+          .filter(|item| item.item_type == ItemType::Search)
+          .map(|item| item.id.clone()),
+      );
+    }
     let mut roots = Vec::new();
     for root_id in self.include_roots.as_ref().unwrap_or(&home_roots) {
       // An include root inside an excluded subtree is excluded, but walking down from it would
@@ -132,8 +162,21 @@ impl ResolvedScope {
         roots.push(root_id.clone());
       }
     }
-    subtree_item_ids(db, roots, &self.exclude_roots, user_id)
+    let mut ids = subtree_item_ids(db, roots, &self.exclude_roots, user_id)?;
+    // A link to an excluded conversation must not return its title as a search hit either.
+    ids.retain(|id| {
+      db.item.get(id).is_ok_and(|item| {
+        item.item_type != ItemType::Link
+          || resolve_content(db, item, user_id).is_some_and(|target| self.contains(db, target))
+      })
+    });
+    Ok(ids)
   }
+}
+
+pub(super) fn is_query_chat(db: &Db, item: &Item) -> bool {
+  item.item_type == ItemType::Search
+    && db.user.get(&item.owner_id).is_some_and(|user| item.parent_id.as_ref() == Some(&user.queries_page_id))
 }
 
 pub(super) fn readable(item: &Item, user_id: &str) -> bool {
@@ -214,7 +257,7 @@ fn list_scopes_json(db: &Db, user_id: &Uid) -> InfuResult<String> {
           exclude_count: scope.exclude_root_count(),
           problems: &scope.problems,
         }),
-        ScopeSource::Items(_) => None,
+        ScopeSource::Items(_) | ScopeSource::All => None,
       })
       .collect(),
   };
