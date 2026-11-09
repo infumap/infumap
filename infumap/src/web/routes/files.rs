@@ -52,7 +52,7 @@ use crate::storage::cache::{ImageCacheKey, ImageSize};
 use crate::storage::db::Db;
 use crate::storage::object;
 use crate::util::image::{IMAGE_PROCESSING_SEMAPHORE, decode_image, encode_image_jpeg};
-use crate::util::mime::{CHAT_TRANSCRIPT_MIME_TYPE, requires_jpeg_rendition};
+use crate::util::mime::{CHAT_TRANSCRIPT_MIME_TYPE, SVG_MIME_TYPE, requires_jpeg_rendition};
 use crate::web::serve::{
   cors_response, forbidden_response, full_body, internal_server_error_response, not_found_response,
 };
@@ -138,7 +138,7 @@ struct FragmentRecord {
 
 fn is_safe_inline_mime(mime_type: &str) -> bool {
   let mime_type = mime_type.to_ascii_lowercase();
-  if mime_type == "image/svg+xml" {
+  if mime_type == SVG_MIME_TYPE {
     return false;
   }
   if mime_type.starts_with("image/") {
@@ -417,7 +417,8 @@ async fn get_cached_resized_img(
     requested_width
   };
   let respond_with_cached_original =
-    !requires_jpeg_rendition(&original_mime_type_string) && requested_width >= original_dimensions_px.w as u32;
+    original_mime_type_string == SVG_MIME_TYPE
+      || (!requires_jpeg_rendition(&original_mime_type_string) && requested_width >= original_dimensions_px.w as u32);
 
   // The largest cached rendition too small to be the response. It can be sent as a partial response whilst the
   // requested rendition is generated.
@@ -571,6 +572,18 @@ fn original_image_response<T: Into<Bytes>>(
   original_mime_type: &str,
   cache_control_value: &str,
 ) -> Response<BoxBody<Bytes, hyper::Error>> {
+  if original_mime_type == SVG_MIME_TYPE {
+    // Only image display requests receive SVG's real MIME type. Raw /files/<id> stays an octet-stream download.
+    // img disables scripting, but this URL could also be navigated to directly, so enforce the same boundary there.
+    return Response::builder()
+      .header(hyper::header::CONTENT_TYPE, SVG_MIME_TYPE)
+      .header("Content-Disposition", content_disposition_header(filename, false))
+      .header("Content-Security-Policy", "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:")
+      .header("X-Content-Type-Options", "nosniff")
+      .header(hyper::header::CACHE_CONTROL, cache_control_value)
+      .body(full_body(data))
+      .unwrap();
+  }
   let (content_type, content_disposition) = response_content_headers(filename, original_mime_type);
   Response::builder()
     .header(hyper::header::CONTENT_TYPE, content_type)

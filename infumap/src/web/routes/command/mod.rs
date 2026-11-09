@@ -73,7 +73,7 @@ use crate::storage::db::container_sync::{ContainerSyncDelta, ContainerSyncLookup
 use crate::storage::db::session::Session;
 use crate::storage::db::user::ROOT_USER_NAME;
 use crate::storage::object;
-use crate::util::image::{IMAGE_PROCESSING_SEMAPHORE, create_image_placeholder, decode_image};
+use crate::util::image::{IMAGE_PROCESSING_SEMAPHORE, prepare_image};
 use crate::util::mime::{detect_mime_type, mime_type_from_title_extension};
 use crate::util::ordering::{new_ordering, new_ordering_after, new_ordering_at_end};
 use crate::web::routes::{is_queries_subpage_item, queries_subpage_name};

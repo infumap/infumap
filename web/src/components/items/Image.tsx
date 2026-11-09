@@ -118,6 +118,8 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const imageResolutionMultiplier = () =>
     store.printMode.get() ? PRINT_IMAGE_RESOLUTION_MULTIPLIER : store.devicePixelRatio.get();
   const imgWidthToRequestDevicePx = (): number => {
+    // All SVG sizes share one URL and object URL; the browser scales the vector original at display resolution.
+    if (imageItem().mimeType == "image/svg+xml") { return imageItem().imageSizePx.w; }
     let widthPx = Math.round(imageWidthToRequestPx(true) * imageResolutionMultiplier());
     // Requests at or above the display width use the display size (a JPEG rendition for HEIC/CR2). Capping gives
     // such requests a single url and cache entry.

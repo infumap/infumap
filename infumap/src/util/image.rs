@@ -27,7 +27,8 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::Semaphore;
 
 use crate::util::cr2::{embedded_preview, is_cr2};
-use crate::util::mime::is_heif_image;
+use crate::util::mime::{SVG_MIME_TYPE, detect_mime_type, is_heif_image};
+use crate::util::svg;
 
 // Decoding and resizing large images is CPU intensive. Bound the number of concurrent image processing tasks,
 // leaving one core free so other requests (including image cache hits) continue to be served promptly.
@@ -41,6 +42,33 @@ const IMAGE_PLACEHOLDER_MAX_DIMENSION_PX: u32 = 40;
 // The JPEG header depends on the quality (via the quantization tables), so this can't be changed without
 // also changing IMAGE_PLACEHOLDER_FORMAT_VERSION and the header template on the client.
 const IMAGE_PLACEHOLDER_JPEG_QUALITY: u8 = 30;
+
+/// Display dimensions without rasterizing vector images. Used by the bulk uploader before sending the original.
+pub fn image_dimensions(image_bytes: &[u8], image_identifier: &str) -> InfuResult<(u32, u32)> {
+  if detect_mime_type(image_bytes) == SVG_MIME_TYPE {
+    let size = svg::parse(image_bytes)?.size().to_int_size();
+    return Ok((size.width(), size.height()));
+  }
+  let img = decode_image(image_bytes, image_identifier)?;
+  Ok((img.width(), img.height()))
+}
+
+/// Validate an upload and create its placeholder. The SVG original stays vector; only its placeholder is rasterized.
+pub fn prepare_image(
+  image_bytes: &[u8],
+  image_identifier: &str,
+  mime_type: &str,
+) -> InfuResult<(u32, u32, Vec<u8>)> {
+  let (width, height, img) = if mime_type == SVG_MIME_TYPE {
+    let tree = svg::parse(image_bytes)?;
+    let size = tree.size().to_int_size();
+    (size.width(), size.height(), svg::placeholder(&tree, IMAGE_PLACEHOLDER_MAX_DIMENSION_PX)?)
+  } else {
+    let img = decode_image(image_bytes, image_identifier)?;
+    (img.width(), img.height(), img)
+  };
+  Ok((width, height, create_image_placeholder(&img)?))
+}
 
 /// Decodes display-oriented pixels. CPU intensive: call on a blocking thread with an image processing permit.
 pub fn decode_image(image_bytes: &[u8], image_identifier: &str) -> InfuResult<DynamicImage> {

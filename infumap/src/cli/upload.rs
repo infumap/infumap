@@ -36,7 +36,7 @@ use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 
 use crate::util::fs::expand_tilde;
-use crate::util::image::{IMAGE_PROCESSING_SEMAPHORE, decode_image};
+use crate::util::image::{IMAGE_PROCESSING_SEMAPHORE, image_dimensions};
 use crate::util::mime::mime_type_from_title_extension;
 use crate::web::routes::command::CommandRequest;
 use crate::web::routes::command::CommandResponse;
@@ -45,7 +45,7 @@ use crate::web::routes::command::CommandResponse;
 fn is_image_filename(filename: &str) -> bool {
   matches!(
     Path::new(filename).extension().and_then(|e| e.to_str()).map(|e| e.to_ascii_lowercase()).as_deref(),
-    Some("png" | "jpg" | "jpeg" | "webp" | "gif" | "bmp" | "heic" | "heif" | "hif" | "cr2")
+    Some("png" | "jpg" | "jpeg" | "webp" | "gif" | "bmp" | "heic" | "heif" | "hif" | "cr2" | "svg")
   )
 }
 
@@ -287,29 +287,30 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
         .map_err(|e| format!("Image processing semaphore closed: {}", e))?;
       let image = tokio::task::spawn_blocking(move || {
         let _permit = permit;
-        decode_image(&buffer, &image_name)
+        image_dimensions(&buffer, &image_name)
       })
       .await
       .map_err(|e| format!("Image decode task failed for '{}': {}", filename, e))?;
       match image {
-        Ok(img) => {
+        Ok((width, height)) => {
           item.insert("itemType".to_owned(), Value::String(ItemType::Image.as_str().to_owned()));
           item.insert(
             "imageSizePx".to_owned(),
-            json::dimensions_to_object(&Dimensions { w: img.width().into(), h: img.height().into() }),
+            json::dimensions_to_object(&Dimensions { w: width.into(), h: height.into() }),
           );
           item.insert("thumbnail".to_owned(), Value::String("".to_owned())); // set on the server.
           print!("Adding image '{}' {}/{}... ", filename, i + 1, local_filenames.len());
           std::io::stdout().flush()?;
         }
-        Err(_e) => {
+        Err(e) => {
           let item_type = if is_text_or_markdown_filename(filename) { ItemType::Text } else { ItemType::File };
           item.insert("itemType".to_owned(), Value::String(item_type.as_str().to_owned()));
           print!(
-            "Could not interpret file '{}' as an image, adding as an item of type {} {}/{}... ",
+            "Could not interpret file '{}' as an image ({}), adding as an item of type {} {}/{}... ",
             filename,
+            e,
             item_type,
-            i,
+            i + 1,
             local_filenames.len()
           );
           std::io::stdout().flush()?;

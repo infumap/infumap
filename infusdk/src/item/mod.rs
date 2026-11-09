@@ -72,6 +72,7 @@ pub const PAGE_DISABLE_LINE_ITEM_EXPAND_FLAG: i64 = 0x100;
 pub const PAGE_DISABLE_MANUAL_CHILD_ADD_FLAG: i64 = 0x200;
 pub const PAGE_SHOW_TABLE_COL_HEADER_FLAG: i64 = 0x400;
 pub const PAGE_TABLE_WRAP_ROWS_FLAG: i64 = 0x800;
+pub const IMAGE_NO_CROP_FLAG: i64 = 0x002;
 
 /// Page and table flags with the same meaning, translated on page/table conversion.
 pub const PAGE_TABLE_FLAG_PAIRS: [(i64, TableFlags); 2] = [

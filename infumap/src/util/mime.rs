@@ -10,6 +10,7 @@ const TEXT_PLAIN: &str = "text/plain";
 /// detection would give text/plain, and the raw JSONL would then be indexed as plain text.
 pub const CHAT_TRANSCRIPT_MIME_TYPE: &str = "application/x-infumap-chat";
 pub const CR2_MIME_TYPE: &str = "image/x-canon-cr2";
+pub const SVG_MIME_TYPE: &str = "image/svg+xml";
 
 pub fn is_cr2_mime_type(mime_type: &str) -> bool {
   mime_type == CR2_MIME_TYPE
@@ -110,7 +111,7 @@ pub fn mime_type_from_title_extension(title: &str) -> Option<String> {
     "ogg" => "audio/ogg",
     "pdf" => "application/pdf",
     "png" => "image/png",
-    "svg" => "image/svg+xml",
+    "svg" => SVG_MIME_TYPE,
     "txt" => "text/plain",
     "wav" => "audio/wav",
     "webm" => "video/webm",
@@ -157,7 +158,7 @@ fn detect_text_mime_type(data: &[u8]) -> String {
 
   if let Some(root_tag) = first_xml_root_tag_name(text) {
     if root_tag.eq_ignore_ascii_case("svg") {
-      return "image/svg+xml".to_owned();
+      return SVG_MIME_TYPE.to_owned();
     }
     return "application/xml".to_owned();
   }

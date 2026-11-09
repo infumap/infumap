@@ -63,10 +63,10 @@ const TEXT_UPLOAD_EXTENSIONS = new Set(["txt", "md", "markdown"]);
 // be browser-readable because their original bytes are served at full size.
 const IMAGE_UPLOAD_MIME_TYPES = new Set([
   "image/jpeg", "image/png", "image/webp", "image/gif", "image/bmp", "image/heic", "image/heif",
-  "image/x-canon-cr2",
+  "image/x-canon-cr2", "image/svg+xml",
 ]);
 // Browsers may leave the MIME type empty or use a generic type for these formats (including image/tiff for CR2).
-const SERVER_DECODED_IMAGE_EXTENSIONS = new Set(["heic", "heif", "hif", "cr2"]);
+const SERVER_DECODED_IMAGE_EXTENSIONS = new Set(["heic", "heif", "hif", "cr2", "svg"]);
 
 function normalizedUploadMimeType(file: File): string {
   return file.type.trim().toLowerCase().split(";")[0];

@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use super::*;
+use infusdk::item::IMAGE_NO_CROP_FLAG;
 use crate::ai::document_pipeline::requeue_document_fragment_item_now;
 use crate::ai::fragment::sources::{is_local_text_copy_item, write_local_text_copy};
 use crate::ai::fragment_indexing::enqueue_fragment_lexical_index_update;
@@ -22,6 +23,7 @@ use crate::ai::image_pipeline::requeue_image_background_pipeline_item_now;
 use crate::ai::search_eligibility::is_in_trash;
 use crate::ai::search_processing::SearchContentKind;
 use crate::ai::text_extraction::{MAX_PDF_CONVERSION_TIMEOUT_SECS, requeue_pdf_item_now};
+use crate::util::mime::SVG_MIME_TYPE;
 
 #[derive(Deserialize)]
 pub struct GetAttachmentsRequest {
@@ -162,6 +164,7 @@ pub(super) async fn add_item_for_user_with_mime_type(
   let mut iterator = deserializer.into_iter::<serde_json::Value>();
   let item_map_maybe = iterator.next().ok_or("Add item request has no item data.")??;
   let mut item_map = item_map_maybe.as_object().ok_or("Add item request body is not a JSON object.")?.clone();
+  let use_default_image_flags = !item_map.contains_key("flags");
 
   let item_type = String::from(
     item_map
@@ -419,6 +422,10 @@ pub(super) async fn add_item_for_user_with_mime_type(
       );
     }
     item.mime_type = Some(mime_type.map(str::to_owned).unwrap_or_else(|| detect_data_item_mime_type(&item, &decoded)));
+    if is_image_item(&item) && item.mime_type.as_deref() == Some(SVG_MIME_TYPE) && use_default_image_flags {
+      // Charts commonly put axis labels at the edges; cropping them by default hides essential information.
+      item.flags = Some(IMAGE_NO_CROP_FLAG);
+    }
     decode_ms = decode_started.elapsed().as_millis();
     let object_encryption_key = object_encryption_key_maybe
       .as_ref()
@@ -441,15 +448,13 @@ pub(super) async fn add_item_for_user_with_mime_type(
         .acquire_owned()
         .await
         .map_err(|e| format!("Image processing semaphore closed: {}", e))?;
-      let item_id = item.id.clone();
       let title = title.clone();
+      let image_mime_type = item.mime_type.clone().unwrap();
       let (width, height, placeholder, decoded) =
         tokio::task::spawn_blocking(move || -> InfuResult<(u32, u32, Vec<u8>, Vec<u8>)> {
           let _permit = permit;
-          let img = decode_image(&decoded, &title)?;
-          let placeholder = create_image_placeholder(&img)
-            .map_err(|e| format!("An error occurred creating the placeholder for new image '{}': {}.", item_id, e))?;
-          Ok((img.width(), img.height(), placeholder, decoded))
+          let (width, height, placeholder) = prepare_image(&decoded, &title, &image_mime_type)?;
+          Ok((width, height, placeholder, decoded))
         })
         .await
         .map_err(|e| format!("Image processing task for new image '{}' failed: {}", item.id, e))??;

@@ -23,3 +23,4 @@ pub mod mime;
 pub mod ordering;
 pub mod retry;
 pub mod str;
+pub mod svg;
