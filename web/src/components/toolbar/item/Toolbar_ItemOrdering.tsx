@@ -27,7 +27,7 @@ import { serverOrRemote } from "../../../server";
 import { itemState } from "../../../store/ItemState";
 import { StoreContextModel, useStore } from "../../../store/StoreProvider";
 import { InfuIconButton } from "../../library/InfuIconButton";
-import { getToolbarFocusItem, getToolbarFocusPathMaybe } from "../toolbarFocus";
+import { getToolbarFocusPathMaybe, getToolbarFocusTreeItemMaybe } from "../toolbarFocus";
 
 /**
  * Whether the item ordering buttons are shown for the toolbar focus item.
@@ -48,8 +48,9 @@ export function itemOrderingIsShown(store: StoreContextModel): boolean {
     return false;
   }
 
-  const focusItem = getToolbarFocusItem(store);
-  if (!itemCanMove(focusItem)) {
+  // ordering is among the siblings where the item is shown, so for a link it is the link's, not its target's.
+  const focusItem = getToolbarFocusTreeItemMaybe(store);
+  if (focusItem == null || !itemCanMove(focusItem)) {
     return false;
   }
   if (focusItem.parentId == null || focusItem.relationshipToParent != RelationshipToParent.Child) {
@@ -69,9 +70,9 @@ export const Toolbar_ItemOrdering: Component = () => {
   const store = useStore();
 
   const moveFocusedItemToTop = () => {
-    const focusItem = getToolbarFocusItem(store);
-    const parentId = focusItem.parentId;
-    if (parentId == null) {
+    const focusItem = getToolbarFocusTreeItemMaybe(store);
+    const parentId = focusItem?.parentId;
+    if (focusItem == null || parentId == null) {
       return;
     }
 
@@ -83,9 +84,9 @@ export const Toolbar_ItemOrdering: Component = () => {
   };
 
   const moveFocusedItemToBottom = () => {
-    const focusItem = getToolbarFocusItem(store);
-    const parentId = focusItem.parentId;
-    if (parentId == null) {
+    const focusItem = getToolbarFocusTreeItemMaybe(store);
+    const parentId = focusItem?.parentId;
+    if (focusItem == null || parentId == null) {
       return;
     }
 

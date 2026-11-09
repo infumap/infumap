@@ -31,7 +31,8 @@ import { GRID_SIZE } from "../../../constants";
 import { itemState } from "../../../store/ItemState";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 import { Toolbar_InfoAndId } from "./Toolbar_InfoAndId";
-import { getToolbarFocusItem, getToolbarFocusPathMaybe, toolbarFocusIsInTableView } from "../toolbarFocus";
+import { getToolbarFocusItem, getToolbarFocusLinkItemMaybe, getToolbarFocusPathMaybe, getToolbarFocusTreeItemMaybe, toolbarFocusIsInTableView } from "../toolbarFocus";
+import { LinkFns } from "../../../items/link-item";
 import { noteFormatTargets, toggleActiveNoteInlineMark } from "../../../input/edit";
 import { applyEditorFormatCommand } from "../../../input/editor_history";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../../items/page-item";
@@ -55,8 +56,11 @@ export const Toolbar_Note: Component = () => {
     return asNoteItem(getToolbarFocusItem(store));
   };
   const canEdit = () => itemCanEdit(noteItem());
+  // the composite the note is shown in, which for a link is the link's parent, not the note's.
   const compositeItemMaybe = () => {
-    const parentItem = itemState.get(noteItem().parentId);
+    const treeItem = getToolbarFocusTreeItemMaybe(store);
+    if (treeItem == null) { return null; }
+    const parentItem = itemState.get(treeItem.parentId);
     if (!parentItem || !isComposite(parentItem)) { return null; }
     return asCompositeItem(parentItem);
   };
@@ -160,14 +164,20 @@ export const Toolbar_Note: Component = () => {
 
   const explicitHeightButtonHandler = (): void => {
     const note = noteItem();
-    applyEditorFormatCommand(store, [note], "Toggle fixed height", () => {
+    // the flag is the note's, but a link draws a fixed height note at the link's own height. Without setting it, the
+    // note jumps to whatever height the link had.
+    const link = getToolbarFocusLinkItemMaybe(store);
+    applyEditorFormatCommand(store, link == null ? [note] : [note, link], "Toggle fixed height", () => {
       if (note.flags & NoteFlags.ExplicitHeight) {
         note.flags &= ~NoteFlags.ExplicitHeight;
         note.spatialHeightGr = 0;
       } else {
+        // measured before the flag is set, so these are the natural heights, each at its own width.
         const naturalDims = NoteFns.calcSpatialDimensionsBl(note);
+        const linkNaturalDimsMaybe = link == null ? null : LinkFns.calcSpatialDimensionsBl(link);
         note.flags |= NoteFlags.ExplicitHeight;
         note.spatialHeightGr = naturalDims.h * GRID_SIZE;
+        if (link != null) { link.spatialHeightGr = linkNaturalDimsMaybe!.h * GRID_SIZE; }
       }
     });
     requestArrange(store, "toolbar-note-explicit-height");

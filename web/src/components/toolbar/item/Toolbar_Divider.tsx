@@ -24,12 +24,18 @@ import { VesCache } from "../../../layout/ves-cache";
 import { serverOrRemote } from "../../../server";
 import { useStore } from "../../../store/StoreProvider";
 import { InfuIconButton } from "../../library/InfuIconButton";
-import { getToolbarFocusItem, getToolbarFocusPathMaybe } from "../toolbarFocus";
+import { getToolbarFocusItem, getToolbarFocusLinkItemMaybe, getToolbarFocusPathMaybe } from "../toolbarFocus";
 import { itemOrderingIsShown, Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 import { dividerIsAlwaysHorizontal } from "../../items/helper";
 import { Toolbar_InfoAndId } from "./Toolbar_InfoAndId";
 import { TOOLBAR_INFO_DIVIDER_RIGHT_PX } from "../toolbarDividers";
 
+
+function swapSize(item: { spatialWidthGr: number, spatialHeightGr: number }) {
+  const oldWidthGr = item.spatialWidthGr;
+  item.spatialWidthGr = item.spatialHeightGr;
+  item.spatialHeightGr = oldWidthGr;
+}
 
 export const Toolbar_Divider: Component = () => {
   const store = useStore();
@@ -53,11 +59,14 @@ export const Toolbar_Divider: Component = () => {
     const item = dividerItem();
     if (item.dividerDirection == direction) { return; }
     item.dividerDirection = direction;
-    const oldWidthGr = item.spatialWidthGr;
-    item.spatialWidthGr = item.spatialHeightGr;
-    item.spatialHeightGr = oldWidthGr;
+    swapSize(item);
+    // the direction is the divider's, but a link draws it at the link's own size, which must turn with it. Other
+    // links to the divider keep their size until resized.
+    const link = getToolbarFocusLinkItemMaybe(store);
+    if (link != null) { swapSize(link); }
     requestArrange(store, "toolbar-divider-direction");
     serverOrRemote.updateItem(item);
+    if (link != null) { serverOrRemote.updateItem(link); }
   };
 
   return (

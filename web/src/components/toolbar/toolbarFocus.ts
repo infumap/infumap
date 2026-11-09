@@ -17,6 +17,7 @@
 */
 
 import { Item } from "../../items/base/item";
+import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, asPageItem, isPage, PageItem } from "../../items/page-item";
 import { VeFns, VisualElement, VisualElementPath, isTableView } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
@@ -70,6 +71,28 @@ export function getToolbarFocusPathMaybe(store: StoreContextModel): VisualElemen
 
   const childVe = soloItemHolderChildVeMaybe(store);
   return childVe == null ? store.history.getFocusPathMaybe() : VeFns.veToPath(childVe);
+}
+
+/**
+ * The item that sits in the parent where the toolbar focus item is shown: the link if it is shown through one,
+ * otherwise the focus item itself. getToolbarFocusItem is the link's target, which holds the content, but where the
+ * item sits (its parent, ordering, position and size) belongs to the link. Null if that can't be resolved to a
+ * stored item, e.g. a link generated for display, so callers don't fall back to editing the target in its own parent.
+ */
+export function getToolbarFocusTreeItemMaybe(store: StoreContextModel): Item | null {
+  const focusPath = getToolbarFocusPathMaybe(store);
+  if (focusPath == null) { return null; }
+  // the solo item holder falls back to a path that isn't the focus item's.
+  if (VeFns.veidFromPath(focusPath).itemId != getToolbarFocusItem(store).id) { return null; }
+  return VeFns.treeItemFromPath(focusPath);
+}
+
+/**
+ * The stored link the toolbar focus item is shown through, or null.
+ */
+export function getToolbarFocusLinkItemMaybe(store: StoreContextModel): LinkItem | null {
+  const treeItem = getToolbarFocusTreeItemMaybe(store);
+  return treeItem != null && isLink(treeItem) ? asLinkItem(treeItem) : null;
 }
 
 export function toolbarFocusIsInTableView(store: StoreContextModel): boolean {
