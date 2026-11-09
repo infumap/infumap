@@ -811,7 +811,8 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     (isDirectChildOfDocumentArrangedPage(hitVe) || isChildOfCompositeInDocumentArrangedPage(hitVe)) &&
     !!(hitInfo.hitboxType & HitboxFlags.Move) &&
     (!!hitInfo.overElementMeta?.compositeMoveOut || clickOffsetProp.x > 1);
-  if (hitInfo.overElementMeta?.compositeMoveOut || documentRowMoveOut) {
+  const pressedMoveHandle = !!hitInfo.overElementMeta?.compositeMoveOut || documentRowMoveOut;
+  if (pressedMoveHandle) {
     // Composite move-out can start from a synthetic gutter outside the item's visible bounds.
     const clampOffsetProp = {
       x: Math.max(0, Math.min(1, clickOffsetProp.x)),
@@ -850,6 +851,9 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     if (MouseActionState.empty()) { return; }
     if (!MouseActionState.isAction(MouseAction.Ambiguous)) { return; }
     if (MouseActionState.getHitMeta()?.queryChatTurnMarkdown) { return; }
+    // A move handle is only a drag affordance. Entering edit mode from it hides the handle, and presses where it was
+    // then land in the text being edited, so the item can't be dragged until editing ends.
+    if (pressedMoveHandle) { return; }
     if (isPage(overDisplayItem) &&
       (hitVe.linkItemMaybe?.overrideArrangeAlgorithm ?? asPageItem(overDisplayItem).arrangeAlgorithm) == ArrangeAlgorithm.Calendar &&
       hitVe.calendarMiniDayLayouts.length > 0 &&
