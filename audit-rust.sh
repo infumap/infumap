@@ -225,6 +225,44 @@ if [[ "$vet_exit" -ne 0 ]]; then
   exit 1
 fi
 
+# The pin in rust-toolchain.toml only moves when someone edits it, and an old rustc silently
+# holds back crate updates (security fixes included), so flag it once it is two releases behind.
+check_toolchain_pin() {
+  local toolchain_file="$ROOT_DIR/rust-toolchain.toml"
+  local pinned=""
+  local manifest=""
+  local latest=""
+
+  pinned="$(sed -nE 's/^channel *= *"([0-9]+\.[0-9]+)(\.[0-9]+)?"/\1/p' "$toolchain_file" 2>/dev/null)"
+  if [[ -z "$pinned" ]]; then
+    echo "Warning: no numeric channel in rust-toolchain.toml; skipping toolchain age check." >&2
+    return
+  fi
+
+  # Captured before parsing: awk exiting early would SIGPIPE curl and trip pipefail.
+  manifest="$(curl -fsS --max-time 30 https://static.rust-lang.org/dist/channel-rust-stable.toml)" || manifest=""
+  latest="$(awk '/^\[pkg\.rustc\]/ { in_rustc = 1 } in_rustc && /^version = / { gsub(/"/, "", $3); print $3; exit }' <<<"$manifest")"
+  if [[ -z "$latest" ]]; then
+    echo "Warning: could not fetch the latest stable Rust version; skipping toolchain age check." >&2
+    return
+  fi
+
+  local behind=$(( $(cut -d. -f2 <<<"$latest") - $(cut -d. -f2 <<<"$pinned") ))
+  if [[ "$behind" -ge 2 ]]; then
+    cat >&2 <<EOF
+
+  *** RUST TOOLCHAIN WARNING ***
+  rust-toolchain.toml pins Rust $pinned, $behind releases behind stable ($latest).
+  Bump channel in rust-toolchain.toml, then build, test and re-run ./audit.sh --server.
+
+EOF
+  else
+    echo "Rust toolchain $pinned is within one release of stable ($latest)."
+  fi
+}
+
+check_toolchain_pin
+
 # Check publish-date age of all crates.io dependencies.
 find_python() {
   for cmd in python3 python; do

@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-The build requires Node.js with npm, Python 3, and Rust with Cargo and a native compiler toolchain. For Rust installation, follow the [official Rust setup instructions](https://www.rust-lang.org/tools/install). On macOS, install Apple's Command Line Tools with `xcode-select --install` if they are missing.
+The build requires Node.js with npm, Python 3, and Rust with Cargo and a native compiler toolchain. For Rust installation, follow the [official Rust setup instructions](https://www.rust-lang.org/tools/install). The Rust version is pinned in `rust-toolchain.toml`; run `rustup install` from the repository root to install it. On macOS, install Apple's Command Line Tools with `xcode-select --install` if they are missing.
 
 ### Node.js and npm
 

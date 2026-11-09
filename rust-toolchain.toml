@@ -1,0 +1,5 @@
+# Pinned so every machine resolves and builds with the same compiler: Cargo.lock resolution
+# depends on it (the resolver skips crate versions needing a newer rustc). audit-rust.sh warns
+# when this falls behind stable; bump it there, not with a global `rustup update`.
+[toolchain]
+channel = "1.99"

@@ -18,6 +18,7 @@ missing or more than a week old.
 | Sources | `audit-rust.sh` (cargo-deny, `deny.toml`) | Crates from anywhere other than crates.io; wildcard versions |
 | Vetting | `audit-rust.sh` (cargo-vet, `<crate>/supply-chain/`) | Rust crate versions nobody has reviewed, e.g. a malicious new release |
 | Crate age | `check-crate-ages.py` | Rust crates published in the last 7 days |
+| Toolchain | `audit-rust.sh` | `rust-toolchain.toml` pinned two or more releases behind stable (warning only) |
 | npm | `audit-npm.sh` | Known vulnerable packages in `web/` |
 | Python | `audit-python.sh` (pip-audit) | Known vulnerable packages in `tools/gpu/*/requirements.txt` |
 
@@ -67,6 +68,11 @@ Alternatives to a review:
 
 Audits published by Mozilla, Google, Bytecode Alliance and ISRG are imported (`[imports]` in
 `supply-chain/config.toml`) and count as reviews.
+
+**Toolchain behind.** The Rust version is pinned in `rust-toolchain.toml` so every machine builds and resolves
+`Cargo.lock` with the same compiler. An old pin quietly holds back crate updates, because the resolver skips versions
+that need a newer rustc. To bump it, edit `channel`, run `rustup install` from the repository root, build and test
+both crates, then run `cargo update` and the audit, since newer crate versions may now be allowed.
 
 **Crate too new.** Re-run the audit once the crate is 7 days old; there is no override. Most malicious releases are
 found and removed within days, so avoid deploying a build that includes it before then.
