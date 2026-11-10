@@ -192,19 +192,26 @@ if [[ "$audit_exit" -ne 0 ]]; then
   exit "$audit_exit"
 fi
 
-# Advisory checks only catch known vulnerabilities; cargo-vet fails when a crate version
-# nobody has reviewed (us, or an imported audit set in supply-chain/config.toml) enters
-# the graph, which is what catches a malicious release.
+# Advisory scans only know reported issues. Keep baseline exemptions absent so cargo-vet
+# requires review evidence for existing dependencies as well as updates. It checks records,
+# not source code, and a review can still miss a vulnerability or a malicious change.
 print_vet_guidance() {
   cat <<'EOF'
 
 How to resolve unvetted crates (run in the failing crate's directory):
   cargo vet suggest                       # list what needs review, smallest diffs first
-  cargo vet diff <crate> <old> <new>      # review the change, then:
-  cargo vet certify <crate> <old> <new>
-  cargo vet inspect <crate> <version>     # review a crate with no prior audited version
-  cargo vet trust <crate> <publisher>     # accept future releases by a trusted publisher
-  cargo vet add-exemption <crate> <ver>   # last resort: accept without review
+  cargo vet diff <crate> <old> <new> --mode=local
+  cargo vet certify <crate> <old> <new> --criteria safe-to-deploy
+  cargo vet inspect <crate> <version> --mode=local
+  cargo vet certify <crate> <version> --criteria safe-to-deploy
+
+Use the suggested diffs: an unaudited base version still needs a full review.
+Certify only after completing the review, and add notes about what you checked.
+safe-to-run alone does not cover production security against untrusted input.
+Public audit sources are configured in each supply-chain/config.toml. Add sources
+only after deciding to trust their reviews. Publisher trust and blanket exemptions
+do not establish source-review coverage. `cargo vet trust` accepts a publisher's
+releases over a date range; it does not record the diff you just inspected.
 Commit the supply-chain/ changes, then re-run ./audit.sh --server.
 EOF
 }
