@@ -26,9 +26,9 @@ import { asTableItem, isTable } from "../items/table-item";
 import { asNoteItem, isNote, NoteItem } from "../items/note-item";
 import { NoteFlags } from "../items/base/flags-item";
 import { StoreContextModel } from "../store/StoreProvider";
-import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, compareVector } from "../util/geometry";
+import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, vectorSubtract, Vector, boundingBoxFromPosSize, compareVector, BoundingBox } from "../util/geometry";
 import { panic } from "../util/lang";
-import { VisualElement, VisualElementFlags, VeFns, veFlagIsRoot, isVeTranslucentPage, type VisualElementPath } from "../layout/visual-element";
+import { VisualElement, VisualElementFlags, VeFns, veFlagIsRoot, isVeTranslucentPage, pageScrollVeid, type VisualElementPath } from "../layout/visual-element";
 import { HitInfoFns } from "./hit";
 import { asPositionalItem, isPositionalItem } from "../items/base/positional-item";
 import { asLinkItem, isLink } from "../items/link-item";
@@ -71,6 +71,12 @@ let lastSelectionArrangeTimeMs = 0;
 let lastSelectionSignature = "";
 let pendingSelectionArrangeTimeout: ReturnType<typeof setTimeout> | null = null;
 const SELECTION_ARRANGE_THROTTLE_MS = 33;
+let selectionStartScrollPx: Vector = { x: 0, y: 0 };
+let selectionAutoScrollFrame: number | null = null;
+let selectionAutoScrollLastTimeMs: number | null = null;
+let selectionAutoScrollRemainderPx: Vector = { x: 0, y: 0 };
+const SELECTION_AUTO_SCROLL_EDGE_PX = 40;
+const SELECTION_AUTO_SCROLL_MAX_PX_PER_S = 1200;
 const COPY_MOVE_CURSOR_CLASS = "infumap-copy-move-cursor";
 
 function setCopyMoveCursorOverride(active: boolean): void {
@@ -752,6 +758,7 @@ function changeMouseActionStateMaybe(
     }
     MouseActionState.setAction(MouseAction.Selecting);
     const startPx = MouseActionState.getStartPx()!;
+    selectionStartScrollPx = VeFns.pageScrollOffsetPx(store, MouseActionState.readSelectionRoot()!);
     store.overlay.selectionMarqueePx.set({ x: startPx.x, y: startPx.y, w: 0, h: 0 });
     store.overlay.selectedVeids.set([]);
     // Nothing is highlighted at this point. Keeping the signature of the previous marquee would make a first rect
@@ -762,9 +769,24 @@ function changeMouseActionStateMaybe(
 }
 
 
-function selectionRectFromStartAndCurrent(store: StoreContextModel): { x: number; y: number; w: number; h: number } {
-  const start = MouseActionState.getStartPx()!;
-  const current = CursorEventState.getLatestDesktopPx(store);
+/**
+ * Where the marquee started, in desktop px. It is held to the content under the mouse down point, so it moves with the
+ * page as the page scrolls and may then lie outside the page viewport.
+ */
+function selectionStartPx(store: StoreContextModel, selectionRootVe: VisualElement): Vector {
+  const scrollPx = VeFns.pageScrollOffsetPx(store, selectionRootVe);
+  return vectorSubtract(MouseActionState.getStartPx()!, vectorSubtract(scrollPx, selectionStartScrollPx));
+}
+
+function selectionRectFromStartAndCurrent(store: StoreContextModel, selectionRootVe: VisualElement, viewportPx: BoundingBox): BoundingBox {
+  const start = selectionStartPx(store, selectionRootVe);
+  // The end is held inside the viewport. Dragging past an edge scrolls the page instead (selectionAutoScrollTick), and
+  // the marquee must not take in content that has not been scrolled into view.
+  const cursor = CursorEventState.getLatestDesktopPx(store);
+  const current = {
+    x: Math.min(Math.max(cursor.x, viewportPx.x), viewportPx.x + viewportPx.w),
+    y: Math.min(Math.max(cursor.y, viewportPx.y), viewportPx.y + viewportPx.h),
+  };
   const x = Math.min(start.x, current.x);
   const y = Math.min(start.y, current.y);
   const w = Math.abs(current.x - start.x);
@@ -791,26 +813,15 @@ function arrangeForSelection(store: StoreContextModel, signature: string) {
   arrangeNow(store, "selection-marquee-update");
 }
 
-function mouseAction_selecting(store: StoreContextModel) {
-  const rect = selectionRectFromStartAndCurrent(store);
-  store.overlay.selectionMarqueePx.set(rect);
-  if (rect.w <= 0 || rect.h <= 0) {
-    store.overlay.selectedVeids.set([]);
-    return;
-  }
-
+/**
+ * The items covered by the marquee, as of the latest cursor position.
+ */
+export function marqueeSelection(store: StoreContextModel): Array<{ itemId: string; linkIdMaybe: string | null }> {
   const selectionRootVe = MouseActionState.readSelectionRoot()!;
-  const activeRootBounds = VeFns.veViewportBoundsRelativeToDesktopPx(store, selectionRootVe);
-  const selectionRect = {
-    x: Math.max(rect.x, activeRootBounds.x),
-    y: Math.max(rect.y, activeRootBounds.y),
-    w: Math.min(rect.x + rect.w, activeRootBounds.x + activeRootBounds.w) - Math.max(rect.x, activeRootBounds.x),
-    h: Math.min(rect.y + rect.h, activeRootBounds.y + activeRootBounds.h) - Math.max(rect.y, activeRootBounds.y),
-  };
-  if (selectionRect.w <= 0 || selectionRect.h <= 0) {
-    store.overlay.selectedVeids.set([]);
-    return;
-  }
+  const viewportPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, selectionRootVe);
+  // Not clipped to the viewport: the part scrolled out of view was covered by the marquee as the page scrolled.
+  const selectionRect = selectionRectFromStartAndCurrent(store, selectionRootVe, viewportPx);
+  if (selectionRect.w <= 0 || selectionRect.h <= 0) { return []; }
 
   const selected: Array<{ itemId: string; linkIdMaybe: string | null }> = [];
   const selectedSet = new Set<string>();
@@ -872,9 +883,109 @@ function mouseAction_selecting(store: StoreContextModel) {
     for (const child of VesCache.render.getChildren(VeFns.veToPath(ve))()) { stack.push(VeFns.veToPath(child.get())); }
     for (const att of VesCache.render.getAttachments(VeFns.veToPath(ve))()) { stack.push(VeFns.veToPath(att.get())); }
   }
-  store.overlay.selectionRootPath.set(rootPath);
-  store.overlay.selectedVeids.set(selected);
+  return selected;
+}
 
+/**
+ * While the cursor is near or past an edge of the page the marquee is in, and has been dragged towards it, scroll the
+ * page so the marquee can be extended over items that were out of view. Runs per frame, as the cursor may be still.
+ */
+function selectionAutoScroll_maybeStart(store: StoreContextModel) {
+  if (selectionAutoScrollFrame != null) { return; }
+  selectionAutoScrollLastTimeMs = null;
+  selectionAutoScrollRemainderPx = { x: 0, y: 0 };
+  selectionAutoScrollFrame = requestAnimationFrame(timeMs => selectionAutoScrollTick(store, timeMs));
+}
+
+function selectionAutoScrollSpeedPxPerS(cursorPx: number, startPx: number, viewportStartPx: number, viewportSizePx: number): number {
+  const edgePx = Math.min(SELECTION_AUTO_SCROLL_EDGE_PX, viewportSizePx / 4);
+  if (edgePx <= 0) { return 0; }
+  // Full speed is reached at the edge itself, not past it: the page edge is often the window edge, where the cursor
+  // stops.
+  const depthFromEndPx = cursorPx - (viewportStartPx + viewportSizePx - edgePx);
+  if (depthFromEndPx > 0 && cursorPx > startPx) {
+    return SELECTION_AUTO_SCROLL_MAX_PX_PER_S * Math.min(1, depthFromEndPx / edgePx);
+  }
+  const depthFromStartPx = viewportStartPx + edgePx - cursorPx;
+  if (depthFromStartPx > 0 && cursorPx < startPx) {
+    return -SELECTION_AUTO_SCROLL_MAX_PX_PER_S * Math.min(1, depthFromStartPx / edgePx);
+  }
+  return 0;
+}
+
+function selectionAutoScrollTick(store: StoreContextModel, timeMs: number) {
+  selectionAutoScrollFrame = null;
+  if (!MouseActionState.isAction(MouseAction.Selecting)) { return; }
+  const selectionRootVe = MouseActionState.readSelectionRoot();
+  if (!selectionRootVe || !(selectionRootVe.flags & VisualElementFlags.ShowChildren) ||
+    !selectionRootVe.childAreaBoundsPx || selectionRootVe.tableBodyViewportBoundsPx != null) { return; }
+  const scrollVeid = pageScrollVeid(store, selectionRootVe);
+
+  const viewportPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, selectionRootVe);
+  const cursorPx = CursorEventState.getLatestDesktopPx(store);
+  const startPx = selectionStartPx(store, selectionRootVe);
+  const speedPxPerS = {
+    x: selectionAutoScrollSpeedPxPerS(cursorPx.x, startPx.x, viewportPx.x, viewportPx.w),
+    y: selectionAutoScrollSpeedPxPerS(cursorPx.y, startPx.y, viewportPx.y, viewportPx.h),
+  };
+  if (speedPxPerS.x == 0 && speedPxPerS.y == 0) { return; }
+
+  const dtS = selectionAutoScrollLastTimeMs == null ? 1 / 60 : Math.min(0.1, (timeMs - selectionAutoScrollLastTimeMs) / 1000);
+  selectionAutoScrollLastTimeMs = timeMs;
+
+  // As in pageAncestorScrollOffsetPx, scroll props are relative to the viewport.
+  const pageViewportPx = selectionRootVe.viewportBoundsPx ?? selectionRootVe.boundsPx;
+  const scrollRangePx = {
+    x: Math.max(0, selectionRootVe.childAreaBoundsPx.w - pageViewportPx.w),
+    y: Math.max(0, selectionRootVe.childAreaBoundsPx.h - pageViewportPx.h),
+  };
+  const scrollPx = VeFns.pageScrollOffsetPx(store, selectionRootVe);
+  // Whole px only, carrying the remainder: the page's DOM scroll handler writes the scroll position back rounded, which
+  // would swallow sub-pixel steps at low speeds.
+  const stepPx = (axis: "x" | "y") => {
+    const wantPx = speedPxPerS[axis] * dtS + selectionAutoScrollRemainderPx[axis];
+    const wholePx = Math.trunc(wantPx);
+    selectionAutoScrollRemainderPx[axis] = wantPx - wholePx;
+    return Math.min(Math.max(scrollPx[axis] + wholePx, 0), scrollRangePx[axis]);
+  };
+  const nextScrollPx = { x: stepPx("x"), y: stepPx("y") };
+  const atLimit =
+    (speedPxPerS.x == 0 || (speedPxPerS.x < 0 ? scrollPx.x <= 0 : scrollPx.x >= scrollRangePx.x)) &&
+    (speedPxPerS.y == 0 || (speedPxPerS.y < 0 ? scrollPx.y <= 0 : scrollPx.y >= scrollRangePx.y));
+  if (atLimit) { return; }
+
+  if (nextScrollPx.x != scrollPx.x && scrollRangePx.x > 0) {
+    store.perItem.setPageScrollXProp(scrollVeid, nextScrollPx.x / scrollRangePx.x);
+  }
+  if (nextScrollPx.y != scrollPx.y && scrollRangePx.y > 0) {
+    store.perItem.setPageScrollYProp(scrollVeid, nextScrollPx.y / scrollRangePx.y);
+  }
+  updateSelectionMarquee(store);
+  selectionAutoScrollFrame = requestAnimationFrame(nextTimeMs => selectionAutoScrollTick(store, nextTimeMs));
+}
+
+function mouseAction_selecting(store: StoreContextModel) {
+  updateSelectionMarquee(store);
+  selectionAutoScroll_maybeStart(store);
+}
+
+function updateSelectionMarquee(store: StoreContextModel) {
+  const selectionRootVe = MouseActionState.readSelectionRoot()!;
+  const viewportPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, selectionRootVe);
+  const rect = selectionRectFromStartAndCurrent(store, selectionRootVe, viewportPx);
+  // Only the part of the marquee inside the page is drawn: the start may have been scrolled out of view.
+  const drawnX = Math.max(rect.x, viewportPx.x);
+  const drawnY = Math.max(rect.y, viewportPx.y);
+  store.overlay.selectionMarqueePx.set({
+    x: drawnX,
+    y: drawnY,
+    w: Math.max(0, Math.min(rect.x + rect.w, viewportPx.x + viewportPx.w) - drawnX),
+    h: Math.max(0, Math.min(rect.y + rect.h, viewportPx.y + viewportPx.h) - drawnY),
+  });
+
+  const selected = marqueeSelection(store);
+  store.overlay.selectionRootPath.set(MouseActionState.getSelectionRootPath()!);
+  store.overlay.selectedVeids.set(selected);
 
   const signature = selectionSignature(selected);
   if (signature === lastSelectionSignature) {

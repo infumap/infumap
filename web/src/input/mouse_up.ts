@@ -70,7 +70,7 @@ import {
   shiftCalendarDateTimeByDays,
 } from "../util/calendar-layout";
 import { ImageFns, asImageItem, isImage } from "../items/image-item";
-import { mouseMove_handleNoButtonDown, resolveActiveTreeItemForResize } from "./mouse_move";
+import { marqueeSelection, mouseMove_handleNoButtonDown, resolveActiveTreeItemForResize } from "./mouse_move";
 import { calculateMoveToPagePositionGr, moveGroupToChildParentPreservingOffsets, movingHitIgnoreIds, orderedGroupMoveItems, placeItemsAtChildrenPosition, placeItemsInListPageBand } from "./move_group";
 import { isDockListPageIconMoveTargetVe, moveTargetWouldCreateRelationshipCycle, resolveInternalMoveTarget } from "./move_target";
 import { createMaterializedTextDocumentItems } from "../items/text-document";
@@ -2673,85 +2673,12 @@ function finalizeMouseUp(store: StoreContextModel) {
 }
 
 function handleSelectionMouseUp(store: StoreContextModel) {
-  const rect = store.overlay.selectionMarqueePx.get();
+  const marqueeShown = store.overlay.selectionMarqueePx.get() != null;
   store.overlay.selectionMarqueePx.set(null);
-  if (rect == null) { return; }
+  if (!marqueeShown) { return; }
 
-  const selectionRootVe = MouseActionState.readSelectionRoot()!;
-  const activeRootBounds = VeFns.veViewportBoundsRelativeToDesktopPx(store, selectionRootVe);
-  const selectionRect = {
-    x: Math.max(rect.x, activeRootBounds.x),
-    y: Math.max(rect.y, activeRootBounds.y),
-    w: Math.min(rect.x + rect.w, activeRootBounds.x + activeRootBounds.w) - Math.max(rect.x, activeRootBounds.x),
-    h: Math.min(rect.y + rect.h, activeRootBounds.y + activeRootBounds.h) - Math.max(rect.y, activeRootBounds.y),
-  };
-  if (selectionRect.w <= 0 || selectionRect.h <= 0) {
-    store.overlay.selectedVeids.set([]);
-    return;
-  }
-
-  const selected: Array<{ itemId: string; linkIdMaybe: string | null }> = [];
-  const selectedSet = new Set<string>();
-  const selectionRootItemId = selectionRootVe.displayItem.id;
-  const addVisualElementToSelection = (ve: VisualElement) => {
-    const treeItem = ve.actualLinkItemMaybe ?? ve.displayItem;
-    if (treeItem.relationshipToParent != RelationshipToParent.Child ||
-      treeItem.parentId != selectionRootItemId) {
-      return;
-    }
-
-    const itemId = ve.displayItem.id;
-    const linkIdMaybe = ve.actualLinkItemMaybe ? ve.actualLinkItemMaybe.id : null;
-    const key = itemId + (linkIdMaybe ? `[${linkIdMaybe}]` : "");
-    if (!selectedSet.has(key)) { selected.push({ itemId, linkIdMaybe }); selectedSet.add(key); }
-  };
-  const intersectsSelection = (ve: VisualElement) => {
-    if (ve.flags & VisualElementFlags.LineItem) { return false; }
-    const veBox = VeFns.veViewportBoundsRelativeToDesktopPx(store, ve);
-    if (veBox.w <= 0 || veBox.h <= 0) { return false; }
-    const ix = Math.max(selectionRect.x, veBox.x);
-    const iy = Math.max(selectionRect.y, veBox.y);
-    const ax = Math.min(selectionRect.x + selectionRect.w, veBox.x + veBox.w);
-    const ay = Math.min(selectionRect.y + selectionRect.h, veBox.y + veBox.h);
-    return ix < ax && iy < ay;
-  };
-  const rootPath = MouseActionState.getSelectionRootPath()!;
-  const stack: string[] = [rootPath];
-  while (stack.length > 0) {
-    const path = stack.pop()!;
-    const ves = MouseActionState.getVisualElementSignal(path);
-    if (!ves) { continue; }
-    const ve = ves.get();
-    // A marquee that starts outside an embedded interactive page selects that page as a boundary.
-    if (path != rootPath && (ve.flags & VisualElementFlags.EmbeddedInteractiveRoot)) {
-      if (intersectsSelection(ve)) {
-        const parentVe = ve.parentPath ? MouseActionState.readVisualElement(ve.parentPath) : null;
-        addVisualElementToSelection(parentVe && isComposite(parentVe.displayItem) ? parentVe : ve);
-      }
-      continue;
-    }
-    if (ve.parentPath && !(ve.flags & VisualElementFlags.LineItem)) {
-      if (intersectsSelection(ve)) {
-        // If inside a composite, select the composite parent instead of the child
-        if (ve.flags & VisualElementFlags.InsideCompositeOrDoc) {
-          const parentVe = MouseActionState.readVisualElement(ve.parentPath)!;
-          if (isComposite(parentVe.displayItem)) {
-            addVisualElementToSelection(parentVe);
-            continue;
-          }
-        }
-
-        const isSelectableContainer = isTable(ve.displayItem);
-        if ((!(ve.flags & VisualElementFlags.ShowChildren) || isSelectableContainer || isVeTranslucentPage(ve)) && !(ve.flags & VisualElementFlags.Popup)) {
-          addVisualElementToSelection(ve);
-        }
-      }
-    }
-    for (const child of VesCache.render.getChildren(VeFns.veToPath(ve))()) { stack.push(VeFns.veToPath(child.get())); }
-    for (const att of VesCache.render.getAttachments(VeFns.veToPath(ve))()) { stack.push(VeFns.veToPath(att.get())); }
-  }
-  store.overlay.selectionRootPath.set(rootPath);
-  store.overlay.selectedVeids.set(selected);
+  store.overlay.selectionRootPath.set(MouseActionState.getSelectionRootPath()!);
+  store.overlay.selectedVeids.set(marqueeSelection(store));
   arrangeNow(store, "mouse-up-finish-selection");
 }
 

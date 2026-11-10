@@ -1254,6 +1254,13 @@ export const VeFns = {
     return { x: r.x, y: r.y, w: visualElement.boundsPx.w, h: visualElement.boundsPx.h };
   },
 
+  /**
+   * The scroll offset currently applied to the children of a page.
+   */
+  pageScrollOffsetPx: (store: StoreContextModel, pageVe: VisualElement): Vector => {
+    return pageAncestorScrollOffsetPx(store, pageVe, pageVe, "pageScrollOffsetPx");
+  },
+
   toDebugString: (ve: VisualElement): string => {
     let result = "";
     if (isTitledItem(ve.displayItem)) {
