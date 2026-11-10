@@ -122,6 +122,8 @@ export interface OverlayStoreContextModel {
   contextMenuInfo: InfuSignal<ContextMenuInfo | null>,
   tableColumnContextMenuInfo: InfuSignal<TableColumnContextMenuInfo | null>,
   selectionMarqueePx: InfuSignal<BoundingBox | null>,
+  /** A text file item awaiting a paste that the user tried to type into. Shown only while it is still being edited. */
+  pasteTextHintPath: InfuSignal<VisualElementPath | null>,
   selectedVeids: InfuSignal<Array<Veid>>,
   /**
    * The container a marquee selection was made in. selectedVeids alone can't say which rendering of an item was
@@ -170,6 +172,7 @@ export function makeOverlayStore(onTextEditChange: (info: TextEditInfo | null) =
   const contextMenuInfo = createInfuSignal<ContextMenuInfo | null>(null);
   const tableColumnContextMenuInfo = createInfuSignal<TableColumnContextMenuInfo | null>(null);
   const selectionMarqueePx = createInfuSignal<BoundingBox | null>(null);
+  const pasteTextHintPath = createInfuSignal<VisualElementPath | null>(null);
   const selectedVeids = createInfuSignal<Array<Veid>>([]);
   const selectionRootPath = createInfuSignal<VisualElementPath | null>(null);
   const hoveredGroup = createInfuSignal<GroupInspection | null>(null);
@@ -198,6 +201,7 @@ export function makeOverlayStore(onTextEditChange: (info: TextEditInfo | null) =
     contextMenuInfo.set(null);
     tableColumnContextMenuInfo.set(null);
     selectionMarqueePx.set(null);
+    pasteTextHintPath.set(null);
     selectedVeids.set([]);
     selectionRootPath.set(null);
     hoveredGroup.set(null);
@@ -262,6 +266,7 @@ export function makeOverlayStore(onTextEditChange: (info: TextEditInfo | null) =
     contextMenuInfo,
     tableColumnContextMenuInfo,
     selectionMarqueePx,
+    pasteTextHintPath,
     selectedVeids,
     selectionRootPath,
     hoveredGroup,

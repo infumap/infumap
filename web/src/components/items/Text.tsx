@@ -196,6 +196,7 @@ export const Text: Component<VisualElementProps> = (props: VisualElementProps) =
   const beforeInputListener = (ev: InputEvent) => {
     if (titleIsPlaceholder() && ev.inputType != "insertFromPaste") {
       ev.preventDefault();
+      store.overlay.pasteTextHintPath.set(vePath());
     }
   }
 

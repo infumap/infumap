@@ -89,6 +89,7 @@ export function acceptClipboardTextForPendingTextItem(
     return true;
   }
 
+  store.overlay.pasteTextHintPath.set(null);
   const now = currentUnixTimeSeconds();
   textItem.clipboardTextContent = text;
   textItem.clipboardTextCreateState = "editing-title";
@@ -115,6 +116,7 @@ export function finishPendingClipboardTextItem(
   }
 
   const textItem = asTextItem(item);
+  store.overlay.pasteTextHintPath.set(null);
   if (textItem.clipboardTextCreateState == "persisting") {
     return true;
   }

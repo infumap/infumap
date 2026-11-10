@@ -19,6 +19,7 @@
 import { Component, Show, onCleanup, onMount } from "solid-js";
 import { useStore } from "../store/StoreProvider";
 import { ContextMenu } from "./overlay/ContextMenu";
+import { PasteTextHint } from "./overlay/PasteTextHint";
 import { clearExternalUploadHover, dataTransferContainsFiles, handleExternalUploadDrop, showWebPageDragMessageMaybe, updateExternalUploadHover } from "../upload";
 import { Page_Desktop } from "./items/Page";
 import { VisualElementProps } from "./VisualElement";
@@ -114,6 +115,7 @@ export const Desktop: Component<VisualElementProps> = (props: VisualElementProps
         <Show when={store.overlay.contextMenuInfo.get() != null}>
           <ContextMenu />
         </Show>
+        <PasteTextHint />
         <Show when={store.overlay.tableColumnContextMenuInfo.get() != null}>
           <TableColumnContextMenu />
         </Show>
