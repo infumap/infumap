@@ -59,8 +59,8 @@ import { asContainerItem, isContainer } from "../items/base/container-item";
 import { markChildrenLoadAsInitiatedOrComplete } from "../layout/load";
 import { newUid } from "../util/uid";
 import { isDataItem } from "../items/base/data-item";
-import { calcJustifiedPagePaddingPx } from "../layout/arrange/justified_metrics";
 import { justifiedInsertionFromDesktopPx } from "../layout/justified-insertion";
+import { gridInsertionIndexFromDesktopPx } from "../layout/grid-insertion";
 import { stackedInsertionIndexFromDesktopPx } from "../layout/stacked-insertion";
 import { catalogInsertionIndexFromDesktopPx } from "../layout/catalog-display";
 import { GroupMoveItem, calculateMoveToPagePositionGr, moveGroupToChildParentPreservingOffsets, movingHitIgnoreIds, stackedGroupMoveStartPositionsGr } from "./move_group";
@@ -1285,23 +1285,8 @@ function updatePageMoveOverIndex(
   }
 
   else if (hasValidMoveTarget && asPageItem(inElement).arrangeAlgorithm == ArrangeAlgorithm.Grid) {
-    const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, inElementVe);
-    const xOffsetPx = desktopPosPx.x - viewportBoundsPx.x;
-    const yOffsetPx = desktopPosPx.y - viewportBoundsPx.y;
-    const veid = VeFns.actualVeidFromVe(inElementVe);
-    const scrollYPx = store.perItem.getPageScrollYProp(veid)
-      * Math.max(0, inElementVe.childAreaBoundsPx!.h - inElementVe.viewportBoundsPx!.h);
-    const scrollXPx = store.perItem.getPageScrollXProp(veid)
-      * Math.max(0, inElementVe.childAreaBoundsPx!.w - inElementVe.viewportBoundsPx!.w);
-    const pagePaddingPx = calcJustifiedPagePaddingPx(inElementVe.childAreaBoundsPx!.w, asPageItem(inElement).justifiedRowAspect);
-    const rawCellX = Math.floor((xOffsetPx + scrollXPx - pagePaddingPx) / inElementVe.cellSizePx!.w);
-    const rawCellY = Math.floor((yOffsetPx + scrollYPx - pagePaddingPx) / inElementVe.cellSizePx!.h);
-    const cellX = Math.max(0, Math.min(asPageItem(inElement).gridNumberOfColumns, rawCellX));
-    const cellY = Math.max(0, rawCellY);
-    let index = cellY * asPageItem(inElement).gridNumberOfColumns + cellX;
     const numNonMovingChildren = VesCache.render.getNonMovingChildren(VeFns.veToPath(inElementVe))().length;
-    if (index < 0) { index = 0; }
-    if (index > numNonMovingChildren) { index = numNonMovingChildren; }
+    const index = gridInsertionIndexFromDesktopPx(store, inElementVe, numNonMovingChildren, desktopPosPx);
     store.perVe.setMoveOverIndex(VeFns.veToPath(inElementVe), index);
   }
 

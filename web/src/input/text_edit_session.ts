@@ -21,7 +21,7 @@ import { itemCanEdit } from "../items/base/capabilities-item";
 import { type Item, ItemType } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { asTitledItem } from "../items/base/titled-item";
-import { asPageItem, PageFns } from "../items/page-item";
+import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../items/page-item";
 import { asTableItem, TableFns } from "../items/table-item";
 import { asPasswordItem } from "../items/password-item";
 import { isClipboardTextCreateItem } from "../items/text-item";
@@ -169,14 +169,39 @@ function listPageRowOfPath(itemPath: VisualElementPath): { pageVe: VisualElement
   return { pageVe, rowVe };
 }
 
+/** The grid, justified or catalog page showing the item at itemPath, and the item's visual element. */
+function cellPageChildOfPath(itemPath: VisualElementPath): { pageVe: VisualElement, childVe: VisualElement } | null {
+  const parentPath = VeFns.parentPath(itemPath);
+  if (parentPath == "") { return null; }
+  const pageVe = VesCache.current.readNode(parentPath);
+  const childVe = VesCache.current.readNode(itemPath);
+  if (pageVe == null || childVe == null || !isPage(pageVe.displayItem)) { return null; }
+  const arrangeAlgorithm = pageVe.linkItemMaybe?.overrideArrangeAlgorithm || asPageItem(pageVe.displayItem).arrangeAlgorithm;
+  if (arrangeAlgorithm != ArrangeAlgorithm.Grid && arrangeAlgorithm != ArrangeAlgorithm.Justified &&
+    arrangeAlgorithm != ArrangeAlgorithm.Catalog) { return null; }
+  return { pageVe, childVe };
+}
+
 /**
- * Re-sort by the edited title. If that moves the row in a table or list page, reveal it as after a jump, so it does
- * not appear to vanish and the rows either side of it are visible too.
+ * Re-sort by the edited title. If that moves the item in a table, list, grid, justified or catalog page, reveal it as
+ * after a jump, so it does not appear to vanish (for rows, with the rows either side of it).
  */
 function sortAfterTitleEdit(store: StoreContextModel, item: Item, itemPath: VisualElementPath): void {
   const listRowYPxBefore = listPageRowOfPath(itemPath)?.rowVe.boundsPx.y ?? null;
+  const cellBoundsPxBefore = cellPageChildOfPath(itemPath)?.childVe.boundsPx ?? null;
   const before = tableRowOfPath(store, itemPath);
   itemState.sortParentChildrenIfSorted(item);
+  if (cellBoundsPxBefore != null) {
+    // As for list rows below.
+    requestArrange(store, "text-edit-sorted-cell");
+    queueMicrotask(() => {
+      const after = cellPageChildOfPath(itemPath);
+      if (after == null ||
+        (after.childVe.boundsPx.x == cellBoundsPxBefore.x && after.childVe.boundsPx.y == cellBoundsPxBefore.y)) { return; }
+      PageFns.revealChild(store, after.pageVe, after.childVe);
+    });
+    return;
+  }
   if (listRowYPxBefore != null) {
     // List rows are positioned by arranging. Microtasks run in order, so this one runs after the requested arrange.
     requestArrange(store, "text-edit-sorted-list-row");

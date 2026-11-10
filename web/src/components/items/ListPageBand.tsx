@@ -19,7 +19,7 @@
 import { Component, JSX, Show, createEffect } from "solid-js";
 
 import { LINE_HEIGHT_PX, LIST_PAGE_TOP_PADDING_PX } from "../../constants";
-import { VeFns, VisualElement, listPageBandScrollYPx, listPageScrollVeid } from "../../layout/visual-element";
+import { VeFns, VisualElement, listPageBandScrollYPx, pageScrollVeid } from "../../layout/visual-element";
 import { printScrollWritesSuppressed } from "../../print";
 import { useStore } from "../../store/StoreProvider";
 
@@ -58,7 +58,7 @@ export const ListPageBand: Component<{
     const scrollableHeightPx_ = scrollableHeightPx();
     if (scrollableHeightPx_ <= 0) { return; }
     store.perItem.setListPageBandScrollYProp(
-      listPageScrollVeid(store, props.pageVisualElement), props.band, bandDiv.scrollTop / scrollableHeightPx_);
+      pageScrollVeid(store, props.pageVisualElement), props.band, bandDiv.scrollTop / scrollableHeightPx_);
   };
 
   return (

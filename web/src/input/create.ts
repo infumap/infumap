@@ -38,6 +38,9 @@ import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
 import { ListPageRowBand, VeFns, VisualElement, VisualElementFlags, isTableView, isVeTranslucentPage } from "../layout/visual-element";
 import { stackedInsertionIndexFromDesktopPx } from "../layout/stacked-insertion";
+import { gridInsertionIndexFromDesktopPx } from "../layout/grid-insertion";
+import { justifiedInsertionFromDesktopPx } from "../layout/justified-insertion";
+import { catalogInsertionIndexFromDesktopPx } from "../layout/catalog-display";
 import { isQueryItem } from "../items/query-item";
 import { server, serverOrRemote } from "../server";
 import { itemState } from "../store/ItemState";
@@ -254,6 +257,37 @@ function listPageCreateTarget(
   return { ...PageFns.listPageInsertionTarget(pageVe, moveOverIndex, [], band), band };
 }
 
+/**
+ * Where among the children of grid, justified or catalog page pageVe an item created at desktopPosPx goes: as for a
+ * drop there, at the cell under it (grid), before the item right of it (justified), or at the row boundary nearest it
+ * (catalog). Null for other arrangements.
+ */
+function cellPageCreateIndexMaybe(
+  store: StoreContextModel,
+  pageVe: VisualElement,
+  arrangeAlgorithm: string,
+  desktopPosPx: Vector,
+): number | null {
+  if (!pageVe.viewportBoundsPx || !pageVe.childAreaBoundsPx) { return null; }
+  // The drop position helpers index the displayed children. These are in the order of computed_children, but not
+  // necessarily all of them.
+  const displayedIds = VesCache.render.getNonMovingChildren(VeFns.veToPath(pageVe))()
+    .map(childVe => VeFns.treeItem(childVe.get()).id);
+  let displayedIndex;
+  if (arrangeAlgorithm == ArrangeAlgorithm.Grid && pageVe.cellSizePx) {
+    displayedIndex = gridInsertionIndexFromDesktopPx(store, pageVe, displayedIds.length, desktopPosPx);
+  } else if (arrangeAlgorithm == ArrangeAlgorithm.Justified) {
+    displayedIndex = justifiedInsertionFromDesktopPx(store, pageVe, desktopPosPx).index;
+  } else if (arrangeAlgorithm == ArrangeAlgorithm.Catalog) {
+    displayedIndex = catalogInsertionIndexFromDesktopPx(store, pageVe, displayedIds.length, desktopPosPx);
+  } else {
+    return null;
+  }
+  const children = asPageItem(pageVe.displayItem).computed_children;
+  const insertIndex = displayedIndex < displayedIds.length ? children.indexOf(displayedIds[displayedIndex]) : -1;
+  return insertIndex >= 0 ? insertIndex : children.length;
+}
+
 function findPlaceholderDescendantAtDesktopPos(
   store: StoreContextModel,
   visualElement: VisualElement,
@@ -358,9 +392,13 @@ function createItemInPage(
   const listTarget = pageArrangeAlgorithm == ArrangeAlgorithm.List
     ? listPageCreateTarget(store, pageVe, desktopPosPx)
     : null;
+  const cellInsertIndex = cellPageCreateIndexMaybe(store, pageVe, pageArrangeAlgorithm, desktopPosPx);
 
   let newItem: PositionalItem;
-  if (listTarget == null) {
+  if (cellInsertIndex != null) {
+    newItem = createNewItemAtChildrenPosition(store, type, asPageItem(pageVe.displayItem), cellInsertIndex);
+    positionNewItemInPage(store, newItem, pageVe, desktopPosPx, positionGrMaybe);
+  } else if (listTarget == null) {
     newItem = createNewItem(
       store,
       type,

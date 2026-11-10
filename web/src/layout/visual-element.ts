@@ -160,8 +160,8 @@ export function isVeTranslucentPage(ve: Pick<VisualElement, "displayItem" | "fla
 
 export type ListPageRowBand = "top" | "middle" | "bottom";
 
-/** The veid the scroll position of the list of list page pageVe is kept under. */
-export function listPageScrollVeid(store: StoreContextModel, pageVe: VisualElement): Veid {
+/** The veid the scroll position of page pageVe (for a list page, of its list) is kept under. */
+export function pageScrollVeid(store: StoreContextModel, pageVe: VisualElement): Veid {
   return pageVe.flags & VisualElementFlags.Popup
     ? store.history.currentPopupSpec()?.actualVeid ?? VeFns.actualVeidFromVe(pageVe)
     : VeFns.actualVeidFromVe(pageVe);
@@ -173,7 +173,7 @@ export function listPageBandScrollYPx(store: StoreContextModel, pageVe: VisualEl
     ? pageVe.listPagePinnedTopContentHeightPx - pageVe.listPagePinnedTopHeightPx
     : pageVe.listPagePinnedBottomContentHeightPx - pageVe.listPagePinnedBottomHeightPx;
   if (scrollableHeightPx <= 0) { return 0; }
-  return scrollableHeightPx * store.perItem.getListPageBandScrollYProp(listPageScrollVeid(store, pageVe), band);
+  return scrollableHeightPx * store.perItem.getListPageBandScrollYProp(pageScrollVeid(store, pageVe), band);
 }
 
 function listPageScrollOffsetPxForDescendant(
@@ -204,7 +204,7 @@ function listPageScrollOffsetPxForDescendant(
     };
   }
 
-  const pageVeid = listPageScrollVeid(store, pageVe);
+  const pageVeid = pageScrollVeid(store, pageVe);
   const scrollOffsetY =
     Math.max(0, pageVe.listChildAreaBoundsPx.h - pageVe.listViewportBoundsPx.h) *
     store.perItem.getPageScrollYProp(pageVeid);

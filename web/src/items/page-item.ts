@@ -31,7 +31,7 @@ import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { StoreContextModel } from '../store/StoreProvider';
 import { PositionalMixin } from './base/positional-item';
-import { VisualElement, VisualElementFlags, VeFns, Veid, EMPTY_VEID, VisualElementPath, isEmptyVeid, isVeTranslucentPage, isTableView, listPageScrollVeid, type ListPageRowBand } from '../layout/visual-element';
+import { VisualElement, VisualElementFlags, VeFns, Veid, EMPTY_VEID, VisualElementPath, isEmptyVeid, isVeTranslucentPage, isTableView, pageScrollVeid, type ListPageRowBand } from '../layout/visual-element';
 import { VesCache } from '../layout/ves-cache';
 import { VisualElementSignal } from '../util/signals';
 import { NoteFns, isNote } from './note-item';
@@ -545,7 +545,7 @@ function scrollListPageRowBand(
 ): void {
   if (!pageVe.listChildAreaBoundsPx || !pageVe.listViewportBoundsPx || rowVe.listPageRowBand == null) { return; }
   const band = rowVe.listPageRowBand;
-  const scrollVeid = listPageScrollVeid(store, pageVe);
+  const scrollVeid = pageScrollVeid(store, pageVe);
   const [viewportHeightPx, contentHeightPx] =
     band == "top" ? [pageVe.listPagePinnedTopHeightPx, pageVe.listPagePinnedTopContentHeightPx] :
       band == "bottom" ? [pageVe.listPagePinnedBottomHeightPx, pageVe.listPagePinnedBottomContentHeightPx] :
@@ -2094,6 +2094,23 @@ export const PageFns = {
       if (contextBottomPx > scrollPx + viewportHeightPx) { return contextBottomPx - viewportHeightPx; }
       return scrollPx;
     });
+  },
+
+  /**
+   * Scroll page pageVe vertically to show its child childVe, as after a jump to it: not at all if it is fully visible,
+   * otherwise so it is in the middle. This reads the arranged children, so must be called after arranging.
+   */
+  revealChild: (store: StoreContextModel, pageVe: VisualElement, childVe: VisualElement): void => {
+    if (!pageVe.viewportBoundsPx || !pageVe.childAreaBoundsPx) { return; }
+    const viewportHeightPx = pageVe.viewportBoundsPx.h;
+    const maxScrollPx = pageVe.childAreaBoundsPx.h - viewportHeightPx;
+    if (maxScrollPx <= 0) { return; }
+    const scrollVeid = pageScrollVeid(store, pageVe);
+    const scrollPx = store.perItem.getPageScrollYProp(scrollVeid) * maxScrollPx;
+    const { y, h } = childVe.boundsPx;
+    if (y >= scrollPx && y + h <= scrollPx + viewportHeightPx) { return; }
+    const nextPx = Math.max(0, Math.min(maxScrollPx, y - (viewportHeightPx - h) / 2));
+    store.perItem.setPageScrollYProp(scrollVeid, nextPx / maxScrollPx);
   },
 
   setDefaultListPageSelectedItemMaybe: (store: StoreContextModel, itemVeid: Veid): void => {
