@@ -21,4 +21,5 @@
 ## Developing Infumap
 
 - [Developer](developer.md)
+- [Security checks](security.md)
 - [Dependency Audit](audit.md)
