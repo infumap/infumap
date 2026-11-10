@@ -423,7 +423,8 @@ Options:
 
 ### pending
 
-List or approve pending users
+List or approve pending users. Requires a session as `root`. People can only sign up when `enable_signup = true` is set
+in the instance's settings.
 
 Options:
 - **-s --session (optional):** The session name. If no session name is specified, "`default`" will be assumed.

@@ -36,6 +36,12 @@
 # for command/account/ingest/files endpoints and any origin is allowed.
 #allow_cross_instance_embed = false
 
+# Whether people can sign up for an account. When false, the instance has a
+# single user: setup only asks for a password, and so does login. When true,
+# the login page links to a sign up page, and new accounts wait for approval
+# with the `infumap pending` CLI command. The setup user's username is 'root'.
+#enable_signup = false
+
 # Prometheus metrics endpoint configuration. Should not be exposed to the
 # public internet.
 #enable_prometheus_metrics = false

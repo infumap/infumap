@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use bytes::Bytes;
+use config::Config;
 use http_body_util::combinators::BoxBody;
 use hyper::{Method, Request, Response};
 use infusdk::util::uid::new_uid;
@@ -24,6 +25,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::ai::title_indexing::enqueue_item_title_index_update;
+use crate::config::CONFIG_ENABLE_SIGNUP;
 use crate::storage::db::Db;
 use crate::storage::db::user::ROOT_USER_NAME;
 use crate::web::routes::{
@@ -36,28 +38,38 @@ use crate::web::session::get_and_validate_session;
 const REASON_CLIENT: &str = "client";
 const REASON_SERVER: &str = "server";
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct InstallationStateResponse {
   #[serde(rename = "hasRootUser")]
   pub has_root_user: bool,
+  #[serde(rename = "enableSignup", default)]
+  pub enable_signup: bool,
+  /// Root is the only user and nobody can sign up, so login needs no username. Reveals that much to
+  /// anyone, but the username it stands for ('root') is no secret.
+  #[serde(rename = "passwordOnlyLogin", default)]
+  pub password_only_login: bool,
 }
 
 pub async fn serve_admin_route(
+  config: Arc<Config>,
   db: &Arc<Mutex<Db>>,
   req: Request<hyper::body::Incoming>,
 ) -> Response<BoxBody<Bytes, hyper::Error>> {
   match (req.method(), req.uri().path()) {
-    (&Method::POST, "/admin/installation-state") => installation_state(db).await,
+    (&Method::POST, "/admin/installation-state") => installation_state(config, db).await,
     (&Method::POST, "/admin/list-pending") => list_pending(db, req).await,
     (&Method::POST, "/admin/approve-pending") => approve_pending(db, req).await,
     _ => not_found_response(),
   }
 }
 
-pub async fn installation_state(db: &Arc<Mutex<Db>>) -> Response<BoxBody<Bytes, hyper::Error>> {
-  json_response(&InstallationStateResponse {
-    has_root_user: db.lock().await.user.get_by_username_case_insensitive(ROOT_USER_NAME).is_some(),
-  })
+pub async fn installation_state(config: Arc<Config>, db: &Arc<Mutex<Db>>) -> Response<BoxBody<Bytes, hyper::Error>> {
+  let enable_signup = config.get_bool(CONFIG_ENABLE_SIGNUP).unwrap_or(false);
+  let db = db.lock().await;
+  let has_root_user = db.user.get_by_username_case_insensitive(ROOT_USER_NAME).is_some();
+  // Users approved while sign up was enabled keep needing their username after it is turned off.
+  let password_only_login = has_root_user && !enable_signup && db.user.all_user_ids().len() == 1;
+  json_response(&InstallationStateResponse { has_root_user, enable_signup, password_only_login })
 }
 
 #[derive(Deserialize, Serialize, Debug)]

@@ -242,6 +242,11 @@ fn login_url_from_base_url(base_url: &str) -> InfuResult<Url> {
   base_url.join("/account/login").map_err(|e| e.to_string().into())
 }
 
+fn installation_state_url_from_base_url(base_url: &str) -> InfuResult<Url> {
+  let base_url = Url::parse(base_url).map_err(|e| format!("Could not parse URL: {}", e))?;
+  base_url.join("/admin/installation-state").map_err(|e| e.to_string().into())
+}
+
 fn command_url_from_base_url(base_url: &str) -> InfuResult<Url> {
   let base_url = Url::parse(base_url).map_err(|e| format!("Could not parse URL: {}", e))?;
   base_url.join("/command").map_err(|e| e.to_string().into())

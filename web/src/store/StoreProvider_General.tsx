@@ -30,6 +30,9 @@ const NETWORK_BUSY_DELAY_MS = 300;
 
 interface InstallationState {
   hasRootUser: boolean,
+  enableSignup: boolean,
+  /** Root is the only user and nobody can sign up, so login asks only for the password. */
+  passwordOnlyLogin: boolean,
 }
 
 interface LocalStorageData {

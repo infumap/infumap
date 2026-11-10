@@ -20,9 +20,11 @@ use clap::{Arg, ArgMatches, Command};
 use infusdk::util::infu::InfuResult;
 use rpassword::read_password;
 
-use crate::cli::login_url_from_base_url;
+use crate::cli::{installation_state_url_from_base_url, login_url_from_base_url};
+use crate::storage::db::user::ROOT_USER_NAME;
 use crate::web::cookie::InfuSession;
 use crate::web::routes::account::{LoginRequest, LoginResponse};
+use crate::web::routes::admin::InstallationStateResponse;
 
 use super::NamedInfuSession;
 use super::build_http_client;
@@ -72,9 +74,22 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
       return Ok(());
     }
   };
-  print!("Username: ");
-  std::io::stdout().lock().flush().unwrap();
-  let username = iterator.next().unwrap().unwrap();
+  let client = build_http_client(None).await?;
+  // As on the web login page. An older server, or any failure here, falls back to asking.
+  let password_only_login = match installation_state_url_from_base_url(&url) {
+    Ok(state_url) => match client.post(state_url).send().await {
+      Ok(r) => r.json::<InstallationStateResponse>().await.map(|s| s.password_only_login).unwrap_or(false),
+      Err(_) => false,
+    },
+    Err(_) => false,
+  };
+  let username = if password_only_login {
+    ROOT_USER_NAME.to_owned()
+  } else {
+    print!("Username: ");
+    std::io::stdout().lock().flush().unwrap();
+    iterator.next().unwrap().unwrap()
+  };
   print!("Password: ");
   std::io::stdout().lock().flush().unwrap();
   let password = read_password().unwrap();
@@ -84,7 +99,6 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
   let totp_token = if totp == "" { None } else { Some(totp) };
 
   let login_request = LoginRequest { username: username.clone(), password, totp_token };
-  let client = build_http_client(None).await?;
   let login_response: LoginResponse = client
     .post(login_url.clone())
     .json(&login_request)

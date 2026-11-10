@@ -36,7 +36,7 @@ use uuid::Uuid;
 
 use crate::ai::search_status::{search_attention_page_id, search_processing_page_id};
 use crate::ai::title_indexing::enqueue_item_title_index_update;
-use crate::config::CONFIG_BYPASS_TOTP_CHECK;
+use crate::config::{CONFIG_BYPASS_TOTP_CHECK, CONFIG_ENABLE_SIGNUP};
 use crate::storage::db::Db;
 use crate::storage::db::user::{ROOT_USER_NAME, User};
 use crate::storage::db::users_extra::UserExtra;
@@ -91,7 +91,7 @@ pub async fn serve_account_route(
   match (req.method(), req.uri().path()) {
     (&Method::POST, "/account/login") => login(config, db, req).await,
     (&Method::POST, "/account/logout") => logout(db, req).await,
-    (&Method::POST, "/account/register") => register(db, req).await,
+    (&Method::POST, "/account/register") => register(config, db, req).await,
     (&Method::POST, "/account/create-totp") => create_totp(),
     (&Method::POST, "/account/update-totp") => update_totp(db, req).await,
     (&Method::POST, "/account/change-password") => change_password(db, req).await,
@@ -386,6 +386,7 @@ fn validate_new_username(username: &str) -> Result<(), &'static str> {
 }
 
 pub async fn register(
+  config: Arc<Config>,
   db: &Arc<Mutex<Db>>,
   req: Request<hyper::body::Incoming>,
 ) -> Response<BoxBody<Bytes, hyper::Error>> {
@@ -401,6 +402,10 @@ pub async fn register(
 
   // Usernames are case insensitive, and new ones are stored lowercase.
   let username = payload.username.to_ascii_lowercase();
+  // Setup registers root. Any other name is a sign up, which makes the instance multi-user.
+  if username != ROOT_USER_NAME && !config.get_bool(CONFIG_ENABLE_SIGNUP).unwrap_or(false) {
+    return json_response(&RegisterResponse { success: false, err: Some(String::from("sign up is disabled")) });
+  }
   if let Err(msg) = validate_new_username(&username) {
     return json_response(&RegisterResponse { success: false, err: Some(String::from(msg)) });
   }
@@ -485,7 +490,8 @@ pub async fn register(
       error!("Error creating ingest session store for user '{}': {}", user.id, e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
     }
-    let home_page = default_home_page(user_id.as_str(), &username, home_page_id, page_width_bl, natural_aspect);
+    // Not titled with the username: on a single-user instance 'root' reads as an admin account to set aside.
+    let home_page = default_home_page(user_id.as_str(), "Home", home_page_id, page_width_bl, natural_aspect);
     if let Err(e) = db.item.add(home_page).await {
       error!("Error adding default page: {}", e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });

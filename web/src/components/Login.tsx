@@ -24,13 +24,15 @@ import { ROOT_USERNAME } from "../constants";
 import { useStore } from "../store/StoreProvider";
 import { switchToNonPage } from "../layout/navigation";
 import { HelpContent } from "./HelpContent";
-import { AuthCheckbox, AuthError, AuthField, AuthPage } from "./AuthPage";
+import { AuthCheckbox, AuthError, AuthField, AuthPage, HiddenUsernameInput } from "./AuthPage";
 
 
 export const Login: Component = () => {
   const store = useStore();
 
-  let username: string = "";
+  const passwordOnly = store.general.installationState()!.passwordOnlyLogin;
+
+  let username: string = passwordOnly ? ROOT_USERNAME : "";
   let password: string = "";
   let totpToken: string = "";
 
@@ -90,12 +92,14 @@ export const Login: Component = () => {
     }>
       {/* A form, so password managers recognise the fields. Submitting is done by the button and Enter handlers. */}
       <form onSubmit={(ev) => ev.preventDefault()}>
-        <AuthField label="Username" for="login-username">
-          <InfuTextInput id="login-username" autocomplete="username" fullWidth={true}
-            onInput={(v) => { username = v; setError(null); }} onEnterKeyDown={handleLoginClick} />
-        </AuthField>
+        <Show when={!passwordOnly} fallback={<HiddenUsernameInput username={ROOT_USERNAME} />}>
+          <AuthField label="Username" for="login-username">
+            <InfuTextInput id="login-username" autocomplete="username" fullWidth={true}
+              onInput={(v) => { username = v; setError(null); }} onEnterKeyDown={handleLoginClick} />
+          </AuthField>
+        </Show>
         <AuthField label="Password" for="login-password">
-          <InfuTextInput id="login-password" autocomplete="current-password" type="password" fullWidth={true}
+          <InfuTextInput id="login-password" autocomplete="current-password" type="password" fullWidth={true} focus={passwordOnly}
             onInput={(v) => { password = v; setError(null); }} onEnterKeyDown={handleLoginClick} />
         </AuthField>
         <AuthCheckbox id="login-use-2fa" label="Use 2FA" checked={store.general.prefer2fa()} onClick={toggle2fa} />
@@ -110,9 +114,11 @@ export const Login: Component = () => {
           <AuthError>{error()}</AuthError>
         </Show>
       </form>
-      <div class="text-center mt-5 text-sm">
-        Don't have an account? <InfuLink href="/signup" text="Sign up" />
-      </div>
+      <Show when={store.general.installationState()!.enableSignup}>
+        <div class="text-center mt-5 text-sm">
+          Don't have an account? <InfuLink href="/signup" text="Sign up" />
+        </div>
+      </Show>
     </AuthPage>
   );
 }

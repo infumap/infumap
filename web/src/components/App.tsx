@@ -290,10 +290,17 @@ const App: Component = () => {
       </Show>
     </Show>;
 
+  const signupDisabledFallback = () => {
+    switchToNonPage(store, "/login");
+    return <></>;
+  };
+
   const SignUpPath: Component = () =>
     <Show when={store.general.installationState() != null} fallback={fallback()}>
       <Show when={store.general.installationState()?.hasRootUser} fallback={fallback2()}>
-        <SignUp />
+        <Show when={store.general.installationState()?.enableSignup} fallback={signupDisabledFallback()}>
+          <SignUp />
+        </Show>
       </Show>
     </Show>;
 

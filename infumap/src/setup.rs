@@ -275,6 +275,7 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<&String>) 
     CONFIG_ALLOW_CROSS_INSTANCE_EMBED,
     config.get_bool(CONFIG_ALLOW_CROSS_INSTANCE_EMBED).map_err(|e| e.to_string())?
   );
+  info!(" {} = {}", CONFIG_ENABLE_SIGNUP, config.get_bool(CONFIG_ENABLE_SIGNUP).map_err(|e| e.to_string())?);
   info!(
     " {} = {}",
     CONFIG_ENABLE_PROMETHEUS_METRICS,
@@ -587,6 +588,8 @@ pub fn add_config_defaults(builder: ConfigBuilder<DefaultState>) -> InfuResult<C
       .set_default(CONFIG_PORT, CONFIG_PORT_DEFAULT)
       .map_err(|e| e.to_string())?
       .set_default(CONFIG_ALLOW_CROSS_INSTANCE_EMBED, CONFIG_ALLOW_CROSS_INSTANCE_EMBED_DEFAULT)
+      .map_err(|e| e.to_string())?
+      .set_default(CONFIG_ENABLE_SIGNUP, CONFIG_ENABLE_SIGNUP_DEFAULT)
       .map_err(|e| e.to_string())?
       .set_default(CONFIG_ENABLE_PROMETHEUS_METRICS, CONFIG_ENABLE_PROMETHEUS_METRICS_DEFAULT)
       .map_err(|e| e.to_string())?

@@ -25,7 +25,7 @@ import { ROOT_USERNAME } from "../constants";
 import { useStore } from "../store/StoreProvider";
 import { RegisterResponse, Totp } from "../util/accountTypes";
 import { switchToNonPage } from "../layout/navigation";
-import { AuthCheckbox, AuthError, AuthField, AuthPage } from "./AuthPage";
+import { AuthCheckbox, AuthError, AuthField, AuthPage, HiddenUsernameInput } from "./AuthPage";
 
 
 export const SignUp: Component = () => {
@@ -75,8 +75,8 @@ export const SignUp: Component = () => {
   }
 
   onMount(async () => {
-    if (store.general.installationState()!.hasRootUser) {
-      switchToNonPage(store, "/signup");
+    if (areSettingUp() && store.general.installationState()!.hasRootUser) {
+      switchToNonPage(store, store.general.installationState()!.enableSignup ? "/signup" : "/login");
     }
     if (areSettingUp()) { username = ROOT_USERNAME; }
     const json: any = await post(null, "/account/create-totp", {});
@@ -87,15 +87,23 @@ export const SignUp: Component = () => {
     });
   });
 
+  // Without sign up the instance has one user, so setup doesn't mention 'root': new users read it as an
+  // admin account to set aside, and went looking for a way to make their own.
+  const singleUserSetup = () => areSettingUp() && !store.general.installationState()!.enableSignup;
+
+  const title = () => singleUserSetup() ? "Set up Infumap" : areSettingUp() ? "Create Root User" : "Sign up";
+
   return (
-    <AuthPage title={areSettingUp() ? "Create Root User" : "Sign up"}>
+    <AuthPage title={title()}>
       <Show when={!hadSuccess()}>
         <form onSubmit={(ev) => ev.preventDefault()}>
-          <AuthField label="Username" for="signup-username">
-            <Show when={!areSettingUp()} fallback={<InfuTextInput id="signup-username" disabled={true} value={ROOT_USERNAME} fullWidth={true} />}>
-              <InfuTextInput id="signup-username" autocomplete="username" fullWidth={true} onInput={(v) => { username = v; }} />
-            </Show>
-          </AuthField>
+          <Show when={!singleUserSetup()} fallback={<HiddenUsernameInput username={ROOT_USERNAME} />}>
+            <AuthField label="Username" for="signup-username">
+              <Show when={!areSettingUp()} fallback={<InfuTextInput id="signup-username" disabled={true} value={ROOT_USERNAME} fullWidth={true} />}>
+                <InfuTextInput id="signup-username" autocomplete="username" fullWidth={true} onInput={(v) => { username = v; }} />
+              </Show>
+            </AuthField>
+          </Show>
           <AuthField label="Password" for="signup-password">
             <InfuTextInput id="signup-password" autocomplete="new-password" type="password" fullWidth={true}
               onInput={(v) => { password = v; }} />
@@ -119,7 +127,7 @@ export const SignUp: Component = () => {
                 onInput={(v) => { totpToken = v; }} />
             </AuthField>
           </Show>
-          <InfuButton text="Sign up" onClick={handleSignupClick} fullWidth={true} />
+          <InfuButton text={singleUserSetup() ? "Set up" : "Sign up"} onClick={handleSignupClick} fullWidth={true} />
           <Show when={error() != null}>
             <AuthError>{error()}</AuthError>
           </Show>

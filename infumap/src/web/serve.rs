@@ -113,7 +113,7 @@ pub async fn http_serve(
   } else if req.uri().path().starts_with("/favicons/") {
     (serve_favicons_route(&db, favicon_cache.clone(), &req).await, CorsPolicy::EmbedAllowed)
   } else if req.uri().path().starts_with("/admin/") {
-    (serve_admin_route(&db, req).await, CorsPolicy::Disabled)
+    (serve_admin_route(config.clone(), &db, req).await, CorsPolicy::Disabled)
   } else {
     match serve_dist_routes(&req) {
       Some(response) => (response, CorsPolicy::Disabled),

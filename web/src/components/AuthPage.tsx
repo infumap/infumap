@@ -50,3 +50,10 @@ export const AuthCheckbox: Component<{ id: string, label: string, checked: boole
 
 export const AuthError: Component<{ children: JSX.Element }> = (props) =>
   <div class="mt-3 text-sm text-red-700">{props.children}</div>;
+
+/**
+ * For forms that don't ask for the username. Password managers key saved passwords on a username field,
+ * and without one they save or fill a password-only form poorly.
+ */
+export const HiddenUsernameInput: Component<{ username: string }> = (props) =>
+  <input type="text" name="username" autocomplete="username" value={props.username} readOnly class="hidden" />;
