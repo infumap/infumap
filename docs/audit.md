@@ -50,25 +50,27 @@ pipx install pip-audit          # GPU host only
 ```sh
 cargo vet suggest                        # what needs review, smallest diffs first
 cargo vet diff <crate> <old> <new> --mode=local
-cargo vet certify <crate> <old> <new> --criteria safe-to-deploy
+cargo vet certify <crate> <old> <new> --criteria safe-to-run
 cargo vet inspect <crate> <version> --mode=local
-cargo vet certify <crate> <version> --criteria safe-to-deploy
+cargo vet certify <crate> <version> --criteria safe-to-run
 ```
 
-When reviewing, look first for `build.rs`, proc-macros, `unsafe`, FFI, and any use of `std::net`, `std::fs`,
-`std::process` or `std::env` in a crate that has no reason to need them. Build scripts and proc-macros run on the
-build machine at compile time (rust-analyzer runs them when the project is opened), so they matter even for
-dependencies that are never deployed.
+The `safe-to-run` review focuses on unexpected file/credential access, network connections, process launches,
+downloaded code, installation, and resource misuse. Inspect `build.rs`, proc-macros, generated/native code,
+and any use of `std::net`, `std::fs`, `std::process` or `std::env` inconsistent with the crate's purpose.
+Build-time code matters even for dependencies that are never deployed. Malicious behavior does not need
+`unsafe` code; reviewing memory safety alone does not establish this criterion.
 
 Baseline exemptions have been removed, so existing dependencies require the same review evidence as updates.
-Audits published by Mozilla, Google, Bytecode Alliance and ISRG are imported (`[imports]` in
+Audits published by Mozilla, Google, Bytecode Alliance, ISRG, and Zcash are imported (`[imports]` in
 `supply-chain/config.toml`); these include source reviews and wildcard attestations about release processes.
 Publisher trust and exemptions do not establish that source was reviewed and should not be used to clear the
 backlog. The commands above are alternatives for a diff or a full review; certify only after completing the
 corresponding inspection. A diff needs an accepted review of its base version. `cargo vet trust` accepts a
 publisher's releases over a date range, including future releases, instead of recording your inspection.
-`safe-to-deploy` includes `safe-to-run` and is required for deployed dependencies; `safe-to-run` alone covers
-workstation/build safety. Rerun `cargo vet` for the live list after each review. See
+Both projects require `safe-to-run` and default new certifications to it. Stronger `safe-to-deploy` reviews
+also qualify, but the policy does not require production exploit-resistance reviews. Advisory scans continue
+to check known vulnerabilities separately. Rerun `cargo vet` for the live list after each review. See
 [the vetting process](security.md#vetting-rust-dependencies) for criteria, review notes, and public audit sources.
 
 **Toolchain behind.** The Rust version is pinned in `rust-toolchain.toml` so every machine builds and resolves

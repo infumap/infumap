@@ -60,7 +60,8 @@ allow a stamp to be written. Running an individual script directly does not upda
   database from the normal Cargo home. Once the local advisory database directory exists, the script passes
   `--disable-fetch`; rerunning alone does not refresh it. Check its freshness before relying on the result.
 - **cargo-vet checks recorded acceptance, not source automatically.** Each crate's `supply-chain/` contains
-  local records and imported audits from Bytecode Alliance, Google, ISRG, and Mozilla. Baseline exemptions have
+  local records and imported audits from Bytecode Alliance, Google, ISRG, Mozilla, and Zcash. Both projects
+  require `safe-to-run` and use it as the default criterion for new certifications. Baseline exemptions have
   been removed: existing versions are not automatically accepted. Full/delta audits record specific source
   reviews; imported wildcard audits vouch for an organization's release process. Local publisher-trust entries
   accept a publisher's releases without individual reviews. A passing check means the configured review/trust
@@ -96,7 +97,7 @@ cargo vet
 cargo vet suggest
 ```
 
-`cargo vet` fetches the configured public audit feeds and checks review coverage. A missing `safe-to-deploy`
+`cargo vet` fetches the configured public audit feeds and checks review coverage. A missing `safe-to-run`
 review is a gap in accepted evidence, not a discovered vulnerability. `suggest` recommends full reviews or
 smaller diffs. Its success status means suggestions were produced, not that the dependencies passed vetting.
 The graph includes enabled features, build dependencies, proc-macros, and dependencies for other platforms;
@@ -104,9 +105,11 @@ some listed crates do not run on your host. Baseline exemptions are absent, so e
 
 ### Reuse public reviews
 
-Both projects import public audit records from Mozilla, Google, Bytecode Alliance, and ISRG, as configured in
+Both projects import public audit records from Mozilla, Google, Bytecode Alliance, ISRG, and Zcash, as configured in
 their `supply-chain/config.toml`. Records can cover an exact version, a chain of reviewed changes, or an
 organization's attestation about its release process. They do not mean someone reviewed Infumap's use of the crate.
+Zcash's feed is [published here](https://github.com/zcash/rust-ecosystem/blob/main/supply-chain/audits.toml).
+Imported `safe-to-deploy` reviews also satisfy `safe-to-run`; their stronger claims are preserved.
 
 `cargo vet suggest` can identify further feeds that would reduce the work. Consider the organization and its
 review practices before adding one, for example `cargo vet import <source-name>` in each project that needs it.
@@ -122,7 +125,7 @@ For a suggested diff, the workflow is:
 ```sh
 cargo vet diff equivalent 1.0.2 1.0.3 --mode=local
 # After completing the review:
-cargo vet certify equivalent 1.0.2 1.0.3 --criteria safe-to-deploy
+cargo vet certify equivalent 1.0.2 1.0.3 --criteria safe-to-run
 cargo vet
 ```
 
@@ -136,7 +139,7 @@ For a package without an accepted base, review the full version:
 ```sh
 cargo vet inspect <crate> <version> --mode=local
 # After completing the review:
-cargo vet certify <crate> <version> --criteria safe-to-deploy
+cargo vet certify <crate> <version> --criteria safe-to-run
 cargo vet
 ```
 
@@ -144,10 +147,13 @@ If local inspection opens a nested shell, exit it when finished. Add `--notes "<
 certification command to record what you examined, assumptions, and any remaining concerns. `diff` and
 `inspect` only show source; `certify` records your judgment. None performs the security review for you.
 
-Review the package manifest, dependency changes, build scripts, proc-macros, unsafe/FFI code, and filesystem,
-network, environment, and process access. Reason about attacker-controlled input reaching those operations;
-searching for suspicious keywords alone is insufficient. Prioritize exposed parsers, native code, credentials,
-and cryptography as well as code running during builds. Estimated review size is effort, not security priority.
+The review targets unexpected data access and transmission, installation, code execution, and resource misuse.
+Inspect the package manifest and dependency changes, file/credential reads, network destinations, environment
+access, process launches, downloaded code, and behavior hidden behind generated or native code. Include build
+scripts and proc-macros: they can act on the build machine before Infumap is run. Unexpected behavior can be
+written entirely in safe Rust; searching for `unsafe` alone is insufficient. Estimated review size is effort,
+not security priority. This criterion does not require an exhaustive audit of memory-safety or production-input
+bugs. Keep running advisory scans separately for known issues.
 
 Actual review records belong in `supply-chain/audits.toml`, as `[[audits.<crate>]]` entries with an exact version
 or a `delta`. If both projects need the same review, reuse the inspection and record it in both stores. Repeat
@@ -161,10 +167,14 @@ after dependency updates; the advisory, review, and seven-day age checks serve d
 | `safe-to-run` | Building and running the crate on a workstation or in controlled automation does not have surprising harmful effects. This does not establish safety against hostile production input. |
 | `safe-to-deploy` | Also assesses serious production security risks from untrusted input, including unsafe code, powerful system access, and code generated for deployment. It includes `safe-to-run`. |
 
-Use the criterion cargo-vet requires. Infumap's deployed dependency graph requires `safe-to-deploy`; reducing a
-review to `safe-to-run` does not satisfy that requirement. Development-only dependencies may require only
-`safe-to-run`. Build scripts and proc-macros can generate deployed code, so they are not automatically limited
-to `safe-to-run`. See the [criterion definitions](https://mozilla.github.io/cargo-vet/built-in-criteria.html).
+Both projects explicitly require `safe-to-run` for their normal and development dependency graphs and set
+`default-criteria = "safe-to-run"` for new certifications. The policy focuses on preventing malicious or
+surprising behavior on machines handling personal data; it does not claim production exploit resistance.
+`safe-to-deploy` reviews remain valid stronger evidence. Do not certify that stronger criterion unless your
+review supports it. See the [criterion definitions](https://mozilla.github.io/cargo-vet/built-in-criteria.html).
+
+A VPN restricts inbound access but does not by itself stop a dependency sending data out. Reviews provide
+confidence, not enforcement of permitted file access or network destinations.
 
 `cargo vet trust equivalent` creates a `[[trusted.equivalent]]` entry. It accepts releases of that crate by the
 specified publisher published on or after `start` and before `end`, including future releases in that range.

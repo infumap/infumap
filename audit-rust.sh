@@ -29,7 +29,7 @@ print_usage() {
 Usage: ./audit-rust.sh
 
 Audit the Rust dependency graph for all checked-in crates, then require every
-crate version to be vetted (cargo-vet, supply-chain/ in each crate directory).
+crate version to meet safe-to-run (cargo-vet, supply-chain/ in each crate directory).
 
 The script prefers cargo-deny for advisories, source policy, and duplicate-version
 checks. If cargo-deny is unavailable but cargo-audit is installed, it falls back
@@ -201,13 +201,14 @@ print_vet_guidance() {
 How to resolve unvetted crates (run in the failing crate's directory):
   cargo vet suggest                       # list what needs review, smallest diffs first
   cargo vet diff <crate> <old> <new> --mode=local
-  cargo vet certify <crate> <old> <new> --criteria safe-to-deploy
+  cargo vet certify <crate> <old> <new> --criteria safe-to-run
   cargo vet inspect <crate> <version> --mode=local
-  cargo vet certify <crate> <version> --criteria safe-to-deploy
+  cargo vet certify <crate> <version> --criteria safe-to-run
 
 Use the suggested diffs: an unaudited base version still needs a full review.
 Certify only after completing the review, and add notes about what you checked.
-safe-to-run alone does not cover production security against untrusted input.
+Review unexpected file/credential access, networking, and code execution, including
+build scripts and proc-macros. safe-to-run does not cover production exploit resistance.
 Public audit sources are configured in each supply-chain/config.toml. Add sources
 only after deciding to trust their reviews. Publisher trust and blanket exemptions
 do not establish source-review coverage. `cargo vet trust` accepts a publisher's

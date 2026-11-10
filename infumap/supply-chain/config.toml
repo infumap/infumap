@@ -1,6 +1,8 @@
 
 # cargo-vet config file
 
+default-criteria = "safe-to-run"
+
 [cargo-vet]
 version = "0.10"
 
@@ -15,3 +17,11 @@ url = "https://raw.githubusercontent.com/divviup/libprio-rs/main/supply-chain/au
 
 [imports.mozilla]
 url = "https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml"
+
+[imports.zcash]
+url = "https://raw.githubusercontent.com/zcash/rust-ecosystem/main/supply-chain/audits.toml"
+
+[policy.infumap]
+criteria = "safe-to-run"
+dev-criteria = "safe-to-run"
+notes = "Review dependencies for unexpected data access, network connections, and code execution. This policy does not require a production exploit-resistance audit."
