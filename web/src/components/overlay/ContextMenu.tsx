@@ -33,7 +33,9 @@ type ContextMenuProps = {
 
 
 // Image and File have no type argument: they are added by dropping files, so they are listed but disabled.
-const MENU_ENTRIES: Array<{ type: string | null, label: string, icon: string }> = [
+// Text file is grouped with them, not with Note: a new user reading a plain "Text" next to Note took it as
+// somewhere to write, but its content is pasted in and read-only.
+const MENU_ENTRIES: Array<{ type: string | null, label: string, icon: string, separatorBefore?: boolean }> = [
   { type: "note", label: "Note", icon: "fa fa-sticky-note" },
   { type: "page", label: "Page", icon: "fa fa-folder" },
   { type: "table", label: "Table", icon: "fa fa-table" },
@@ -41,13 +43,13 @@ const MENU_ENTRIES: Array<{ type: string | null, label: string, icon: string }> 
   { type: "link", label: "Link", icon: "fa fa-link" },
   { type: "password", label: "Password", icon: "fa fa-eye-slash" },
   { type: "divider", label: "Divider", icon: "fa fa-arrows-h" },
+  { type: "text", label: "Text file", icon: "far fa-file-lines", separatorBefore: true },
   { type: null, label: "Image", icon: "fa fa-image" },
-  { type: "text", label: "Text", icon: "far fa-file-lines" },
   { type: null, label: "File", icon: "fa fa-file" },
 ];
 
 const createKeyFor = (type: string | null): string | null =>
-  CREATE_KEYS.find(([_, name]) => name == type)?.[0] ?? null;
+  CREATE_KEYS.find(([_, itemType]) => itemType == type)?.[0] ?? null;
 
 
 export const AddItem: Component<ContextMenuProps> = (props: ContextMenuProps) => {
@@ -55,14 +57,17 @@ export const AddItem: Component<ContextMenuProps> = (props: ContextMenuProps) =>
 
   return (
     <div class="border rounded w-[140px] bg-slate-50 mb-1 shadow-lg pt-[3px] pb-[3px]">
-      <For each={MENU_ENTRIES}>{entry =>
+      <For each={MENU_ENTRIES}>{entry => <>
+        <Show when={entry.separatorBefore}>
+          <div class="border-t border-slate-300 mx-[3px] my-[3px]" />
+        </Show>
         <div class={`flex items-center text-sm ml-[3px] mr-[5px] p-[3px] ${entry.type ? "hover:bg-slate-300" : "text-slate-500"}`}
              onClick={() => { if (entry.type) { newItemInContext(store, entry.type, props.hitInfo, props.desktopPosPx); } }}>
           <div class="inline-block text-center w-[18px] mr-[4px]"><i class={entry.icon} /></div>
           <span class="flex-1">{entry.label}</span>
           <Show when={createKeyFor(entry.type)}>{k => <Key>{k()}</Key>}</Show>
         </div>
-      }</For>
+      </>}</For>
     </div>
   );
 }

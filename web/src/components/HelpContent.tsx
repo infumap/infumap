@@ -41,9 +41,10 @@ interface HelpSection {
 const MOUSE_ACTIONS = new Set(["Drop files", "Right-click", "Long press", "Drag", "Drag background"]);
 
 /** Also shown next to each entry in the / menu (ContextMenu.tsx). Names match newItemInContext's type argument. */
-export const CREATE_KEYS: Array<[string, string]> = [
-  ["N", "note"], ["P", "page"], ["T", "table"], ["X", "text"],
-  ["R", "rating"], ["W", "password"], ["L", "link"], ["D", "divider"],
+// [key, item type as passed to newItemInContext, label shown in help].
+export const CREATE_KEYS: Array<[string, string, string]> = [
+  ["N", "note", "note"], ["P", "page", "page"], ["T", "table", "table"], ["X", "text", "text file"],
+  ["R", "rating", "rating"], ["W", "password", "password"], ["L", "link", "link"], ["D", "divider", "divider"],
 ];
 
 const SECTIONS: Array<HelpSection> = [
@@ -157,8 +158,8 @@ export const HelpContent: Component = () => {
           <Show when={section.withCreateKeys}>
             <div class="mt-[8px] mb-[4px] text-slate-600">Or press a letter to add that type of item:</div>
             <div class="grid grid-cols-4 gap-x-3 gap-y-[5px]">
-              <For each={CREATE_KEYS}>{([k, name]) =>
-                <span class="inline-flex items-center gap-[6px]"><Key>{k}</Key><span>{name}</span></span>
+              <For each={CREATE_KEYS}>{([k, _, label]) =>
+                <span class="inline-flex items-center gap-[6px]"><Key>{k}</Key><span>{label}</span></span>
               }</For>
             </div>
           </Show>
