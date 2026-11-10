@@ -29,7 +29,7 @@ import { asNoteItem, concatNoteInlineMarks, concatNoteUrls, NoteFns, noteUrlForI
 import { getQueryText, setQueryText } from "../items/query-item";
 import { requestArrange } from "../layout/arrange";
 import { VesCache } from "../layout/ves-cache";
-import { isTableView, VeFns, type VisualElement, type VisualElementPath } from "../layout/visual-element";
+import { isTableView, VeFns, VisualElementFlags, type VisualElement, type VisualElementPath } from "../layout/visual-element";
 import { networkFailureReason, serverOrRemote } from "../server";
 import { itemState } from "../store/ItemState";
 import type { StoreContextModel } from "../store/StoreProvider";
@@ -41,6 +41,7 @@ import { appendNewlineIfEmpty } from "../util/string";
 import { finishPendingClipboardTextItem } from "./text_clipboard_create";
 
 import { captureEditorSelection, historyCaret, historyOwnsTextEdit, type EditorSelection } from "./editor_history";
+import { deleteEmptyTableNoteMaybe } from "./empty_table_note";
 
 const SAVE_DELAY_MS = 500;
 const RETRY_FIRST_DELAY_MS = 2000;
@@ -446,6 +447,21 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
       }
       if (isClipboardTextCreateItem(item)) {
         finishPendingClipboardTextItem(getStore(), active.info.itemPath, active.lastText);
+      }
+      const ve = VesCache.current.readNode(active.info.itemPath);
+      if (active.info.itemType == ItemType.Note && active.info.colNum == null && ve != null &&
+          (ve.flags & VisualElementFlags.InsideTable)) {
+        const selection = captureEditorSelection(getStore());
+        const finishedVe = { ...ve, displayItem: { ...ve.displayItem } };
+        // Let the overlay finish switching focus before removing the old editor's item. Tab may also create the next
+        // cell synchronously; cleanup must see it so that the vacated cell keeps its column position.
+        queueMicrotask(() => {
+          if (!deleteEmptyTableNoteMaybe(getStore(), finishedVe, selection)) { return; }
+          const save = pending.get(finishedVe.displayItem.id);
+          if (save != null) { cancelTimer(save); }
+          pending.delete(finishedVe.displayItem.id);
+          updateStatus();
+        });
       }
     }
     active = null;
