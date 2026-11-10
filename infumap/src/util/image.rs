@@ -46,28 +46,20 @@ const IMAGE_PLACEHOLDER_JPEG_QUALITY: u8 = 30;
 /// Display dimensions without rasterizing vector images. Used by the bulk uploader before sending the original.
 pub fn image_dimensions(image_bytes: &[u8], image_identifier: &str) -> InfuResult<(u32, u32)> {
   if detect_mime_type(image_bytes) == SVG_MIME_TYPE {
-    let size = svg::parse(image_bytes)?.size().to_int_size();
-    return Ok((size.width(), size.height()));
+    return svg::dimensions(image_bytes);
   }
   let img = decode_image(image_bytes, image_identifier)?;
   Ok((img.width(), img.height()))
 }
 
-/// Validate an upload and create its placeholder. The SVG original stays vector; only its placeholder is rasterized.
-pub fn prepare_image(
-  image_bytes: &[u8],
-  image_identifier: &str,
-  mime_type: &str,
-) -> InfuResult<(u32, u32, Vec<u8>)> {
-  let (width, height, img) = if mime_type == SVG_MIME_TYPE {
-    let tree = svg::parse(image_bytes)?;
-    let size = tree.size().to_int_size();
-    (size.width(), size.height(), svg::placeholder(&tree, IMAGE_PLACEHOLDER_MAX_DIMENSION_PX)?)
-  } else {
-    let img = decode_image(image_bytes, image_identifier)?;
-    (img.width(), img.height(), img)
-  };
-  Ok((width, height, create_image_placeholder(&img)?))
+/// Validate an upload and create its placeholder. SVG images have no raster placeholder.
+pub fn prepare_image(image_bytes: &[u8], image_identifier: &str, mime_type: &str) -> InfuResult<(u32, u32, Vec<u8>)> {
+  if mime_type == SVG_MIME_TYPE {
+    let (width, height) = svg::dimensions(image_bytes)?;
+    return Ok((width, height, Vec::new()));
+  }
+  let img = decode_image(image_bytes, image_identifier)?;
+  Ok((img.width(), img.height(), create_image_placeholder(&img)?))
 }
 
 /// Decodes display-oriented pixels. CPU intensive: call on a blocking thread with an image processing permit.

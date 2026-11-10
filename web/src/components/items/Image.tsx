@@ -54,6 +54,15 @@ const PRINT_IMAGE_RESOLUTION_MULTIPLIER = 2;
 // the placeholder.
 const TRANSLUCENT_PLACEHOLDER_MAX_SCALE = 2;
 
+// SVG uploads have no raster placeholder. Use an image icon while loading or in thumbnail-only views.
+const IMAGE_FALLBACK_SRC = "data:image/svg+xml," + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">' +
+  '<rect width="40" height="40" fill="#e2e8f0"/>' +
+  '<g fill="none" stroke="#94a3b8" stroke-width="2" stroke-linejoin="round">' +
+  '<rect x="8" y="10" width="24" height="20" rx="2"/>' +
+  '<circle cx="15" cy="16" r="2"/><path d="m9 28 8-8 5 5 4-4 5 7"/></g></svg>'
+);
+
 // For debugging: when the localStorage key "debug:image-resolution" is "1" (read on load), each image shows a badge
 // with what is shown (P = placeholder, I = interim / partial, F = final) and its resolution relative to the device
 // pixels it covers: green >= 95%, amber >= 50%, red below.
@@ -111,7 +120,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
       return false;
     }
   }
-  const thumbnailSrc = () => imagePlaceholderSrc(imageItem().thumbnail);
+  const thumbnailSrc = () => imagePlaceholderSrc(imageItem().thumbnail) || IMAGE_FALLBACK_SRC;
   const imgOrigin = () => { return props.visualElement.displayItem.origin; }
   // Images are requested at device (not CSS) pixel resolution, so they are sharp on high density displays. Printed
   // images are requested at a fixed higher resolution than they are displayed at, so they print sharply.

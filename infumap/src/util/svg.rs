@@ -14,39 +14,27 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::io::Cursor;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-
-use image::{DynamicImage, ImageReader, RgbaImage};
 use infusdk::util::infu::InfuResult;
-use once_cell::sync::Lazy;
-use resvg::{tiny_skia, usvg};
 
 const MAX_SVG_BYTES: usize = 8 * 1024 * 1024;
 const MAX_SVG_NODES: u32 = 50_000;
 const MAX_SVG_DEPTH: usize = 128;
-const MAX_SVG_DIMENSION: f32 = 100_000.0;
-const MAX_EMBEDDED_IMAGE_PIXELS: u64 = 16_000_000;
+const MAX_SVG_DIMENSION: f64 = 100_000.0;
+const DEFAULT_SIZE: (f64, f64) = (300.0, 150.0);
 
-static FONTS: Lazy<Arc<usvg::fontdb::Database>> = Lazy::new(|| {
-  let mut db = usvg::fontdb::Database::new();
-  db.load_system_fonts();
-  Arc::new(db)
-});
-
-pub fn parse(data: &[u8]) -> InfuResult<usvg::Tree> {
+pub fn dimensions(data: &[u8]) -> InfuResult<(u32, u32)> {
   if data.len() > MAX_SVG_BYTES {
     return Err("SVG images must be no larger than 8 MiB.".into());
   }
   let text = std::str::from_utf8(data).map_err(|_| "SVG images must use UTF-8 encoding.")?;
-  // usvg's string parser enables DTDs. Parse XML ourselves so entity declarations cannot expand or read resources.
-  let doc = usvg::roxmltree::Document::parse_with_options(
+  // No DTDs or resource resolution: only inspect the XML and root sizing attributes.
+  let doc = roxmltree::Document::parse_with_options(
     text,
-    usvg::roxmltree::ParsingOptions { allow_dtd: false, nodes_limit: MAX_SVG_NODES, ..Default::default() },
+    roxmltree::ParsingOptions { allow_dtd: false, nodes_limit: MAX_SVG_NODES, ..Default::default() },
   )
   .map_err(|e| format!("Invalid SVG XML: {}", e))?;
-  if !doc.root_element().has_tag_name(("http://www.w3.org/2000/svg", "svg")) {
+  let root = doc.root_element();
+  if !root.has_tag_name(("http://www.w3.org/2000/svg", "svg")) {
     return Err("An SVG image must have an svg root in the http://www.w3.org/2000/svg namespace.".into());
   }
   if doc.descendants().any(|node| {
@@ -55,57 +43,59 @@ pub fn parse(data: &[u8]) -> InfuResult<usvg::Tree> {
     return Err("SVG elements are nested too deeply.".into());
   }
 
-  let rejected_image = AtomicBool::new(false);
-  let embedded_pixels = AtomicU64::new(0);
-  let default_data_resolver = usvg::ImageHrefResolver::default_data_resolver();
-  let options = usvg::Options {
-    fontdb: FONTS.clone(),
-    image_href_resolver: usvg::ImageHrefResolver {
-      // The default resolver reads local paths, even with resources_dir unset. Uploaded SVG must never do that.
-      resolve_string: Box::new(|_, _| None),
-      resolve_data: Box::new(|mime, bytes, options| {
-        // Bound raster decoding and exclude nested SVG, whose parser would bypass our XML and resource limits.
-        let dimensions = ImageReader::new(Cursor::new(bytes.as_slice()))
-          .with_guessed_format()
-          .ok()
-          .and_then(|reader| reader.into_dimensions().ok());
-        let allowed_mime =
-          matches!(mime, "image/png" | "image/jpeg" | "image/jpg" | "image/gif" | "image/webp" | "text/plain");
-        if let Some((w, h)) = dimensions.filter(|_| allowed_mime) {
-          let pixels = u64::from(w) * u64::from(h);
-          if pixels > 0
-            && pixels <= MAX_EMBEDDED_IMAGE_PIXELS
-            && embedded_pixels.fetch_add(pixels, Ordering::Relaxed) + pixels <= MAX_EMBEDDED_IMAGE_PIXELS
-          {
-            return default_data_resolver(mime, bytes, options);
-          }
-        }
-        rejected_image.store(true, Ordering::Relaxed);
-        None
-      }),
-    },
-    ..Default::default()
+  // CSS and content bounds are left to the browser. Root attributes give a stable layout size without
+  // a renderer or font database; SVGs without usable dimensions or a viewBox use a 300x150 viewport.
+  let view_box = root.attribute("viewBox").and_then(view_box_size);
+  let (base_width, base_height) = view_box.unwrap_or(DEFAULT_SIZE);
+  let width = root.attribute("width").and_then(|value| length_px(value, base_width));
+  let height = root.attribute("height").and_then(|value| length_px(value, base_height));
+  let (width, height) = match (width, height, view_box) {
+    (Some(width), None, Some((vw, vh))) => (width, width * vh / vw),
+    (None, Some(height), Some((vw, vh))) => (height * vw / vh, height),
+    _ => (width.unwrap_or(base_width), height.unwrap_or(base_height)),
   };
-  let tree = usvg::Tree::from_xmltree(&doc, &options).map_err(|e| format!("Invalid SVG image: {}", e))?;
-  if rejected_image.load(Ordering::Relaxed) {
-    return Err("SVG embedded images must be PNG, JPEG, GIF or WebP, with at most 16 million pixels in total.".into());
+  if !width.is_finite() || !height.is_finite() || width <= 0.0 || height <= 0.0 {
+    return Err("SVG dimensions must be positive and finite.".into());
   }
-  let size = tree.size();
-  if size.width() > MAX_SVG_DIMENSION || size.height() > MAX_SVG_DIMENSION {
+  if width > MAX_SVG_DIMENSION || height > MAX_SVG_DIMENSION {
     return Err("SVG dimensions must be no larger than 100,000 CSS pixels.".into());
   }
-  Ok(tree)
+  Ok((width.round().max(1.0) as u32, height.round().max(1.0) as u32))
 }
 
-pub fn placeholder(tree: &usvg::Tree, max_dimension: u32) -> InfuResult<DynamicImage> {
-  let size = tree.size();
-  let scale = (max_dimension as f32 / size.width().max(size.height())).min(1.0);
-  let width = (size.width() * scale).round().max(1.0) as u32;
-  let height = (size.height() * scale).round().max(1.0) as u32;
-  let mut pixmap = tiny_skia::Pixmap::new(width, height).ok_or("Could not allocate SVG placeholder.")?;
-  // Composite onto white before rendering: tiny-skia returns premultiplied pixels, whereas image expects straight alpha.
-  pixmap.fill(tiny_skia::Color::WHITE);
-  resvg::render(tree, tiny_skia::Transform::from_scale(scale, scale), &mut pixmap.as_mut());
-  let img = RgbaImage::from_raw(width, height, pixmap.take()).ok_or("Invalid SVG placeholder pixel buffer.")?;
-  Ok(DynamicImage::ImageRgba8(img))
+fn view_box_size(value: &str) -> Option<(f64, f64)> {
+  let values = value
+    .split(|c: char| c.is_ascii_whitespace() || c == ',')
+    .filter(|value| !value.is_empty())
+    .take(5)
+    .map(str::parse::<f64>)
+    .collect::<Result<Vec<_>, _>>()
+    .ok()?;
+  match values.as_slice() {
+    [x, y, width, height]
+      if x.is_finite() && y.is_finite() && width.is_finite() && height.is_finite() && *width > 0.0 && *height > 0.0 =>
+    {
+      Some((*width, *height))
+    }
+    _ => None,
+  }
+}
+
+fn length_px(value: &str, relative_to: f64) -> Option<f64> {
+  let value = value.trim().to_ascii_lowercase();
+  for (unit, scale) in [
+    ("px", 1.0),
+    ("in", 96.0),
+    ("cm", 96.0 / 2.54),
+    ("mm", 96.0 / 25.4),
+    ("q", 96.0 / 101.6),
+    ("pt", 96.0 / 72.0),
+    ("pc", 16.0),
+    ("%", relative_to / 100.0),
+  ] {
+    if let Some(number) = value.strip_suffix(unit) {
+      return number.trim().parse::<f64>().ok().map(|number| number * scale);
+    }
+  }
+  value.parse().ok()
 }
