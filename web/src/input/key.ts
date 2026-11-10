@@ -1294,8 +1294,63 @@ function switchToTableRootNavigationTarget(
   return true;
 }
 
-function handleTableRootPageHorizontalNavigationMaybe(store: StoreContextModel, ev: KeyboardEvent): boolean {
-  if (ev.code != "ArrowLeft" && ev.code != "ArrowRight") { return false; }
+/**
+ * Up/down from a page that is an attachment in a table row: the page attachment in the same column of the nearest row
+ * above or below that has one. Rows are read from the table's items, not the scene, so rows scrolled out of view are
+ * found too, and the table is scrolled to include the target row so it is in the scene on the next press.
+ */
+function switchToTableRootVerticalNeighborMaybe(
+  store: StoreContextModel,
+  currentPath: string,
+  direction: FindDirection,
+  updateParentFocusPath: boolean,
+): boolean {
+  if (direction != FindDirection.Up && direction != FindDirection.Down) { return false; }
+
+  const currentVe = VesCache.virtual.readNode(currentPath);
+  if (!currentVe || !isPage(currentVe.displayItem)) { return false; }
+  if (!(currentVe.flags & VisualElementFlags.InsideTable) || !(currentVe.flags & VisualElementFlags.Attachment)) { return false; }
+  if (currentVe.row == null || currentVe.col == null || currentVe.col < 1 || !currentVe.parentPath) { return false; }
+  const rowVe = VesCache.virtual.readNode(currentVe.parentPath);
+  if (!rowVe || !rowVe.parentPath) { return false; }
+  const tableVe = VesCache.virtual.readNode(rowVe.parentPath);
+  if (!tableVe || !isTableView(tableVe)) { return false; }
+
+  const rows = TableFns.tableVisibleRows(store, tableVe);
+  const attachmentColPos = currentVe.col - 1;
+  const delta = direction == FindDirection.Up ? -1 : 1;
+  for (let rowIdx = currentVe.row + delta; rowIdx >= 0 && rowIdx < rows.length; rowIdx += delta) {
+    const childItem = rows[rowIdx].item;
+    if (!childItem || !isAttachmentsItem(childItem)) { continue; }
+    const attachments = asAttachmentsItem(childItem).computed_attachments;
+    if (attachmentColPos >= attachments.length) { continue; }
+    const attachmentItem = itemState.get(attachments[attachmentColPos]);
+    if (!attachmentItem) { continue; }
+    const { displayItem, linkItemMaybe } = getVePropertiesForItem(store, attachmentItem);
+    // Only a page can become the root, so skip past other attachments rather than stopping at them.
+    if (!isPage(displayItem)) { continue; }
+
+    const targetVeid = VeFns.veidFromItems(displayItem, linkItemMaybe);
+    store.perItem.setTableScrollYPos(VeFns.veidFromVe(tableVe), TableFns.scrollYPosToIncludeRow(store, tableVe, rowIdx));
+    if (updateParentFocusPath) {
+      store.history.changeParentPageFocusPath(VeFns.addVeidToPath(targetVeid, rows[rowIdx].path));
+    }
+    switchToPage(store, targetVeid, true, false, true);
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Navigate from the current root page, when it is in a table, to a neighbor in that table. The current page is located
+ * in its parent via the history's parent focus path where possible, else via the item hierarchy. navigate is given the
+ * current page's path in the virtual scene of the parent, and whether to update the parent focus path.
+ */
+function handleTableRootPageNavigationMaybe(
+  store: StoreContextModel,
+  navigate: (currentPath: string, updateParentFocusPath: boolean) => boolean,
+): boolean {
   if (store.history.currentPopupSpec()) { return false; }
 
   const currentPageVeid = store.history.currentPageVeid();
@@ -1303,16 +1358,12 @@ function handleTableRootPageHorizontalNavigationMaybe(store: StoreContextModel, 
   const currentPageItem = itemState.get(currentPageVeid.itemId);
   if (!currentPageItem || !isPage(currentPageItem)) { return false; }
 
-  const direction = findDirectionFromKeyCode(ev.code);
   const historyParentVeid = store.history.peekPrevPageVeid();
   if (historyParentVeid) {
     arrangeVirtual(store, historyParentVeid, "key-table-root-nav-parent-history");
     const parentFocusPath = store.history.getParentPageFocusPath();
-    if (parentFocusPath && VesCache.virtual.readNode(parentFocusPath)) {
-      const targetPath = tablePageHorizontalNeighborPathMaybe(VesCache.virtual, parentFocusPath, direction);
-      if (targetPath && switchToTableRootNavigationTarget(store, targetPath, true)) {
-        return true;
-      }
+    if (parentFocusPath && VesCache.virtual.readNode(parentFocusPath) && navigate(parentFocusPath, true)) {
+      return true;
     }
   }
 
@@ -1322,14 +1373,28 @@ function handleTableRootPageHorizontalNavigationMaybe(store: StoreContextModel, 
   arrangeVirtual(store, containingPageVeid, "key-table-root-nav-parent-hierarchy");
   const virtualVesList = VesCache.virtual.findNodes(currentPageVeid);
   for (const virtualVe of virtualVesList) {
-    const currentPath = VeFns.veToPath(virtualVe);
-    const targetPath = tablePageHorizontalNeighborPathMaybe(VesCache.virtual, currentPath, direction);
-    if (targetPath && switchToTableRootNavigationTarget(store, targetPath, false)) {
+    if (navigate(VeFns.veToPath(virtualVe), false)) {
       return true;
     }
   }
 
   return false;
+}
+
+function handleTableRootPageHorizontalNavigationMaybe(store: StoreContextModel, ev: KeyboardEvent): boolean {
+  if (ev.code != "ArrowLeft" && ev.code != "ArrowRight") { return false; }
+  const direction = findDirectionFromKeyCode(ev.code);
+  return handleTableRootPageNavigationMaybe(store, (currentPath, updateParentFocusPath) => {
+    const targetPath = tablePageHorizontalNeighborPathMaybe(VesCache.virtual, currentPath, direction);
+    return !!targetPath && switchToTableRootNavigationTarget(store, targetPath, updateParentFocusPath);
+  });
+}
+
+function handleTableRootPageVerticalNavigationMaybe(store: StoreContextModel, ev: KeyboardEvent): boolean {
+  if (ev.code != "ArrowUp" && ev.code != "ArrowDown") { return false; }
+  const direction = findDirectionFromKeyCode(ev.code);
+  return handleTableRootPageNavigationMaybe(store, (currentPath, updateParentFocusPath) =>
+    switchToTableRootVerticalNeighborMaybe(store, currentPath, direction, updateParentFocusPath));
 }
 
 export async function keyUpHandler(_store: StoreContextModel, _ev: KeyboardEvent): Promise<void> {
@@ -1383,6 +1448,8 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
   if (focusedPageIsRoot && handleArrowKeyCalendarPageMaybe(store, ev)) { return; }
   if (focusedPageIsRoot && handleArrowKeyListPageChangeMaybe(store, ev)) { return; }
   if (focusedPageIsRoot && handleArrowKeyGridOrJustifiedPageScrollMaybe(store, ev)) { return; }
+  // After the page's own handling of up/down, so scrolling it takes precedence over leaving it.
+  if (focusedPageIsRoot && handleTableRootPageVerticalNavigationMaybe(store, ev)) { return; }
 
   // Handle arrow keys when an item (including pages) has focus but no popup
   // This enables navigation from a focused (non-editable) item
@@ -1449,64 +1516,6 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
                 if (closestVe && isPage(closestVe.displayItem)) {
                   switchToPage(store, VeFns.veidFromPath(closestInParent), true, false, true);
                   return;
-                }
-              }
-
-              // Strategy 3: Table attachment navigation (when findClosest failed)
-              // If this is a table attachment, navigate up/down to attachments in other rows
-              if ((virtualVe.flags & VisualElementFlags.InsideTable) &&
-                (virtualVe.flags & VisualElementFlags.Attachment) &&
-                virtualVe.col != null && virtualVe.row != null && virtualVe.parentPath) {
-                if (direction == FindDirection.Up || direction == FindDirection.Down) {
-                  // Navigate between attachments in different table rows
-                  const rowVe = VesCache.virtual.readNode(virtualVe.parentPath);
-                  if (rowVe && rowVe.parentPath) {
-                    const tableVe = VesCache.virtual.readNode(rowVe.parentPath);
-                    if (tableVe) {
-                      // Get sibling rows (other rows in the table)
-                      const siblingRows = VesCache.virtual.readSiblings(virtualVe.parentPath);
-
-                      let targetPath: string | null = null;
-                      let targetRow: number | null = null;
-                      const columnIndex = virtualVe.col;
-                      const currentRow = virtualVe.row;
-
-                      for (const rowVe of siblingRows) {
-                        if (rowVe.row == null) continue;
-
-                        const childRow = rowVe.row;
-                        let rowIsCandidate = false;
-
-                        if (direction == FindDirection.Up) {
-                          rowIsCandidate = childRow < currentRow && (targetRow == null || childRow > targetRow);
-                        } else {
-                          rowIsCandidate = childRow > currentRow && (targetRow == null || childRow < targetRow);
-                        }
-
-                        if (!rowIsCandidate) continue;
-
-                        // Find attachments of this row using virtual indexed children.
-                        const rowPath = VeFns.veToPath(rowVe);
-                        const rowChildren = VesCache.virtual.readIndexedChildren(rowPath);
-                        for (const attVe of rowChildren) {
-                          if ((attVe.flags & VisualElementFlags.Attachment) && attVe.col === columnIndex) {
-                            // Only consider pages
-                            if (isPage(attVe.displayItem)) {
-                              targetPath = VeFns.veToPath(attVe);
-                              targetRow = childRow;
-                              break;
-                            }
-                          }
-                        }
-                      }
-
-                      if (targetPath) {
-                        const targetVeid = VeFns.veidFromPath(targetPath);
-                        switchToPage(store, targetVeid, true, false, true);
-                        return;
-                      }
-                    }
-                  }
                 }
               }
             }
