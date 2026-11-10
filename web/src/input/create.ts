@@ -21,6 +21,7 @@ import { Item, ItemType } from "../items/base/item";
 import { itemCanEdit } from "../items/base/capabilities-item";
 import { itemCanAcceptManualChildren } from "../items/base/flags-item";
 import { PositionalItem } from "../items/base/positional-item";
+import { ContainerItem } from "../items/base/container-item";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
 import { NoteFns } from "../items/note-item";
@@ -35,15 +36,17 @@ import { TextFns, isClipboardTextCreateItem } from "../items/text-item";
 import { arrangeNow } from "../layout/arrange";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
-import { VeFns, VisualElement, VisualElementFlags, isTableView, isVeTranslucentPage } from "../layout/visual-element";
+import { ListPageRowBand, VeFns, VisualElement, VisualElementFlags, isTableView, isVeTranslucentPage } from "../layout/visual-element";
+import { stackedInsertionIndexFromDesktopPx } from "../layout/stacked-insertion";
 import { isQueryItem } from "../items/query-item";
 import { server, serverOrRemote } from "../server";
 import { itemState } from "../store/ItemState";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { StoreContextModel } from "../store/StoreProvider";
 import { setCaretPosition } from "../util/caret";
-import { isInside, Vector } from "../util/geometry";
+import { BoundingBox, isInside, Vector } from "../util/geometry";
 import { panic } from "../util/lang";
+import { newOrderingAtBeginning, newOrderingAtEnd, newOrderingBetween } from "../util/ordering";
 import { restoreContentEditablePlaceholderIfEmpty } from "../util/string";
 import { SOLO_ITEM_HOLDER_PAGE_UID, Uid } from "../util/uid";
 import { HitInfo, HitInfoFns } from "./hit";
@@ -78,6 +81,38 @@ function createNewItem(
     prepareNewTextItemForClipboardCreate(newItem);
   } else {
     panic("AddItem.createNewItem: unexpected item type.");
+  }
+  return newItem;
+}
+
+/** Whether a new item of type is edited (its title) once created. */
+function createsWithTitleEdit(type: string): boolean {
+  return type == ItemType.Page ||
+    type == ItemType.Note ||
+    type == ItemType.Password ||
+    type == ItemType.Table ||
+    type == ItemType.Text;
+}
+
+/**
+ * A new item for position insertIndex among the children of parent. Where they are sorted the position means nothing,
+ * so an item that is edited once created is held there until the edit ends (see itemState.holdSortPosition), rather
+ * than going where its empty title sorts it. Not added yet.
+ */
+function createNewItemAtChildrenPosition(
+  store: StoreContextModel,
+  type: string,
+  parent: ContainerItem,
+  insertIndex: number,
+): PositionalItem {
+  const newItem = createNewItem(
+    store,
+    type,
+    parent.id,
+    itemState.newOrderingAtChildrenPosition(parent.id, insertIndex, null),
+    RelationshipToParent.Child);
+  if (!itemState.childrenAreInOrderingOrder(parent.id) && createsWithTitleEdit(type)) {
+    itemState.holdSortPosition(newItem.id, parent.computed_children[insertIndex - 1] ?? null);
   }
   return newItem;
 }
@@ -180,19 +215,43 @@ function focusedListPageCreateTarget(store: StoreContextModel, desktopPosPx: Vec
   }
 
   const page = asPageItem(focusVe.displayItem);
-  if (page.arrangeAlgorithm != ArrangeAlgorithm.List || !focusVe.viewportBoundsPx || !focusVe.listViewportBoundsPx) {
+  if (page.arrangeAlgorithm != ArrangeAlgorithm.List) {
     return null;
   }
 
-  const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, focusVe);
-  const listViewportBoundsPx = {
-    x: viewportBoundsPx.x + focusVe.listViewportBoundsPx.x - focusVe.viewportBoundsPx.x,
-    y: viewportBoundsPx.y + focusVe.listViewportBoundsPx.y - focusVe.viewportBoundsPx.y,
-    w: focusVe.listViewportBoundsPx.w,
-    h: focusVe.listViewportBoundsPx.h,
-  };
+  const listBoundsPx = listBoundsRelativeToDesktopPx(store, focusVe);
+  return listBoundsPx != null && isInside(desktopPosPx, listBoundsPx) ? focusVe : null;
+}
 
-  return isInside(desktopPosPx, listViewportBoundsPx) ? focusVe : null;
+/**
+ * The bounds of the list (not the selected item beside it) of list page pageVe, relative to the desktop. These include
+ * the pinned bands, which are outside listViewportBoundsPx.
+ */
+function listBoundsRelativeToDesktopPx(store: StoreContextModel, pageVe: VisualElement): BoundingBox | null {
+  if (!pageVe.viewportBoundsPx || !pageVe.listViewportBoundsPx) { return null; }
+  const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, pageVe);
+  return {
+    x: viewportBoundsPx.x + pageVe.listViewportBoundsPx.x - pageVe.viewportBoundsPx.x,
+    y: viewportBoundsPx.y + pageVe.listViewportBoundsPx.y - pageVe.viewportBoundsPx.y - pageVe.listPagePinnedTopHeightPx,
+    w: pageVe.listViewportBoundsPx.w,
+    h: pageVe.listViewportBoundsPx.h + pageVe.listPagePinnedTopHeightPx + pageVe.listPagePinnedBottomHeightPx,
+  };
+}
+
+/**
+ * Where in list page pageVe an item created at desktopPosPx goes: as for a drop there, between the rows nearest it,
+ * and in a pinned band if it is over one. Null if desktopPosPx is not over the list.
+ */
+function listPageCreateTarget(
+  store: StoreContextModel,
+  pageVe: VisualElement,
+  desktopPosPx: Vector,
+): { parentContainer: ContainerItem, insertIndex: number, band: ListPageRowBand } | null {
+  const listBoundsPx = listBoundsRelativeToDesktopPx(store, pageVe);
+  if (listBoundsPx == null || !isInside(desktopPosPx, listBoundsPx)) { return null; }
+  const band = PageFns.listPageMoveOverBand(store, pageVe, desktopPosPx);
+  const moveOverIndex = stackedInsertionIndexFromDesktopPx(store, PageFns.listPageInsertionRowVes(pageVe, band), desktopPosPx);
+  return { ...PageFns.listPageInsertionTarget(pageVe, moveOverIndex, [], band), band };
 }
 
 function findPlaceholderDescendantAtDesktopPos(
@@ -296,14 +355,43 @@ function createItemInPage(
   }
 
   const pageArrangeAlgorithm = pageVe.linkItemMaybe?.overrideArrangeAlgorithm || asPageItem(pageVe.displayItem).arrangeAlgorithm;
-  const newItem = createNewItem(
-    store,
-    type,
-    pageVe.displayItem.id,
-    itemState.newOrderingAtEndOfChildren(pageVe.displayItem.id),
-    RelationshipToParent.Child);
+  const listTarget = pageArrangeAlgorithm == ArrangeAlgorithm.List
+    ? listPageCreateTarget(store, pageVe, desktopPosPx)
+    : null;
 
-  positionNewItemInPage(store, newItem, pageVe, desktopPosPx, positionGrMaybe);
+  let newItem: PositionalItem;
+  if (listTarget == null) {
+    newItem = createNewItem(
+      store,
+      type,
+      pageVe.displayItem.id,
+      itemState.newOrderingAtEndOfChildren(pageVe.displayItem.id),
+      RelationshipToParent.Child);
+    positionNewItemInPage(store, newItem, pageVe, desktopPosPx, positionGrMaybe);
+  } else if (listTarget.parentContainer.id != pageVe.displayItem.id) {
+    // In a container expanded in the list.
+    if (!parentChainAllowsNewChild(listTarget.parentContainer.id)) {
+      store.overlay.contextMenuInfo.set(null);
+      return null;
+    }
+    newItem = createNewItemAtChildrenPosition(store, type, listTarget.parentContainer, listTarget.insertIndex);
+  } else if (listTarget.band != "middle") {
+    // As for a drop there, an item created in a pinned band is pinned, in the order the user put them.
+    const orderings = PageFns.listPagePinnedChildIds(asPageItem(pageVe.displayItem), listTarget.band)
+      .map(id => itemState.get(id)!.ordering);
+    const idx = Math.max(0, Math.min(listTarget.insertIndex, orderings.length));
+    const ordering = idx == 0
+      ? newOrderingAtBeginning(orderings)
+      : idx == orderings.length
+        ? newOrderingAtEnd(orderings)
+        : newOrderingBetween(orderings[idx - 1], orderings[idx]);
+    newItem = createNewItem(store, type, pageVe.displayItem.id, ordering, RelationshipToParent.Child);
+    newItem.pinnedTo = listTarget.band;
+    positionNewItemInPage(store, newItem, pageVe, desktopPosPx, positionGrMaybe);
+  } else {
+    newItem = createNewItemAtChildrenPosition(store, type, listTarget.parentContainer, listTarget.insertIndex);
+    positionNewItemInPage(store, newItem, pageVe, desktopPosPx, positionGrMaybe);
+  }
 
   addNewItemForCreation(store, newItem);
 
@@ -517,11 +605,13 @@ function focusNewItemForEditing(
     });
     // Edit state was set above in anticipation. Left on, it makes the global key handler ignore every shortcut.
     store.overlay.setTextEditInfo(store.history, null, true);
+    itemState.releaseSortPositionHold(newItem.id);
     return;
   }
 
   console.warn("could not edit newly created item because its title element was not found", { type, newItemPath });
   store.overlay.setTextEditInfo(store.history, null, true);
+  itemState.releaseSortPositionHold(newItem.id);
 }
 
 export const newItemInContext = (store: StoreContextModel, type: string, hitInfo: HitInfo, desktopPosPx: Vector) => {
@@ -608,12 +698,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
           return;
         }
 
-        newItem = createNewItem(
-          store,
-          type,
-          insertionTarget.parentContainer.id,
-          itemState.newOrderingAtChildrenPosition(insertionTarget.parentContainer.id, insertionTarget.insertIndex, null),
-          RelationshipToParent.Child);
+        newItem = createNewItemAtChildrenPosition(store, type, insertionTarget.parentContainer, insertionTarget.insertIndex);
         addNewItemForCreation(store, newItem);
         store.overlay.contextMenuInfo.set(null);
         scrollTableToIncludeNewItemRow(store, overElementVe, newItem, insertRow);
@@ -730,11 +815,7 @@ export const newItemInContext = (store: StoreContextModel, type: string, hitInfo
     ({ newItem, newItemPath } = created);
   }
 
-  if (type == ItemType.Page ||
-      type == ItemType.Note ||
-      type == ItemType.Password ||
-      type == ItemType.Table ||
-      type == ItemType.Text) {
+  if (createsWithTitleEdit(type)) {
     focusNewItemForEditing(store, type, newItem, newItemPath);
   } else if (type == ItemType.Link) {
     store.history.setFocus(newItemPath);

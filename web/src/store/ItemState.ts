@@ -32,6 +32,7 @@ import { compareOrderings, newOrderingAtBeginning, newOrderingAtEnd, newOrdering
 import { EMPTY_UID, Uid } from "../util/uid";
 
 let items = new Map<Uid, Item>();
+let sortPositionHold: { itemId: Uid, afterId: Uid | null } | null = null;
 let preserveUnsavedTextFields: (item: Item) => void = () => {};
 
 export function setUnsavedTextFieldsRestorer(restorer: (item: Item) => void): void {
@@ -322,7 +323,36 @@ export const itemState = {
         if (cmp !== 0) { return descending ? -cmp : cmp; }
         return a < b ? -1 : (a > b ? 1 : 0);
       });
+
+      const heldIdx = sortPositionHold == null ? -1 : container.computed_children.indexOf(sortPositionHold.itemId);
+      if (heldIdx >= 0) {
+        const children = container.computed_children;
+        const heldItem = itemState.get(children[heldIdx])!;
+        children.splice(heldIdx, 1);
+        const afterIdx = sortPositionHold!.afterId == null ? -1 : children.indexOf(sortPositionHold!.afterId);
+        // It stays in its band. The item it was created after may be in another, or gone.
+        const band = bandRank(heldItem);
+        let bandStart = children.findIndex(id => bandRank(itemState.get(id)!) >= band);
+        if (bandStart < 0) { bandStart = children.length; }
+        let bandEnd = children.findIndex(id => bandRank(itemState.get(id)!) > band);
+        if (bandEnd < 0) { bandEnd = children.length; }
+        children.splice(Math.max(bandStart, Math.min(afterIdx + 1, bandEnd)), 0, heldItem.id);
+      }
     }
+  },
+
+  /**
+   * Keep itemId directly after afterId (or first, if null) among its siblings in a sorted container, rather than where
+   * it sorts, until the hold is released. A new item is created with an empty title, which sorts it to one end. Held,
+   * it appears where it was created (under the mouse) while its title is entered, and moves when the edit ends.
+   */
+  holdSortPosition: (itemId: Uid, afterId: Uid | null): void => {
+    sortPositionHold = { itemId, afterId };
+  },
+
+  /** Release the hold on the sort position of itemId, if any. */
+  releaseSortPositionHold: (itemId: Uid): void => {
+    if (sortPositionHold?.itemId == itemId) { sortPositionHold = null; }
   },
 
   /**

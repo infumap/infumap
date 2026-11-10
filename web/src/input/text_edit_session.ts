@@ -407,7 +407,11 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
     }
     // Navigation may end an edit before the browser delivers compositionend.
     // Capture the current DOM once while the old host still exists.
-    if (active != null) { active.isComposing = false; }
+    if (active != null) {
+      active.isComposing = false;
+      // Before the flush, so it sorts the new item to where its title puts it.
+      itemState.releaseSortPositionHold(active.itemId);
+    }
     flushActive();
     if (active != null) {
       const item = itemState.get(active.itemId);
