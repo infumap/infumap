@@ -1661,15 +1661,7 @@ version = "1.0.23"
 criteria = "safe-to-deploy"
 
 [[exemptions.zstd]]
-version = "0.12.4"
-criteria = "safe-to-deploy"
-
-[[exemptions.zstd]]
 version = "0.13.4"
-criteria = "safe-to-deploy"
-
-[[exemptions.zstd-safe]]
-version = "6.0.6"
 criteria = "safe-to-deploy"
 
 [[exemptions.zstd-safe]]
