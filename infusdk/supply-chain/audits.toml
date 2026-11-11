@@ -319,3 +319,12 @@ user-id = 3618
 start = "2019-02-25"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 3618: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[audits.redox_syscall]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.5.18"
+notes = """
+Reviewed-at: 2026-11-11T13:45:41+07:00
+Report: dependency-reviews/2026-11-11_133616+0700.md
+Full exact-version AI source review of both manifests; src/lib.rs/call.rs; four arch syscall stubs; io/{io,mmio,pio}; ABI/error/number/dirent/sigabi; scheme dispatch variants, schemev2 and developer generator. Explicit caller paths/handles/buffers drive raw Redox operations; hardware access requires explicit port/memory APIs. No automatic credential access, upload, filesystem selection, execution or persistence. Both graphs select this through parking_lot_core only on Redox, where thread_parker/redox.rs uses futex wait/wake. Nonblocking source defects: sigabi.rs:82-83 updates word[0] twice in set_allowset, leaving high signal masks stale and modifying low masks incorrectly; dirent.rs:89-109 accepts undersized record_len before slicing (panic), and oversized records yield repeated Err without advancing (caller loops possible). These inactive helpers are outside the parker path; no prohibited machine effect established. No complete unsafe/ABI/signal ordering proof or hostile-packet audit; intended Redox kernel/driver contracts assumed. No builds or tests."""

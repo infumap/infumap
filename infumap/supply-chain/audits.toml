@@ -2127,3 +2127,66 @@ user-id = 3203
 start = "2026-10-16"
 end = "2027-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Alexandre Bury (gyscos): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nAlexandre Bury is the zstd-rs author/maintainer and verified publisher of the\nlocked zstd, zstd-safe and zstd-sys releases. Accept this upstream wrapper,\nbundled native zstd code, native build integration, packaging and release\nprocess. Publisher-wide acceptance includes future dependencies from this\naccount; no independent source review or native-code security audit.\nSource: https://github.com/gyscos/zstd-rs\n"
+
+[[audits.redox_syscall]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.5.18"
+notes = """
+Reviewed-at: 2026-11-11T13:45:41+07:00
+Report: dependency-reviews/2026-11-11_133616+0700.md
+Full exact-version AI source review of both manifests; src/lib.rs/call.rs; four arch syscall stubs; io/{io,mmio,pio}; ABI/error/number/dirent/sigabi; scheme dispatch variants, schemev2 and developer generator. Explicit caller paths/handles/buffers drive raw Redox operations; hardware access requires explicit port/memory APIs. No automatic credential access, upload, filesystem selection, execution or persistence. Both graphs select this through parking_lot_core only on Redox, where thread_parker/redox.rs uses futex wait/wake. Nonblocking source defects: sigabi.rs:82-83 updates word[0] twice in set_allowset, leaving high signal masks stale and modifying low masks incorrectly; dirent.rs:89-109 accepts undersized record_len before slicing (panic), and oversized records yield repeated Err without advancing (caller loops possible). These inactive helpers are outside the parker path; no prohibited machine effect established. No complete unsafe/ABI/signal ordering proof or hostile-packet audit; intended Redox kernel/driver contracts assumed. No builds or tests."""
+
+[[audits.qrcodegen-image]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "1.5.2"
+notes = """
+Reviewed-at: 2026-11-11T13:45:41+07:00
+Report: dependency-reviews/2026-11-11_133616+0700.md
+Full exact-version AI source review of both manifests, entire src/lib.rs, benchmark and packaged CI. draw_canvas renders supplied QR modules into a padded grayscale buffer; draw_png encodes into Vec and enabled base64 feature returns encoded bytes. Used by totp-rs QR provisioning. Supplied secrets become requested image content; no upload, logging, file selection, process or background execution. Upstream CI's explicit grcov download/coverage upload is not a consumer build hook. qrcodegen/image/PNG dependencies retain separate evidence requirements; benchmark Criterion is dev-only. No builds or tests."""
+
+[[audits.compression-core]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.4.34"
+notes = """
+Reviewed-at: 2026-11-11T13:45:41+07:00
+Report: dependency-reviews/2026-11-11_133616+0700.md
+Full exact-version AI source review of both manifests and all src/{lib,level,unshared,util}.rs. Level selects effort; PartialBuffer and WriteBuffer track supplied storage, written/initialized byte ranges and bounded advances/copies. Unshared exposes only mutable access to its inner value and its Debug prints only the type name. Unsafe Sync and MaybeUninit handoffs have no automatic external effects; caller traits/unsafe assertions retain contracts. No dependencies, build hook, credential/filesystem/network/process access or unrelated computation. This is not a proof of every generic/unsafe invariant. No builds or tests."""
+
+[[audits.zune-jpeg]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.5.15"
+notes = """
+Reviewed-at: 2026-11-11T13:45:41+07:00
+Report: dependency-reviews/2026-11-11_133616+0700.md
+Full exact-version AI source review of both manifests; src/lib/decoder/headers, MCU/progressive/bitstream/Huffman processing, components/worker routing, scalar/SIMD selection and AVX2/NEON IDCT/color/upsampler memory boundaries/vector helpers. Caller reader supplies JPEG bytes; decode_into checks/narrows output; options bound dimensions/progressive scans. Embedded ICC/Exif/XMP/gain-map data stays in memory; Adobe XMP URLs are namespace byte comparisons, not destinations. SIMD stores target decoded/scratch buffers; focused worker caller and zune-core CPU-dispatch context inspected. No file selection, networking, hidden execution, persistence or unrelated work found. No complete numeric/SIMD soundness or corrupt-image/resource-exhaustion proof. image wrapper overrides standalone dimension defaults and has separate Limits handling; zune-core retains its own review obligation. No builds or tests."""
+
+[[audits.heifer-hevc-dec]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.4.0"
+notes = """
+Reviewed-at: 2026-11-11T13:45:41+07:00
+Report: dependency-reviews/2026-11-11_133616+0700.md
+Full exact-version AI source review of both manifests; src/lib/decoder/bitreader/nal; parameter/slice activation and counts; CABAC/context setup; syntax CTU/recursive block dispatch; scan/ref helpers; reconstruction/filter buffer paths; SEI local hashes and packaged example/fixture I/O. Supplied Annex B bytes produce pixel planes; no independent file/network/environment/process access or build hook. decode_picture_checked checks pixel product before picture buffers (standalone default 2^27), validates tiles, bounds CTU traversal and decreases coding recursion sizes. Heifer propagates max_pixels; Infumap selects one outer worker. Pixel limits are not aggregate-memory or pre-parameter/NAL allocation caps; lower-level constructors trust parameters. No exhaustive codec arithmetic, crop/parser or adversarial-image proof. heifer-isobmff remains separate. No builds or tests."""
+
+[[audits.compression-codecs]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.4.47"
+notes = """
+Reviewed-at: 2026-11-11T13:45:42+07:00
+Report: dependency-reviews/2026-11-11_133616+0700.md
+Full exact-version AI source review of both manifests; src/lib.rs adapters/traits; Brotli/flate/gzip/zlib encoder/decoder/params, gzip header/footer; optional deflate/deflate64, bzip2, LZ4, LZMA/XZ, zstd and unstable mbrotli/mzstd routes, native cleanup and worker parameters. Enabled Brotli/gzip/zlib transform supplied buffers through codec dependencies. gzip consumes names/comments without opening paths and validates FHCRC/footer. No independent files, endpoints, credentials, subprocesses or build hook. Optional native contexts and explicit parallel/quality/memory settings implement compression; backend implementations/builds remain separate dependency obligations. Buffer initialization trusts backend progress; per-call output bounds do not cap total expansion or aggregate memory. No decompression-bomb/soundness proof. No builds or tests."""
+
+[[audits.kamadak-exif]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.5.5"
+notes = """
+Reviewed-at: 2026-11-11T13:45:42+07:00
+Report: dependency-reviews/2026-11-11_133616+0700.md
+Full exact-version AI source review of both manifests; src/lib/reader, TIFF/IFD, JPEG/PNG/WebP/HEIF extraction, endian/util/value/tag/display macro paths, experimental Writer composition/seek/write boundaries, examples/fixture I/O. Reader uses only caller bytes or stream; HEIF external references are rejected and pointers are in-stream offsets. Writer touches only explicit Write+Seek target. Infumap reads Cursor image bytes for capture/GPS/camera/orientation data, not host metadata. No credential access, outbound destinations, processes or automatic filesystem mutation. TIFF/metadata/HEIF boxes can need large reads; HEIF 65535-byte Exif checks occur after extent reads, not before every allocation. These are hostile/large-input resource-hardening limits, not hidden resource abuse. No full parser/thread-soundness proof; mutate_once remains separately uncovered. No builds or tests."""
