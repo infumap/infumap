@@ -21,15 +21,23 @@ import { ImageFetchPriority, getImage, releaseImage } from "../../imageManager";
 import { NoteFaviconLoadStatus, noteFaviconStatus, setNoteFaviconStatus } from "../../items/note-favicon-state";
 import { ItemIconRenderContext } from "../../items/base/icon-item";
 import { NoteFns, type NoteItem } from "../../items/note-item";
+import { useStore } from "../../store/StoreProvider";
 
 
 export const NoteIconGlyph: Component<{ note: () => NoteItem, iconContext?: () => ItemIconRenderContext, highPriority?: () => boolean }> = (props) => {
+  const store = useStore();
   const [faviconObjectUrl, setFaviconObjectUrl] = createSignal<string | null>(null);
   let currentFaviconPath = "";
   let currentFaviconOrigin: string | null = null;
 
   const iconContext = () => props.iconContext?.() ?? ItemIconRenderContext.Spatial;
   const emoji = () => NoteFns.emoji(props.note(), iconContext());
+  // The server looks up the url from the saved note, not from the request. Asking before an edit that adds or changes
+  // the url is saved (text saves are debounced) gets a 404, which would be remembered as Failed for that path.
+  const hasUnsavedText = () => {
+    const id = props.note().id;
+    return store.textEdit.pendingSaves().some(save => save.itemId == id);
+  };
   const faviconPath = () => NoteFns.faviconPath(props.note(), iconContext());
 
   const markCurrentFaviconFailed = (): void => {
@@ -64,6 +72,11 @@ export const NoteIconGlyph: Component<{ note: () => NoteItem, iconContext?: () =
       return;
     }
     if (currentFaviconPath == path && currentFaviconOrigin == origin) {
+      return;
+    }
+    if (hasUnsavedText()) {
+      setFaviconObjectUrl(null);
+      releaseCurrentFavicon();
       return;
     }
 
