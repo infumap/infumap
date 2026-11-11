@@ -156,6 +156,12 @@ Reviewed-at: 2026-11-11T14:43:54+07:00
 Report: dependency-reviews/2026-11-11_143809+0700.md
 Full exact-version AI source review of both manifests and complete src/lib.rs. Six derives parse supplied DeriveInput and delegate to exact darling_core 0.24.1 derive functions; FromMetaItem emits a fixed compile error. No wrapper environment, filesystem, network or process access. Focused darling_core derive/options/token-generator context read; not a full darling_core review or certification. Generated parser/trait impls and caller-selected transformations implement the requested derives; helper coverage remains separate. No builds or tests."""
 
+[[audits.datasketches]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.5.0"
+notes = "Reviewed-at: 2026-11-11T15:57:58+07:00. Report: dependency-reviews/2026-11-11_154956+0700.md. Full exact-version AI source review: both manifests; lib/feature routing, codec/hash/error, HLL constructors/update/promotion/storage/union/estimation/serialization, optional sketch family configuration/storage/serialization and REQ/tuple callbacks. Tantivy enables hll for cardinality aggregation. HLL precision checked at 4..21; supplied values become local coupons/registers. Codec uses Cursor over caller bytes and returned Vec, not host I/O. No unsafe/FFI, build hook, hidden initialization, filesystem/credential/network/process/background path. Optional REQ uses declared rand for stochastic compaction; inactive in current consumer. Generic policies/hash/serialization are explicit caller implementations. No statistical, arbitrary-input/parser or every bit-packing proof; aggregate memory depends on caller workload/configuration. No concerning changes found within reviewed scope; safe-to-run only."
+
 [[audits.dirs]]
 who = "Codex (AI reviewer)"
 criteria = "safe-to-run"
@@ -282,6 +288,12 @@ Reviewed-at: 2026-11-11T07:57:14+07:00
 Report: dependency-reviews/2026-11-11_075325+0700.md
 AI source review of the published delta only. Reviewed both manifests, packaged lock and VCS metadata, src/lib.rs, src/deflate/{buffer,core,mod,stored,stream,zlib}.rs, src/inflate/{core,mod,output_buffer,stream}.rs and src/serde/big_array.rs. Flush and window handling emit format markers and bounded local buffers. Huffman validation tightens malformed-input checks. Bounded match copies preserve the caller's output cap. Wasm moves a fixed-size buffer to the heap. Optional Serde and SIMD manifest changes add no build hook or external I/O. The report notes compression parameter and inflate efficiency caveats. Bytecode Alliance evidence covers 0.8.9. No builds or tests."""
 
+[[audits.moxcms]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.8.1"
+notes = "Reviewed-at: 2026-11-11T15:57:58+07:00. Report: dependency-reviews/2026-11-11_154956+0700.md. Full exact-version AI source review: both manifests; lib, profile/reader/tag/TRC/writer/default/date, gamma/color helpers, transform/layout factories, scalar/SSE/AVX/AVX512/NEON and LUT/interpolation, optional multi-ink/in-place/extended-range/CMYKA routes. image uses local color conversion; pxfm separately reviewed. Transforms operate on supplied pixels, owned LUTs and aligned scratch; no OS FFI, credentials/network/process/install or unrelated-file mutation. Profile reader uses in-memory Cursor with size/dimension checks; writer returns Vec. System clock supplies timestamps; fixture file reads are cfg(test). Nonblocking source observations: dat.rs Default->now->Default recurses for pre-epoch clock (assume clock >= UNIX_EPOCH); writer.rs write_mluc uses UTF-8 length*2 while emitting UTF-16, corrupting non-ASCII record lengths/offsets. Neither fixed or executed. No confirmed criterion violation established; not a comprehensive SIMD/parser/numerical proof or aggregate memory bound. No concerning changes found within reviewed scope; safe-to-run only."
+
 [[audits.multiversion]]
 who = "Codex (AI reviewer)"
 criteria = "safe-to-run"
@@ -327,6 +339,12 @@ Reviewed-at: 2026-11-11T08:18:34+07:00
 Report: dependency-reviews/2026-11-11_080717+0700.md
 AI source review of delta from Google-audited Nom 7.1.3. Compared published manifests, packaged lock and VCS metadata, parser modes, input traits, byte/bit/character/number primitives, combinators, docs and fixtures. Changes operate on supplied input. No build hook or new runtime dependency. Report records inherited escaped-transform progress issue and LengthCount reservation caveat outside av1-grain's parser path. No builds or tests."""
 
+[[audits.objc2-io-kit]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.3.2"
+notes = "Reviewed-at: 2026-11-11T15:57:58+07:00. Report: dependency-reviews/2026-11-11_154956+0700.md. Full exact-version AI source review: both manifests, translation config, lib/macros/consumes_argument and generated module/declaration/ABI structures plus 356 generated wrapper bodies. Wrappers only forward caller arguments to declared IOKit functions and convert booleans/CF ownership/null returns. Handwritten service wrappers consume explicit matching dictionaries. Single IOKit framework link; no build hook or automatic calls. Powerful registry/device, HID, mapping, power and URL resource APIs implement explicit caller requests; no hardcoded credential/file/endpoint selection or autonomous task. sysinfo selects Apple-only std/libc/hidsystem; rust-s3 uses memory refresh for upload concurrency, not product serial/UUID calls. CF macro implementation inspected as context. No Apple execution, comprehensive ABI/ownership-soundness or OS framework implementation audit; dependencies remain separate. No concerning changes found within reviewed scope; safe-to-run only."
+
 [[audits.ordered-multimap]]
 who = "Codex (AI reviewer)"
 criteria = "safe-to-run"
@@ -362,6 +380,12 @@ notes = """
 Reviewed-at: 2026-11-11T11:25:01+07:00
 Report: dependency-reviews/2026-11-11_111901+0700.md
 AI full source review of src/lib.rs, both manifests, README, packaged lockfile and VCS metadata. function/all_functions parse functions/impls and wrap original bodies; skip passes through. All cfg branches read: no backend only nests the body; optional backends emit documented profiling scope/tracing calls. No macro-time filesystem/environment/network/process access or build script. Current Infumap all-features graph enables no backend, so no profiling calls are inserted. Backend implementations and the companion profiling crate are not independently certified; future backend activation changes runtime scope. No comprehensive correctness claim. No builds or tests."""
+
+[[audits.pxfm]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.1.30"
+notes = "Reviewed-at: 2026-11-11T15:57:58+07:00. Report: dependency-reviews/2026-11-11_154956+0700.md. Full exact-version AI source review: both manifests; lib/module routing, bits/common, polynomial/double/triple/dyadic helpers, powers/logs/exp/trig reduction, gamma/Bessel/error-function table/dispatch structures and hypot correction paths. Numerical input/output only, with no runtime dependencies, raw-pointer memory interface, OS FFI, filesystem/credential/network/process path or build hook. OnceLock chooses compiled numerical routines after AVX/FMA detection. Power fallback shifts exponents toward zero and convergence paths implement numerical calculations, not hidden work. Print calls are cfg(test). Coefficient values, numerical accuracy, every numeric-conversion precondition and loop invariant were not independently proven. No concerning changes found within the reviewed scope; safe-to-run only."
 
 [[audits.qrcodegen]]
 who = "Codex (AI reviewer)"
