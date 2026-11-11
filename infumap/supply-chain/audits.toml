@@ -466,6 +466,13 @@ start = "2019-03-04"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 1: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
 
+[[trusted."flate2"]]
+criteria = ["safe-to-run"]
+user-id = 980
+start = "2019-07-03"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 980: Automatically inherited publisher-wide from mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
 [[trusted."fnv"]]
 criteria = ["safe-to-run"]
 user-id = 1139
@@ -746,6 +753,13 @@ start = "2021-05-18"
 end = "2027-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Paul Masurel (fulmicoton): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nPaul Masurel is the Tantivy author and verified publisher of the locked search\nengine, bitpacking, census, fastdivide, levenshtein_automata, murmurhash32 and\nTantivy helper releases. Accept this upstream author's implementation,\nmaintenance, packaging and release process. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review. This does\nnot accept releases from separate publishers of Tantivy's dependencies.\nSources: https://github.com/fulmicoton and https://github.com/quickwit-oss/tantivy\n"
 
+[[trusted."libc"]]
+criteria = ["safe-to-run"]
+user-id = 55123
+start = "2022-10-29"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 55123: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
 [[trusted."libfuzzer-sys"]]
 criteria = ["safe-to-run"]
 user-id = 696
@@ -773,6 +787,13 @@ user-id = 2915
 start = "2019-02-22"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 2915: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted."log"]]
+criteria = ["safe-to-run"]
+user-id = 3204
+start = "2025-12-02"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Ashley Mannix (KodrAus): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nAshley Mannix is an established bitflags/UUID maintainer and verified publisher\nof the locked bitflags and UUID releases in both projects. Accept his upstream\nmaintenance, packaging and release process. Publisher-wide acceptance includes\nother account-published releases such as log and future dependencies from this\naccount; no independent source review. CI-published releases in the same\nprojects use separate identities and are not accepted by this account entry.\nSources: https://github.com/KodrAus and https://github.com/uuid-rs/uuid\n"
 
 [[trusted."loop9"]]
 criteria = ["safe-to-run"]
@@ -892,13 +913,6 @@ user-id = 539
 start = "2019-06-10"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 539: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."object"]]
-criteria = ["safe-to-run"]
-user-id = 4415
-start = "2019-04-25"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 4415: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml); no independent source review."
 
 [[trusted."once_cell_polyfill"]]
 criteria = ["safe-to-run"]
@@ -1215,6 +1229,13 @@ start = "2019-04-08"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 6743: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
 
+[[trusted."sha1"]]
+criteria = ["safe-to-run"]
+user-id = 5059
+start = "2022-09-30"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Artyom Pavlov (newpavlov): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nArtyom Pavlov is an established RustCrypto maintainer and verified publisher of\nthe locked blake2, crypto-common and ctr releases, among other RustCrypto crates.\nAccept RustCrypto maintenance and this account's packaging/release process as\na separate authority from tarcieri. Publisher-wide acceptance includes future\ndependencies from this account; no independent source or cryptographic audit.\nThis account decision does not accept RustCrypto CI publisher signatures.\nSources: https://github.com/orgs/RustCrypto/people and https://github.com/RustCrypto\n"
+
 [[trusted."sha2"]]
 criteria = ["safe-to-run"]
 user-id = 5059
@@ -1341,7 +1362,21 @@ start = "2025-11-11"
 end = "2027-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. 197g: Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nThis is the verified publisher of the canonical image-rs image, png, gif, tiff\nand weezl releases in the graph. Accept the image-rs maintenance, packaging and\nrelease process represented by this account. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review or image\nparser-hardening audit. image-rs using a dependency is not evidence that its\nseparately published code was audited or is covered by this account decision.\nSources: https://github.com/197g and https://github.com/image-rs/image\n"
 
+[[trusted."time"]]
+criteria = ["safe-to-run"]
+user-id = 15682
+start = "2026-05-18"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Jacob Pratt (jhpratt): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nJacob Pratt is a Time ecosystem maintainer and verified publisher of powerfmt\nand num-conv releases in the graph. Accept his upstream maintenance, packaging\nand release process. Publisher-wide acceptance includes future dependencies\nfrom this account; no independent source review. The github:time-rs/time and\ngithub:jhpratt/deranged CI publishers are separate identities that require\ntheir own policy decisions.\nSources: https://github.com/jhpratt and https://github.com/time-rs/time\n"
+
 [[trusted."time-core"]]
+criteria = ["safe-to-run"]
+user-id = 15682
+start = "2026-05-18"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Jacob Pratt (jhpratt): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nJacob Pratt is a Time ecosystem maintainer and verified publisher of powerfmt\nand num-conv releases in the graph. Accept his upstream maintenance, packaging\nand release process. Publisher-wide acceptance includes future dependencies\nfrom this account; no independent source review. The github:time-rs/time and\ngithub:jhpratt/deranged CI publishers are separate identities that require\ntheir own policy decisions.\nSources: https://github.com/jhpratt and https://github.com/time-rs/time\n"
+
+[[trusted."time-macros"]]
 criteria = ["safe-to-run"]
 user-id = 15682
 start = "2026-05-18"
@@ -1760,6 +1795,20 @@ user-id = 166196
 start = "2022-10-08"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 166196: Automatically inherited publisher-wide from mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted."zerocopy"]]
+criteria = ["safe-to-run"]
+user-id = 7178
+start = "2026-03-28"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Joshua Liebow-Feeser (joshlf): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nJoshua Liebow-Feeser is a zerocopy maintainer and verified publisher of the\nSDK's zerocopy/zerocopy-derive releases. Accept this upstream maintenance,\nproc-macro behavior, packaging and release process. Publisher-wide acceptance\nincludes future dependencies from this account; no independent source review\nor unsafe-code soundness audit. Infumap's newer github:google/zerocopy releases\nuse a separate CI identity and are not accepted by this numeric account entry.\nSources: https://github.com/joshlf and https://github.com/google/zerocopy\n"
+
+[[trusted."zerocopy-derive"]]
+criteria = ["safe-to-run"]
+user-id = 7178
+start = "2026-03-28"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Joshua Liebow-Feeser (joshlf): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nJoshua Liebow-Feeser is a zerocopy maintainer and verified publisher of the\nSDK's zerocopy/zerocopy-derive releases. Accept this upstream maintenance,\nproc-macro behavior, packaging and release process. Publisher-wide acceptance\nincludes future dependencies from this account; no independent source review\nor unsafe-code soundness audit. Infumap's newer github:google/zerocopy releases\nuse a separate CI identity and are not accepted by this numeric account entry.\nSources: https://github.com/joshlf and https://github.com/google/zerocopy\n"
 
 [[trusted."zerofrom"]]
 criteria = ["safe-to-run"]
