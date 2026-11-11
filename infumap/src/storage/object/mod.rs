@@ -306,7 +306,7 @@ pub async fn put(
     set.spawn(async move {
       let started = Instant::now();
       let result = storage_file::put(file_store, user_id, id, encrypted_val).await;
-      ("local", started.elapsed(), result)
+      (ObjectStoreName::Local, started.elapsed(), result)
     });
   }
 
@@ -316,7 +316,7 @@ pub async fn put(
     set.spawn(async move {
       let started = Instant::now();
       let result = storage_s3::put(s3_store, user_id, id, encrypted_val).await;
-      ("s3_1", started.elapsed(), result)
+      (ObjectStoreName::S3_1, started.elapsed(), result)
     });
   }
 
@@ -326,11 +326,12 @@ pub async fn put(
     set.spawn(async move {
       let started = Instant::now();
       let result = storage_s3::put(s3_store, user_id, id, encrypted_val).await;
-      ("s3_2", started.elapsed(), result)
+      (ObjectStoreName::S3_2, started.elapsed(), result)
     });
   }
 
   let mut errors = vec![];
+  let mut succeeded = vec![];
   loop {
     let next_result = set.join_next().await;
     let Some(res) = next_result else {
@@ -340,17 +341,49 @@ pub async fn put(
     let (store_name, elapsed, result) = res;
     match result {
       Err(e) => {
-        warn!("Object upload '{}' to {} failed after {} ms: {}", id, store_name, elapsed.as_millis(), e);
+        warn!("Object upload '{}' to {} failed after {} ms: {}", id, store_name.as_str(), elapsed.as_millis(), e);
         errors.push(e);
       }
-      Ok(()) => info!("Object upload '{}' to {} completed in {} ms", id, store_name, elapsed.as_millis()),
+      Ok(()) => {
+        info!("Object upload '{}' to {} completed in {} ms", id, store_name.as_str(), elapsed.as_millis());
+        succeeded.push(store_name);
+      }
     }
   }
 
   if errors.len() == 0 {
-    Ok(())
-  } else {
-    Err(errors.iter().map(|e| format!("{}", e)).collect::<Vec<String>>().join(", ").into())
+    return Ok(());
+  }
+
+  // The item is not added when any store fails, so the copies that did land would otherwise be orphaned: a retry
+  // uploads under a new id. Only the stores that reported success are cleaned up. A PUT that failed on a timeout may
+  // still land at the provider after this, and deleting there could race it, so that case is left to
+  // `reconcile orphaned`. A failed cleanup is logged and doesn't replace the upload error the caller reports.
+  for store_name in succeeded {
+    if let Err(e) = delete_from(&object_store, store_name, user_id, id).await {
+      warn!("Could not remove orphaned object '{}' from {} after a failed upload: {}", id, store_name.as_str(), e);
+    } else {
+      info!("Removed object '{}' from {} after a failed upload", id, store_name.as_str());
+    }
+  }
+
+  Err(errors.iter().map(|e| format!("{}", e)).collect::<Vec<String>>().join(", ").into())
+}
+
+async fn delete_from(object_store: &ObjectStore, name: ObjectStoreName, user_id: &Uid, id: &Uid) -> InfuResult<()> {
+  match name {
+    ObjectStoreName::Local => match &object_store.file_store {
+      Some(file_store) => storage_file::delete(file_store.clone(), user_id.clone(), id.clone()).await,
+      None => Err("Local object store is not enabled.".into()),
+    },
+    ObjectStoreName::S3_1 => match &object_store.s3_1_data_store {
+      Some(s3_store) => storage_s3::delete(s3_store.clone(), user_id.clone(), id.clone()).await,
+      None => Err("s3_1 object store is not enabled.".into()),
+    },
+    ObjectStoreName::S3_2 => match &object_store.s3_2_data_store {
+      Some(s3_store) => storage_s3::delete(s3_store.clone(), user_id.clone(), id.clone()).await,
+      None => Err("s3_2 object store is not enabled.".into()),
+    },
   }
 }
 
