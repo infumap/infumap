@@ -3,6 +3,15 @@
 
 [audits]
 
+[[audits.miniz_oxide]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+delta = "0.8.9 -> 0.9.1"
+notes = """
+Reviewed-at: 2026-11-11T07:57:14+07:00
+Report: dependency-reviews/2026-11-11_075325+0700.md
+AI source review of the published delta only. Reviewed both manifests, packaged lock and VCS metadata, src/lib.rs, src/deflate/{buffer,core,mod,stored,stream,zlib}.rs, src/inflate/{core,mod,output_buffer,stream}.rs and src/serde/big_array.rs. Flush and window handling emit format markers and bounded local buffers. Huffman validation tightens malformed-input checks. Bounded match copies preserve the caller's output cap. Wasm moves a fixed-size buffer to the heap. Optional Serde and SIMD manifest changes add no build hook or external I/O. The report notes compression parameter and inflate efficiency caveats. Bytecode Alliance evidence covers 0.8.9. No builds or tests."""
+
 [[audits.multiversion]]
 who = "Codex (AI reviewer)"
 criteria = "safe-to-run"
