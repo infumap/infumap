@@ -84,6 +84,14 @@ export interface NetworkProblem {
 
 export type NetworkProblemReport = Omit<NetworkProblem, "firstMs" | "lastMs" | "count">;
 
+export interface SessionEnded {
+  /**
+   * Set when a different user has since logged in, e.g. in another tab: tabs share the session cookie, so this
+   * tab's requests now go as that user, and logging in again as this tab's user would end their session.
+   */
+  otherUsername: string | null,
+}
+
 export function networkProblemKey(request: NetworkRequestInfo): string {
   return `${request.host ?? ""}|${request.command}|${request.itemId ?? ""}`;
 }
@@ -139,8 +147,8 @@ export interface GeneralStoreContextModel {
   serverReachable: Accessor<boolean>,
   setServerReachable: (reachable: boolean) => void,
   /** The session ended, but unsaved text kept the user from being logged out. */
-  sessionExpired: Accessor<boolean>,
-  setSessionExpired: (expired: boolean) => void,
+  sessionEnded: Accessor<SessionEnded | null>,
+  setSessionEnded: (ended: SessionEnded | null) => void,
   clearNetworkHistory: () => void,
 
   /** Background container sync is not listed as requests; these summarize it instead. */
@@ -193,7 +201,9 @@ export function makeGeneralStore(accountId: () => Uid | null): GeneralStoreConte
   const [queuedNetworkRequests, setQueuedNetworkRequests] = createSignal<NetworkRequestInfo[]>([], { equals: false });
   const [networkProblems, setNetworkProblems] = createSignal<NetworkProblem[]>([]);
   const [serverReachable, setServerReachable] = createSignal<boolean>(true);
-  const [sessionExpired, setSessionExpired] = createSignal<boolean>(false);
+  const [sessionEnded, setSessionEnded] = createSignal<SessionEnded | null>(null, {
+    equals: (a, b) => a?.otherUsername === b?.otherUsername && (a == null) == (b == null),
+  });
   const [lastSyncOkMs, setLastSyncOkMs] = createSignal<number | null>(null);
   const [consecutiveSyncFailures, setConsecutiveSyncFailures] = createSignal<number>(0);
   const [syncPausedReason, setSyncPausedReason] = createSignal<SyncPausedReason | null>(null);
@@ -272,7 +282,7 @@ export function makeGeneralStore(accountId: () => Uid | null): GeneralStoreConte
     setQueuedNetworkRequests([]);
     setNetworkProblems([]);
     setServerReachable(true);
-    setSessionExpired(false);
+    setSessionEnded(null);
     setLastSyncOkMs(null);
     setConsecutiveSyncFailures(0);
     setSyncPausedReason(null);
@@ -375,7 +385,7 @@ export function makeGeneralStore(accountId: () => Uid | null): GeneralStoreConte
     recentNetworkRequests, addRecentNetworkRequest,
     queuedNetworkRequests, setQueuedNetworkRequests,
     networkProblems, recordNetworkProblem, resolveNetworkProblems, dismissNetworkProblem, dismissAllNetworkProblems,
-    serverReachable, setServerReachable, sessionExpired, setSessionExpired,
+    serverReachable, setServerReachable, sessionEnded, setSessionEnded,
     clearNetworkHistory,
     lastSyncOkMs, consecutiveSyncFailures, recordSyncResult, syncPausedReason, setSyncPausedReason,
   };

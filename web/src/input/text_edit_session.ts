@@ -261,7 +261,7 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
     save.retryAtMs = Date.now() + delayMs;
     save.timer = setTimeout(() => {
       // Saving can't succeed until the user logs in again, and recheckExpiredSession saves then.
-      if (getStore().general.sessionExpired()) {
+      if (getStore().general.sessionEnded() != null) {
         cancelTimer(save);
         updateStatus();
         return;

@@ -112,10 +112,12 @@ export function makeUserStore(): UserStoreContextModel {
     },
 
     logout: async (): Promise<LogoutResult> => {
-      let r: any = await post(null, '/account/logout', {});
+      // The server refuses with "other-user" rather than end a session another tab has since logged in with.
+      const userId = value.getUserMaybe()?.userId;
+      let r: any = await post(null, '/account/logout', userId == null ? {} : { userId });
       setSessionDataString(null);
       if (!r.success) {
-        return { success: false, err: r.err };
+        return { success: false, err: r.err ?? null };
       }
       return { success: true, err: null };
     },

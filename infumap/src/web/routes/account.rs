@@ -298,9 +298,18 @@ pub async fn login(
   }
 }
 
+#[derive(Deserialize, Default)]
+pub struct LogoutRequest {
+  /// The user the client believes is logged in. Older clients send no body.
+  #[serde(rename = "userId")]
+  pub user_id: Option<String>,
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct LogoutResponse {
   pub success: bool,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub err: Option<String>,
 }
 
 pub async fn logout(
@@ -312,18 +321,28 @@ pub async fn logout(
     Some(s) => s,
     None => {
       debug!("Could not log out user session: no valid session is present.");
-      let mut response = json_response(&LogoutResponse { success: false });
+      let mut response = json_response(&LogoutResponse { success: false, err: None });
       set_cookie_header(&mut response, build_clear_session_cookie_value(secure_cookie));
       return response;
     }
   };
+
+  // The session cookie is shared by all tabs, so another tab may have logged in as a different user since this
+  // client last looked. Ending that session (or clearing the cookie) would log the other tab out too.
+  let payload: LogoutRequest = incoming_json(req).await.unwrap_or_default();
+  if let Some(user_id) = payload.user_id {
+    if user_id != session.user_id {
+      debug!("Not logging out session '{}': it is for user '{}', not '{}'.", session.id, session.user_id, user_id);
+      return json_response(&LogoutResponse { success: false, err: Some(String::from("other-user")) });
+    }
+  }
 
   let mut db = db.lock().await;
 
   match db.session.delete_session(&session.id).await {
     Err(e) => {
       warn!("Could not delete session '{}' for user '{}': {}", session.id, session.user_id, e);
-      let mut response = json_response(&LogoutResponse { success: false });
+      let mut response = json_response(&LogoutResponse { success: false, err: None });
       set_cookie_header(&mut response, build_clear_session_cookie_value(secure_cookie));
       return response;
     }
@@ -333,14 +352,14 @@ pub async fn logout(
           "Unexpected user_id '{}' deleting session '{}'. Session is associated with user: '{}'",
           session.user_id, session.id, user_id
         );
-        let mut response = json_response(&LogoutResponse { success: false });
+        let mut response = json_response(&LogoutResponse { success: false, err: None });
         set_cookie_header(&mut response, build_clear_session_cookie_value(secure_cookie));
         return response;
       }
     }
   };
 
-  let mut response = json_response(&LogoutResponse { success: true });
+  let mut response = json_response(&LogoutResponse { success: true, err: None });
   set_cookie_header(&mut response, build_clear_session_cookie_value(secure_cookie));
   response
 }

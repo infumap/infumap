@@ -21,12 +21,14 @@ import {
   clearLocalSyncState,
   GET_ITEMS_MODE__ITEM_ATTACHMENTS_CHILDREN_AND_THEIR_ATTACHMENTS,
   ItemsAndTheirAttachments,
+  post,
   remote,
   server,
   startContainerSyncLoop,
   stopContainerSyncLoop,
 } from "../server";
 import { useStore } from "../store/StoreProvider";
+import { ROOT_USERNAME } from "../constants";
 import { Desktop } from "./Desktop";
 import { ItemType } from "../items/base/item";
 import {
@@ -525,7 +527,15 @@ export const Main: Component = () => {
     VesCache.clear();
     clearLoadState();
     clearLocalSyncState();
-    await store.user.logout();
+    const r = await store.user.logout();
+    if (r.err == "other-user") {
+      // Another tab logged in as a different user, whose session the server kept. The login page would offer to
+      // log in again, which ends theirs: reload as them instead. "/" is root's home, as after logging in.
+      const v = await post(null, "/account/validate-session", {}).catch(() => null);
+      const username: string | null = v?.success ? v.username : null;
+      window.location.assign(username == null || username == ROOT_USERNAME ? "/" : `/${username}`);
+      return true;
+    }
     switchToNonPage(store, '/login');
     return true;
   };

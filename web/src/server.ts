@@ -21,7 +21,7 @@ import type { ChatBackendId, QueryChatSettings, QueryProfileOperation, QueryProf
 import { Item, ItemType } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
 import {
-  NetworkFailureReason, NetworkProblemReport, NetworkRequestInfo, NetworkRequestKind, networkProblemKey,
+  NetworkFailureReason, NetworkProblemReport, NetworkRequestInfo, NetworkRequestKind, SessionEnded, networkProblemKey,
 } from "./store/StoreProvider_General";
 import type { QueryChatActivityModelRound } from "./store/StoreProvider_PerItem";
 import { EMPTY_UID, SOLO_ITEM_HOLDER_PAGE_UID, UMBRELLA_PAGE_UID, Uid } from "./util/uid";
@@ -1811,6 +1811,11 @@ function showFailedMutationMessage(store: StoreContextModel, error: unknown, hos
 
 let sessionCheckInFlight = false;
 
+/** From a validate-session response that is not for this tab's user. */
+function sessionEndedFromResponse(r: any): SessionEnded {
+  return { otherUsername: r?.success === true ? (r.username || "another user") : null };
+}
+
 /**
  * Mutations also fail once the session has ended, e.g. it expired, or the user logged out in another tab.
  * Only then is logging out the right response to a failure.
@@ -1819,18 +1824,19 @@ async function logoutIfSessionEnded(store: StoreContextModel): Promise<void> {
   const userId = store.user.getUserMaybe()?.userId;
   const logoutMaybe = logout;
   // Once known to have ended, only recheckExpiredSession looks again.
-  if (sessionCheckInFlight || userId == null || logoutMaybe == null || store.general.sessionExpired()) {
+  if (sessionCheckInFlight || userId == null || logoutMaybe == null || store.general.sessionEnded() != null) {
     return;
   }
   // Held through the logout, which saves pending text edits: those fail too, and must not start another.
   sessionCheckInFlight = true;
   try {
     const r = await post(null, "/account/validate-session", {});
-    // A different user may have logged in, in another tab.
+    // A different user may have logged in, in another tab. Logging out then leaves their session alone, and switches
+    // this tab to them.
     if (r?.success === false || (r?.success === true && r.userId !== userId)) {
       if (!await logoutMaybe()) {
         // Unsaved text keeps the user here: to save it after logging in again in another tab, copy it, or discard it.
-        store.general.setSessionExpired(true);
+        store.general.setSessionEnded(sessionEndedFromResponse(r));
       }
     }
   } catch (_e) {
@@ -1842,19 +1848,21 @@ async function logoutIfSessionEnded(store: StoreContextModel): Promise<void> {
 
 /**
  * After the session ended with text unsaved, checks whether the same user has logged in again (in another tab,
- * sharing the session cookie), and if so saves the text.
+ * sharing the session cookie), and if so saves the text. Otherwise notes who, if anyone, is logged in instead.
  */
 export async function recheckExpiredSession(store: StoreContextModel): Promise<void> {
   const userId = store.user.getUserMaybe()?.userId;
-  if (!store.general.sessionExpired() || sessionCheckInFlight || userId == null) {
+  if (store.general.sessionEnded() == null || sessionCheckInFlight || userId == null) {
     return;
   }
   sessionCheckInFlight = true;
   try {
     const r = await post(null, "/account/validate-session", {});
     if (r?.success === true && r.userId === userId) {
-      store.general.setSessionExpired(false);
+      store.general.setSessionEnded(null);
       void store.textEdit.flush();
+    } else if (r?.success === true || r?.success === false) {
+      store.general.setSessionEnded(sessionEndedFromResponse(r));
     }
   } catch (_e) {
     // Try again on the next check.

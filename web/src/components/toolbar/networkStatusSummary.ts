@@ -74,7 +74,14 @@ export function networkStatusSummary(store: StoreContextModel, nowMs: number): N
   const otherProblems = problems.filter(p => p.kind != "write");
   const lastSyncOkMs = general.lastSyncOkMs();
 
-  if (general.sessionExpired()) {
+  const sessionEnded = general.sessionEnded();
+  if (sessionEnded != null) {
+    if (sessionEnded.otherUsername != null) {
+      return {
+        level: "danger",
+        sentence: `Now logged in as ${sessionEnded.otherUsername}: ${plural(unsavedCount, "item")} not saved.`,
+      };
+    }
     return { level: "danger", sentence: `Session ended: ${plural(unsavedCount, "item")} not saved. Log in again to save.` };
   }
   if (failedSaves.length > 0) {

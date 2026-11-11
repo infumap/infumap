@@ -233,9 +233,13 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
     }
   };
 
+  const otherUsername = () => store.general.sessionEnded()?.otherUsername ?? null;
+
   const handleDiscardAndLogout = () => {
     const count = store.textEdit.unsavedCount();
-    if (!window.confirm(`Discard unsaved text in ${plural(count, "item")} and log out?`)) { return; }
+    // With another user logged in, logout keeps their session and switches this tab to them.
+    const then = otherUsername() == null ? "log out" : `switch to ${otherUsername()}`;
+    if (!window.confirm(`Discard unsaved text in ${plural(count, "item")} and ${then}?`)) { return; }
     // End the edit first, so the logout doesn't capture the editor's text again.
     commitActiveTextEdit(store);
     store.textEdit.clear();
@@ -325,7 +329,7 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
           <For each={writeProblems()}>
             {(problem) => <WriteProblemRow problem={problem} />}
           </For>
-          <Show when={store.general.sessionExpired()} fallback={
+          <Show when={store.general.sessionEnded() != null} fallback={
             <Show when={store.textEdit.failedSaveCount() > 0}>
               <div class="flex items-baseline gap-2 mt-1">
                 <span class="text-xs text-slate-600">{textSaveRetryText(store, nowMs())}</span>
@@ -333,16 +337,27 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
               </div>
             </Show>
           }>
-            <div class="text-xs text-red-700 mt-1">
-              Your session has ended, so text can't be saved. Log in again in another tab, then come back to this
-              one to save it.
-            </div>
+            <Show when={otherUsername() != null} fallback={
+              <div class="text-xs text-red-700 mt-1">
+                Your session has ended, so text can't be saved. Log in again in another tab, then come back to this
+                one to save it.
+              </div>
+            }>
+              <div class="text-xs text-red-700 mt-1">
+                This browser is now logged in as {otherUsername()}, so text can't be saved
+                for {store.user.getUserMaybe()?.username ?? "this tab's user"}. To save it, log in
+                as {store.user.getUserMaybe()?.username ?? "them"} again in another tab, which logs
+                out {otherUsername()} in every tab, then come back to this one.
+              </div>
+            </Show>
             <div class="flex flex-wrap gap-x-3 gap-y-1 mt-1">
               <button onClick={() => { window.open("/login", "_blank"); }} class={LINK_CLASS}>Open login in new tab</button>
               <button onClick={() => { void recheckExpiredSession(store); }} class={LINK_CLASS}>Retry now</button>
               <button onClick={handleCopyUnsavedText} class={LINK_CLASS}>{copied() ? "Copied" : "Copy unsaved text"}</button>
               <button onClick={handleDiscardAndLogout}
-                class="text-xs text-red-700 hover:text-red-900 cursor-pointer">Discard and log out</button>
+                class="text-xs text-red-700 hover:text-red-900 cursor-pointer">
+                {otherUsername() == null ? "Discard and log out" : `Discard and switch to ${otherUsername()}`}
+              </button>
             </div>
           </Show>
         </div>

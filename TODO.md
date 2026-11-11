@@ -27,8 +27,11 @@
   The network status dialog offers no way to discard them, except when the session has expired
   ([text_edit_session.ts](web/src/input/text_edit_session.ts)).
 
-- Session expiry with another account: if a different account logs in in another tab, the session stays expired and
-  the network status dialog doesn't say that another account is now logged in. Untested.
+- Another account logging in in another tab: until a mutation fails, this tab's requests go as that account, since
+  the server picks the user from the shared cookie and the client doesn't say who it expects to be
+  ([session.rs](infumap/src/web/session.rs)). Sending the expected user id on local `post` requests and rejecting a
+  mismatch would turn this into an immediate failure. The failed text save then reads "the server had an error",
+  not an auth failure.
 
 - `.chat` items of another user (on a public page) or on another server don't render as chats, since `load-chat` only
   reads a persisted chat for its owner ([chat/mod.rs](infumap/src/web/routes/command/chat/mod.rs)).
