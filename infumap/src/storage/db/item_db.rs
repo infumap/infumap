@@ -24,7 +24,7 @@ use infusdk::item::is_positionable_type;
 use infusdk::item::{Item, ItemType, RelationshipToParent};
 use infusdk::util::geometry::GRID_SIZE;
 use infusdk::util::geometry::Vector;
-use infusdk::util::infu::{InfuError, InfuResult};
+use infusdk::util::infu::InfuResult;
 use infusdk::util::json;
 use infusdk::util::time::unix_now_secs_i64;
 use infusdk::util::uid::{Uid, is_empty_uid, is_uid};
@@ -870,61 +870,11 @@ impl ItemDb {
       return Ok(());
     }
 
-    // Paranoid validation of various circumstances which should never occur unless there is a bug on the client.
-    if let Some(parent_id_value) = update_json_map.get("parentId") {
-      if let Some(parent_id) = parent_id_value.as_str() {
-        if parent_id == &item.id {
-          return Err(format!("Request was made to update the parent of item '{}' to be itself.", item.id).into());
-        }
-        let parent_item_maybe = self
-          .store_by_user_id
-          .get(&item.owner_id)
-          .ok_or(format!("Item store has not been loaded for user '{}'.", item.owner_id))?
-          .get(parent_id);
-        if let Some(parent_item) = parent_item_maybe {
-          let relationship_to_parent = match update_json_map.get("relationshipToParent") {
-            Some(rtp) => {
-              let rtp_str = rtp.as_str().ok_or(InfuError::new(&format!(
-                "Expected property relationshipToParent of item '{}' to have type string.",
-                item.id
-              )))?;
-              RelationshipToParent::from_str(rtp_str)?
-            }
-            None => old_item.relationship_to_parent.clone(),
-          };
-          match relationship_to_parent {
-            RelationshipToParent::Child => {
-              if !is_container_item_type(parent_item.item_type) {
-                return Err(format!("Request was made to update the parent of item '{}' to '{}' (relationship to parent 'child'), but it is not a container item.", item.id, parent_id).into());
-              }
-            }
-            RelationshipToParent::Attachment => {
-              if !is_attachments_item_type(parent_item.item_type) {
-                return Err(format!("Request was made to update the parent of item '{}' to '{}' (relationship to parent 'attachment'), but it is not an attachments item.", item.id, parent_id).into());
-              }
-            }
-            RelationshipToParent::NoParent => {
-              return Err(
-                format!(
-                  "Request was made to update the parent of item '{}' to '{}', but it is a root item.",
-                  item.id, parent_id
-                )
-                .into(),
-              );
-            }
-          }
-        } else {
-          return Err(
-            format!(
-              "Request was made to update the parent of item '{}' to an item '{}' that doesn't exist.",
-              item.id, parent_id
-            )
-            .into(),
-          );
-        }
-      } else {
-        return Err(format!("Expected property parentId of item '{}' to have type string.", item.id).into());
-      }
+    // Paranoid validation of circumstances which should never occur unless there is a bug on the client. It must
+    // finish before anything is mutated: a failure in add_to_indexes after the store update leaves the item
+    // persisted but missing from the indexes.
+    if old_item.parent_id != item.parent_id || old_item.relationship_to_parent != item.relationship_to_parent {
+      self.validate_new_parent(item)?;
     }
 
     self.remove_from_indexes(&old_item)?;
@@ -937,6 +887,66 @@ impl ItemDb {
     self.dirty_user_ids.insert(item.owner_id.clone());
     self.add_to_indexes(item)?;
     self.record_loaded_container_versions_for_item_update(&old_item, item)
+  }
+
+  /// Checks the parent and relationship an update moves an item to. Root pages never move, so a parentless
+  /// result is always rejected.
+  fn validate_new_parent(&self, item: &Item) -> InfuResult<()> {
+    let store = self
+      .store_by_user_id
+      .get(&item.owner_id)
+      .ok_or(format!("Item store has not been loaded for user '{}'.", item.owner_id))?;
+    let parent_id =
+      item.parent_id.as_ref().ok_or(format!("Request was made to update item '{}' to have no parent.", item.id))?;
+    if parent_id == &item.id {
+      return Err(format!("Request was made to update the parent of item '{}' to be itself.", item.id).into());
+    }
+    let parent_item = store.get(parent_id).ok_or(format!(
+      "Request was made to update the parent of item '{}' to an item '{}' that doesn't exist.",
+      item.id, parent_id
+    ))?;
+    match item.relationship_to_parent {
+      RelationshipToParent::Child => {
+        if !is_container_item_type(parent_item.item_type) {
+          return Err(format!("Request was made to update the parent of item '{}' to '{}' (relationship to parent 'child'), but it is not a container item.", item.id, parent_id).into());
+        }
+      }
+      RelationshipToParent::Attachment => {
+        if !is_attachments_item_type(parent_item.item_type) {
+          return Err(format!("Request was made to update the parent of item '{}' to '{}' (relationship to parent 'attachment'), but it is not an attachments item.", item.id, parent_id).into());
+        }
+      }
+      RelationshipToParent::NoParent => {
+        return Err(
+          format!(
+            "Request was made to update item '{}' to have relationship 'no-parent', but it is not a root item.",
+            item.id
+          )
+          .into(),
+        );
+      }
+    }
+    // Child and attachment relationships both set parent_id, so one walk covers moves into either kind of
+    // descendant. The seen set stops an existing cycle from looping forever; such data is rejected too.
+    let mut seen = HashSet::from([parent_id]);
+    let mut current = parent_item;
+    // Like the other ancestor walks, treat an empty-uid parent as the top rather than as a missing item.
+    while let Some(ancestor_id) = current.parent_id.as_ref().filter(|id| !is_empty_uid(id)) {
+      if ancestor_id == &item.id {
+        return Err(
+          format!("Request was made to move item '{}' into '{}', which is one of its descendants.", item.id, parent_id)
+            .into(),
+        );
+      }
+      if !seen.insert(ancestor_id) {
+        return Err(format!("The ancestors of item '{}' contain a cycle at '{}'.", parent_id, ancestor_id).into());
+      }
+      current = store.get(ancestor_id).ok_or(format!(
+        "Ancestor '{}' of item '{}' is missing, so the move of item '{}' cannot be checked.",
+        ancestor_id, parent_id, item.id
+      ))?;
+    }
+    Ok(())
   }
 
   /// Replace an item's stored type while retaining the index-defining fields.
@@ -2948,6 +2958,22 @@ mod tests {
     id
   }
 
+  async fn add_page(db: &mut ItemDb, user_id: &Uid, parent_id: &Uid, relationship: RelationshipToParent) -> Uid {
+    let mut item = default_home_page(user_id, "page", new_uid(), 60, 2.0);
+    item.parent_id = Some(parent_id.clone());
+    item.relationship_to_parent = relationship;
+    let id = item.id.clone();
+    db.add(item).await.unwrap();
+    id
+  }
+
+  async fn moved(db: &mut ItemDb, id: &Uid, parent_id: &Uid, relationship: RelationshipToParent) -> InfuResult<()> {
+    let mut item = db.get(id).unwrap().clone();
+    item.parent_id = Some(parent_id.clone());
+    item.relationship_to_parent = relationship;
+    db.update(&item).await
+  }
+
   fn sorted(mut ids: Vec<Uid>) -> Vec<Uid> {
     ids.sort();
     ids
@@ -2997,6 +3023,68 @@ mod tests {
 
     let reloaded = load(&dir, &user_id, false).await;
     assert_eq!(reloaded.linked_from, db.linked_from);
+  }
+
+  #[tokio::test]
+  async fn update_rejects_moves_into_descendants() {
+    let dir = TempDir(std::env::temp_dir().join(format!("infumap-item-db-test-{}", new_uid())));
+    let user_id = new_uid();
+    std::fs::create_dir_all(dir.0.join(format!("user_{}", user_id))).unwrap();
+    let home_id = new_uid();
+    let mut db = load(&dir, &user_id, true).await;
+    db.add(default_home_page(&user_id, "test", home_id.clone(), 60, 2.0)).await.unwrap();
+    let a = add_page(&mut db, &user_id, &home_id, RelationshipToParent::Child).await;
+    let b = add_page(&mut db, &user_id, &a, RelationshipToParent::Child).await;
+    let c = add_page(&mut db, &user_id, &b, RelationshipToParent::Attachment).await;
+
+    // Descendants reached through child and attachment relationships are both rejected, in either role.
+    assert!(moved(&mut db, &a, &b, RelationshipToParent::Child).await.is_err());
+    assert!(moved(&mut db, &a, &c, RelationshipToParent::Child).await.is_err());
+    assert!(moved(&mut db, &a, &c, RelationshipToParent::Attachment).await.is_err());
+    assert!(moved(&mut db, &b, &c, RelationshipToParent::Attachment).await.is_err());
+    assert!(moved(&mut db, &a, &a, RelationshipToParent::Child).await.is_err());
+    assert_eq!(db.get(&a).unwrap().parent_id, Some(home_id.clone()));
+    assert_eq!(db.get_children(&home_id).unwrap().iter().map(|i| i.id.clone()).collect::<Vec<_>>(), vec![a.clone()]);
+
+    // Once c is out of b's subtree, the same move is fine.
+    moved(&mut db, &c, &home_id, RelationshipToParent::Child).await.unwrap();
+    moved(&mut db, &b, &c, RelationshipToParent::Attachment).await.unwrap();
+    assert_eq!(db.get(&b).unwrap().parent_id, Some(c.clone()));
+  }
+
+  #[tokio::test]
+  async fn update_validates_relationship_changes_without_a_parent_change() {
+    let dir = TempDir(std::env::temp_dir().join(format!("infumap-item-db-test-{}", new_uid())));
+    let user_id = new_uid();
+    std::fs::create_dir_all(dir.0.join(format!("user_{}", user_id))).unwrap();
+    let home_id = new_uid();
+    let mut db = load(&dir, &user_id, true).await;
+    db.add(default_home_page(&user_id, "test", home_id.clone(), 60, 2.0)).await.unwrap();
+    let mut note = Item::new_note(
+      &home_id,
+      vec![128],
+      Vector { x: 0, y: 0 },
+      GRID_SIZE,
+      RelationshipToParent::Child,
+      "note",
+      NoteFlags::None,
+      None,
+    );
+    note.owner_id = user_id.clone();
+    let note_id = note.id.clone();
+    db.add(note).await.unwrap();
+    let attached = add_page(&mut db, &user_id, &note_id, RelationshipToParent::Attachment).await;
+
+    // A note holds attachments but is not a container.
+    assert!(moved(&mut db, &attached, &note_id, RelationshipToParent::Child).await.is_err());
+    assert!(moved(&mut db, &attached, &note_id, RelationshipToParent::NoParent).await.is_err());
+    assert_eq!(db.get(&attached).unwrap().relationship_to_parent, RelationshipToParent::Attachment);
+    assert_eq!(db.get_attachments(&note_id).unwrap().len(), 1, "a rejected update leaves the indexes alone");
+
+    let mut parentless = db.get(&attached).unwrap().clone();
+    parentless.parent_id = None;
+    parentless.relationship_to_parent = RelationshipToParent::NoParent;
+    assert!(db.update(&parentless).await.is_err());
   }
 
   #[tokio::test]
