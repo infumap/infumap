@@ -3,6 +3,24 @@
 
 [audits]
 
+[[audits.base64]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+delta = "0.22.1 -> 0.21.7"
+notes = """
+Reviewed-at: 2026-11-11T08:13:11+07:00
+Report: dependency-reviews/2026-11-11_080717+0700.md
+AI source review of the reverse delta. Compared published manifests, packaged lock and VCS metadata, CI, release notes, benchmark, alphabet, decoder engines, reader and test changes. Older scalar decoder uses safe slice writes and a conservative checked output bound. Ron uses allocated decode and the standard alphabet. No build hook or new consumer dependencies. Google covers the base. No builds or tests."""
+
+[[audits.base64]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+delta = "0.22.1 -> 0.23.1"
+notes = """
+Reviewed-at: 2026-11-11T08:17:01+07:00
+Report: dependency-reviews/2026-11-11_080717+0700.md
+AI source review of the delta from the Google-audited base. Compared published manifests, lock and VCS metadata, CI, docs, scalar and SIMD engines, alphabets, stream adapters and development fixtures. Custom padding stays in supplied buffers. Explicit SIMD engines use feature gating and bounded vector loads/stores, and both Infumap callers use the scalar engine. No build hook or new runtime dependencies. No builds or tests."""
+
 [[audits.miniz_oxide]]
 who = "Codex (AI reviewer)"
 criteria = "safe-to-run"
@@ -20,6 +38,15 @@ notes = """
 Reviewed-at: 2026-11-11T07:44:08+07:00
 Report: dependency-reviews/2026-11-11_073707+0700.md
 AI source review of the wrapper delta only. Compared published crates.io archives, Cargo.toml, Cargo.toml.orig, added Cargo.lock, .cargo_vcs_info.json and unchanged source. Raises the macro dependency minimum to 0.8.1 with identical macro implementation, dependencies and features across the two macro releases. Explicit lib and CPU dispatch stay the same, and no build hook is added. Standalone benchmark lock has crossbeam-epoch and atty advisories outside the consumer graph, as detailed in the report. Base 0.8.0 is accepted via Mozilla but was absent from the starting Infumap imports lock. Macro dependency remains separately unvetted. No builds or tests."""
+
+[[audits.nom]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+delta = "7.1.3 -> 8.0.0"
+notes = """
+Reviewed-at: 2026-11-11T08:18:34+07:00
+Report: dependency-reviews/2026-11-11_080717+0700.md
+AI source review of delta from Google-audited Nom 7.1.3. Compared published manifests, packaged lock and VCS metadata, parser modes, input traits, byte/bit/character/number primitives, combinators, docs and fixtures. Changes operate on supplied input. No build hook or new runtime dependency. Report records inherited escaped-transform progress issue and LengthCount reservation caveat outside av1-grain's parser path. No builds or tests."""
 
 [[trusted."aho-corasick"]]
 criteria = ["safe-to-run"]
