@@ -143,3 +143,44 @@ pub async fn get_and_validate_session(
 
   Some(session)
 }
+
+/// The user the web client believes is logged in. All tabs share the session cookie, so another tab may have logged
+/// in as someone else (or out) since; a request carrying this header must then fail rather than run as whoever the
+/// cookie now names. Requests without it (`<img src>`, the CLI, older clients) are authorized as before.
+pub const EXPECTED_USER_HEADER_NAME: &'static str = "x-infumap-user-id";
+
+/// Set on a response refused by `check_expected_user`: "other-user" or "no-session".
+pub const SESSION_USER_MISMATCH_HEADER_NAME: &'static str = "x-infumap-session-user-mismatch";
+
+pub enum ExpectedUserMismatch {
+  OtherUser,
+  NoSession,
+}
+
+impl ExpectedUserMismatch {
+  pub fn as_str(&self) -> &'static str {
+    match self {
+      ExpectedUserMismatch::OtherUser => "other-user",
+      ExpectedUserMismatch::NoSession => "no-session",
+    }
+  }
+}
+
+/// Checks the request's session against the user it says it expects, if it names one.
+pub async fn check_expected_user(
+  request: &Request<hyper::body::Incoming>,
+  db: &Arc<Mutex<Db>>,
+) -> Result<(), ExpectedUserMismatch> {
+  let expected_user_id = match request.headers().get(EXPECTED_USER_HEADER_NAME).and_then(|v| v.to_str().ok()) {
+    Some(v) => v.to_owned(),
+    None => return Ok(()),
+  };
+  match get_and_validate_session(request, db).await {
+    Some(session) if session.user_id == expected_user_id => Ok(()),
+    Some(session) => {
+      debug!("Refusing request for user '{}': the session is for user '{}'.", expected_user_id, session.user_id);
+      Err(ExpectedUserMismatch::OtherUser)
+    }
+    None => Err(ExpectedUserMismatch::NoSession),
+  }
+}

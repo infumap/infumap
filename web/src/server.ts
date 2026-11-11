@@ -34,6 +34,9 @@ import { itemState, wouldCreateRelationshipCycle } from "./store/ItemState";
 import { TransientMessageType } from "./store/StoreProvider_Overlay";
 import { MouseActionState } from "./input/state";
 import { appendRemoteSessionHeader, applyRotatedRemoteSessionHeader } from "./util/remoteSession";
+import {
+  appendExpectedUserHeader, localFetch, noteLocalResponse, setLocalSessionMismatchHandler,
+} from "./util/localSession";
 import { RelationshipToParent } from "./layout/relationship-to-parent";
 import { VeFns, Veid } from "./layout/visual-element";
 import { navigateToLocalRoot, switchToItem, switchToPage } from "./layout/navigation";
@@ -1454,7 +1457,7 @@ export const server = {
    * title afterwards. The server applies the title itself.
    */
   generateChatTitle: async (queryItemId: Uid): Promise<{ title: string }> => {
-    const fetchResult = await fetch("/chat/title", {
+    const fetchResult = await localFetch("/chat/title", {
       method: "POST",
       headers: { "Accept": "application/json", "Content-Type": "application/json" },
       body: JSON.stringify({ queryItemId }),
@@ -1470,7 +1473,7 @@ export const server = {
    * dropped; the server sets its id, title, MIME type and data. Deletes the chat's query item. Returns the new item.
    */
   persistChat: async (queryItemId: Uid, chatItem: object): Promise<{ item: object }> => {
-    const fetchResult = await fetch("/chat/persist", {
+    const fetchResult = await localFetch("/chat/persist", {
       method: "POST",
       headers: { "Accept": "application/json", "Content-Type": "application/json" },
       body: JSON.stringify({ queryItemId, item: chatItem }),
@@ -1487,7 +1490,7 @@ export const server = {
    * item. With `trashOriginal`, the `.chat` item goes to the trash (a move back); otherwise it stays (a copy).
    */
   continueChat: async (chatItemId: Uid, trashOriginal: boolean): Promise<ContinueChatResponse> => {
-    const fetchResult = await fetch("/chat/continue", {
+    const fetchResult = await localFetch("/chat/continue", {
       method: "POST",
       headers: { "Accept": "application/json", "Content-Type": "application/json" },
       body: JSON.stringify({ chatItemId, trashOriginal }),
@@ -1817,8 +1820,8 @@ function sessionEndedFromResponse(r: any): SessionEnded {
 }
 
 /**
- * Mutations also fail once the session has ended, e.g. it expired, or the user logged out in another tab.
- * Only then is logging out the right response to a failure.
+ * Requests fail once the session has ended, e.g. it expired, or the user logged out or another user logged in, in
+ * another tab. Only then is logging out the right response to a failure.
  */
 async function logoutIfSessionEnded(store: StoreContextModel): Promise<void> {
   const userId = store.user.getUserMaybe()?.userId;
@@ -1845,6 +1848,14 @@ async function logoutIfSessionEnded(store: StoreContextModel): Promise<void> {
     sessionCheckInFlight = false;
   }
 }
+
+// Reads and sync are refused too once the session is another user's (or gone), so check it then, not only after a
+// failed mutation.
+setLocalSessionMismatchHandler(() => {
+  if (activeContainerSyncStore != null) {
+    void logoutIfSessionEnded(activeContainerSyncStore);
+  }
+});
 
 /**
  * After the session ended with text unsaved, checks whether the same user has logged in again (in another tab,
@@ -2389,7 +2400,7 @@ async function sendChatStream(
   const fetchResponse = async (url: string, data: string, accept: string): Promise<Response> => {
     let response: Response;
     try {
-      response = await fetch(url, {
+      response = await localFetch(url, {
         method: "POST", headers: { "Accept": accept, "Content-Type": "application/json", "X-Infumap-Chat-Request-Id": requestId },
         body: data, signal,
       });
@@ -2511,7 +2522,7 @@ async function sendChatStream(
 }
 
 async function fetchChatBackends(): Promise<ChatBackends> {
-  const fetchResult = await fetch("/chat/models", {
+  const fetchResult = await localFetch("/chat/models", {
     method: "GET",
     headers: { "Accept": "application/json" },
   });
@@ -2525,7 +2536,7 @@ async function submitChatToolApprovalCommand(
   payload: { requestId: string, callId: string, approved: boolean },
   signal?: AbortSignal,
 ): Promise<void> {
-  const fetchResult = await fetch("/chat/tool-approval", {
+  const fetchResult = await localFetch("/chat/tool-approval", {
     method: "POST",
     headers: {
       "Accept": "application/json",
@@ -2552,6 +2563,8 @@ export async function post(host: string | null, path: string, json: any) {
 
   if (host != null) {
     appendRemoteSessionHeader(host, headers);
+  } else {
+    appendExpectedUserHeader(headers);
   }
   const fetchResult = await fetch(url, {
     method: 'POST',
@@ -2561,6 +2574,8 @@ export async function post(host: string | null, path: string, json: any) {
 
   if (host != null) {
     applyRotatedRemoteSessionHeader(host, fetchResult);
+  } else {
+    noteLocalResponse(fetchResult);
   }
   return await fetchResult.json();
 }

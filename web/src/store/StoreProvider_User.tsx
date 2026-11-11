@@ -18,6 +18,7 @@
 
 import { createSignal } from "solid-js";
 import { post } from "../server";
+import { setExpectedLocalUserId } from "../util/localSession";
 import { panic } from "../util/lang";
 import { LoginResult, LogoutResult, User } from "../util/accountTypes";
 
@@ -50,7 +51,11 @@ export interface UserStoreContextModel {
 
 
 export function makeUserStore(): UserStoreContextModel {
-  const [sessionDataString, setSessionDataString] = createSignal<string | null>(null, { equals: false });
+  const [sessionDataString, setSessionDataSignal] = createSignal<string | null>(null, { equals: false });
+  const setSessionDataString = (data: string | null) => {
+    setSessionDataSignal(data);
+    setExpectedLocalUserId(data == null ? null : (JSON.parse(data) as User).userId);
+  };
 
   const userFromResponse = (response: any, usernameMaybe: string | null): User | null => {
     const responseObj = response as ValidateSessionResponse;

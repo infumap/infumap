@@ -22,6 +22,7 @@
 //  2. retry failed fetches.
 
 import { appendRemoteSessionHeader, applyRotatedRemoteSessionHeader } from "./util/remoteSession";
+import { appendExpectedUserHeader, noteLocalResponse } from "./util/localSession";
 
 const MAX_CONCURRENT_FETCH_REQUESTS: number = 3;
 const CLEANUP_AFTER_MS: number = 30000;
@@ -200,6 +201,8 @@ function startFetch(task: ImageFetchTask) {
   const headers: Record<string, string> = {};
   if (task.baseUrlMaybe != null) {
     appendRemoteSessionHeader(task.baseUrlMaybe, headers);
+  } else {
+    appendExpectedUserHeader(headers);
   }
   if (!task.isFollowUp) {
     headers[DEFER_IMAGE_HEADER_NAME] = "1";
@@ -223,6 +226,8 @@ function startFetch(task: ImageFetchTask) {
     .then(async (resp) => {
       if (task.baseUrlMaybe != null) {
         applyRotatedRemoteSessionHeader(task.baseUrlMaybe, resp);
+      } else {
+        noteLocalResponse(resp);
       }
       if (!task.isFollowUp && resp.status == 202) {
         if (debug) { console.debug(`image pending: ${task.key}.`); }

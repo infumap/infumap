@@ -37,6 +37,7 @@ use crate::web::cookie::{
   InfuSession, SESSION_HEADER_NAME, get_session_cookie_session_id_maybe, get_session_header_maybe,
 };
 use crate::web::dist_handlers::serve_index;
+use crate::web::session::{SESSION_USER_MISMATCH_HEADER_NAME, check_expected_user};
 
 use super::dist_handlers::serve_dist_routes;
 use super::routes::account::{
@@ -81,7 +82,16 @@ pub async fn http_serve(
   let incoming_header_session_maybe =
     if incoming_cookie_session_id_maybe.is_some() { None } else { get_session_header_maybe(&req) };
 
-  let (mut response, cors_policy) = if req.uri().path() == "/command" {
+  // These establish or report which user is logged in, so can't require one. Logout checks the user itself.
+  let session_user_exempt = matches!(
+    req_path.as_str(),
+    "/account/login" | "/account/register" | "/account/validate-session" | "/account/logout"
+  );
+  let mismatch_maybe = if session_user_exempt { None } else { check_expected_user(&req, &db).await.err() };
+
+  let (mut response, cors_policy) = if let Some(mismatch) = mismatch_maybe {
+    (session_user_mismatch_response(mismatch.as_str()), CorsPolicy::Disabled)
+  } else if req.uri().path() == "/command" {
     (serve_command_route(config.as_ref(), &db, &object_store, image_cache.clone(), req).await, CorsPolicy::EmbedAllowed)
   } else if req.uri().path() == "/chat/stream" {
     (serve_chat_stream_route(config.clone(), &db, req).await, CorsPolicy::EmbedAllowed)
@@ -218,6 +228,22 @@ where
     Ok(r) => r,
     Err(_) => Response::builder().status(StatusCode::INTERNAL_SERVER_ERROR).body(empty_body()).unwrap(),
   }
+}
+
+#[derive(Serialize)]
+struct SessionUserMismatchResponse {
+  success: bool,
+  #[serde(rename = "failReason")]
+  fail_reason: &'static str,
+  err: &'static str,
+}
+
+/// Shaped like a failed command, so callers that only read the body see an auth failure.
+fn session_user_mismatch_response(mismatch: &'static str) -> Response<BoxBody<Bytes, hyper::Error>> {
+  let mut response = json_response(&SessionUserMismatchResponse { success: false, fail_reason: "auth", err: mismatch });
+  *response.status_mut() = StatusCode::UNAUTHORIZED;
+  response.headers_mut().insert(SESSION_USER_MISMATCH_HEADER_NAME, HeaderValue::from_static(mismatch));
+  response
 }
 
 pub fn text_response(v: &str) -> Response<BoxBody<Bytes, hyper::Error>> {

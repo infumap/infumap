@@ -52,6 +52,7 @@ import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { TransientMessageType } from "../store/StoreProvider_Overlay";
 import { server, serverOrRemote, type LoadChatResponse } from "../server";
+import { localFetch } from "../util/localSession";
 import { newOrdering, newOrderingAtEnd } from "../util/ordering";
 import { EMPTY_UID, Uid, newUid } from "../util/uid";
 import { fetchRemoteFileText, openRemoteFileInNewTab } from "../util/remoteFile";
@@ -151,7 +152,7 @@ export function textDocumentUrl(textItem: TextItem): string {
 }
 
 async function fetchLocalFileText(itemId: string): Promise<string> {
-  const response = await fetch(`/files/${itemId}`, { method: "GET" });
+  const response = await localFetch(`/files/${itemId}`, { method: "GET" });
   if (!response.ok || response.status !== 200) {
     throw new Error(`Text file fetch failed: ${response.status}`);
   }
