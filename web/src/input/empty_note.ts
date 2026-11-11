@@ -21,20 +21,34 @@ import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-
 import { NoteFlags, noteHasListStyle } from "../items/base/flags-item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { asNoteItem, isNote, NoteFns } from "../items/note-item";
+import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { PlaceholderFns } from "../items/placeholder-item";
 import { requestArrange } from "../layout/arrange";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
+import { VesCache } from "../layout/ves-cache";
 import { VeFns, VisualElementFlags, type VisualElement } from "../layout/visual-element";
 import { server } from "../server";
 import { itemState } from "../store/ItemState";
 import type { StoreContextModel } from "../store/StoreProvider";
 import type { EditorSelection } from "./editor_history";
 
+/**
+ * Tables and calendars place a new note in a cell or day before it has any text, so leaving it empty would leave a
+ * blank row behind. Other page types position notes spatially, where an empty note is a deliberate placement.
+ */
+export function isEmptyNoteCleanupContext(ve: VisualElement): boolean {
+  if (ve.flags & VisualElementFlags.InsideTable) { return true; }
+  const parentVe = ve.parentPath ? VesCache.current.readNode(ve.parentPath) : null;
+  if (parentVe == null || !isPage(parentVe.displayItem)) { return false; }
+  const arrangeAlgorithm = parentVe.linkItemMaybe?.overrideArrangeAlgorithm ?? asPageItem(parentVe.displayItem).arrangeAlgorithm;
+  return arrangeAlgorithm == ArrangeAlgorithm.Calendar;
+}
+
 /** Called after the edit target has changed, so reactive readers no longer depend on the removed note. */
-export function deleteEmptyTableNoteMaybe(store: StoreContextModel, ve: VisualElement, selection: EditorSelection): boolean {
+export function deleteEmptyNoteMaybe(store: StoreContextModel, ve: VisualElement, selection: EditorSelection): boolean {
   const path = VeFns.veToPath(ve);
   const item = itemState.get(ve.displayItem.id);
-  if (item == null || !isNote(item) || !(ve.flags & VisualElementFlags.InsideTable) || ve.linkItemMaybe != null ||
+  if (item == null || !isNote(item) || !isEmptyNoteCleanupContext(ve) || ve.linkItemMaybe != null ||
       item.origin != null || item.clientOnly || item.ownerId != store.user.getUserMaybe()?.userId ||
       item.parentId != ve.displayItem.parentId || item.relationshipToParent != ve.displayItem.relationshipToParent ||
       !itemCanEdit(item) || !itemCanMove(item) || store.editorHistory.busy() ||
@@ -70,7 +84,7 @@ export function deleteEmptyTableNoteMaybe(store: StoreContextModel, ve: VisualEl
   itemState.delete(note.id);
   if (placeholder != null) { itemState.add(placeholder); }
   store.editorHistory.commit(token);
-  requestArrange(store, "remove-empty-table-note");
+  requestArrange(store, "remove-empty-note");
 
   const persist = async () => {
     let placeholderAdded = false;
@@ -88,7 +102,7 @@ export function deleteEmptyTableNoteMaybe(store: StoreContextModel, ve: VisualEl
         if (itemState.get(placeholder.id) != null) { itemState.delete(placeholder.id); }
       }
       if (itemState.get(note.id) == null && itemState.get(parent.id) != null) { itemState.add(snapshot); }
-      requestArrange(store, "restore-empty-table-note");
+      requestArrange(store, "restore-empty-note");
       store.editorHistory.message("The empty note could not be removed.");
       throw error;
     }
