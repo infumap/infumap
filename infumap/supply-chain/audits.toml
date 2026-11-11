@@ -145,6 +145,71 @@ Reviewed-at: 2026-11-11T11:34:30+07:00
 Report: dependency-reviews/2026-11-11_112758+0700.md
 AI full source review of both manifests and src/{lib,rfc,secret,url_error,custom_providers}.rs, examples/package support. HMAC/TOTP generation and comparison use supplied secrets and timestamps; otpauth URLs are parsed/formatted locally, and QR output calls in-memory rendering helpers (focused qrcodegen-image context, not its certification). Optional randomness/serde/zeroize/Steam branches inspected; no build script, filesystem access, network transmission or process execution found. Nonblocking observation: checked constructors/from_url accept step/period=0, then sign/check/ttl divide or take remainder by zero; malformed hostless otpauth URL can also reach host().unwrap(). These input-validation/panic defects do not establish unexpected harmful machine behavior under trusted-input safe-to-run. Infumap uses TOTP_STEP=30 and direct constructors. Secret Debug/Display/error/provisioning output can expose supplied secrets if the caller logs/exports it; no comprehensive cryptographic or logging-hygiene audit. No builds or tests."""
 
+[[audits.sysinfo]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.37.2"
+notes = """
+Reviewed-at: 2026-11-11T13:26:29+07:00
+Report: dependency-reviews/2026-11-11_131354+0700.md
+Full AI source review of 0.37.2: both manifests; lib/common System and Process boundaries; Linux system/process/utils and query paths; Windows/Apple/FreeBSD memory, native query, registry, WMI, network, disk-control and process-operation entry points; user/group helpers and feature dispatch. S3 creates an empty System and refreshes memory only to bound upload concurrency. Broader queries intentionally expose process environments/user/hardware information without uploading them. Explicit process kill APIs use Unix signals or Windows taskkill with numeric PID. Linux process-file caching can raise this process's soft RLIMIT_NOFILE to its existing hard limit and budget half for cached descriptors; S3's memory-only path does not invoke it. Local WMI thermal queries/COM setup, read-only storage/SMC statistics and optional performance sampling implement query APIs. No unexpected harmful build/run behavior found in reviewed scope. Not an exhaustive FFI soundness, host-error, or adversarial-input audit; native dependencies retain separate vet requirements. Upstream test I/O/child processes were inspected, not executed. No builds or tests."""
+
+[[audits.fs4]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.13.1"
+notes = """
+Reviewed-at: 2026-11-11T13:26:29+07:00
+Report: dependency-reviews/2026-11-11_131354+0700.md
+Full AI source review of 0.13.1: both manifests; src/lib.rs, fs_stats.rs, file_ext.rs, all sync/async trait macros/adapters and Unix/Windows lock/allocation/statvfs branches. Tantivy enables default,sync. rustix flock/fallocate and Windows LockFileEx/UnlockFile/SetFileInformationByHandle operate on the caller's file; fallback allocation only extends it. Volume stats use caller paths. Blocking locks and requested allocation are expected resource effects; no hidden targets, execution or outbound networking found. Optional async/platform paths inspected for effects without a comprehensive soundness or performance proof. Tests use TempDir fixtures; no builds or tests run."""
+
+[[audits.dirs]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "5.0.1"
+notes = """
+Reviewed-at: 2026-11-11T13:26:29+07:00
+Report: dependency-reviews/2026-11-11_131354+0700.md
+Full AI source review of 5.0.1: Cargo.toml and Cargo.toml.orig plus src/{lib,lin,mac,win,wasm}.rs. Functions derive directory paths from HOME/XDG settings, standard Apple suffixes, Windows Known Folder queries, or wasm None. Linux XDG base paths must be absolute. Infumap calls home_dir; helper dirs-sys has a separate review. No directory creation/deletion, shell execution, upload or build hook. Environment-derived locations intentionally follow operator configuration; no parser-hardening or immutable-path guarantee. No builds or tests."""
+
+[[audits.dirs-sys]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.4.1"
+notes = """
+Reviewed-at: 2026-11-11T13:26:29+07:00
+Report: dependency-reviews/2026-11-11_131354+0700.md
+Full AI source review of 0.4.1: both manifests, src/lib.rs and src/xdg_user_dirs.rs. HOME or current-user getpwuid_r, Redox basic users and Windows SHGetKnownFolderPath implement directory lookup; returned Windows buffers are freed. Linux user-dir APIs read XDG_CONFIG_HOME/user-dirs.dirs or the home fallback, parse/unescape bytes, and never execute shell syntax. OS NSS lookup may follow operator-configured providers; file reads are expected lookup inputs, with no password-hash collection, unrelated mutation, upload or execution found. user-dirs.dirs is read fully; Infumap's home_dir path does not need that file. No NSS implementation/parser-hardening audit, builds or tests."""
+
+[[audits.async-compression]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.4.52"
+notes = """
+Reviewed-at: 2026-11-11T13:26:29+07:00
+Report: dependency-reviews/2026-11-11_131354+0700.md
+Full AI source review of 0.4.52: both manifests; src/lib.rs/macros.rs; all generic bufread/write decoder, encoder and buffer state machines; Tokio/Futures adapters and generating macros, including ReadBuf initialization handoff. Selected Tokio Brotli/gzip/zlib codecs transform only caller streams; default write buffer is 8192 bytes. No independent file targets, network endpoints, process execution or build hook. Nonblocking defect: private generic/write/buf_writer.rs:115 copies a short input into the entire spare buffer, which would panic on length mismatch if that helper path is used. Public codec state machines use poll_partial_flush_buf; no public trigger established, and tower-http runtime uses bufread. This is a dormant correctness observation, not a demonstrated safe-to-run violation. compression-core/codecs remain separately uncovered; custom codecs, expansion limits and native dependencies are not certified here. No builds or tests."""
+
+[[audits.heifer]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.4.0"
+notes = """
+Reviewed-at: 2026-11-11T13:26:29+07:00
+Report: dependency-reviews/2026-11-11_131354+0700.md
+Full AI source review of 0.4.0: both manifests; src/{lib,reader,sequence,image,color,depth,metadata,iptc,uncompressed,icc,hdr}.rs and hdr/iso21496.rs, optional encode/image_crate routes and packaged example I/O. Caller bytes/reader produce pixels, transforms and embedded metadata; no hidden files, networking, execution or installation. Reader accesses only supplied stream and checks extent length; metadata boxes/scan have limits. Decode nesting is bounded to depth four, default image limit to 2^28 pixels, tile workers to available CPUs and tile count. Infumap disables encoder/image features and sets max_threads=1 under its processing permit. Optional encoding is in-memory with finite quality search; image hooks require explicit registration. Pixel limits are not an aggregate memory guarantee; no exhaustive parser/arithmetic/adversarial-image hardening proof. heifer-isobmff and heifer-hevc-dec 0.4.0 retain separate uncovered requirements, not certified by this record. No builds or tests."""
+
+[[audits.attohttpc]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.30.1"
+notes = """
+Reviewed-at: 2026-11-11T13:31:56+07:00
+Report: dependency-reviews/2026-11-11_131354+0700.md (dated criterion reassessment)
+Full AI source review of attohttpc 0.30.1: both manifests; lib/request builder, body, settings, proxy, session and send loop; streams/happy; all TLS backends; parsing/response/buffer/chunk/compression/text modules; multipart/lazy writer, error/charset and development I/O paths. HTTP uses caller URLs and configured proxies; bounded redirects and DNS racing implement client behavior. File bodies read caller-selected inputs. TLS verification defaults on, bypasses require explicit danger APIs; no hidden installation, unrelated filesystem mutation, credential-file collection or unexplained upload destination found.
+Nonblocking Windows ownership defect remains: streams.rs::connect_tcp:145 borrows a raw socket, then its deadline worker calls closesocket at 167 while TcpStream remains owner; its destructor later closes the value again. aws-creds supplies a 30-second total deadline by default. Ordinary timeouts can expose this stale ownership; descriptor reuse/connection disruption is a credible potential consequence. Source defect confirmed statically, but Windows interleaving, cross-connection data I/O, credential disclosure and unrelated data damage were not reproduced or established. This supersedes the earlier AI safe-to-run violation: a transport correctness/availability defect alone does not establish this workflow's specified harmful machine effects. The finding is retained, not fixed or disproved. Unix uses a cloned stream and shutdown. No unsafe-code soundness or safe-to-deploy claim.
+Other nonblocking observations: cross-origin redirects retain request headers/body/method and can disclose credentials under hostile responses; container-token acquisition disables redirects, IMDS token calls do not. no_proxy uses bare suffix matching. Debug logs may expose credential-bearing query strings when enabled. Acceptance assumes operator-vetted inputs/endpoints and records these limitations; dependencies retain separate vet requirements. No builds, reproducer or tests run."""
+
 [[trusted."aead"]]
 criteria = ["safe-to-run"]
 user-id = 267
