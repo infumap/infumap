@@ -50,8 +50,13 @@ For an AI-assisted source-review batch, ask the coding agent:
 
 You can paste specific suggestions instead. The [review instructions](../DEPENDENCY_REVIEW.md) require
 dated reports in `dependency-reviews/` and `Codex (AI reviewer)` attribution with substantive notes in the
-projects' `supply-chain/audits.toml` files. Concerning or incomplete reviews remain uncertified. Inspect the
-report and working-tree changes, then rerun `./audit-rust.sh` as usual. No commit is made automatically.
+projects' `supply-chain/audits.toml` files. Concerning or incomplete reviews remain uncertified. Batches reuse
+recorded evidence and end with one cargo-vet check per affected project; they do not run the full audit or
+refresh all publisher lookups. Request 5–10 diffs together to share setup costs without reducing review depth.
+
+Inspect each report and the working-tree changes. Run `./audit-rust.sh` after dependency, trust-policy, or
+audit-tool changes, after finishing a series of review batches, and before deployment. A batch's cargo-vet
+result does not establish that advisories or publisher data are current. No commit is made automatically.
 
 **Advisory.** Update to the fixed version (`cargo update -p <crate> --precise <version>`), or widen the range in
 `Cargo.toml` if the fix is outside it. If no fix exists and the advisory doesn't apply, add it to `ignore` in

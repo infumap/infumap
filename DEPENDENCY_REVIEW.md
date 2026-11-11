@@ -21,6 +21,9 @@ across `infumap/` and `infusdk/`. Count a shared crate/version pair once, not on
 are still separate review targets. This batch limit controls workload, not the depth of each review.
 Do not silently expand a small-diff batch into full reviews of large crates. Record why a target needs more work.
 
+For less overhead per dependency, the user can request 5–10 deltas in one batch. Keep the same source-review
+standard and individual decisions; share setup, artifact verification, and final validation across the batch.
+
 ## Boundaries
 
 - Judge `safe-to-run`: unexpected harmful behavior during building or running, including data access,
@@ -43,35 +46,56 @@ Do not silently expand a small-diff batch into full reviews of large crates. Rec
 
 1. Read the repository instructions and inspect `git status` and existing diffs. Identify existing review
    records so you do not overwrite, duplicate, or claim someone else's work.
-2. Obtain current audit results with `./audit-rust.sh`, or reuse results from this session if the lockfiles,
-   policy, and generated records have not changed. Preserve the user's current `trusted-publishers.toml`.
-   If an earlier stage prevents vetting, report that failure and obtain cargo-vet suggestions separately;
-   do not present the overall audit as passing.
-3. Run `cargo vet suggest` in the relevant project directories as needed. Verify supplied suggestions
-   against the current graph. If a suggested delta is already covered, report that and select another
-   when working on a general batch; do not invent a new review for it.
+2. Do **not** run `./audit-rust.sh` or `sync-publisher-trust.py` as routine batch setup. A source-review
+   batch does not need to repeat advisory scans, publisher lookups for the entire graph, or toolchain/age
+   checks. Use the current lockfiles and recorded policy. Record whether a supplied previous audit result
+   still matches those inputs, or whether full-audit freshness is unknown. Unknown freshness does not
+   prevent reviewing exact published artifacts, but it must not be described as a current full audit.
+3. Reuse supplied suggestions when their input state matches; otherwise run `cargo vet suggest --locked`
+   once per relevant project. `--locked` keeps imported audit evidence fixed; it does not promise that
+   every operation is offline. Refresh the configured feeds without `--locked` once if missing imported
+   evidence prevents a useful suggestion or accepted base path, or the user asks for fresh results.
+   Retain the necessary imported evidence in the store before subsequent locked checks. Do not routinely
+   repeat both live and locked variants. Verify targets against the current graph. If a delta is already
+   covered, report that and select another for a general batch; do not invent a new review for it.
 4. Record exact crate names, old and new versions, registry source, requesting projects, and why the
    packages are in the dependency graph. Cargo-vet's estimated diff size helps choose work; it is not
    evidence of safety. A suggestion may involve a version other than the locked version or a reverse delta.
+
+Record hashes of the manifests, project lockfiles, publisher policy, and vet configuration/import records
+used to select the batch. A previous report is reusable evidence, not proof that current files match it.
+Changes to these inputs invalidate earlier graph/coverage conclusions. New local certifications invalidate
+the old gap count, not the underlying artifact review. Compare counts only against the same evidence state.
+
+Use existing writable stores and caches. If permissions require isolation, isolate the affected store with
+`--store-path` or use a narrowly scoped writable cache; do not copy the whole repository or Cargo cache merely
+to repeat checks. Carry that same store/cache through the batch. Check formatting once if the tool requires
+it, and preserve policy semantics. Batch independent artifact downloads and reads where useful; keep
+mutations of a shared store sequential.
 
 ## Inspect the actual changes
 
 For a suggested delta, run in the applicable project directory:
 
 ```sh
-cargo vet diff <crate> <old> <new> --mode=local
+cargo vet diff <crate> <old> <new> --mode=local --locked
 ```
 
 For an explicitly requested full review:
 
 ```sh
-cargo vet inspect <crate> <version> --mode=local
+cargo vet inspect <crate> <version> --mode=local --locked
 ```
 
 Use the actual published crate artifacts, not just repository tags, release notes, or diff statistics.
 Record their registry checksums or original `.crate` archive SHA-256 values and where those values came from.
 Verify the artifacts against registry/lockfile checksums when available; an unexplained mismatch blocks
 certification. Do not hash a locally repacked archive and describe it as the published checksum.
+
+Reuse cached published archives and checksum evidence from earlier reports when the artifact identity and
+bytes are verified to match. Verify each distinct archive once per batch; share it across projects and related
+crate reviews. Fetch missing artifacts as needed. Use `--frozen` only when the required cache is available;
+do not repeat every command with it just to obtain a second validation result.
 
 Read every changed file and every diff hunk. If output was truncated, obtain the missing content before
 deciding. Examine surrounding functions, callers, feature/cfg branches, and relevant unchanged code until
@@ -88,16 +112,30 @@ content supports that conclusion. Version-only changes can still select differen
 for suspicious APIs are navigation aids, not a complete review. Tests or upstream endorsements do not
 substitute for source inspection. Do not infer benign intent from a familiar author or a small diff.
 
+Keep investigation proportional to the changed behavior, without skipping any diff content. A dependency's
+packaged benchmark/dev lockfile is not automatically part of Infumap's consumer build. Inspect changed
+manifests, lockfile sources, and whether those dependencies can affect the consumer; do not launch a separate
+advisory scan or recursive source review of an unrelated standalone benchmark graph by default. Follow
+concrete concerns when found and report the scope honestly.
+
+When a selected crate requires inspecting a related macro/helper crate, reuse that evidence if the related
+delta is also a batch target. Prefer selecting that related delta next when it is among the small suggestions
+and the user did not specify different targets. Context inspection alone is not a certification: complete its
+own review requirements and record a separate decision before certifying it. Do not reread byte-identical
+source solely to reproduce a second report section.
+
 Check the accepted review path for the delta's base where possible, for example:
 
 ```sh
-cargo vet explain-audit <crate> <old> safe-to-run
+cargo vet explain-audit <crate> <old> safe-to-run --locked
 ```
 
 A completed delta review certifies only the change from `<old>` to `<new>`. It can be recorded even if the
 base still lacks accepted evidence, but the report and notes must say so; it does not certify the entire
 target version. Do not expand the record into a full-version certification. Cargo-vet determines whether
 the delta connects to an accepted base and satisfies the dependency graph.
+Reuse an established base path under the same evidence state; do not query it both live and locked, then
+query it again after each certification. Request a fresh explanation only to resolve an actual coverage question.
 
 ## Decide and make the work visible
 
@@ -109,6 +147,9 @@ later evidence changes a finding; do not erase the original history.
 Start the report with the reviewer (`Codex (AI reviewer)`), start/end timestamps including timezone,
 criterion, cargo-vet version, and the repo commit plus relevant working-tree/lockfile state. Record the
 model identifier only if it is reliably available; do not invent an exact model or claim human review.
+Keep the report concise: put shared checksums, setup, and validation evidence in one place, and use short
+per-crate sections for the actual changes and reasoning. Record approximate time spent on setup/network,
+source inspection, recording/reporting, and final validation when measured; do not invent timings.
 Include a compact summary table:
 
 | Crate and delta/version | Projects | Review decision | Cargo-vet coverage |
@@ -156,7 +197,7 @@ Only after the source review and its report section are complete, certify a just
 crate/version arguments, criterion, auditor identity, and substantive notes:
 
 ```sh
-cargo vet certify <crate> <old> <new> --criteria safe-to-run \
+cargo vet certify <crate> <old> <new> --criteria safe-to-run --locked --no-minimize-exemptions \
   --who "Codex (AI reviewer)" --notes "<actual review notes>" --accept-all
 ```
 
@@ -183,12 +224,25 @@ After certification, inspect the changed TOML to verify versions, criteria, iden
 
 ## Verify and hand back to the user
 
-Rerun cargo-vet in the affected projects, then `./audit-rust.sh` for the overall Rust audit result. This
-also verifies that trust regeneration preserves source-review records. Record any unavailable validation
-or tool failure honestly. Remaining review gaps are expected after a small batch; do not turn them into
-exemptions. Separate local certifications from acceptance gained through refreshed external feeds.
+After recording the batch, run one `cargo vet --locked --no-minimize-exemptions` check per affected project.
+Use the same imported evidence as the baseline. If a reviewed target remains uncovered, inspect its path
+to distinguish a missing base/dependency from an incorrect record; do not repeat all checks reflexively.
+Verify that the final working-tree records match what was checked, particularly when using a temporary store.
+Do not validate both temporary and working stores again when they have identical relevant inputs and records.
+Remaining gaps are expected after a batch; do not turn them into exemptions. Record unavailable validation
+or tool failures honestly and separate local certifications from acceptance gained through refreshed feeds.
+
+Do **not** run `./audit-rust.sh` at the end of every batch or rerun the publisher generator just to prove it
+preserves reviews. Those are separate integration checks, appropriate when the workflow implementation has
+changed or the user requests them. The user should run the full audit after dependency/manifest, trust-policy,
+or audit-tool changes; after completing a series of review batches; and before deployment for fresh external
+checks. If such inputs changed during the batch, flag that a full audit is due and invalidate affected coverage
+conclusions, rather than quietly widening this task. Only run it within the batch when explicitly requested.
+This defers external-data refresh; it does not weaken source inspection. Never mark an audit-completion stamp
+or claim the full Rust audit passed based on a cargo-vet-only check.
 
 Finish the report and the chat response with the targets completed, concerns/incomplete work, where the
 records were written, actual validation results, and remaining cargo-vet gaps. Link the batch report and
 the affected audit records. State that no tests were run unless they were explicitly authorized and run.
+State "Full Rust audit not rerun; this batch validated cargo-vet records only" when applicable.
 Leave all changes in the working tree for human inspection.
