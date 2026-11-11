@@ -419,6 +419,19 @@ pub fn authorize_item(
             );
           }
         };
+        if attachment_parent.relationship_to_parent == RelationshipToParent::Child
+          && is_composite_item(attachment_parent_parent)
+        {
+          // An attachment of a composite member is visible exactly where the member is, so authorize it the same
+          // way the Child branch above authorizes the member: via the composite, which must itself sit directly in
+          // a public page (or a table in one).
+          match authorize_item(db, attachment_parent_parent, session_user_id_maybe, recursion_level + 1) {
+            Ok(_) => return Ok(()),
+            Err(e) => {
+              return Err(format!("Not authorized to access item '{}': {}", item.id, e.to_string()).into());
+            }
+          }
+        }
         item_auth_common(db, &attachment_parent.id, attachment_parent_parent)?;
         return Ok(());
       }
@@ -1903,6 +1916,39 @@ mod tests {
       let e = infusdk::util::infu::InfuError::new(msg);
       assert!(matches!(classify_command_error(&e), CommandErrorKind::Auth));
     }
+  }
+
+  #[tokio::test]
+  async fn attachments_of_composite_members_follow_the_composite() {
+    async fn attachment_in_composite_in(t: &mut TestDb, parent: &Uid) -> (Uid, Uid) {
+      let composite = t.non_note(parent, "", |item| item.item_type = ItemType::Composite).await;
+      let member = t.note(&composite, "Member", RelationshipToParent::Child).await;
+      let attachment = t.note(&member, "Attachment", RelationshipToParent::Attachment).await;
+      (member, attachment)
+    }
+
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let public = t.page(&home, "Public").await;
+    let mut item = t.db.item.get(&public).unwrap().clone();
+    item.permission_flags = Some(PermissionFlags::Public as i64);
+    t.db.item.update(&item).await.unwrap();
+    let private = t.page(&public, "Private").await;
+    let (public_member, public_attachment) = attachment_in_composite_in(&mut t, &public).await;
+    let (private_member, private_attachment) = attachment_in_composite_in(&mut t, &private).await;
+
+    let TestDb { db, user_id, dir: _dir, .. } = t;
+    let db = tokio::sync::Mutex::new(db);
+    let db = db.lock().await;
+    let readable = |id: &Uid, session_user_id: &Option<String>| {
+      authorize_item(&db, db.item.get(id).unwrap(), session_user_id, 0).is_ok()
+    };
+    assert!(readable(&public_member, &None));
+    assert!(readable(&public_attachment, &None));
+    // A private page inside a public one is a boundary: its contents, and their attachments, stay private.
+    assert!(!readable(&private_member, &None));
+    assert!(!readable(&private_attachment, &None));
+    assert!(readable(&private_attachment, &Some(user_id)));
   }
 
   #[tokio::test]

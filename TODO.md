@@ -14,19 +14,10 @@
   locking so a second server or a local CLI command can't write concurrently to the same store
   ([kv_store.rs](infusdk/src/db/kv_store.rs); the server shutdown requirement is documented in [cli.md](docs/cli.md)).
 
-- HTML drag-and-drop clippings: `handleStringTypeDataMaybe` currently logs dropped `text/html` to the console
-  without creating an item. Implement clipping import at the drop target
-  ([upload.ts](web/src/upload.ts)).
-
 - Runtime validation of item responses: many item `fromObject` functions accept `any` and copy fields without
   checking their types. Validate incoming fields, including flags, and report malformed responses before they
   reach layout or editing code ([note-item.ts](web/src/items/note-item.ts),
   [table-item.ts](web/src/items/table-item.ts), and the other item parsers).
-
-- Public-page attachments inside composites: `authorize_item` handles composite members recursively, but the
-  attachment branch doesn't follow a composite parent, so attachments of those members can be denied even when
-  the member is readable. Complete that case while preserving the public-page boundary
-  ([command/mod.rs](infumap/src/web/routes/command/mod.rs)).
 
 - Recovered orphan placement during compaction: unreachable items are currently reparented directly to the home
   page at position `(0, 0)`. Put them in a dedicated recovery page so they can be inspected without piling up over
