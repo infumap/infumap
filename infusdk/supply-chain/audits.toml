@@ -19,307 +19,6 @@ Reviewed-at: 2026-11-11T07:44:08+07:00
 Report: dependency-reviews/2026-11-11_073707+0700.md
 AI source review of the reverse delta only. Compared published crates.io archives, Cargo.toml, Cargo.toml.orig, Cargo.lock, .cargo_vcs_info.json and unchanged proc-macro source. The syn requirement changes from 3.0 to 2.0.52 with full unchanged, selecting the already covered syn 2.0.117 in InfuSDK. Expansion entry points and unsafe pinning code are identical. No build hook or extra dependency feature. Syn source was outside the delta. Base 0.3.34 is accepted via bytecode-alliance but was absent from the starting InfuSDK imports lock. No builds or tests."""
 
-[[trusted."bitflags"]]
-criteria = ["safe-to-run"]
-user-id = 3204
-start = "2025-12-02"
-end = "2027-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Ashley Mannix (KodrAus): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nAshley Mannix is an established bitflags/UUID maintainer and verified publisher\nof the locked bitflags and UUID releases in both projects. Accept his upstream\nmaintenance, packaging and release process. Publisher-wide acceptance includes\nother account-published releases such as log and future dependencies from this\naccount; no independent source review. CI-published releases in the same\nprojects use separate identities and are not accepted by this account entry.\nSources: https://github.com/KodrAus and https://github.com/uuid-rs/uuid\n"
-
-[[trusted."bytes"]]
-criteria = ["safe-to-run"]
-user-id = 6741
-start = "2020-10-26"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 6741: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."cfg-if"]]
-criteria = ["safe-to-run"]
-user-id = 55123
-start = "2022-10-29"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 55123: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."errno"]]
-criteria = ["safe-to-run"]
-user-id = 6825
-start = "2019-03-06"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 6825: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."futures-channel"]]
-criteria = ["safe-to-run"]
-user-id = 33035
-start = "2026-02-15"
-end = "2027-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Taiki Endo (taiki-e): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTaiki Endo is an established Rust concurrency/tooling maintainer and verified\npublisher of the locked Crossbeam, fastrand and futures releases. Accept his\nupstream maintenance, packaging and release process. Publisher-wide acceptance\nincludes future dependencies from this account; no independent source review.\nThe separate github:taiki-e/pin-project-lite CI identity is not accepted by this\nnumeric account decision and still needs its own policy decision.\nSources: https://github.com/taiki-e and https://github.com/crossbeam-rs/crossbeam\n"
-
-[[trusted."futures-core"]]
-criteria = ["safe-to-run"]
-user-id = 33035
-start = "2026-02-15"
-end = "2027-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Taiki Endo (taiki-e): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTaiki Endo is an established Rust concurrency/tooling maintainer and verified\npublisher of the locked Crossbeam, fastrand and futures releases. Accept his\nupstream maintenance, packaging and release process. Publisher-wide acceptance\nincludes future dependencies from this account; no independent source review.\nThe separate github:taiki-e/pin-project-lite CI identity is not accepted by this\nnumeric account decision and still needs its own policy decision.\nSources: https://github.com/taiki-e and https://github.com/crossbeam-rs/crossbeam\n Verified audit-base releases for this crate: 0.3.34. Existing delta audits determine coverage of the locked releases."
-
-[[trusted."futures-macro"]]
-criteria = ["safe-to-run"]
-user-id = 33035
-start = "2026-02-15"
-end = "2027-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Taiki Endo (taiki-e): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTaiki Endo is an established Rust concurrency/tooling maintainer and verified\npublisher of the locked Crossbeam, fastrand and futures releases. Accept his\nupstream maintenance, packaging and release process. Publisher-wide acceptance\nincludes future dependencies from this account; no independent source review.\nThe separate github:taiki-e/pin-project-lite CI identity is not accepted by this\nnumeric account decision and still needs its own policy decision.\nSources: https://github.com/taiki-e and https://github.com/crossbeam-rs/crossbeam\n Verified audit-base releases for this crate: 0.3.34. Existing delta audits determine coverage of the locked releases."
-
-[[trusted."futures-task"]]
-criteria = ["safe-to-run"]
-user-id = 33035
-start = "2026-02-15"
-end = "2027-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Taiki Endo (taiki-e): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTaiki Endo is an established Rust concurrency/tooling maintainer and verified\npublisher of the locked Crossbeam, fastrand and futures releases. Accept his\nupstream maintenance, packaging and release process. Publisher-wide acceptance\nincludes future dependencies from this account; no independent source review.\nThe separate github:taiki-e/pin-project-lite CI identity is not accepted by this\nnumeric account decision and still needs its own policy decision.\nSources: https://github.com/taiki-e and https://github.com/crossbeam-rs/crossbeam\n"
-
-[[trusted."futures-util"]]
-criteria = ["safe-to-run"]
-user-id = 33035
-start = "2026-02-15"
-end = "2027-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Taiki Endo (taiki-e): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTaiki Endo is an established Rust concurrency/tooling maintainer and verified\npublisher of the locked Crossbeam, fastrand and futures releases. Accept his\nupstream maintenance, packaging and release process. Publisher-wide acceptance\nincludes future dependencies from this account; no independent source review.\nThe separate github:taiki-e/pin-project-lite CI identity is not accepted by this\nnumeric account decision and still needs its own policy decision.\nSources: https://github.com/taiki-e and https://github.com/crossbeam-rs/crossbeam\n"
-
-[[trusted."getrandom"]]
-criteria = ["safe-to-run"]
-user-id = 5059
-start = "2022-09-30"
-end = "2027-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Artyom Pavlov (newpavlov): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nArtyom Pavlov is an established RustCrypto maintainer and verified publisher of\nthe locked blake2, crypto-common and ctr releases, among other RustCrypto crates.\nAccept RustCrypto maintenance and this account's packaging/release process as\na separate authority from tarcieri. Publisher-wide acceptance includes future\ndependencies from this account; no independent source or cryptographic audit.\nThis account decision does not accept RustCrypto CI publisher signatures.\nSources: https://github.com/orgs/RustCrypto/people and https://github.com/RustCrypto\n"
-
-[[trusted."http"]]
-criteria = ["safe-to-run"]
-user-id = 359
-start = "2019-03-01"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 359: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."http-body"]]
-criteria = ["safe-to-run"]
-user-id = 359
-start = "2019-03-01"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 359: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."http-body-util"]]
-criteria = ["safe-to-run"]
-user-id = 359
-start = "2019-03-01"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 359: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."httparse"]]
-criteria = ["safe-to-run"]
-user-id = 359
-start = "2019-03-01"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 359: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."hyper"]]
-criteria = ["safe-to-run"]
-user-id = 359
-start = "2019-03-01"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 359: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."itoa"]]
-criteria = ["safe-to-run"]
-user-id = 3618
-start = "2019-02-25"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 3618: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."libc"]]
-criteria = ["safe-to-run"]
-user-id = 55123
-start = "2022-10-29"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 55123: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."lock_api"]]
-criteria = ["safe-to-run"]
-user-id = 2915
-start = "2019-02-22"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 2915: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."log"]]
-criteria = ["safe-to-run"]
-user-id = 3204
-start = "2025-12-02"
-end = "2027-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Ashley Mannix (KodrAus): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nAshley Mannix is an established bitflags/UUID maintainer and verified publisher\nof the locked bitflags and UUID releases in both projects. Accept his upstream\nmaintenance, packaging and release process. Publisher-wide acceptance includes\nother account-published releases such as log and future dependencies from this\naccount; no independent source review. CI-published releases in the same\nprojects use separate identities and are not accepted by this account entry.\nSources: https://github.com/KodrAus and https://github.com/uuid-rs/uuid\n"
-
-[[trusted."memchr"]]
-criteria = ["safe-to-run"]
-user-id = 189
-start = "2019-02-25"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 189: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."mio"]]
-criteria = ["safe-to-run"]
-user-id = 6025
-start = "2019-12-17"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 6025: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."parking_lot"]]
-criteria = ["safe-to-run"]
-user-id = 2915
-start = "2019-02-22"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 2915: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."parking_lot_core"]]
-criteria = ["safe-to-run"]
-user-id = 2915
-start = "2019-02-22"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 2915: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."proc-macro2"]]
-criteria = ["safe-to-run"]
-user-id = 3618
-start = "2019-02-25"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 3618: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."quote"]]
-criteria = ["safe-to-run"]
-user-id = 3618
-start = "2019-02-25"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 3618: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."scopeguard"]]
-criteria = ["safe-to-run"]
-user-id = 2915
-start = "2019-02-22"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 2915: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."serde"]]
-criteria = ["safe-to-run"]
-user-id = 3618
-start = "2019-02-25"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 3618: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."serde_core"]]
-criteria = ["safe-to-run"]
-user-id = 3618
-start = "2019-02-25"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 3618: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."serde_derive"]]
-criteria = ["safe-to-run"]
-user-id = 3618
-start = "2019-02-25"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 3618: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."serde_json"]]
-criteria = ["safe-to-run"]
-user-id = 3618
-start = "2019-02-25"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 3618: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."slab"]]
-criteria = ["safe-to-run"]
-user-id = 6741
-start = "2020-10-26"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 6741: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."smallvec"]]
-criteria = ["safe-to-run"]
-user-id = 2017
-start = "2019-03-13"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 2017: Automatically inherited publisher-wide from mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."socket2"]]
-criteria = ["safe-to-run"]
-user-id = 6025
-start = "2019-12-17"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 6025: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."syn"]]
-criteria = ["safe-to-run"]
-user-id = 3618
-start = "2019-02-25"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 3618: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."tokio"]]
-criteria = ["safe-to-run"]
-user-id = 6741
-start = "2020-10-26"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 6741: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."tokio-macros"]]
-criteria = ["safe-to-run"]
-user-id = 6741
-start = "2020-10-26"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 6741: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."unicode-ident"]]
-criteria = ["safe-to-run"]
-user-id = 3618
-start = "2019-02-25"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 3618: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."wasi"]]
-criteria = ["safe-to-run"]
-user-id = 1
-start = "2019-03-04"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 1: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."windows-link"]]
-criteria = ["safe-to-run"]
-user-id = 64539
-start = "2021-01-15"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 64539: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."windows-sys"]]
-criteria = ["safe-to-run"]
-user-id = 64539
-start = "2021-01-15"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 64539: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
-[[trusted."zerocopy"]]
-criteria = ["safe-to-run"]
-user-id = 7178
-start = "2026-03-28"
-end = "2027-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Joshua Liebow-Feeser (joshlf): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nJoshua Liebow-Feeser is a zerocopy maintainer and verified publisher of the\nSDK's zerocopy/zerocopy-derive releases. Accept this upstream maintenance,\nproc-macro behavior, packaging and release process. Publisher-wide acceptance\nincludes future dependencies from this account; no independent source review\nor unsafe-code soundness audit. Infumap's newer github:google/zerocopy releases\nuse a separate CI identity and are not accepted by this numeric account entry.\nSources: https://github.com/joshlf and https://github.com/google/zerocopy\n"
-
-[[trusted."zerocopy-derive"]]
-criteria = ["safe-to-run"]
-user-id = 7178
-start = "2026-03-28"
-end = "2027-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Joshua Liebow-Feeser (joshlf): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nJoshua Liebow-Feeser is a zerocopy maintainer and verified publisher of the\nSDK's zerocopy/zerocopy-derive releases. Accept this upstream maintenance,\nproc-macro behavior, packaging and release process. Publisher-wide acceptance\nincludes future dependencies from this account; no independent source review\nor unsafe-code soundness audit. Infumap's newer github:google/zerocopy releases\nuse a separate CI identity and are not accepted by this numeric account entry.\nSources: https://github.com/joshlf and https://github.com/google/zerocopy\n"
-
-[[trusted."zmij"]]
-criteria = ["safe-to-run"]
-user-id = 3618
-start = "2019-02-25"
-end = "2028-11-10"
-notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 3618: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
-
 [[audits.redox_syscall]]
 who = "Codex (AI reviewer)"
 criteria = "safe-to-run"
@@ -328,3 +27,394 @@ notes = """
 Reviewed-at: 2026-11-11T13:45:41+07:00
 Report: dependency-reviews/2026-11-11_133616+0700.md
 Full exact-version AI source review of both manifests; src/lib.rs/call.rs; four arch syscall stubs; io/{io,mmio,pio}; ABI/error/number/dirent/sigabi; scheme dispatch variants, schemev2 and developer generator. Explicit caller paths/handles/buffers drive raw Redox operations; hardware access requires explicit port/memory APIs. No automatic credential access, upload, filesystem selection, execution or persistence. Both graphs select this through parking_lot_core only on Redox, where thread_parker/redox.rs uses futex wait/wake. Nonblocking source defects: sigabi.rs:82-83 updates word[0] twice in set_allowset, leaving high signal masks stale and modifying low masks incorrectly; dirent.rs:89-109 accepts undersized record_len before slicing (panic), and oversized records yield repeated Err without advancing (caller loops possible). These inactive helpers are outside the parker path; no prohibited machine effect established. No complete unsafe/ABI/signal ordering proof or hostile-packet audit; intended Redox kernel/driver contracts assumed. No builds or tests."""
+
+[[trusted.bitflags]]
+criteria = "safe-to-run"
+user-id = 3204 # Ashley Mannix (KodrAus)
+start = "2025-12-02"
+end = "2027-11-10"
+notes = """
+Generated from trusted-publishers.toml by sync-publisher-trust.py. Ashley Mannix (KodrAus): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Ashley Mannix is an established bitflags/UUID maintainer and verified publisher
+of the locked bitflags and UUID releases in both projects. Accept his upstream
+maintenance, packaging and release process. Publisher-wide acceptance includes
+other account-published releases such as log and future dependencies from this
+account; no independent source review. CI-published releases in the same
+projects use separate identities and are not accepted by this account entry.
+Sources: https://github.com/KodrAus and https://github.com/uuid-rs/uuid
+"""
+
+[[trusted.bytes]]
+criteria = "safe-to-run"
+user-id = 6741 # Alice Ryhl (Darksonn)
+start = "2020-10-26"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 6741: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.cfg-if]]
+criteria = "safe-to-run"
+user-id = 55123 # rust-lang-owner
+start = "2022-10-29"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 55123: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.errno]]
+criteria = "safe-to-run"
+user-id = 6825 # Dan Gohman (sunfishcode)
+start = "2019-03-06"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 6825: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.futures-channel]]
+criteria = "safe-to-run"
+user-id = 33035 # Taiki Endo (taiki-e)
+start = "2026-02-15"
+end = "2027-11-10"
+notes = """
+Generated from trusted-publishers.toml by sync-publisher-trust.py. Taiki Endo (taiki-e): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Taiki Endo is an established Rust concurrency/tooling maintainer and verified
+publisher of the locked Crossbeam, fastrand and futures releases. Accept his
+upstream maintenance, packaging and release process. Publisher-wide acceptance
+includes future dependencies from this account; no independent source review.
+The separate github:taiki-e/pin-project-lite CI identity is not accepted by this
+numeric account decision and still needs its own policy decision.
+Sources: https://github.com/taiki-e and https://github.com/crossbeam-rs/crossbeam
+"""
+
+[[trusted.futures-core]]
+criteria = "safe-to-run"
+user-id = 33035 # Taiki Endo (taiki-e)
+start = "2026-02-15"
+end = "2027-11-10"
+notes = """
+Generated from trusted-publishers.toml by sync-publisher-trust.py. Taiki Endo (taiki-e): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Taiki Endo is an established Rust concurrency/tooling maintainer and verified
+publisher of the locked Crossbeam, fastrand and futures releases. Accept his
+upstream maintenance, packaging and release process. Publisher-wide acceptance
+includes future dependencies from this account; no independent source review.
+The separate github:taiki-e/pin-project-lite CI identity is not accepted by this
+numeric account decision and still needs its own policy decision.
+Sources: https://github.com/taiki-e and https://github.com/crossbeam-rs/crossbeam
+ Verified audit-base releases for this crate: 0.3.34. Existing delta audits determine coverage of the locked releases."""
+
+[[trusted.futures-macro]]
+criteria = "safe-to-run"
+user-id = 33035 # Taiki Endo (taiki-e)
+start = "2026-02-15"
+end = "2027-11-10"
+notes = """
+Generated from trusted-publishers.toml by sync-publisher-trust.py. Taiki Endo (taiki-e): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Taiki Endo is an established Rust concurrency/tooling maintainer and verified
+publisher of the locked Crossbeam, fastrand and futures releases. Accept his
+upstream maintenance, packaging and release process. Publisher-wide acceptance
+includes future dependencies from this account; no independent source review.
+The separate github:taiki-e/pin-project-lite CI identity is not accepted by this
+numeric account decision and still needs its own policy decision.
+Sources: https://github.com/taiki-e and https://github.com/crossbeam-rs/crossbeam
+ Verified audit-base releases for this crate: 0.3.34. Existing delta audits determine coverage of the locked releases."""
+
+[[trusted.futures-task]]
+criteria = "safe-to-run"
+user-id = 33035 # Taiki Endo (taiki-e)
+start = "2026-02-15"
+end = "2027-11-10"
+notes = """
+Generated from trusted-publishers.toml by sync-publisher-trust.py. Taiki Endo (taiki-e): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Taiki Endo is an established Rust concurrency/tooling maintainer and verified
+publisher of the locked Crossbeam, fastrand and futures releases. Accept his
+upstream maintenance, packaging and release process. Publisher-wide acceptance
+includes future dependencies from this account; no independent source review.
+The separate github:taiki-e/pin-project-lite CI identity is not accepted by this
+numeric account decision and still needs its own policy decision.
+Sources: https://github.com/taiki-e and https://github.com/crossbeam-rs/crossbeam
+"""
+
+[[trusted.futures-util]]
+criteria = "safe-to-run"
+user-id = 33035 # Taiki Endo (taiki-e)
+start = "2026-02-15"
+end = "2027-11-10"
+notes = """
+Generated from trusted-publishers.toml by sync-publisher-trust.py. Taiki Endo (taiki-e): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Taiki Endo is an established Rust concurrency/tooling maintainer and verified
+publisher of the locked Crossbeam, fastrand and futures releases. Accept his
+upstream maintenance, packaging and release process. Publisher-wide acceptance
+includes future dependencies from this account; no independent source review.
+The separate github:taiki-e/pin-project-lite CI identity is not accepted by this
+numeric account decision and still needs its own policy decision.
+Sources: https://github.com/taiki-e and https://github.com/crossbeam-rs/crossbeam
+"""
+
+[[trusted.getrandom]]
+criteria = "safe-to-run"
+user-id = 5059 # Artyom Pavlov (newpavlov)
+start = "2022-09-30"
+end = "2027-11-10"
+notes = """
+Generated from trusted-publishers.toml by sync-publisher-trust.py. Artyom Pavlov (newpavlov): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Artyom Pavlov is an established RustCrypto maintainer and verified publisher of
+the locked blake2, crypto-common and ctr releases, among other RustCrypto crates.
+Accept RustCrypto maintenance and this account's packaging/release process as
+a separate authority from tarcieri. Publisher-wide acceptance includes future
+dependencies from this account; no independent source or cryptographic audit.
+This account decision does not accept RustCrypto CI publisher signatures.
+Sources: https://github.com/orgs/RustCrypto/people and https://github.com/RustCrypto
+"""
+
+[[trusted.http]]
+criteria = "safe-to-run"
+user-id = 359 # Sean McArthur (seanmonstar)
+start = "2019-03-01"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 359: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.http-body]]
+criteria = "safe-to-run"
+user-id = 359 # Sean McArthur (seanmonstar)
+start = "2019-03-01"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 359: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.http-body-util]]
+criteria = "safe-to-run"
+user-id = 359 # Sean McArthur (seanmonstar)
+start = "2019-03-01"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 359: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.httparse]]
+criteria = "safe-to-run"
+user-id = 359 # Sean McArthur (seanmonstar)
+start = "2019-03-01"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 359: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.hyper]]
+criteria = "safe-to-run"
+user-id = 359 # Sean McArthur (seanmonstar)
+start = "2019-03-01"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 359: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.itoa]]
+criteria = "safe-to-run"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2019-02-25"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 3618: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.libc]]
+criteria = "safe-to-run"
+user-id = 55123 # rust-lang-owner
+start = "2022-10-29"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 55123: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.lock_api]]
+criteria = "safe-to-run"
+user-id = 2915 # Amanieu d'Antras (Amanieu)
+start = "2019-02-22"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 2915: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.log]]
+criteria = "safe-to-run"
+user-id = 3204 # Ashley Mannix (KodrAus)
+start = "2025-12-02"
+end = "2027-11-10"
+notes = """
+Generated from trusted-publishers.toml by sync-publisher-trust.py. Ashley Mannix (KodrAus): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Ashley Mannix is an established bitflags/UUID maintainer and verified publisher
+of the locked bitflags and UUID releases in both projects. Accept his upstream
+maintenance, packaging and release process. Publisher-wide acceptance includes
+other account-published releases such as log and future dependencies from this
+account; no independent source review. CI-published releases in the same
+projects use separate identities and are not accepted by this account entry.
+Sources: https://github.com/KodrAus and https://github.com/uuid-rs/uuid
+"""
+
+[[trusted.memchr]]
+criteria = "safe-to-run"
+user-id = 189 # Andrew Gallant (BurntSushi)
+start = "2019-02-25"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 189: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.mio]]
+criteria = "safe-to-run"
+user-id = 6025 # Thomas de Zeeuw (Thomasdezeeuw)
+start = "2019-12-17"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 6025: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.parking_lot]]
+criteria = "safe-to-run"
+user-id = 2915 # Amanieu d'Antras (Amanieu)
+start = "2019-02-22"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 2915: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.parking_lot_core]]
+criteria = "safe-to-run"
+user-id = 2915 # Amanieu d'Antras (Amanieu)
+start = "2019-02-22"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 2915: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.proc-macro2]]
+criteria = "safe-to-run"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2019-02-25"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 3618: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.quote]]
+criteria = "safe-to-run"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2019-02-25"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 3618: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.scopeguard]]
+criteria = "safe-to-run"
+user-id = 2915 # Amanieu d'Antras (Amanieu)
+start = "2019-02-22"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 2915: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.serde]]
+criteria = "safe-to-run"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2019-02-25"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 3618: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.serde_core]]
+criteria = "safe-to-run"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2019-02-25"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 3618: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.serde_derive]]
+criteria = "safe-to-run"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2019-02-25"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 3618: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.serde_json]]
+criteria = "safe-to-run"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2019-02-25"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 3618: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.slab]]
+criteria = "safe-to-run"
+user-id = 6741 # Alice Ryhl (Darksonn)
+start = "2020-10-26"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 6741: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.smallvec]]
+criteria = "safe-to-run"
+user-id = 2017 # Matt Brubeck (mbrubeck)
+start = "2019-03-13"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 2017: Automatically inherited publisher-wide from mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.socket2]]
+criteria = "safe-to-run"
+user-id = 6025 # Thomas de Zeeuw (Thomasdezeeuw)
+start = "2019-12-17"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 6025: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.syn]]
+criteria = "safe-to-run"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2019-02-25"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 3618: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.tokio]]
+criteria = "safe-to-run"
+user-id = 6741 # Alice Ryhl (Darksonn)
+start = "2020-10-26"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 6741: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.tokio-macros]]
+criteria = "safe-to-run"
+user-id = 6741 # Alice Ryhl (Darksonn)
+start = "2020-10-26"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 6741: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.unicode-ident]]
+criteria = "safe-to-run"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2019-02-25"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 3618: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.wasi]]
+criteria = "safe-to-run"
+user-id = 1 # Alex Crichton (alexcrichton)
+start = "2019-03-04"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 1: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.windows-link]]
+criteria = "safe-to-run"
+user-id = 64539 # Kenny Kerr (kennykerr)
+start = "2021-01-15"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 64539: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.windows-sys]]
+criteria = "safe-to-run"
+user-id = 64539 # Kenny Kerr (kennykerr)
+start = "2021-01-15"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 64539: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.zerocopy]]
+criteria = "safe-to-run"
+user-id = 7178 # Josh Liebow-Feeser (joshlf)
+start = "2026-03-28"
+end = "2027-11-10"
+notes = """
+Generated from trusted-publishers.toml by sync-publisher-trust.py. Joshua Liebow-Feeser (joshlf): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Joshua Liebow-Feeser is a zerocopy maintainer and verified publisher of the
+SDK's zerocopy/zerocopy-derive releases. Accept this upstream maintenance,
+proc-macro behavior, packaging and release process. Publisher-wide acceptance
+includes future dependencies from this account; no independent source review
+or unsafe-code soundness audit. Infumap's newer github:google/zerocopy releases
+use a separate CI identity and are not accepted by this numeric account entry.
+Sources: https://github.com/joshlf and https://github.com/google/zerocopy
+"""
+
+[[trusted.zerocopy-derive]]
+criteria = "safe-to-run"
+user-id = 7178 # Josh Liebow-Feeser (joshlf)
+start = "2026-03-28"
+end = "2027-11-10"
+notes = """
+Generated from trusted-publishers.toml by sync-publisher-trust.py. Joshua Liebow-Feeser (joshlf): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Joshua Liebow-Feeser is a zerocopy maintainer and verified publisher of the
+SDK's zerocopy/zerocopy-derive releases. Accept this upstream maintenance,
+proc-macro behavior, packaging and release process. Publisher-wide acceptance
+includes future dependencies from this account; no independent source review
+or unsafe-code soundness audit. Infumap's newer github:google/zerocopy releases
+use a separate CI identity and are not accepted by this numeric account entry.
+Sources: https://github.com/joshlf and https://github.com/google/zerocopy
+"""
+
+[[trusted.zmij]]
+criteria = "safe-to-run"
+user-id = 3618 # David Tolnay (dtolnay)
+start = "2019-02-25"
+end = "2028-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 3618: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."

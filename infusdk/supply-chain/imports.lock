@@ -174,48 +174,6 @@ user-id = 3618
 user-login = "dtolnay"
 user-name = "David Tolnay"
 
-[[publisher.redox_syscall]]
-version = "0.2.13"
-when = "2022-03-30"
-user-id = 2668
-user-login = "jackpot51"
-user-name = "Jeremy Soller"
-
-[[publisher.redox_syscall]]
-version = "0.2.16"
-when = "2022-07-26"
-user-id = 2668
-user-login = "jackpot51"
-user-name = "Jeremy Soller"
-
-[[publisher.redox_syscall]]
-version = "0.3.5"
-when = "2023-03-14"
-user-id = 2668
-user-login = "jackpot51"
-user-name = "Jeremy Soller"
-
-[[publisher.redox_syscall]]
-version = "0.4.1"
-when = "2023-09-08"
-user-id = 2668
-user-login = "jackpot51"
-user-name = "Jeremy Soller"
-
-[[publisher.redox_syscall]]
-version = "0.5.1"
-when = "2024-03-17"
-user-id = 42742
-user-login = "4lDO2"
-user-name = "4lDO2"
-
-[[publisher.redox_syscall]]
-version = "0.5.18"
-when = "2025-10-04"
-user-id = 42742
-user-login = "4lDO2"
-user-name = "4lDO2"
-
 [[publisher.scopeguard]]
 version = "1.2.0"
 when = "2023-07-17"

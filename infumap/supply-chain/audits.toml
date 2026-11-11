@@ -210,6 +210,69 @@ Full AI source review of attohttpc 0.30.1: both manifests; lib/request builder, 
 Nonblocking Windows ownership defect remains: streams.rs::connect_tcp:145 borrows a raw socket, then its deadline worker calls closesocket at 167 while TcpStream remains owner; its destructor later closes the value again. aws-creds supplies a 30-second total deadline by default. Ordinary timeouts can expose this stale ownership; descriptor reuse/connection disruption is a credible potential consequence. Source defect confirmed statically, but Windows interleaving, cross-connection data I/O, credential disclosure and unrelated data damage were not reproduced or established. This supersedes the earlier AI safe-to-run violation: a transport correctness/availability defect alone does not establish this workflow's specified harmful machine effects. The finding is retained, not fixed or disproved. Unix uses a cloned stream and shutdown. No unsafe-code soundness or safe-to-deploy claim.
 Other nonblocking observations: cross-origin redirects retain request headers/body/method and can disclose credentials under hostile responses; container-token acquisition disables redirects, IMDS token calls do not. no_proxy uses bare suffix matching. Debug logs may expose credential-bearing query strings when enabled. Acceptance assumes operator-vetted inputs/endpoints and records these limitations; dependencies retain separate vet requirements. No builds, reproducer or tests run."""
 
+[[audits.redox_syscall]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.5.18"
+notes = """
+Reviewed-at: 2026-11-11T13:45:41+07:00
+Report: dependency-reviews/2026-11-11_133616+0700.md
+Full exact-version AI source review of both manifests; src/lib.rs/call.rs; four arch syscall stubs; io/{io,mmio,pio}; ABI/error/number/dirent/sigabi; scheme dispatch variants, schemev2 and developer generator. Explicit caller paths/handles/buffers drive raw Redox operations; hardware access requires explicit port/memory APIs. No automatic credential access, upload, filesystem selection, execution or persistence. Both graphs select this through parking_lot_core only on Redox, where thread_parker/redox.rs uses futex wait/wake. Nonblocking source defects: sigabi.rs:82-83 updates word[0] twice in set_allowset, leaving high signal masks stale and modifying low masks incorrectly; dirent.rs:89-109 accepts undersized record_len before slicing (panic), and oversized records yield repeated Err without advancing (caller loops possible). These inactive helpers are outside the parker path; no prohibited machine effect established. No complete unsafe/ABI/signal ordering proof or hostile-packet audit; intended Redox kernel/driver contracts assumed. No builds or tests."""
+
+[[audits.qrcodegen-image]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "1.5.2"
+notes = """
+Reviewed-at: 2026-11-11T13:45:41+07:00
+Report: dependency-reviews/2026-11-11_133616+0700.md
+Full exact-version AI source review of both manifests, entire src/lib.rs, benchmark and packaged CI. draw_canvas renders supplied QR modules into a padded grayscale buffer; draw_png encodes into Vec and enabled base64 feature returns encoded bytes. Used by totp-rs QR provisioning. Supplied secrets become requested image content; no upload, logging, file selection, process or background execution. Upstream CI's explicit grcov download/coverage upload is not a consumer build hook. qrcodegen/image/PNG dependencies retain separate evidence requirements; benchmark Criterion is dev-only. No builds or tests."""
+
+[[audits.compression-core]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.4.34"
+notes = """
+Reviewed-at: 2026-11-11T13:45:41+07:00
+Report: dependency-reviews/2026-11-11_133616+0700.md
+Full exact-version AI source review of both manifests and all src/{lib,level,unshared,util}.rs. Level selects effort; PartialBuffer and WriteBuffer track supplied storage, written/initialized byte ranges and bounded advances/copies. Unshared exposes only mutable access to its inner value and its Debug prints only the type name. Unsafe Sync and MaybeUninit handoffs have no automatic external effects; caller traits/unsafe assertions retain contracts. No dependencies, build hook, credential/filesystem/network/process access or unrelated computation. This is not a proof of every generic/unsafe invariant. No builds or tests."""
+
+[[audits.zune-jpeg]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.5.15"
+notes = """
+Reviewed-at: 2026-11-11T13:45:41+07:00
+Report: dependency-reviews/2026-11-11_133616+0700.md
+Full exact-version AI source review of both manifests; src/lib/decoder/headers, MCU/progressive/bitstream/Huffman processing, components/worker routing, scalar/SIMD selection and AVX2/NEON IDCT/color/upsampler memory boundaries/vector helpers. Caller reader supplies JPEG bytes; decode_into checks/narrows output; options bound dimensions/progressive scans. Embedded ICC/Exif/XMP/gain-map data stays in memory; Adobe XMP URLs are namespace byte comparisons, not destinations. SIMD stores target decoded/scratch buffers; focused worker caller and zune-core CPU-dispatch context inspected. No file selection, networking, hidden execution, persistence or unrelated work found. No complete numeric/SIMD soundness or corrupt-image/resource-exhaustion proof. image wrapper overrides standalone dimension defaults and has separate Limits handling; zune-core retains its own review obligation. No builds or tests."""
+
+[[audits.heifer-hevc-dec]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.4.0"
+notes = """
+Reviewed-at: 2026-11-11T13:45:41+07:00
+Report: dependency-reviews/2026-11-11_133616+0700.md
+Full exact-version AI source review of both manifests; src/lib/decoder/bitreader/nal; parameter/slice activation and counts; CABAC/context setup; syntax CTU/recursive block dispatch; scan/ref helpers; reconstruction/filter buffer paths; SEI local hashes and packaged example/fixture I/O. Supplied Annex B bytes produce pixel planes; no independent file/network/environment/process access or build hook. decode_picture_checked checks pixel product before picture buffers (standalone default 2^27), validates tiles, bounds CTU traversal and decreases coding recursion sizes. Heifer propagates max_pixels; Infumap selects one outer worker. Pixel limits are not aggregate-memory or pre-parameter/NAL allocation caps; lower-level constructors trust parameters. No exhaustive codec arithmetic, crop/parser or adversarial-image proof. heifer-isobmff remains separate. No builds or tests."""
+
+[[audits.compression-codecs]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.4.47"
+notes = """
+Reviewed-at: 2026-11-11T13:45:42+07:00
+Report: dependency-reviews/2026-11-11_133616+0700.md
+Full exact-version AI source review of both manifests; src/lib.rs adapters/traits; Brotli/flate/gzip/zlib encoder/decoder/params, gzip header/footer; optional deflate/deflate64, bzip2, LZ4, LZMA/XZ, zstd and unstable mbrotli/mzstd routes, native cleanup and worker parameters. Enabled Brotli/gzip/zlib transform supplied buffers through codec dependencies. gzip consumes names/comments without opening paths and validates FHCRC/footer. No independent files, endpoints, credentials, subprocesses or build hook. Optional native contexts and explicit parallel/quality/memory settings implement compression; backend implementations/builds remain separate dependency obligations. Buffer initialization trusts backend progress; per-call output bounds do not cap total expansion or aggregate memory. No decompression-bomb/soundness proof. No builds or tests."""
+
+[[audits.kamadak-exif]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.5.5"
+notes = """
+Reviewed-at: 2026-11-11T13:45:42+07:00
+Report: dependency-reviews/2026-11-11_133616+0700.md
+Full exact-version AI source review of both manifests; src/lib/reader, TIFF/IFD, JPEG/PNG/WebP/HEIF extraction, endian/util/value/tag/display macro paths, experimental Writer composition/seek/write boundaries, examples/fixture I/O. Reader uses only caller bytes or stream; HEIF external references are rejected and pointers are in-stream offsets. Writer touches only explicit Write+Seek target. Infumap reads Cursor image bytes for capture/GPS/camera/orientation data, not host metadata. No credential access, outbound destinations, processes or automatic filesystem mutation. TIFF/metadata/HEIF boxes can need large reads; HEIF 65535-byte Exif checks occur after extent reads, not before every allocation. These are hostile/large-input resource-hardening limits, not hidden resource abuse. No full parser/thread-soundness proof; mutate_once remains separately uncovered. No builds or tests."""
+
 [[trusted."aead"]]
 criteria = ["safe-to-run"]
 user-id = 267
@@ -2128,65 +2191,66 @@ start = "2026-10-16"
 end = "2027-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Alexandre Bury (gyscos): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nAlexandre Bury is the zstd-rs author/maintainer and verified publisher of the\nlocked zstd, zstd-safe and zstd-sys releases. Accept this upstream wrapper,\nbundled native zstd code, native build integration, packaging and release\nprocess. Publisher-wide acceptance includes future dependencies from this\naccount; no independent source review or native-code security audit.\nSource: https://github.com/gyscos/zstd-rs\n"
 
-[[audits.redox_syscall]]
-who = "Codex (AI reviewer)"
-criteria = "safe-to-run"
-version = "0.5.18"
-notes = """
-Reviewed-at: 2026-11-11T13:45:41+07:00
-Report: dependency-reviews/2026-11-11_133616+0700.md
-Full exact-version AI source review of both manifests; src/lib.rs/call.rs; four arch syscall stubs; io/{io,mmio,pio}; ABI/error/number/dirent/sigabi; scheme dispatch variants, schemev2 and developer generator. Explicit caller paths/handles/buffers drive raw Redox operations; hardware access requires explicit port/memory APIs. No automatic credential access, upload, filesystem selection, execution or persistence. Both graphs select this through parking_lot_core only on Redox, where thread_parker/redox.rs uses futex wait/wake. Nonblocking source defects: sigabi.rs:82-83 updates word[0] twice in set_allowset, leaving high signal masks stale and modifying low masks incorrectly; dirent.rs:89-109 accepts undersized record_len before slicing (panic), and oversized records yield repeated Err without advancing (caller loops possible). These inactive helpers are outside the parker path; no prohibited machine effect established. No complete unsafe/ABI/signal ordering proof or hostile-packet audit; intended Redox kernel/driver contracts assumed. No builds or tests."""
 
-[[audits.qrcodegen-image]]
+[[audits.byteorder-lite]]
 who = "Codex (AI reviewer)"
 criteria = "safe-to-run"
-version = "1.5.2"
+version = "0.1.0"
 notes = """
-Reviewed-at: 2026-11-11T13:45:41+07:00
-Report: dependency-reviews/2026-11-11_133616+0700.md
-Full exact-version AI source review of both manifests, entire src/lib.rs, benchmark and packaged CI. draw_canvas renders supplied QR modules into a padded grayscale buffer; draw_png encodes into Vec and enabled base64 feature returns encoded bytes. Used by totp-rs QR provisioning. Supplied secrets become requested image content; no upload, logging, file selection, process or background execution. Upstream CI's explicit grcov download/coverage upload is not a consumer build hook. qrcodegen/image/PNG dependencies retain separate evidence requirements; benchmark Criterion is dev-only. No builds or tests."""
+Reviewed-at: 2026-11-11T14:29:24+07:00
+Report: dependency-reviews/2026-11-11_141945+0700.md
+Full exact-version AI source review of both manifests, production src/lib.rs through 2319 and complete src/io.rs. Sealed endian conversions use numeric byte methods, checked slices and fixed arrays; forbid(unsafe_code), no runtime dependencies/build hook. ReadBytesExt/WriteBytesExt forward only caller streams with fixed local buffers; native/network endian are aliases, not I/O. Image/image-webp enable std. No automatic host data access, upload, execution, installation or unrelated computation. No exhaustive arithmetic/hostile-image audit or certification of supplied I/O. No builds or tests."""
 
-[[audits.compression-core]]
+[[audits.darling]]
 who = "Codex (AI reviewer)"
 criteria = "safe-to-run"
-version = "0.4.34"
+version = "0.24.1"
 notes = """
-Reviewed-at: 2026-11-11T13:45:41+07:00
-Report: dependency-reviews/2026-11-11_133616+0700.md
-Full exact-version AI source review of both manifests and all src/{lib,level,unshared,util}.rs. Level selects effort; PartialBuffer and WriteBuffer track supplied storage, written/initialized byte ranges and bounded advances/copies. Unshared exposes only mutable access to its inner value and its Debug prints only the type name. Unsafe Sync and MaybeUninit handoffs have no automatic external effects; caller traits/unsafe assertions retain contracts. No dependencies, build hook, credential/filesystem/network/process access or unrelated computation. This is not a proof of every generic/unsafe invariant. No builds or tests."""
+Reviewed-at: 2026-11-11T14:29:24+07:00
+Report: dependency-reviews/2026-11-11_141945+0700.md
+Full exact-version AI source review of both manifests, complete src/lib.rs/macros_public.rs, compiletests launcher and example routing. Ordinary facade library re-exports exact darling_core/macro =0.24.1; local macros delegate generic/lifetime usage and union sets; no direct I/O/env/network/unsafe/process/build hook. Bon-macros uses default/suggestions for attribute parsing. Verified helper published archives against lock and inspected macro entry points, core derive routing, FromMeta options/codegen, TraitImpl/callable emission as context only; not full helper certifications. Actual proc-macro implementation remains in separate dependencies and may remain uncovered. No blanket Darling-family/generated-code claim, builds, proc-macro execution or tests."""
 
-[[audits.zune-jpeg]]
+[[audits.hashlink]]
 who = "Codex (AI reviewer)"
 criteria = "safe-to-run"
-version = "0.5.15"
+version = "0.8.4"
 notes = """
-Reviewed-at: 2026-11-11T13:45:41+07:00
-Report: dependency-reviews/2026-11-11_133616+0700.md
-Full exact-version AI source review of both manifests; src/lib/decoder/headers, MCU/progressive/bitstream/Huffman processing, components/worker routing, scalar/SIMD selection and AVX2/NEON IDCT/color/upsampler memory boundaries/vector helpers. Caller reader supplies JPEG bytes; decode_into checks/narrows output; options bound dimensions/progressive scans. Embedded ICC/Exif/XMP/gain-map data stays in memory; Adobe XMP URLs are namespace byte comparisons, not destinations. SIMD stores target decoded/scratch buffers; focused worker caller and zune-core CPU-dispatch context inspected. No file selection, networking, hidden execution, persistence or unrelated work found. No complete numeric/SIMD soundness or corrupt-image/resource-exhaustion proof. image wrapper overrides standalone dimension defaults and has separate Limits handling; zune-core retains its own review obligation. No builds or tests."""
+Reviewed-at: 2026-11-11T14:29:24+07:00
+Report: dependency-reviews/2026-11-11_141945+0700.md
+Full exact-version AI source review of both manifests and all src/{lib,linked_hash_map,linked_hash_set,lru_cache,serde}. Hashbrown index, owned heap nodes/free lists, set/LRU operations and optional serde stay in caller-owned memory; no OS I/O, env, endpoint, subprocess or build hook. Nonblocking thread-soundness finding: shared Iter Send at linked_hash_map.rs:1424-1429 requires K/V Send, although next:1527-1540 yields shared references requiring Sync; RawEntryBuilder:969-975 and IterMut shared-key bounds need the same distinction. Scoped use with Send/non-Sync payloads such as Cell can permit data races. Inspected yaml-rust2 uses LinkedHashMap<Yaml,Yaml> with ordinary Sync string/numeric/container payloads; no affected consumer path established. No complete pointer/list/panic/concurrency soundness proof, builds or tests."""
 
-[[audits.heifer-hevc-dec]]
+[[audits.no_std_io2]]
 who = "Codex (AI reviewer)"
 criteria = "safe-to-run"
-version = "0.4.0"
+version = "0.9.4"
 notes = """
-Reviewed-at: 2026-11-11T13:45:41+07:00
-Report: dependency-reviews/2026-11-11_133616+0700.md
-Full exact-version AI source review of both manifests; src/lib/decoder/bitreader/nal; parameter/slice activation and counts; CABAC/context setup; syntax CTU/recursive block dispatch; scan/ref helpers; reconstruction/filter buffer paths; SEI local hashes and packaged example/fixture I/O. Supplied Annex B bytes produce pixel planes; no independent file/network/environment/process access or build hook. decode_picture_checked checks pixel product before picture buffers (standalone default 2^27), validates tiles, bounds CTU traversal and decreases coding recursion sizes. Heifer propagates max_pixels; Infumap selects one outer worker. Pixel limits are not aggregate-memory or pre-parameter/NAL allocation caps; lower-level constructors trust parameters. No exhaustive codec arithmetic, crop/parser or adversarial-image proof. heifer-isobmff remains separate. No builds or tests."""
+Reviewed-at: 2026-11-11T14:29:23+07:00
+Report: dependency-reviews/2026-11-11_141945+0700.md
+Full exact-version AI source review of both manifests, src/lib.rs/io.rs and all io/{traits,buffered,cursor,error,impls,util}. Supplied streams/slices/vectors drive I/O; no autonomous OS access, credentials, endpoint, execution or build hook. Bitstream-io enables std: lib.rs excludes custom io and re-exports std::io. Nonblocking inactive-code findings: BufWriter::flush_buf shifts remaining bytes after partial-write error but does not reduce self.len on the error path (buffered.rs:429-495); buffer() exposes full array rather than live prefix. Custom copy forms an initialized-array reference before initialization (util.rs:13-28), and read_to_end sets Vec length before initializing (traits.rs:62-65), credible unsafe-initialization concerns not claimed sound. These custom modules are excluded in current std graph; no prohibited consumer machine effect established. No builds/tests or exhaustive unsafe proof."""
 
-[[audits.compression-codecs]]
+[[audits.ordered-multimap]]
 who = "Codex (AI reviewer)"
 criteria = "safe-to-run"
-version = "0.4.47"
+version = "0.7.3"
 notes = """
-Reviewed-at: 2026-11-11T13:45:42+07:00
-Report: dependency-reviews/2026-11-11_133616+0700.md
-Full exact-version AI source review of both manifests; src/lib.rs adapters/traits; Brotli/flate/gzip/zlib encoder/decoder/params, gzip header/footer; optional deflate/deflate64, bzip2, LZ4, LZMA/XZ, zstd and unstable mbrotli/mzstd routes, native cleanup and worker parameters. Enabled Brotli/gzip/zlib transform supplied buffers through codec dependencies. gzip consumes names/comments without opening paths and validates FHCRC/footer. No independent files, endpoints, credentials, subprocesses or build hook. Optional native contexts and explicit parallel/quality/memory settings implement compression; backend implementations/builds remain separate dependency obligations. Buffer initialization trusts backend progress; per-call output bounds do not cap total expansion or aggregate memory. No decompression-bomb/soundness proof. No builds or tests."""
+Reviewed-at: 2026-11-11T14:29:24+07:00
+Report: dependency-reviews/2026-11-11_141945+0700.md
+Full exact-version AI source review of both manifests, src/lib.rs, complete production list_ordered_multimap.rs:1-3539, serde, Cargo warning config and CI/release routing. Dlv-list key/value lists and hashbrown indices maintain caller in-memory insertion order; no independent file/env/network/credential/process/build hook. Rust-ini 0.20.0/0.21.3 selects std and uses string properties/sections. Nonblocking: retain_helper:1549-1607 queues updates to removed adjacent nodes then unwraps get_mut:1597, causing panic/inconsistent bookkeeping; neither rust-ini caller invokes retain. KeyValuesMut shared key references:3217/3220 have Send bounded by Key:Send at 3304-3309 instead of Sync, allowing generic non-Sync key sharing; consumer string keys do not trigger this. No complete iterator-aliasing/index/panic-safety proof or certification of dlv-list/hashbrown. No builds or tests."""
 
-[[audits.kamadak-exif]]
+[[audits.schannel]]
 who = "Codex (AI reviewer)"
 criteria = "safe-to-run"
-version = "0.5.5"
+version = "0.1.30"
 notes = """
-Reviewed-at: 2026-11-11T13:45:42+07:00
-Report: dependency-reviews/2026-11-11_133616+0700.md
-Full exact-version AI source review of both manifests; src/lib/reader, TIFF/IFD, JPEG/PNG/WebP/HEIF extraction, endian/util/value/tag/display macro paths, experimental Writer composition/seek/write boundaries, examples/fixture I/O. Reader uses only caller bytes or stream; HEIF external references are rejected and pointers are in-stream offsets. Writer touches only explicit Write+Seek target. Infumap reads Cursor image bytes for capture/GPS/camera/orientation data, not host metadata. No credential access, outbound destinations, processes or automatic filesystem mutation. TIFF/metadata/HEIF boxes can need large reads; HEIF 65535-byte Exif checks occur after extent reads, not before every allocation. These are hostile/large-input resource-hardening limits, not hidden resource abuse. No full parser/thread-soundness proof; mutate_once remains separately uncovered. No builds or tests."""
+Reviewed-at: 2026-11-11T14:29:23+07:00
+Report: dependency-reviews/2026-11-11_141945+0700.md
+Full exact-version AI source review of both manifests and every production src module including Windows cert/store/chain/key/crypto, credential and security context, ALPN and TLS I/O; inspected test mutation paths and archive inventory. Rustls-native-certs uses only current-user ROOT enumeration, valid uses/time and public DER export on Windows. Public explicit crypto APIs can persist/import/export/delete keys/certs as requested; TLS uses supplied transports and Windows validation may retrieve chain objects. RtlGetVersion lookup targets already-loaded ntdll. Nonblocking latent test concern: src/test.rs:434-641 creates a persistent machine keyset and installs/deletes localhost roots (machine ROOT in CI); cfg(test) only, and published archive omits required test/ fixtures, so Windows tests cannot compile as shipped. No fixtures supplied or tests executed. Inactive TLS write_out:778-790 can busy-loop on Ok(0). No active consumer path to these effects; no confirmed criterion violation, FFI/TLS soundness proof or permission to run reconstructed upstream tests. No builds or tests."""
+
+[[audits.wasm-streams]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.4.2"
+notes = """
+Reviewed-at: 2026-11-11T14:29:23+07:00
+Report: dependency-reviews/2026-11-11_141945+0700.md
+Full exact-version AI source review of both manifests, all src modules for readable/BYOB/default readers, JS/Rust stream and async I/O adapters, writable sinks, transform/queue/sys/util, config and fetch example/test entry points. Stream data/promises/cancellation flow only through caller objects; no automatic fetch, eval, credential lookup or build hook. Reqwest selects wasm32 and uses response ReadableStream.into_stream. Nonblocking: IntoAsyncRead retains an earlier pending read size and can panic copying into a smaller subsequent poll buffer (readable/into_async_read.rs:75-123); that adapter is not the inspected reqwest path. Example/test fetch of public wasm-ferris PNG is standalone only. JS/caller callbacks and wasm-bindgen remain separate; no reentrancy/resource proof. No builds or tests."""
