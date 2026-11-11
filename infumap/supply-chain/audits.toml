@@ -2709,3 +2709,104 @@ notes = """
 Reviewed-at: 2026-11-11T19:23:21+07:00
 Report: dependency-reviews/2026-11-11_191333+0700.md
 Full exact-version AI source/effects review of both manifests and complete production src lib/ipnet/ipext/parser/mask, serde and both schemars integrations. Parses numeric address prefixes; implements masks, containment, aggregation and lazy address/subnet iterators, plus caller serialization/schema values. No DNS/socket/network call, filesystem, environment/credentials, process, native payload or build hook. Hyper-util uses parsing/containment for no-proxy CIDRs; std/default active, other integrations inactive. Fully consuming huge caller-selected IPv6 ranges can be expensive; no exhaustive arithmetic, iterator-count, policy matching or hostile-input proof. No builds or tests run."""
+
+[[audits.fax]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.2.7"
+notes = """
+Reviewed-at: 2026-11-11T19:54:11+07:00. Report: dependency-reviews/2026-11-11_194741+0700.md. Full exact-version AI source review; criterion safe-to-run under DEPENDENCY_REVIEW.md's operator-vetted-input model. Both manifests and complete production src/{lib,decoder,encoder,maps,tiff}.rs, including Color/Transitions/Bits after the inline test module, and the generated src/bitmaps.rs. Group3Decoder/Group4Decoder consume caller byte iterators and construct scanline transition lists; pels emits exactly the requested width. Makeup/run additions are checked; G4 vertical positions use i32 and reject values outside the row. The G4 convenience helper caps rows at supplied height or u16::MAX. Encoder emits run/mode bits to the supplied BitWriter; tiff::wrap builds a Vec container rather than opening a host file. ByteReader print helpers intentionally print supplied stream data; optional debug prints codec state. No file selection, credential access, network, process or consumer build hook.
+
+Parent TIFF 0.11.3 names this dependency fax34 and uses Group4Decoder on a Take<Read> bounded by compressed length (src/decoder/stream.rs:259-350), with checked u16 width/height conversion. No fax features are active. maps.rs:283-284 includes the packaged literal lookup tables. All 1,163 multiline static rows were structurally checked as numeric/Mode/Bits/Entry/Option data, with inline tables and every generated decode/encode function read; numeric codebook accuracy was not recomputed. Optional generate_bitmaps invokes the declared fax_derive helper on literal codebooks; that feature/helper is absent from this graph and the helper's implementation is not separately certified here. Example converters read/write explicit command-line paths; they were not executed.
+
+Scope/limits: No exhaustive bitstream conformance or adversarial-work/memory proof. Transition-vector size/work can follow encoded input even when row width is small; custom iterators, callbacks and BitWriter implementations retain their own effects. No dependency macro was executed. No builds or tests run; no safe-to-deploy or publisher-wide trust claim. No concerning changes found within the reviewed scope; certified safe-to-run."""
+
+
+[[audits.infer]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.19.0"
+notes = """
+Reviewed-at: 2026-11-11T19:54:12+07:00. Report: dependency-reviews/2026-11-11_194741+0700.md. Full exact-version AI source review; criterion safe-to-run under DEPENDENCY_REVIEW.md's operator-vetted-input model. Both manifests, complete production src/{lib,map}.rs and all ten matcher modules (app/archive/audio/book/doc/font/image/mod/odf/text/video; mod is routing/support). Static matcher functions compare signatures, bounded header fields, ZIP entry names, text prefixes and image/container brands against supplied bytes. They identify executable/script/certificate magic as data without executing it. Custom matchers are explicit caller function pointers. lib.rs:240-250::get_from_path opens only its argument, obtains its metadata and reads at most 8192 bytes. doc.rs:106-123::ole2 opens cfb::CompoundFile on an in-memory Cursor and checks root CLSID; it does not extract embedded files or touch host paths. Cfb 0.7.3 has its own existing local review, which was verified in the previous report and is not replaced here. No writes, environment lookup, network, process, unsafe code or build hook.
+
+Infumap directly calls infer::get(data) in src/util/mime.rs:32,46, not the path helper. Active features default/std/alloc/cfb. No-std OLE fallback and alloc/custom dispatch branches were inspected. The example reads the command-line-selected file and prints its inferred type, without installation or execution of that file.
+
+Nonblocking recursion observation. src/matchers/archive.rs:233-261::is_zst and 268-296::is_lz4 recursively skip a frame using the untrusted frame length. Each recursive step consumes at least eight bytes, but there is no recursion-depth bound. A large chain of zero-length skippable frames can therefore cause deep call stacks and possible stack exhaustion in builds without tail-call elimination (Rust does not guarantee it). The 8192-byte path helper limits that entry point's input, whereas Infumap's byte-slice API has no such intrinsic cap in this module. This is a source-derived hostile-input availability concern; stack exhaustion through the complete application was not reproduced. No credential access, exfiltration or unrelated modification is established, so it is nonblocking under this criterion.
+
+Scope/limits: No comprehensive signature accuracy, container parser, integer-overflow or hostile-file proof. Direct byte-slice calls are bounded only by caller input; nested CFB parsing and caller matchers have their own resource/effect contracts. No builds or tests run; no safe-to-deploy or publisher-wide trust claim. No concerning changes found within the reviewed scope; certified safe-to-run."""
+
+
+[[audits.lru]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.18.5"
+notes = """
+Reviewed-at: 2026-11-11T19:54:12+07:00. Report: dependency-reviews/2026-11-11_194741+0700.md. Full exact-version AI source review; criterion safe-to-run under DEPENDENCY_REVIEW.md's operator-vetted-input model. Both manifests and all production code in src/lib.rs, including key borrowing/hashing, sentinel/node construction, insertion/replacement, get/peek, eviction/removal/retain, resize, clone/drop and all iterators/thread traits. HashMap indexes heap-owned doubly linked nodes; hits promote nodes, capacity triggers least-recent eviction, and drop releases caller entries and sentinels. Unsafe pointers perform these in-memory list/refcount-free ownership operations, not external I/O. The unbounded constructor deliberately uses NonZeroUsize::MAX; normal capacity bounds entries, not bytes. User Hash/Eq/Clone/Drop/creation/predicate implementations can run caller code. No independent file/env/network/process action, background worker, native payload or build script.
+
+Parent Tantivy 0.27.0 uses Mutex<LruCache<usize, Block>> for decompressed document blocks (src/store/reader.rs:72-118,169-171), through get/put/len/peek_lru. Features default/hashbrown select hashbrown 0.17.1, with default-hasher/inline-more and default features disabled; the alternate standard HashMap branch and nightly forwarding are visible and have separate dependency obligations.
+
+Nonblocking thread-safety observation. src/lib.rs:1962 marks shared Iter<'a,K,V> Send when K and V are Send, although next/next_back return shared references (1904-1943) and Iter can be cloned (1949-1958). A Send-but-not-Sync value such as Cell<u32> can therefore remain accessible through the original cache's shared peek on one thread while an iterator is moved to a scoped thread and obtains another reference to it. Concurrent Cell mutation can cause a data race/undefined behavior through safe caller APIs. This is a source-derived unsound bound, not an executed reproducer or an established Infumap exploit. The inspected Tantivy consumer does not transfer these iterators and uses usize/Block under its mutex. No path from this defect to the criterion's unexpected harmful machine effects was established. It is retained as nonblocking under the workflow's memory-safety boundary; no safe-to-deploy claim or fix.
+
+Scope/limits: No exhaustive aliasing, panic-safety, raw-node invariant or concurrency proof. Only the shared Iter Send defect above is asserted; the separate IterMut Send implementation is not classified by analogy. No builds or tests run; no safe-to-deploy or publisher-wide trust claim. No concerning changes found within the reviewed scope; certified safe-to-run."""
+
+
+[[audits.qoi]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.4.1"
+notes = """
+Reviewed-at: 2026-11-11T19:54:12+07:00. Report: dependency-reviews/2026-11-11_194741+0700.md. Full exact-version AI source review; criterion safe-to-run under DEPENDENCY_REVIEW.md's operator-vetted-input model. Both manifests and every production module in src/{lib,consts,decode,encode,error,header,pixel,types,utils}.rs. decode_impl_slice and decode_impl_stream interpret QOI index/difference/luma/run/RGB(A) instructions into caller buffers; encoding emits those instructions and padding. Header::try_new (header.rs:44-51) rejects zero dimensions and more than 400,000,000 pixels. Decoder::decode_to_buf checks minimum output length, while vector helpers allocate the decoded size. The code forbids unsafe Rust; bytemuck casts use fixed byte arrays. Std adapters read/write only caller-provided streams, without choosing files or endpoints. No environment lookup, subprocess, installation or consumer build hook.
+
+Parent image 0.25.10 uses stream decoding and in-memory encoding (src/codecs/qoi.rs); features are default/std. Packaged ext/qoi/*.c and qoi.h are upstream C reference/benchmark/converter sources, with no build.rs, cc dependency or library FFI route. The inspected converter and C file helpers read/write their explicit filename arguments; they are not compiled by this Rust dependency. The original workspace-only libqoi dev dependency is absent from the normalized consumer manifest. The reference feature changes the Rust run-encoding choice, rather than enabling C execution.
+
+Scope/limits: No comprehensive codec-conformance or hostile-image resource proof. The pixel cap permits large allocations (up to 1.6 GB of RGBA alone), and caller stream implementations retain their own effects. The standalone C reference and benchmark algorithms were not exhaustively audited; they are outside the consumer build. No builds or tests run; no safe-to-deploy or publisher-wide trust claim. No concerning changes found within the reviewed scope; certified safe-to-run."""
+
+
+[[audits.rust-ini]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.20.0"
+notes = """
+Reviewed-at: 2026-11-11T19:54:12+07:00. Report: dependency-reviews/2026-11-11_194741+0700.md. Full exact-version AI source review; criterion safe-to-run under DEPENDENCY_REVIEW.md's operator-vetted-input model. Both manifests and all production src/lib.rs: feature-controlled key wrappers, section/property multimaps, entries/iterators, escaping and serialization, path/reader loaders, BOM handling, and the full character parser. ParseOption enables quotes/escapes by default; parsing stores section/key/value strings without evaluating them, interpolating the environment, executing includes or launching commands. Read APIs read caller streams to EOF. load_from_file_opt (907-929) opens only the supplied filename and handles a UTF-8 BOM; write_to_file_policy/opt (773-789) explicitly create/truncate only the supplied filename. Windows differs in the selected newline string. No autonomous credential discovery, endpoint, installation, unsafe code or build script.
+
+Parent config 0.14.1 calls Ini::load_from_str(text) and converts properties into configuration values (src/file/format/ini.rs). Only the empty default feature is active; case-insensitive, inline-comment and brackets-in-section-names branches were inspected as text. Ordered-multimap/cfg-if and optional unicase are separate dependencies. The packaged example deliberately writes test.ini only if explicitly run.
+
+Scope/limits: Full exact 0.20.0 review, with no accepted-base assumption. EOF buffering has no total byte limit. Serialization escape policy, configuration semantics, filesystem symlink/race behavior and dependencies are not comprehensively hardened by this source review. No builds or tests run; no safe-to-deploy or publisher-wide trust claim. No concerning changes found within the reviewed scope; certified safe-to-run."""
+
+
+[[audits.rust-ini]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.21.3"
+notes = """
+Reviewed-at: 2026-11-11T19:54:12+07:00. Report: dependency-reviews/2026-11-11_194741+0700.md. Full exact-version AI source review; criterion safe-to-run under DEPENDENCY_REVIEW.md's operator-vetted-input model. Both manifests and complete production src/lib.rs; byte-identical/common code was reused from the separate full 0.20.0 review, and every production difference was read. This independently reviews the full version, not a delta certification. Relative to 0.20.0 it adds mutable/owned property iterators and SectionSetter::add, narrows setter borrow lifetimes, uses Cow for error text, and changes whitespace, multiline, quoted-fragment and continuation parsing. The two extra ParseOption flags default false. All parser loops consume characters or exit; values remain data, including AWS access/secret keys. No shell/config evaluation, environment discovery or networking is added. Caller-only reader/path I/O and explicit destination create/truncate writes remain as in 0.20.0 (lib.rs::load_from_file_opt,read_from_opt,write_to_file_policy,write_to_file_opt).
+
+Parent aws-creds 0.40.0 explicitly calls Ini::load_from_file(file) in src/credentials.rs:788-805::from_credentials_file. Reading the selected credentials file is expected behavior of that requested API; this parser does not choose the credentials path or transmit its contents. Only the empty default feature is active. Optional parsing/case-insensitive branches, multimap/iterator routing and Windows newline cfg were inspected; dependencies retain separate acceptance records.
+
+Scope/limits: No total stream size bound or proof of every INI grammar/escaping/round-trip edge case. This is not a review of aws-creds network/path policy or a guarantee that credentials are safe to log; the crate does not independently log parsed contents. No version change or compatibility decision was made. No builds or tests run; no safe-to-deploy or publisher-wide trust claim. No concerning changes found within the reviewed scope; certified safe-to-run."""
+
+
+[[audits.zune-core]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.5.3"
+notes = """
+Reviewed-at: 2026-11-11T19:54:12+07:00. Report: dependency-reviews/2026-11-11_194741+0700.md. Full exact-version AI source review; criterion safe-to-run under DEPENDENCY_REVIEW.md's operator-vetted-input model. Both manifests and all production modules under src/: bit_depth/colorspace/result, serde/log, options/{decoder,encoder}, and every bytestream reader/writer/trait/cursor module and std/no-std branch. ZReader/ZWriter forward read/seek/write/flush operations to the supplied object; ZCursor indexes caller memory. They never choose a host path or destination. ZReader::peek_at uses a temporary buffer and rejects requests over 20 MiB; read_all reads the remaining supplied stream without that cap. Color/depth/result APIs manipulate values. Decoder/encoder options store caller resource, checksum, SIMD and backend settings; CPU capability checks use standard x86 detection or compile-time architecture cfg, without executing a subprocess. Optional serde serializes those values through the caller. With log disabled the local macros evaluate format_args and discard it; optional log forwards to the application's logger. No crate-owned environment/credential lookup, network, process, unsafe block, build script or installer.
+
+Parents image 0.25.10 and zune-jpeg 0.5.15 use its ZCursor and decoder options for supplied JPEG bytes. Feature std is active; log/serde are inactive. options/decoder.rs:718-730 defaults width/height to 2^14, scans to 100 and deflate limit to 1 GiB, while image's JPEG adapter explicitly raises max dimensions (src/codecs/jpeg/decoder.rs:30-39); these option values do not constitute an aggregate memory guarantee. Thread count fields configure consuming codecs and do not spawn threads here.
+
+Scope/limits: No exhaustive cursor/seek arithmetic, option semantics, CPU-dispatch soundness or adversarial stream proof. Custom I/O/serializer/logger behavior and consuming codec implementations remain separate. This review does not assert that new_safe disables every unsafe optimization in downstream codecs. No builds or tests run; no safe-to-deploy or publisher-wide trust claim. No concerning changes found within the reviewed scope; certified safe-to-run."""
+
+
+[[audits.zune-inflate]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.2.54"
+notes = """
+Reviewed-at: 2026-11-11T19:54:12+07:00. Report: dependency-reviews/2026-11-11_194741+0700.md. Full exact-version AI source review; criterion safe-to-run under DEPENDENCY_REVIEW.md's operator-vetted-input model. Both manifests and all production src/{lib,bitstream,constants,decoder,encoder,errors,gzip_constants,utils,crc}.rs, empty encoder/fast_match_finder, and CRC numeric tables. DeflateDecoder builds bounded-size Huffman tables, decodes literals/backreferences/stored blocks from caller bytes into Vec storage and reports format/checksum errors with partial data. The stream over-read accounting detects consumption of synthetic padding; backreferences reject offsets beyond the current output. Copy routines use safe slices/copy_within/Cell windows rather than raw machine I/O. Adler uses the declared simd-adler32 dependency. Optional gzip scans embedded filename/comment bytes but does not open those names; its CRC/ISIZE checks are local. DeflateEncoder emits uncompressed deflate/zlib into memory. CRC tables were structurally verified as declarations and hexadecimal literals only; their mathematical values were not recomputed. No filesystem/env/credential access, endpoint, process, native payload or build script.
+
+Parent EXR 1.74.3 enables only zlib/simd-adler32 (std and gzip inactive). ZIP, PXR24 and DWA call decode_zlib after setting both size_hint and limit to expected byte counts (src/compression/zip.rs:20-24, pxr24.rs:167-173, dwa/section_stream.rs:29-44); DWA also checks final length. Optional std/gzip and encoder branches were read even though not exercised by these callers.
+
+Nonblocking output-limit observation. decoder.rs::start_deflate_block initially allocates size_hint before comparing it to limit (598). Stored blocks grow storage before checking the old dest_offset (656-681), then copy/advance and can finish without checking the new size (684-698). Literal branches likewise increment dest_offset and continue without a limit check (793-842,1106-1112); final return has no universal size check (1216-1218). Thus limit is not a hard allocation/output cap: a final stored block or a literal-only block can return more bytes than requested. These source paths affect EXR's configured limits; exact end-to-end rejection/impact depends on the caller, and no malformed EXR reproducer was run. Crafted compression can undermine intended availability limits, but no hidden computation or unexpected sensitive/unrelated machine effect under operator-vetted inputs was established. Record as nonblocking resource-hardening evidence, not a safe-to-deploy claim, fix or proof of exploitability.
+
+Scope/limits: No exhaustive Huffman/arithmetic/format proof or compression-bomb resistance claim. Even checked match paths can allocate before enforcing the limit and overshoot by a decoding step. Optional encoder/gzip correctness and simd-adler32 internals retain separate limitations. No builds or tests run; no safe-to-deploy or publisher-wide trust claim. No concerning changes found within the reviewed scope; certified safe-to-run."""
