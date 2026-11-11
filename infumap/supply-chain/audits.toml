@@ -10,6 +10,24 @@ Reviewed-at: 2026-11-11T16:33:45+07:00
 Report: dependency-reviews/2026-11-11_162907+0700.md
 Full exact-version AI source review of both manifests and complete src/lib.rs/raw.rs: alignment, AVec/ABox allocate/reserve/shrink/drop, raw conversions, operations/macros, Send/Sync and optional serde. Effects stay in supplied/allocated storage; no host I/O, subprocess, network or build hook. Nonblocking soundness findings: extend_from_slice:801-809 bit-copies T:Clone (owning non-Copy values can double-free); raw::shrink_to:254-275 permits zero-size realloc and unchecked null; safe public __copy_from_ptr:750-755 trusts arbitrary pointers/ownership. Inspected v_frame uses Copy pixels and exact-capacity constructors; rav1e uses a fixed i16 buffer, with no affected call found. serde inactive. Not fixed/disproven; no comprehensive unsafe/production-input proof or confirmed harmful machine path under reviewed consumer scope. Equator separately reviewed in same batch. No builds or tests."""
 
+[[audits.bitstream-io]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "4.10.0"
+notes = """
+Reviewed-at: 2026-11-11T18:47:46+07:00
+Report: dependency-reviews/2026-11-11_183216+0700.md
+Full exact-version AI source review. Both manifests and complete src/lib/read/write/huffman/byte_io modules, numeric conversion/count/endian macros, callbacks and packaged entry points. Forbids unsafe; reads/writes/seeks/flushes only caller-supplied streams. Chunked 4096-byte reads, bounded skip scratch and explicit recording implement bit I/O; Huffman macros generate local bit operations. No filesystem paths, network, environment, subprocess, native payload or build hook. Rav1e BigEndian BitWriter entropy coding; alloc/default/std active. No concerning changes found within reviewed scope. Not a comprehensive bit correctness/count arithmetic or hostile-stream work-limit proof; caller I/O implementations separate. No builds or tests run."""
+
+[[audits.cc]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "1.11.1"
+notes = """
+Reviewed-at: 2026-11-11T18:47:46+07:00
+Report: dependency-reviews/2026-11-11_183216+0700.md
+Full exact-version AI source review. Both manifests and complete production src/lib/build_env/tool/command_helpers/utilities/flags/logger/compile_commands/tempfile/target/parallel trees plus embedded C/C++ probe sources and generated target pairs. Runs selected native tools/wrappers/SDK probes using configured environment/arguments; creates/removes build outputs and owned temporary probes. Jobserver/NUM_JOBS bounds compiler concurrency; native fd/semaphore/reactor calls manage children. No downloader, credential collection, unexplained endpoint or installer. Parallel active; compile-commands inactive. Nonblocking: CC_FORCE_DISABLE does not gate all getter/flag-detection subprocess paths (lib.rs:1939-1946,4196-4206; tool.rs:226-423); do not rely on it as an execution barrier. Commands remain intended configured build tools; no affected Infumap reliance established. External tools/native consumers and exhaustive unsafe/concurrency/adversarial configuration correctness not certified. No builds or tests run."""
+
 [[audits.convert_case]]
 who = "Codex (AI reviewer)"
 criteria = "safe-to-run"
@@ -27,6 +45,33 @@ notes = """
 Reviewed-at: 2026-11-11T16:33:45+07:00
 Report: dependency-reviews/2026-11-11_162907+0700.md
 Full exact-version AI source review of both manifests and all src/lib.rs, traits.rs, decompose.rs, structures.rs, spec.rs and spec/by_val.rs/debug.rs/sized.rs; packaged test routing inspected. Macros delegate to already reviewed exact equator-macro 0.4.2; archive identity reverified and prior report reused. Supplied comparisons evaluate and failures synchronously format/panic; transparent wrappers, pointer-sized Copy packing and typed vtables serve assertion-local diagnostics. No native OS calls, machine I/O, hidden workers or build hook. Failure diagnostics may re-evaluate caller comparisons; custom comparison/Debug effects remain caller behavior. No full internal raw-pointer/layout/lifetime soundness proof. No builds or tests."""
+
+[[audits.exr]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "1.74.3"
+notes = """
+Reviewed-at: 2026-11-11T18:47:46+07:00
+Report: dependency-reviews/2026-11-11_183216+0700.md
+Full exact-version AI source review. Both manifests, all production block/meta/image/io/math/error/compression code and macros; B44 numeric arrays structurally inspected, unreferenced channel_groups sketch distinguished. Supplied pixel/metadata buffers and Read/Write/Seek streams; caller-selected file helpers. Bounded parallel codec queue/pools, thread-local scratch and lazy transfer tables implement codec work. No credential collection, network, subprocess, installation or autonomous workload. image uses block/from_chunks and to_buffered; rayon active. Nonblocking data-loss observation: io.rs:43-54 unlinks caller output on any closure error before LateFile creation may succeed; to_file:180-183 uses it. Can delete existing intended destination; inspected image wrapper bypasses helper, no unrelated-path deletion established. Unfixed/not reproduced. No comprehensive hostile-input resource, overflow/panic, numerical or parallel correctness proof; dependency code remains separate. No builds or tests run."""
+
+[[audits.frostem]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "1.20260821.8"
+notes = """
+Reviewed-at: 2026-11-11T18:47:46+07:00
+Report: dependency-reviews/2026-11-11_183216+0700.md
+Full exact-version AI source review. Both manifests, upstream-pin, lib/algorithm/dispatch/stemmer/among/snowball_env and all 38 generated algorithm modules. Complete generated imports/call/attribute/statement-form inspection plus shared runtime and representative control flow: local UTF-8/copy-on-write cursor/group/suffix/table operations only; callbacks resolve to bundled predicates. No dependencies, unsafe/FFI, OS I/O, network, process or generation build hook. Tantivy stems supplied token text with 18 selected languages. Not a linguistic, loop-invariant, huge-input/i32-bound or adversarial-complexity proof; upstream pin not independently tied to Git source. No builds or tests run."""
+
+[[audits.ntapi]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.4.3"
+notes = """
+Reviewed-at: 2026-11-11T18:47:46+07:00
+Report: dependency-reviews/2026-11-11_183216+0700.md
+Full exact-version AI source review. Both manifests, build.rs, complete binding-module effects/declaration structure, all inline executable helpers, macros.rs/ntrtl context macros/string/winapi_local; winapi macro context. Passive NT declarations and C layouts; helpers manipulate caller memory or read TEB/PEB/shared tick data, FS/GS assembly is readonly. Build reads TARGET/WINAPI_NO_BUNDLED_LIBRARIES and emits only GNU Windows ntdll/winapi_ntdll link selection. No downloader, hidden NT calls, subprocess or unrelated mutation. Sysinfo consumes process structures on Windows; default/user active. No comprehensive FFI/ABI/pointer-soundness or Windows implementation proof. No builds or tests run."""
 
 [[audits.redox_users]]
 who = "Codex (AI reviewer)"
@@ -522,6 +567,15 @@ Reviewed-at: 2026-11-11T11:34:30+07:00
 Report: dependency-reviews/2026-11-11_112758+0700.md
 AI full source review of both manifests and src/{lib,rfc,secret,url_error,custom_providers}.rs, examples/package support. HMAC/TOTP generation and comparison use supplied secrets and timestamps; otpauth URLs are parsed/formatted locally, and QR output calls in-memory rendering helpers (focused qrcodegen-image context, not its certification). Optional randomness/serde/zeroize/Steam branches inspected; no build script, filesystem access, network transmission or process execution found. Nonblocking observation: checked constructors/from_url accept step/period=0, then sign/check/ttl divide or take remainder by zero; malformed hostless otpauth URL can also reach host().unwrap(). These input-validation/panic defects do not establish unexpected harmful machine behavior under trusted-input safe-to-run. Infumap uses TOTP_STEP=30 and direct constructors. Secret Debug/Display/error/provisioning output can expose supplied secrets if the caller logs/exports it; no comprehensive cryptographic or logging-hygiene audit. No builds or tests."""
 
+[[audits.typenum]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "1.20.1"
+notes = """
+Reviewed-at: 2026-11-11T18:47:46+07:00
+Report: dependency-reviews/2026-11-11_183216+0700.md
+Full exact-version AI source review. Both manifests and all production src modules, including generated aliases/const mappings and complete normalized op macro arms. no_std/forbid unsafe; numeric marker constructors, core arithmetic, tuple/array access and supplied formatting only. No OS I/O, credentials, network, subprocess, build hook or native payload. Optional scale-info inactive. Generated tables structurally inspected, not a proof of numeric correctness/trait laws or arbitrary type-recursion cost. Used through crypto-common/generic-array. No builds or tests run."""
+
 [[audits.unwrap-infallible]]
 who = "Codex (AI reviewer)"
 criteria = "safe-to-run"
@@ -566,6 +620,15 @@ notes = """
 Reviewed-at: 2026-11-11T14:43:54+07:00
 Report: dependency-reviews/2026-11-11_143809+0700.md
 Full exact-version AI source review of both manifests, complete src/lib.rs, README, resize example, Travis/upload configuration and package inventory. Decoder reads supplied stream with bounded header and size-dependent frame storage; encoder writes supplied stream and checks plane lengths; u16 byte views refer only to supplied planes. No automatic path/credential/network/process operation. Nonblocking: lib.rs:295-300,408-413 unchecked size arithmetic precedes Limits, so oversized headers may overflow/wrap or later panic. Travis line 16 pipes an HTTP docs script to sh; dormant upstream CI risk, not a Cargo consumer hook. Encrypted CI key is inert/un-decrypted. Neither issue fixed/reproduced. No hostile-input/arithmetic/unsafe proof. No builds or tests."""
+
+[[audits.yaml-rust2]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.8.1"
+notes = """
+Reviewed-at: 2026-11-11T18:47:46+07:00
+Report: dependency-reviews/2026-11-11_183216+0700.md
+Full exact-version AI source review. Both manifests/config/developer entry points and all src/lib/char_traits/debug/scanner/parser/yaml/emitter modules/macros. YAML characters/tokens/events build local trees; tag URIs stay data; supplied Read/fmt::Write only. No include-driven consumer loading, network, subprocess or build hook. Optional debug env/stderr logging inactive. Config uses load_from_str; default/encoding active. Nonblocking: yaml.rs:191-206 aliases/anchors deep-clone trees, permitting hostile-input memory amplification; recursive parser load has no small depth budget. Potential OutputFull nonprogress at yaml.rs:405-409: reserve(input.len()/10) can request zero for short encoding expansion; exact trigger not executed/proven, decoder inactive in config path. Findings unfixed; operator-vetted input assumed, no hostile-input/parser-conformance proof. No builds or tests run."""
 
 [[audits.zune-jpeg]]
 who = "Codex (AI reviewer)"
