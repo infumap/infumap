@@ -1,4 +1,5 @@
-# Shared publisher policy for both Rust projects. IDs are crates.io account IDs.
+# Shared account and scoped CI publisher policy for both Rust projects.
+# Numeric IDs are crates.io account IDs; CI identities name exact repositories.
 # List audit sources below to automatically trust their publishers on every audit.
 # For example: sources = ["mozilla", "bytecode-alliance"] trusts either source's publishers.
 # Run python3 sync-publisher-trust.py to apply changes, or add --dry-run to preview.
@@ -307,4 +308,33 @@ includes future dependencies from this account; no independent source review
 or unsafe-code soundness audit. Infumap's newer github:google/zerocopy releases
 use a separate CI identity and are not accepted by this numeric account entry.
 Sources: https://github.com/joshlf and https://github.com/google/zerocopy
+"""
+
+# CI publisher decisions require an explicit crate list; no wildcards are allowed.
+[[ci-publishers]]
+trusted-publisher = "github:wasm-bindgen/wasm-bindgen"
+crates = [
+  "wasm-bindgen",
+  "wasm-bindgen-macro",
+  "wasm-bindgen-macro-support",
+  "wasm-bindgen-shared",
+  "wasm-bindgen-futures",
+  "js-sys",
+  "web-sys",
+]
+name = "wasm-bindgen GitHub release pipeline"
+criteria = "safe-to-run"
+start = "2026-10-30"
+end = "2027-11-10"
+notes = """
+Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Accept the canonical wasm-bindgen maintainers' contributions, build and release
+workflow, packaging, proc-macros and generated JavaScript/Web API bindings for
+the seven explicitly listed crates. Match the exact repository publisher in
+crates.io release provenance; this does not extend Alex Crichton's account trust
+to a different identity. The start covers the currently locked releases and the
+fixed cutoff requires deliberate renewal. No other crates from this repository,
+other repositories or individual account publishers are accepted by this entry.
+This is scoped upstream-release acceptance, not an independent source review.
+Source: https://github.com/wasm-bindgen/wasm-bindgen
 """

@@ -1183,6 +1183,24 @@ start = "2022-10-29"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 55123: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
 
+[[trusted.js-sys]]
+criteria = "safe-to-run"
+trusted-publisher = "github:wasm-bindgen/wasm-bindgen"
+start = "2026-10-30"
+end = "2027-11-10"
+notes = """
+Generated from trusted-publishers.toml by sync-publisher-trust.py. wasm-bindgen GitHub release pipeline: Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Accept the canonical wasm-bindgen maintainers' contributions, build and release
+workflow, packaging, proc-macros and generated JavaScript/Web API bindings for
+the seven explicitly listed crates. Match the exact repository publisher in
+crates.io release provenance; this does not extend Alex Crichton's account trust
+to a different identity. The start covers the currently locked releases and the
+fixed cutoff requires deliberate renewal. No other crates from this repository,
+other repositories or individual account publishers are accepted by this entry.
+This is scoped upstream-release acceptance, not an independent source review.
+Source: https://github.com/wasm-bindgen/wasm-bindgen
+"""
+
 [[trusted.lazy_static]]
 criteria = "safe-to-run"
 user-id = 55123 # rust-lang-owner
@@ -2469,6 +2487,114 @@ user-id = 1 # Alex Crichton (alexcrichton)
 start = "2019-03-04"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 1: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted.wasm-bindgen]]
+criteria = "safe-to-run"
+trusted-publisher = "github:wasm-bindgen/wasm-bindgen"
+start = "2026-10-30"
+end = "2027-11-10"
+notes = """
+Generated from trusted-publishers.toml by sync-publisher-trust.py. wasm-bindgen GitHub release pipeline: Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Accept the canonical wasm-bindgen maintainers' contributions, build and release
+workflow, packaging, proc-macros and generated JavaScript/Web API bindings for
+the seven explicitly listed crates. Match the exact repository publisher in
+crates.io release provenance; this does not extend Alex Crichton's account trust
+to a different identity. The start covers the currently locked releases and the
+fixed cutoff requires deliberate renewal. No other crates from this repository,
+other repositories or individual account publishers are accepted by this entry.
+This is scoped upstream-release acceptance, not an independent source review.
+Source: https://github.com/wasm-bindgen/wasm-bindgen
+"""
+
+[[trusted.wasm-bindgen-futures]]
+criteria = "safe-to-run"
+trusted-publisher = "github:wasm-bindgen/wasm-bindgen"
+start = "2026-10-30"
+end = "2027-11-10"
+notes = """
+Generated from trusted-publishers.toml by sync-publisher-trust.py. wasm-bindgen GitHub release pipeline: Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Accept the canonical wasm-bindgen maintainers' contributions, build and release
+workflow, packaging, proc-macros and generated JavaScript/Web API bindings for
+the seven explicitly listed crates. Match the exact repository publisher in
+crates.io release provenance; this does not extend Alex Crichton's account trust
+to a different identity. The start covers the currently locked releases and the
+fixed cutoff requires deliberate renewal. No other crates from this repository,
+other repositories or individual account publishers are accepted by this entry.
+This is scoped upstream-release acceptance, not an independent source review.
+Source: https://github.com/wasm-bindgen/wasm-bindgen
+"""
+
+[[trusted.wasm-bindgen-macro]]
+criteria = "safe-to-run"
+trusted-publisher = "github:wasm-bindgen/wasm-bindgen"
+start = "2026-10-30"
+end = "2027-11-10"
+notes = """
+Generated from trusted-publishers.toml by sync-publisher-trust.py. wasm-bindgen GitHub release pipeline: Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Accept the canonical wasm-bindgen maintainers' contributions, build and release
+workflow, packaging, proc-macros and generated JavaScript/Web API bindings for
+the seven explicitly listed crates. Match the exact repository publisher in
+crates.io release provenance; this does not extend Alex Crichton's account trust
+to a different identity. The start covers the currently locked releases and the
+fixed cutoff requires deliberate renewal. No other crates from this repository,
+other repositories or individual account publishers are accepted by this entry.
+This is scoped upstream-release acceptance, not an independent source review.
+Source: https://github.com/wasm-bindgen/wasm-bindgen
+"""
+
+[[trusted.wasm-bindgen-macro-support]]
+criteria = "safe-to-run"
+trusted-publisher = "github:wasm-bindgen/wasm-bindgen"
+start = "2026-10-30"
+end = "2027-11-10"
+notes = """
+Generated from trusted-publishers.toml by sync-publisher-trust.py. wasm-bindgen GitHub release pipeline: Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Accept the canonical wasm-bindgen maintainers' contributions, build and release
+workflow, packaging, proc-macros and generated JavaScript/Web API bindings for
+the seven explicitly listed crates. Match the exact repository publisher in
+crates.io release provenance; this does not extend Alex Crichton's account trust
+to a different identity. The start covers the currently locked releases and the
+fixed cutoff requires deliberate renewal. No other crates from this repository,
+other repositories or individual account publishers are accepted by this entry.
+This is scoped upstream-release acceptance, not an independent source review.
+Source: https://github.com/wasm-bindgen/wasm-bindgen
+"""
+
+[[trusted.wasm-bindgen-shared]]
+criteria = "safe-to-run"
+trusted-publisher = "github:wasm-bindgen/wasm-bindgen"
+start = "2026-10-30"
+end = "2027-11-10"
+notes = """
+Generated from trusted-publishers.toml by sync-publisher-trust.py. wasm-bindgen GitHub release pipeline: Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Accept the canonical wasm-bindgen maintainers' contributions, build and release
+workflow, packaging, proc-macros and generated JavaScript/Web API bindings for
+the seven explicitly listed crates. Match the exact repository publisher in
+crates.io release provenance; this does not extend Alex Crichton's account trust
+to a different identity. The start covers the currently locked releases and the
+fixed cutoff requires deliberate renewal. No other crates from this repository,
+other repositories or individual account publishers are accepted by this entry.
+This is scoped upstream-release acceptance, not an independent source review.
+Source: https://github.com/wasm-bindgen/wasm-bindgen
+"""
+
+[[trusted.web-sys]]
+criteria = "safe-to-run"
+trusted-publisher = "github:wasm-bindgen/wasm-bindgen"
+start = "2026-10-30"
+end = "2027-11-10"
+notes = """
+Generated from trusted-publishers.toml by sync-publisher-trust.py. wasm-bindgen GitHub release pipeline: Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Accept the canonical wasm-bindgen maintainers' contributions, build and release
+workflow, packaging, proc-macros and generated JavaScript/Web API bindings for
+the seven explicitly listed crates. Match the exact repository publisher in
+crates.io release provenance; this does not extend Alex Crichton's account trust
+to a different identity. The start covers the currently locked releases and the
+fixed cutoff requires deliberate renewal. No other crates from this repository,
+other repositories or individual account publishers are accepted by this entry.
+This is scoped upstream-release acceptance, not an independent source review.
+Source: https://github.com/wasm-bindgen/wasm-bindgen
+"""
 
 [[trusted.webpki-roots]]
 criteria = "safe-to-run"

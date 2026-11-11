@@ -229,6 +229,19 @@ That command resolves the account ID and requires an endorsement from a shared a
 entries use `safe-to-run`, the earliest endorsement start, and an end 365 days from today, or the date given
 with `--end YYYY-MM-DD`. Existing entries are not renewed. Add `--dry-run` to preview without saving.
 
+CI release pipelines are separate identities. Add a `[[ci-publishers]]` entry with
+`trusted-publisher = "github:owner/repository"`, a required `crates` list, and `name`, `criteria`, `start`,
+`end` and `notes` fields. The crate list must contain unique literal names; wildcards and an omitted or
+empty list are rejected. The checked-in wasm-bindgen entry names its seven accepted crates explicitly.
+CI entries are selected manually in `trusted-publishers.toml`; account inheritance and the `--trust` account
+helper do not add CI publishers. `--dry-run` shows both account selections and scoped CI entries.
+
+The generator matches CI identities against the specific release's crates.io `trustpub_data`, using the
+same account-first interpretation as cargo-vet. A crate's repository URL or current owners do not establish
+its publisher. A matching repository receives trust only for the listed crates and publication dates;
+other repositories, other crates and individual account releases are not accepted by that CI entry.
+Removing or narrowing a CI entry removes or narrows its generated records on the next synchronization.
+
 The generator checks actual publisher account IDs and publication dates for locked crates.io versions and
 for audit bases connected to them by existing `safe-to-run` or `safe-to-deploy` deltas. It follows complete
 chains backward using local `audits.toml` records and retained evidence in `imports.lock`. A trusted older
@@ -236,9 +249,10 @@ publisher can therefore anchor reviews leading to a locked release by a differen
 changing locked versions, approved accounts, criteria or publication-date limits. Generated notes name
 the verified audit-base releases. Refresh cargo-vet imports to make newly accepted deltas available.
 
-It does not infer trust from ownership or cover Git dependencies, other registries, or CI publisher
-signatures without account IDs. A successfully fetched release without a numeric publisher does not
-contribute numeric trust, but it does not suppress trust from another verified release of the same crate.
+It does not infer trust from ownership or cover Git dependencies or other registries. A successfully fetched
+release without a supported publisher identity does not contribute trust, but it does not suppress trust
+from another verified release of the same crate. Numeric account entries and scoped CI entries are matched
+separately.
 Other accepted source reviews can still cover it; cargo-vet reports remaining gaps. Failed registry requests
 (including HTTP 429 rate limits), mismatched release responses, and missing or invalid publication dates stop synchronization
 before any policy or generated audit files are changed. Queued requests are canceled on failure; rerun

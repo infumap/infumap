@@ -22,6 +22,7 @@ CRATES_IO_SOURCES = {
     "sparse+https://index.crates.io/",
 }
 USER_AGENT = "infumap/audit (publisher trust; https://github.com/infumap/infumap)"
+GITHUB_PUBLISHER = re.compile(r"github:[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9_.-]+")
 
 
 def read_toml(path: Path) -> dict:
@@ -38,9 +39,10 @@ def parse_date(value) -> date:
 
 def load_policy(text: str | None = None) -> dict[int, dict]:
     data = read_toml(POLICY) if text is None else tomllib.loads(text)
-    if (not data or set(data) - {"publishers", "inherit"}
-            or not isinstance(data.get("publishers", []), list)):
-        raise ValueError(f"{POLICY}: expected [inherit] and/or [[publishers]] entries")
+    if (not data or set(data) - {"publishers", "inherit", "ci-publishers"}
+            or not isinstance(data.get("publishers", []), list)
+            or not isinstance(data.get("ci-publishers", []), list)):
+        raise ValueError(f"{POLICY}: expected [inherit], [[publishers]] and/or [[ci-publishers]] entries")
     inheritance_policy(data)
     publishers = {}
     for entry in data.get("publishers", []):
@@ -63,6 +65,44 @@ def load_policy(text: str | None = None) -> dict[int, dict]:
         if start >= end:
             raise ValueError(f"Publisher {user_id}: start must precede end")
         publishers[user_id] = dict(entry, criteria=criteria, start=start, end=end)
+    return publishers
+
+
+def load_ci_policy(text: str | None = None) -> dict[str, dict]:
+    data = read_toml(POLICY) if text is None else tomllib.loads(text)
+    entries = data.get("ci-publishers", [])
+    if not isinstance(entries, list):
+        raise ValueError("ci-publishers must be an array of tables")
+    publishers = {}
+    for entry in entries:
+        required = {"trusted-publisher", "crates", "name", "criteria", "start", "end", "notes"}
+        if not isinstance(entry, dict) or set(entry) != required:
+            raise ValueError(f"Each CI publisher must contain exactly {sorted(required)}")
+        signature = entry["trusted-publisher"]
+        if (not isinstance(signature, str) or not GITHUB_PUBLISHER.fullmatch(signature)
+                or signature in publishers):
+            raise ValueError(f"Invalid or duplicate GitHub CI publisher: {signature!r}")
+        crates = entry["crates"]
+        # Repository trust is deliberately opt-in per crate; accepting a CI
+        # identity must not silently trust every crate that repository publishes.
+        if (not isinstance(crates, list) or not crates
+                or any(not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_-]*", name)
+                       for name in crates)
+                or len(set(crates)) != len(crates)):
+            raise ValueError(f"CI publisher {signature}: crates must be unique literal crate names")
+        if any(not isinstance(entry[key], str) or not entry[key].strip()
+               for key in ("name", "notes")):
+            raise ValueError(f"CI publisher {signature}: name and notes must be nonempty strings")
+        criteria = entry["criteria"]
+        if isinstance(criteria, str):
+            criteria = [criteria]
+        if (not isinstance(criteria, list) or not criteria
+                or any(c not in ("safe-to-run", "safe-to-deploy") for c in criteria)):
+            raise ValueError(f"CI publisher {signature}: use safe-to-run and/or safe-to-deploy criteria")
+        start, end = parse_date(entry["start"]), parse_date(entry["end"])
+        if start >= end:
+            raise ValueError(f"CI publisher {signature}: start must precede end")
+        publishers[signature] = dict(entry, criteria=criteria, start=start, end=end)
     return publishers
 
 
@@ -128,7 +168,7 @@ def inherit_publishers(text: str, publishers: dict[int, dict]) -> dict[int, dict
             for record in records:
                 user_id = record.get("user-id")
                 if type(user_id) is not int or user_id <= 0:
-                    continue  # This policy matches crates.io accounts, not CI publisher signatures.
+                    continue  # CI signatures require an explicit, crate-scoped policy entry.
                 criteria = record.get("criteria", [])
                 if isinstance(criteria, str):
                     criteria = [criteria]
@@ -309,8 +349,8 @@ def audit_versions(project: Path, dependencies: set[tuple[str, str]]) -> set[tup
     return versions
 
 
-def fetch_publisher(crate: tuple[str, str]) -> tuple[int | None, date | None, str | None]:
-    """Raise on lookup errors; allow fetched releases without a numeric publisher."""
+def fetch_publisher(crate: tuple[str, str]) -> tuple[int | str | None, date | None, str | None]:
+    """Raise on lookup errors; return the release's account or CI publisher identity."""
     name, version = crate
     url = f"https://crates.io/api/v1/crates/{quote(name, safe='')}/{quote(version, safe='')}"
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
@@ -325,9 +365,17 @@ def fetch_publisher(crate: tuple[str, str]) -> tuple[int | None, date | None, st
         # Current owners and historical publisher lists cannot establish who published
         # this version. In particular, cargo vet trust --all skips mixed publishers.
         publisher = release.get("published_by")
-        if not isinstance(publisher, dict) or type(publisher.get("id")) is not int:
-            return None, None, "missing crates.io publisher account ID"
-        return publisher["id"], published.astimezone(timezone.utc).date(), None
+        if isinstance(publisher, dict) and type(publisher.get("id")) is int:
+            return publisher["id"], published.astimezone(timezone.utc).date(), None
+        # Match cargo-vet's account-first interpretation of crates.io provenance.
+        # A crate's repository URL or current owners are not publishing evidence.
+        provenance = release.get("trustpub_data")
+        if isinstance(provenance, dict) and provenance.get("provider") == "github":
+            repository = provenance.get("repository")
+            if not isinstance(repository, str) or not GITHUB_PUBLISHER.fullmatch(f"github:{repository}"):
+                raise ValueError("invalid GitHub trusted-publisher provenance")
+            return f"github:{repository}", published.astimezone(timezone.utc).date(), None
+        return None, None, "missing supported crates.io publisher identity"
     except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
         raise ValueError(f"Could not look up publisher for {name} {version}: {error}") from error
 
@@ -364,13 +412,18 @@ def without_trust(text: str) -> str:
 def render_trust(base: str, entries: dict[str, list[dict]]) -> str:
     text = base
     for name, publishers in sorted(entries.items()):
-        for publisher in sorted(publishers, key=lambda p: p["user-id"]):
+        for publisher in sorted(
+            publishers,
+            key=lambda p: (0, p["user-id"]) if "user-id" in p else (1, p["trusted-publisher"]),
+        ):
             notes = ("Generated from trusted-publishers.toml by sync-publisher-trust.py. "
                      f"{publisher['name']}: {publisher['notes']}")
+            identity = (f"user-id = {publisher['user-id']}\n" if "user-id" in publisher else
+                        f"trusted-publisher = {json.dumps(publisher['trusted-publisher'])}\n")
             text += (
                 f"\n[[trusted.{json.dumps(name)}]]\n"
                 f"criteria = {json.dumps(publisher['criteria'])}\n"
-                f"user-id = {publisher['user-id']}\n"
+                f"{identity}"
                 f"start = \"{publisher['start'].isoformat()}\"\n"
                 f"end = \"{publisher['end'].isoformat()}\"\n"
                 f"notes = {json.dumps(notes, ensure_ascii=False)}\n"
@@ -385,21 +438,28 @@ def render_project_trust(
     versions: set[tuple[str, str]],
     publishers: dict[int, dict],
     metadata: dict,
+    ci_publishers: dict[str, dict] | None = None,
 ) -> tuple[str, int]:
-    if not publishers:
+    ci_publishers = ci_publishers or {}
+    if not publishers and not ci_publishers:
         return render_trust(base, {}), 0
     entries = {}
     matched = set()
     historical_bases = {}
     for name, version in sorted(versions):
-        user_id, published, _ = metadata[(name, version)]
-        policy = publishers.get(user_id)
-        # A release without a numeric publisher cannot match numeric cargo-vet
-        # trust. It must not suppress a verified sibling or historical base that
-        # can connect to it through accepted deltas; CI itself remains untrusted.
+        identity, published, _ = metadata[(name, version)]
+        if isinstance(identity, str):
+            policy = ci_publishers.get(identity)
+            if policy and name not in policy["crates"]:
+                continue
+        else:
+            policy = publishers.get(identity)
+        # Each release must match its own identity. An unknown publisher must
+        # not suppress a verified sibling or historical base; an unselected CI
+        # repository or a crate outside its explicit scope receives no trust.
         # cargo-vet 0.10.3 uses UTC dates with an exclusive end bound.
         if policy and published is not None and policy["start"] <= published < policy["end"]:
-            key = (name, user_id)
+            key = (name, identity)
             if key not in matched:
                 entries.setdefault(name, []).append(dict(policy))
                 matched.add(key)
@@ -407,7 +467,8 @@ def render_project_trust(
                 historical_bases.setdefault(key, []).append(version)
     for name, records in entries.items():
         for record in records:
-            bases = historical_bases.get((name, record["user-id"]))
+            identity = record.get("user-id", record.get("trusted-publisher"))
+            bases = historical_bases.get((name, identity))
             if bases:
                 record["notes"] += (
                     " Verified audit-base releases for this crate: " + ", ".join(bases)
@@ -452,21 +513,25 @@ def main() -> int:
         policy_text, publishers = add_publishers(args.trust, args.end)
     else:
         publishers = load_policy()
-    publishers = inherit_publishers(
-        policy_text if policy_text is not None else POLICY.read_text(encoding="utf-8"), publishers)
+    selected_policy = policy_text if policy_text is not None else POLICY.read_text(encoding="utf-8")
+    ci_publishers = load_ci_policy(selected_policy)
+    publishers = inherit_publishers(selected_policy, publishers)
     if args.dry_run:
         for user_id, entry in sorted(publishers.items()):
             print(f"  {user_id}: {entry['name']}; {entry['criteria']}; "
                   f"[{entry['start']}, {entry['end']})")
+        for signature, entry in sorted(ci_publishers.items()):
+            print(f"  {signature}: {entry['name']}; crates={entry['crates']}; "
+                  f"{entry['criteria']}; [{entry['start']}, {entry['end']})")
         print("Preview only; no files changed.")
         return 0
     projects = {project: locked_crates(project) for project in PROJECTS}
     # Validate both stores before looking up releases or writing any policy changes.
     bases = {project: without_trust((project / "supply-chain/audits.toml").read_text(
         encoding="utf-8")) for project in projects}
-    versions = {project: audit_versions(project, dependencies) if publishers else dependencies
+    versions = {project: audit_versions(project, dependencies) if publishers or ci_publishers else dependencies
                 for project, dependencies in projects.items()}
-    crates = sorted(set().union(*versions.values())) if publishers else []
+    crates = sorted(set().union(*versions.values())) if publishers or ci_publishers else []
     print(f"Looking up publishers for {len(crates)} locked and audit-base crates.io versions...", flush=True)
     metadata = {}
     with ThreadPoolExecutor(max_workers=4) as executor:
@@ -490,7 +555,7 @@ def main() -> int:
     updates = {}
     for project, dependencies in projects.items():
         text, count = render_project_trust(
-            bases[project], dependencies, versions[project], publishers, metadata)
+            bases[project], dependencies, versions[project], publishers, metadata, ci_publishers)
         updates[project / "supply-chain/audits.toml"] = text
         print(f"{project.name}: {count} per-crate publisher trust records")
     # Rebuild, don't append: removing an account or narrowing its dates/criteria
