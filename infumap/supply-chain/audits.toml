@@ -46,6 +46,51 @@ Reviewed-at: 2026-11-11T08:18:34+07:00
 Report: dependency-reviews/2026-11-11_080717+0700.md
 AI source review of delta from Google-audited Nom 7.1.3. Compared published manifests, packaged lock and VCS metadata, parser modes, input traits, byte/bit/character/number primitives, combinators, docs and fixtures. Changes operate on supplied input. No build hook or new runtime dependency. Report records inherited escaped-transform progress issue and LengthCount reservation caveat outside av1-grain's parser path. No builds or tests."""
 
+[[audits.synstructure]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+delta = "0.13.2 -> 0.14.0"
+notes = """
+Reviewed-at: 2026-11-11T11:25:01+07:00
+Report: dependency-reviews/2026-11-11_111901+0700.md
+AI source review of the exact delta, including both manifests, README, src/lib.rs, packaged Cargo.lock and VCS metadata. Syn 2 to 3 and Rust 1.71 migration; match guards retain generic-conflict errors, fill(true) replaces a loop, new AST attributes are empty. Visitors and generated trait-bound/impl paths operate on supplied syntax; no new machine I/O, process execution or build hook. Base accepted through Google full 0.13.1 plus Mozilla delta to 0.13.2. Consumer Syn 3.0.9 is separate existing evidence. Delta only; no comprehensive correctness or memory-safety claim. No builds or tests."""
+
+[[audits.const-random-macro]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.1.16"
+notes = """
+Reviewed-at: 2026-11-11T11:25:01+07:00
+Report: dependency-reviews/2026-11-11_111901+0700.md
+AI full source review of src/lib.rs, src/span.rs, both manifests and published package inventory/VCS metadata. Emits numeric or explicitly sized byte-array constants; caches 32 bytes of getrandom entropy or the compile-time CONST_RANDOM_SEED and hashes it with call-site span text using SHAKE256. Expected entropy/seed access; no environment scan, credential-file access, network, process launch, build script or emitted runtime initialization. Invalid input or unavailable entropy can fail compilation; allocation follows requested array length. Independent dependencies, including tiny-keccak, are not certified here; no cryptographic assessment. No builds or tests."""
+
+[[audits.pastey]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+delta = "0.2.1 -> 0.1.1"
+notes = """
+Reviewed-at: 2026-11-11T11:25:01+07:00
+Report: dependency-reviews/2026-11-11_111901+0700.md
+AI source review of the exact reverse delta: both manifests, Cargo.lock/VCS metadata, README/CHANGELOG/CONTRIBUTING, src/segment.rs, all restored GitHub/editor/ignore files and test.sh; unchanged lib/attr/error expansion paths read as context. Removes Replace modifier and conversion helpers; env parsing inlines the same quoted-string extraction. Environment access is only to input-named env! variables. Token/attribute construction adds no hidden I/O or execution. Restored CI/release/test scripts are inert Cargo consumer data; build=false and no dependencies. Base accepted via Bytecode Alliance full 0.2.1 audit. Delta only; no dependency downgrade. No builds or tests."""
+
+[[audits.profiling-procmacros]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "1.0.18"
+notes = """
+Reviewed-at: 2026-11-11T11:25:01+07:00
+Report: dependency-reviews/2026-11-11_111901+0700.md
+AI full source review of src/lib.rs, both manifests, README, packaged lockfile and VCS metadata. function/all_functions parse functions/impls and wrap original bodies; skip passes through. All cfg branches read: no backend only nests the body; optional backends emit documented profiling scope/tracing calls. No macro-time filesystem/environment/network/process access or build script. Current Infumap all-features graph enables no backend, so no profiling calls are inserted. Backend implementations and the companion profiling crate are not independently certified; future backend activation changes runtime scope. No comprehensive correctness claim. No builds or tests."""
+
+[[audits.equator-macro]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.4.2"
+notes = """
+Reviewed-at: 2026-11-11T11:25:01+07:00
+Report: dependency-reviews/2026-11-11_111901+0700.md
+AI full source review of src/lib.rs, both manifests, README/license, Cargo.lock and VCS metadata. Parses nested all/any/comparison assertions, borrows supplied operands/comparators and emits comparison plus synchronous failure diagnostics/panic. No macro-time machine I/O, hidden execution or build hook. Generated diagnostic transmutes traced into equator 0.4.2 transparent/by-value wrappers, vtables, Recompose formatting and panic_failed_assert; they carry assertion-local values, not external payloads. Focused companion context is not its full certification or comprehensive proof of unsafe layout/lifetime soundness. No concrete blocking concern established. No builds or tests."""
+
 [[trusted."aead"]]
 criteria = ["safe-to-run"]
 user-id = 267
