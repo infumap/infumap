@@ -3,6 +3,15 @@
 
 [audits]
 
+[[audits.multiversion]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+delta = "0.8.0 -> 0.8.1"
+notes = """
+Reviewed-at: 2026-11-11T07:44:08+07:00
+Report: dependency-reviews/2026-11-11_073707+0700.md
+AI source review of the wrapper delta only. Compared published crates.io archives, Cargo.toml, Cargo.toml.orig, added Cargo.lock, .cargo_vcs_info.json and unchanged source. Raises the macro dependency minimum to 0.8.1 with identical macro implementation, dependencies and features across the two macro releases. Explicit lib and CPU dispatch stay the same, and no build hook is added. Standalone benchmark lock has crossbeam-epoch and atty advisories outside the consumer graph, as detailed in the report. Base 0.8.0 is accepted via Mozilla but was absent from the starting Infumap imports lock. Macro dependency remains separately unvetted. No builds or tests."""
+
 [[trusted."aho-corasick"]]
 criteria = ["safe-to-run"]
 user-id = 189

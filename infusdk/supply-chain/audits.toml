@@ -3,6 +3,24 @@
 
 [audits]
 
+[[audits.futures-core]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+delta = "0.3.34 -> 0.3.32"
+notes = """
+Reviewed-at: 2026-11-11T07:44:08+07:00
+Report: dependency-reviews/2026-11-11_073707+0700.md
+AI source review of the reverse delta only. Compared published crates.io archives, Cargo.toml, Cargo.toml.orig, Cargo.lock, .cargo_vcs_info.json and unchanged source. Manifest only changes crate version. Standalone optional portable-atomic pin changes from 1.13.1 to 1.11.1, with identical requirement, cfg and waker implementation. InfuSDK does not resolve portable-atomic. No new build hooks, I/O or unsafe behavior. Base 0.3.34 is accepted via configured Google, bytecode-alliance and Mozilla feeds but was absent from the starting InfuSDK imports lock. No builds or tests."""
+
+[[audits.futures-macro]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+delta = "0.3.34 -> 0.3.32"
+notes = """
+Reviewed-at: 2026-11-11T07:44:08+07:00
+Report: dependency-reviews/2026-11-11_073707+0700.md
+AI source review of the reverse delta only. Compared published crates.io archives, Cargo.toml, Cargo.toml.orig, Cargo.lock, .cargo_vcs_info.json and unchanged proc-macro source. The syn requirement changes from 3.0 to 2.0.52 with full unchanged, selecting the already covered syn 2.0.117 in InfuSDK. Expansion entry points and unsafe pinning code are identical. No build hook or extra dependency feature. Syn source was outside the delta. Base 0.3.34 is accepted via bytecode-alliance but was absent from the starting InfuSDK imports lock. No builds or tests."""
+
 [[trusted."anyhow"]]
 criteria = ["safe-to-run"]
 user-id = 3618
