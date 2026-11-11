@@ -91,6 +91,60 @@ Reviewed-at: 2026-11-11T11:25:01+07:00
 Report: dependency-reviews/2026-11-11_111901+0700.md
 AI full source review of src/lib.rs, both manifests, README/license, Cargo.lock and VCS metadata. Parses nested all/any/comparison assertions, borrows supplied operands/comparators and emits comparison plus synchronous failure diagnostics/panic. No macro-time machine I/O, hidden execution or build hook. Generated diagnostic transmutes traced into equator 0.4.2 transparent/by-value wrappers, vtables, Recompose formatting and panic_failed_assert; they carry assertion-local values, not external payloads. Focused companion context is not its full certification or comprehensive proof of unsafe layout/lifetime soundness. No concrete blocking concern established. No builds or tests."""
 
+[[audits.aws-creds]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.40.0"
+notes = """
+Reviewed-at: 2026-11-11T11:34:30+07:00
+Report: dependency-reviews/2026-11-11_112758+0700.md
+AI full source review of both manifests, src/lib.rs, src/error.rs, src/credentials.rs and package inventory/build support. Explicit credentials short-circuit discovery; other constructors intentionally read AWS environment/profile/token files and EC2 identity hints, contact AWS STS/IMDS or configured ECS/EKS endpoints, and pin refresh to the original source. Container HTTP hosts are restricted, localhost normalized, redirects disabled, HTTP environment proxies bypassed, and debug output redacts credentials/tokens. These are documented credential-provider effects; no unrelated access, runtime process execution or build hook found. Infumap supplies explicit keys. Independent dependencies are separate evidence; no comprehensive correctness, cryptographic or adversarial-input audit. No builds or tests."""
+
+[[audits.cookie]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.18.2"
+notes = """
+Reviewed-at: 2026-11-11T11:34:30+07:00
+Report: dependency-reviews/2026-11-11_112758+0700.md
+AI full source review of both manifests, build.rs, src/{lib,parse,builder,jar,delta,expiration,same_site,prefix}.rs and src/secure/{mod,macros,key,private,signed}.rs; development scripts/package inventory inspected. Cookie parsing/formatting and jar operations stay in supplied strings/in-memory sets; optional signed/private jars use HMAC/AES-GCM, caller keys and explicit random nonce/key generation. Infumap enables none of these optional features. build.rs only checks doc_cfg support and emits a nightly cfg; traced version_check 0.9.5 to the expected configured rustc --verbose --version subprocess and flag reads, without executing it. No runtime network/filesystem/installation activity found. No comprehensive cookie-policy, cryptographic or adversarial-input audit; independent dependencies retain separate vet requirements. No builds or tests."""
+
+[[audits.rpassword]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "7.5.4"
+notes = """
+Reviewed-at: 2026-11-11T11:34:30+07:00
+Report: dependency-reviews/2026-11-11_112758+0700.md
+AI full source review of both manifests, src/{lib,config,feedback,utf8,unix,windows,wasm}.rs, integration/example source and packaged development hooks/configuration. Reads the caller-selected stream or /dev/tty/CONIN$, hides input by default, writes prompts/explicitly requested feedback to the selected output, handles editing and Ctrl-C, and restores terminal/console modes on Drop. Unix termios/signals and Windows console/file FFI implement this purpose; there is no network, background input capture, credential-file discovery or build script. Developer Nix setup/hooks are not consumer build hooks. Abrupt signal termination can bypass Drop restoration; no guarantee of secret-memory erasure or comprehensive FFI soundness is claimed. Infumap calls read_password/prompt_password with default hidden feedback. No builds or tests."""
+
+[[audits.rtoolbox]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.0.6"
+notes = """
+Reviewed-at: 2026-11-11T11:34:30+07:00
+Report: dependency-reviews/2026-11-11_112758+0700.md
+AI full source review of both manifests and src/{lib,atty,fix_line_issues,print_tty,safe_string,safe_string_serde,safe_vec}.rs, plus development configuration/package inventory. Terminal detection uses isatty/Windows console and pipe-handle inspection; prompt output targets the terminal or caller writer. Line normalization and optional serde conversion operate on supplied data; SafeString/SafeVec Drop overwrite their current buffers with volatile stores and fences. No networking, process execution, unrelated filesystem access or build script. Packaged Nix/toolchain setup and target runners are developer-only. Optional serde and platform branches inspected; this is not a proof of buffer-erasure completeness or unsafe FFI soundness. No builds or tests."""
+
+[[audits.rust-s3]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.38.0"
+notes = """
+Reviewed-at: 2026-11-11T11:34:30+07:00
+Report: dependency-reviews/2026-11-11_112758+0700.md
+AI full source review of both manifests and all library modules: bucket, bucket_ops, command, signing, post_policy, put_object_request, serde_types, deserializer, error, lib, request/{mod,request_trait,tokio_backend,async_std_backend,blocking}, utils/{mod,time_utils}; package/build support and test I/O paths inspected. S3 requests use configured region/endpoint and caller data/streams; credentials produce SigV4 headers or requested presigned output. Caller paths are read only for explicit etag helpers, memory queries bound default multipart concurrency to 2-10 chunks, retries are finite and operation-restricted, and cleanup aborts that upload. TLS verification defaults on; disabling it requires an explicit API call. No build hook, hidden execution or unrelated destinations found. Optional backends inspected; dependencies including aws-region/sysinfo/HTTP/macro crates retain separate vet requirements. Upstream ignored provider tests deliberately mutate configured test storage and a named local fixture. No comprehensive parser, cryptographic or concurrency proof. No builds or tests."""
+
+[[audits.totp-rs]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "5.7.2"
+notes = """
+Reviewed-at: 2026-11-11T11:34:30+07:00
+Report: dependency-reviews/2026-11-11_112758+0700.md
+AI full source review of both manifests and src/{lib,rfc,secret,url_error,custom_providers}.rs, examples/package support. HMAC/TOTP generation and comparison use supplied secrets and timestamps; otpauth URLs are parsed/formatted locally, and QR output calls in-memory rendering helpers (focused qrcodegen-image context, not its certification). Optional randomness/serde/zeroize/Steam branches inspected; no build script, filesystem access, network transmission or process execution found. Nonblocking observation: checked constructors/from_url accept step/period=0, then sign/check/ttl divide or take remainder by zero; malformed hostless otpauth URL can also reach host().unwrap(). These input-validation/panic defects do not establish unexpected harmful machine behavior under trusted-input safe-to-run. Infumap uses TOTP_STEP=30 and direct constructors. Secret Debug/Display/error/provisioning output can expose supplied secrets if the caller logs/exports it; no comprehensive cryptographic or logging-hygiene audit. No builds or tests."""
+
 [[trusted."aead"]]
 criteria = ["safe-to-run"]
 user-id = 267
