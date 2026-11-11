@@ -2254,3 +2254,93 @@ notes = """
 Reviewed-at: 2026-11-11T14:29:23+07:00
 Report: dependency-reviews/2026-11-11_141945+0700.md
 Full exact-version AI source review of both manifests, all src modules for readable/BYOB/default readers, JS/Rust stream and async I/O adapters, writable sinks, transform/queue/sys/util, config and fetch example/test entry points. Stream data/promises/cancellation flow only through caller objects; no automatic fetch, eval, credential lookup or build hook. Reqwest selects wasm32 and uses response ReadableStream.into_stream. Nonblocking: IntoAsyncRead retains an earlier pending read size and can panic copying into a smaller subsequent poll buffer (readable/into_async_read.rs:75-123); that adapter is not the inspected reqwest path. Example/test fetch of public wasm-ferris PNG is standalone only. JS/caller callbacks and wasm-bindgen remain separate; no reentrancy/resource proof. No builds or tests."""
+
+[[audits.multiversion-macros]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.8.1"
+notes = """
+Reviewed-at: 2026-11-11T14:43:54+07:00
+Report: dependency-reviews/2026-11-11_143809+0700.md
+Full exact-version AI source review of both manifests and all src/{lib,cfg,dispatcher,match_target,multiversion,target,util}.rs. Parses supplied functions/targets and emits cfg/target_feature variants and static/direct/indirect CPU dispatch. Cached atomic index/pointer selects only generated functions after feature checks; no independent filesystem, credential, network or process effects. Read target-features lookup/build generation as separate dependency context. Nonblocking: target.rs features_detected matches risv64 instead of riscv64, potentially emitting an invalid RISC-V macro name; observed EXR uses x86 targets. Not an ABI/unsafe soundness proof; dependencies retain separate evidence. No builds or tests."""
+
+[[audits.darling_macro]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.24.1"
+notes = """
+Reviewed-at: 2026-11-11T14:43:54+07:00
+Report: dependency-reviews/2026-11-11_143809+0700.md
+Full exact-version AI source review of both manifests and complete src/lib.rs. Six derives parse supplied DeriveInput and delegate to exact darling_core 0.24.1 derive functions; FromMetaItem emits a fixed compile error. No wrapper environment, filesystem, network or process access. Focused darling_core derive/options/token-generator context read; not a full darling_core review or certification. Generated parser/trait impls and caller-selected transformations implement the requested derives; helper coverage remains separate. No builds or tests."""
+
+[[audits.downcast-rs]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "2.0.2"
+notes = """
+Reviewed-at: 2026-11-11T14:43:54+07:00
+Report: dependency-reviews/2026-11-11_143809+0700.md
+Full exact-version AI source review of both manifests and all production src/lib.rs, including Downcast/Send/Sync and every impl_downcast arm, no_std/alloc and sync feature routes; integration/CI entry points inspected. Caller Box/Rc/Arc/references convert through Any and checked downcasts; mismatches retain the original owner. Generic/associated/concrete forms generate impl signatures only. No dependencies, unsafe code, hidden initialization or machine I/O. Downstream trait implementations/destructors retain caller behavior. No builds or tests."""
+
+[[audits.quick-error]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "2.0.1"
+notes = """
+Reviewed-at: 2026-11-11T14:43:54+07:00
+Report: dependency-reviews/2026-11-11_143809+0700.md
+Full exact-version AI source review of both manifests and complete production src/lib.rs macro matcher/emission, Context/ResultExt, example and CI/Vagga/bulk configuration. Generates declared enum/wrappers and Display/Error/From/context conversions; formatting targets the supplied Formatter and custom expressions are caller code. No dependencies, unsafe operations or independent machine effects. CLI example reads the selected file. Historical developer tool downloads and release publishing are not consumer Cargo hooks and were not executed. No builds or tests."""
+
+[[audits.const-random]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.1.18"
+notes = """
+Reviewed-at: 2026-11-11T14:43:54+07:00
+Report: dependency-reviews/2026-11-11_143809+0700.md
+Full exact-version AI source review of both manifests, complete src/lib.rs, README and CI/test entry points. no_std facade only reexports const_random_macro::const_random; dlv-list uses a generated u32. Resolved helper 0.1.16 already has a full AI audit; verified artifact and reread lib.rs/span.rs context. Expected getrandom entropy or compile-time CONST_RANDOM_SEED becomes literal constants, with no credential enumeration, upload or runtime initialization. Facade record does not recertify helper/dependencies, entropy quality or reproducibility. No builds or tests."""
+
+[[audits.unwrap-infallible]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "1.0.0"
+notes = """
+Reviewed-at: 2026-11-11T14:43:54+07:00
+Report: dependency-reviews/2026-11-11_143809+0700.md
+Full exact-version AI source review of both manifests, complete src/lib.rs and third-party-type example. no_std UnwrapInfallible returns Ok and matches the empty Infallible error; optional nightly never_type route handles ! equivalently. Graph enables default only. No dependencies, unsafe block, allocation or machine I/O; example printing runs only if explicitly executed. Downstream custom trait implementations are caller code. No builds or tests."""
+
+[[audits.mutate_once]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.1.2"
+notes = """
+Reviewed-at: 2026-11-11T14:43:54+07:00
+Report: dependency-reviews/2026-11-11_143809+0700.md
+Full exact-version AI source review of both manifests, complete src/lib.rs, README and integration getter source. MutOnce stores caller data in UnsafeCell with Cell states; mutable guard sets Updating, drop restores Unborrowed, first shared borrow fixes the value permanently, invalid access panics. Deref/Mut accesses only wrapped storage under that protocol; no manual Send/Sync, dependencies, hidden callbacks, I/O or background work. Expected lazy TIFF field caching for kamadak-exif. No comprehensive unsafe aliasing proof. No builds or tests."""
+
+[[audits.aws-region]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.29.0"
+notes = """
+Reviewed-at: 2026-11-11T14:43:54+07:00
+Report: dependency-reviews/2026-11-11_143809+0700.md
+Full exact-version AI source review of both manifests, complete src/{lib,region,error}.rs, README and Makefile; Infumap init_bucket caller inspected. Region tables and Custom construct caller-selected storage endpoint strings; scheme/host parse strings without connecting. Explicit from_env/from_default_env read only specified variables or AWS_REGION/AWS_ENDPOINT. No automatic credentials, files, subprocess or upload. Optional serde is inactive. Downstream rust-s3 performs requests; destination validation, provider ownership and request/TLS/signing behavior remain separate. No builds or tests."""
+
+[[audits.md5]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.8.1"
+notes = """
+Reviewed-at: 2026-11-11T14:43:54+07:00
+Report: dependency-reviews/2026-11-11_143809+0700.md
+Full exact-version AI source review of both manifests and complete production src/lib.rs including buffer consumption/finalization, all transform rounds and Digest formatting; README/benchmark/CI entry points inspected. Hashes supplied bytes with fixed state/buffers and bounded block loops. std Write feeds hash state, not filesystem output. No dependencies, unsafe code, credential/network access or hidden initialization. Rust-s3 uses protocol checksum/ETag fields. Documented MD5 cryptographic weakness remains: this is not approval for collision-resistant identity/authentication or a cryptographic/protocol audit. No builds or tests."""
+
+[[audits.y4m]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.8.0"
+notes = """
+Reviewed-at: 2026-11-11T14:43:54+07:00
+Report: dependency-reviews/2026-11-11_143809+0700.md
+Full exact-version AI source review of both manifests, complete src/lib.rs, README, resize example, Travis/upload configuration and package inventory. Decoder reads supplied stream with bounded header and size-dependent frame storage; encoder writes supplied stream and checks plane lengths; u16 byte views refer only to supplied planes. No automatic path/credential/network/process operation. Nonblocking: lib.rs:295-300,408-413 unchecked size arithmetic precedes Limits, so oversized headers may overflow/wrap or later panic. Travis line 16 pipes an HTTP docs script to sh; dormant upstream CI risk, not a Cargo consumer hook. Encrypted CI key is inert/un-decrypted. Neither issue fixed/reproduced. No hostile-input/arithmetic/unsafe proof. No builds or tests."""
