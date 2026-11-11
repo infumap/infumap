@@ -159,6 +159,13 @@ written entirely in safe Rust; searching for `unsafe` alone is insufficient. Est
 not security priority. This criterion does not require an exhaustive audit of memory-safety or production-input
 bugs. Keep running advisory scans separately for known issues.
 
+For this review workflow, the Infumap operator is also its user and vets supplied inputs. The focus is
+unexpected harmful machine behavior, such as exfiltration, credential access, unrelated file changes,
+hidden execution, or resource abuse. It is not a comprehensive arithmetic, memory-safety, or hostile-input
+hardening review. Incidental bugs remain documented, but do not automatically block `safe-to-run` when
+their triggering conditions and effects do not establish a violation of that criterion. Ordinary use that
+unexpectedly damages unrelated data still blocks acceptance, regardless of whether it appears intentional.
+
 Actual review records belong in `supply-chain/audits.toml`, as `[[audits.<crate>]]` entries with an exact version
 or a `delta`. If both projects need the same review, reuse the inspection and record it in both stores. Repeat
 until `cargo vet` passes in both directories, then run `./audit.sh --server` from the repository root. Recheck

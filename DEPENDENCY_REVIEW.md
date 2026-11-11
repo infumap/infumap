@@ -26,13 +26,29 @@ standard and individual decisions; share setup, artifact verification, and final
 
 ## Boundaries
 
+- **Threat model:** Infumap's user is its operator and vets the inputs supplied to it. Review for
+  surprising harmful behavior on the build/run machine: covert data collection or exfiltration,
+  unexplained network destinations, credential access, unrelated filesystem changes, hidden execution,
+  installation/persistence, and resource abuse. Geography is irrelevant: an unexplained upload to any
+  endpoint is a concern. Expected I/O that implements the crate's documented purpose is not inherently hostile.
+- This is **not** a comprehensive correctness, overflow, memory-safety, parser-hardening, or adversarial-input
+  audit. Do not prove every arithmetic invariant or unsafe block sound. Read changed code sufficiently to
+  understand its effects and trace powerful operations; investigate further when there is a concrete path
+  to unexpected harmful machine behavior. Trusted inputs do not excuse hidden build-time or runtime actions.
 - Judge `safe-to-run`: unexpected harmful behavior during building or running, including data access,
   transmission, installation, code execution, and resource misuse. Read the installed tool's criterion
-  definition when needed. Do not claim `safe-to-deploy` based on this review.
+  definition when needed. This keeps the built-in criterion's meaning; it is not a custom "looks benign"
+  exemption. Do not claim `safe-to-deploy` based on this review.
 - Never describe an outcome as "no risk", "guaranteed safe", or "security proven". Use
   "No concerning changes found within the reviewed scope; certified safe-to-run" when justified.
 - Report any credible security concern you find, including one outside `safe-to-run`'s scope. Explain the
   affected criterion and practical impact rather than silently ignoring it or claiming every bug is malicious.
+  **Separate reporting from blocking:** a correctness or memory-safety finding requiring adversarial input,
+  or a defect in inactive optional code, does not by itself block `safe-to-run`. Keep it as a nonblocking
+  observation if no unexpected harmful behavior is established within this criterion. Certify an otherwise
+  completed acceptable review with that limitation recorded. Never withhold solely because a report contains
+  the words "unsafe", "overflow", or "undefined behavior". Conversely, ordinary operator-approved use that
+  unexpectedly destroys unrelated data or accesses credentials is in scope even without evidence of intent.
 - Do not add or widen publisher trust, exemptions, imported sources, criteria, advisory exceptions, or date
   limits to make a review pass. Do not update dependencies or lockfile resolutions as part of a review.
 - Preserve the user's changes. Never commit or push unless explicitly asked.
@@ -104,7 +120,8 @@ the changed behavior is understood. Include:
 - `Cargo.toml`, `Cargo.toml.orig`, build configuration, new dependencies, features, and platform-specific paths.
 - Build scripts, proc-macro expansion, generated/native code, `include!`, embedded payloads, and binaries.
 - Filesystem and credential access, environment variables, outbound networking, process execution,
-  downloaded code, installation hooks, unsafe/FFI boundaries, and surprising resource consumption.
+  downloaded code, installation hooks, unsafe/FFI operations with external effects, and surprising resource
+  consumption. Unsafe syntax alone does not require an exhaustive soundness review.
 - Whether behavior is expected for the crate's purpose and how it can affect Infumap's build or runtime.
 
 Explain substantive changes concretely. For metadata-only changes, show that the relevant manifest/source
@@ -169,13 +186,21 @@ For each target, provide:
    the review is incomplete, even if the visible changes look harmless.
 5. **Decision and records:** the conclusion, certification stores/entries if any, and remaining work.
 
-For a **concern**, report it promptly in chat and place it prominently in the report. Include the exact
-source evidence, trigger, likely impact, and uncertainty; distinguish a confirmed issue from suspicion.
-Do not certify that target or a dependent review whose conclusion relies on it being safe. Continue
-independent batch targets where possible. Do not silently fix, exempt, or work around a finding.
+For a **blocking concern**, report it promptly in chat and place it prominently in the report. Include the
+exact source evidence, trigger, likely impact, and uncertainty; distinguish a confirmed issue from suspicion.
+Explain why it could violate `safe-to-run` under the threat model above. Do not certify that target or a
+dependent review whose conclusion relies on it being safe. Continue independent batch targets where possible.
+Do not silently fix, exempt, or work around a finding.
+
+For a **nonblocking observation**, record the defect, triggering conditions, affected features or consumers,
+and why it does not undermine the `safe-to-run` conclusion. An otherwise complete review can be marked
+"Certified; nonblocking observation". Do not expand the task into proving exploitability, fixing the defect,
+or auditing every edge case. Preserve the observation for a separate hardening review if the operator later
+chooses to expose the application to adversarial input. Do not say the bug was fixed or disproved.
 
 For an **incomplete** review, state exactly what remains unknown and what would resolve it. Leave it
-uncertified. A partial review, a failed fetch, or an exhausted session is not a positive review.
+uncertified. A partial review, a failed fetch, or an exhausted session is not a positive review. Uncertainty
+about an out-of-scope correctness property alone does not make the hostile-behavior review incomplete.
 
 When the evidence establishes a criterion violation, also record it in the affected cargo-vet stores with
 the same reviewer, timestamp, report reference, and concrete evidence. For an exact affected version:

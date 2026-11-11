@@ -50,7 +50,10 @@ For an AI-assisted source-review batch, ask the coding agent:
 
 You can paste specific suggestions instead. The [review instructions](../DEPENDENCY_REVIEW.md) require
 dated reports in `dependency-reviews/` and `Codex (AI reviewer)` attribution with substantive notes in the
-projects' `supply-chain/audits.toml` files. Concerning or incomplete reviews remain uncertified. Batches reuse
+projects' `supply-chain/audits.toml` files. Reviews with unresolved `safe-to-run` concerns or missing evidence
+remain uncertified. Correctness or hostile-input findings outside that criterion are documented separately
+and do not by themselves block acceptance. The operator vets inputs; this is a review for unexpected harmful
+behavior, not comprehensive memory-safety or parser hardening. Batches reuse
 recorded evidence and end with one cargo-vet check per affected project; they do not run the full audit or
 refresh all publisher lookups. Request 5–10 diffs together to share setup costs without reducing review depth.
 
