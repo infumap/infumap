@@ -2628,3 +2628,84 @@ notes = """
 Reviewed-at: 2026-11-11T19:07:21+07:00
 Report: dependency-reviews/2026-11-11_185637+0700.md
 Full exact-version AI source/effects review of both manifests, all src/base,hii,system,protocol/vendor declarations/attributes, executable value helpers and ABI macros. Passive firmware bindings do not invoke declared services. Boolean/Status/Guid conversions and tcp4 ConfigData default are local value operations. Complete normalized production comparison against independently full-reviewed 5.3.0 leaves only mechanical safe eficall fn -> unsafe extern efiapi prototypes; manifests drop obsolete efiapi/examples aliases. This is a separate full-version record, not a delta. No autonomous firmware call, host I/O, active dependency or build script. getrandom 0.4.3 UEFI RNG backend inactive on host Linux. Native examples not run; no comprehensive ABI/firmware/pointer proof. No builds or tests."""
+
+[[audits.minimal-lexical]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.2.1"
+notes = """
+Reviewed-at: 2026-11-11T19:23:20+07:00
+Report: dependency-reviews/2026-11-11_191333+0700.md
+Full exact-version AI source/effects review of both manifests and all production src modules: parse/number/num, Lemire/Bellerophon, bigint, stack/heap vectors, rounding, masks, extended floats, libm/FPU and table routing. Converts supplied digit iterators/exponent to floating-point values; no filesystem, environment, network, process, build script or native payload. Numeric power table inspected structurally as 651 literal pairs, not recomputed. std active; alloc/compact/nightly inactive. Optional x86 FPU control-word change is scoped/restored on Drop; optional libm/SSE performs local math. Nom's four apparent call sites are commented out in 7.1.3. No exhaustive rounding, raw-memory or arbitrary public-helper/input soundness proof. No builds or tests run."""
+
+[[audits.roxmltree]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.21.2"
+notes = """
+Reviewed-at: 2026-11-11T19:23:20+07:00
+Report: dependency-reviews/2026-11-11_191333+0700.md
+Full exact-version AI source/effects review of both manifests, complete production src/lib.rs/parse.rs/tokenizer.rs and packaged example/tool routing. Builds and traverses in-memory XML trees, normalizes text/attributes and bounds entity nesting/reference counts. External entities resolve only through an explicit caller callback; default resolver None and DTD disabled. Infumap SVG dimensions uses DTD=false, no resolver, 8 MiB input and 50,000 nodes. Nodes limit does not cap initial allocation or total memory. No independent filesystem, network, credential, process or build hook; namespace URIs are identifiers. std/positions active. Not a comprehensive XML conformance, complexity or hostile-input audit. No builds or tests run."""
+
+[[audits.arc-swap]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "1.9.4"
+notes = """
+Reviewed-at: 2026-11-11T19:23:20+07:00
+Report: dependency-reviews/2026-11-11_191333+0700.md
+Full exact-version AI source/effects review of both manifests and production lib/access/as_raw/cache/ref_cnt/serde/weak, debt fast/helping/list and strategy modules including optional internal strategy. Atomically swaps caller reference-counted pointers, tracks reader debts in reusable TLS/global nodes, and invokes caller conversions/drop/RCU closures. No machine I/O, credential access, autonomous worker, native payload or build hook. Tantivy searcher state uses default hybrid strategy; no crate features enabled. Node storage retains a high-water allocation; caches/guards defer destruction and RCU may retry caller closures. Not a full memory-ordering, ABA/refcount/unsafe soundness or progress proof. No builds or tests run."""
+
+[[audits.ron]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.8.1"
+notes = """
+Reviewed-at: 2026-11-11T19:23:20+07:00
+Report: dependency-reviews/2026-11-11_191333+0700.md
+Full exact-version AI source/effects review of both manifests and complete production lib/options/extensions/parse/error/value, de/{mod,id,tag,value}, ser/{mod,value}. Parses/serializes caller Rust data and supplied readers/writers, with default recursion budget Some(128), escaped strings, checked numeric parsing and base64 bytes. Identifier/numeric unchecked UTF-8 conversion follows ASCII classification. No filesystem paths, network, environment/credentials, subprocess, native payload or build script. Config 0.14.1 parses supplied RON text to values; default features only, indexmap/integer128 inactive. Reader APIs buffer to EOF; no aggregate byte/allocation limit or exhaustive grammar/custom-serde/value-tree proof. No builds or tests run."""
+
+[[audits.cfb]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.7.3"
+notes = """
+Reviewed-at: 2026-11-11T19:23:20+07:00
+Report: dependency-reviews/2026-11-11_191333+0700.md
+Full exact-version AI source/effects review of both manifests, complete src/lib.rs and all internal allocator/chain/directory/entry/header/path/sector/time/version/macros modules, plus packaged example. CFB operations read/write/seek/flush caller streams or explicit paths, including requested create/truncate; inner storage paths are archive names. No network, environment/credentials, process or build hook. Infer uses read-only Cursor<&[u8]>. Nonblocking: creation paths do not call validate_name; DirEntry::write_to:229-250 validates length only with debug_assert then writes every UTF-16 unit, so >31-unit names can corrupt the supplied CFB in release. Does not modify unrelated files; consumer is read-only. Not a complete parser, transactional-write or filesystem-race audit. No builds or tests run."""
+
+[[audits.built]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.8.1"
+notes = """
+Reviewed-at: 2026-11-11T19:23:20+07:00
+Report: dependency-reviews/2026-11-11_191333+0700.md
+Full exact-version AI source/effects review of both manifests and all src environment/lib/util/dependencies/git_impl/git_shared/gix_impl/krono modules. Explicit build helper snapshots environment, emits selected Cargo/build/CI constants into caller path or OUT_DIR/built.rs, runs configured RUSTC/RUSTDOC with -V (no shell), and optionally reads local Git/lock/time metadata. No upload/downloader, credential-file scan, installer or own build script. Rav1e calls write_built_file; no optional features active. Nonblocking: fmt_option_str lib.rs:452-456 embeds strings without Rust escaping; CI overrides and optional Git tag/ref metadata can break/inject generated tokens if untrusted. Active build config is operator-controlled; no untrusted Infumap trigger established. Tools, optional helper dependencies and source-injection hardening separate. No builds or tests run."""
+
+[[audits.dlv-list]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.5.2"
+notes = """
+Reviewed-at: 2026-11-11T19:23:20+07:00
+Report: dependency-reviews/2026-11-11_191333+0700.md
+Full exact-version AI source/effects review of both manifests, complete production src/lib.rs/serde.rs, .cargo warning config and package entry points. Vec-backed linked list implements caller element storage, generation-checked indices, insertion/removal/reordering, packing and iterators. std generation uses RandomState entropy; no-std uses atomic xorshift seeded by const-random, whose exact helper/facade have prior local audits. No filesystem, credential collection, network, subprocess, native payload or build script. Ordered-multimap uses std for key/value insertion lists; serde inactive. Caller callbacks/drop and unsafe unchecked-index preconditions remain caller behavior; no exhaustive mutable-iterator aliasing, panic/generation-wrap or thread-safety proof. No builds or tests run."""
+
+[[audits.heifer-isobmff]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.4.0"
+notes = """
+Reviewed-at: 2026-11-11T19:23:21+07:00
+Report: dependency-reviews/2026-11-11_191333+0700.md
+Full exact-version AI source/effects review of both manifests and complete src lib/header/reader/boxes/file/track/region/writer modules plus packaged examples. Parses supplied HEIF/ISOBMFF bytes, constructs metadata/HEVC buffers and serializes containers in memory; no independent files, environment, credentials, network, process, unsafe/native payload or build hook. Item construction depth/items/byte budgets and table-count bounds read; these are not aggregate parser caps. Heifer is parent; no features. Nonblocking: icc_profile file.rs:503-514 follows first dimg recursively with only self-loop guard, so multi-item cycles exhaust stack on crafted input; active Heifer colour/metadata callers. hevc_annex_b:543-563 with public manual nal_length_size=0 and nonempty data never consumes input and grows output; parser:384 emits 1/2/4 only. Vetted-input criterion, not hostile-image hardening. No builds or tests run."""
+
+[[audits.ipnet]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "2.12.2"
+notes = """
+Reviewed-at: 2026-11-11T19:23:21+07:00
+Report: dependency-reviews/2026-11-11_191333+0700.md
+Full exact-version AI source/effects review of both manifests and complete production src lib/ipnet/ipext/parser/mask, serde and both schemars integrations. Parses numeric address prefixes; implements masks, containment, aggregation and lazy address/subnet iterators, plus caller serialization/schema values. No DNS/socket/network call, filesystem, environment/credentials, process, native payload or build hook. Hyper-util uses parsing/containment for no-proxy CIDRs; std/default active, other integrations inactive. Fully consuming huge caller-selected IPv6 ranges can be expensive; no exhaustive arithmetic, iterator-count, policy matching or hostile-input proof. No builds or tests run."""
