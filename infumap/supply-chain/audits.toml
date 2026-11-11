@@ -2556,3 +2556,75 @@ user-id = 3203
 start = "2026-10-16"
 end = "2027-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Alexandre Bury (gyscos): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nAlexandre Bury is the zstd-rs author/maintainer and verified publisher of the\nlocked zstd, zstd-safe and zstd-sys releases. Accept this upstream wrapper,\nbundled native zstd code, native build integration, packaging and release\nprocess. Publisher-wide acceptance includes future dependencies from this\naccount; no independent source review or native-code security audit.\nSource: https://github.com/gyscos/zstd-rs\n"
+
+[[audits.bon]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "3.10.3"
+notes = """
+Reviewed-at: 2026-11-11T19:07:21+07:00
+Report: dependency-reviews/2026-11-11_185637+0700.md
+Full exact-version AI source review of both manifests and all production src/lib,builder_state,collections,__/{mod,better_errors,cfg_eval,ide}. Runtime marker/value/collection helpers and cfg callback macros operate on caller values/tokens; no host I/O, build hook or native payload. Exact bon-macros =3.10.3 separately reviewed in this batch. Tantivy IndexWriterOptions derive uses alloc/default/std. Caller trait effects and exhaustive generic/typestate correctness remain outside scope. No concerning changes found within reviewed scope. No builds or tests."""
+
+[[audits.bon-macros]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "3.10.3"
+notes = """
+Reviewed-at: 2026-11-11T19:07:21+07:00
+Report: dependency-reviews/2026-11-11_185637+0700.md
+Full exact-version AI source/effects review of both manifests and production bon,builder/builder_gen (all configs/members/setters/getters/derives/start/finish/state),collections,error,normalization,parsing,privatize,util trees. Parses supplied AST and emits builders, transitions, conversions/defaults and original constructor/function calls; no hidden I/O, subprocess or downloaded/native code. error/panic_context.rs:45-69 installs a compiler-process panic hook chaining its predecessor and captures local thread/location/backtrace diagnostics for compiler errors, without upload/file writer. Unchecked option extraction is guarded by generated sealed typestate; not a full hygiene/unsafe/reentrancy proof. Std/alloc active; experimental features disabled; darling_core separately reviewed. No builds or tests."""
+
+[[audits.darling_core]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.24.1"
+notes = """
+Reviewed-at: 2026-11-11T19:07:21+07:00
+Report: dependency-reviews/2026-11-11_185637+0700.md
+Full exact-version AI source review of both manifests and production ast,codegen,derive,error,from_*,options,usage,util and macro modules. Supplied tokens/literals become ASTs/values and generated attribute-parsing impls; Callable paths/closures are syntax emitted for caller execution, not interpreted here. PathBuf conversion constructs a value only. Codegen delegates explicit callbacks/defaults, checks fields and accumulates errors; usage walkers form generic/lifetime sets. Active strsim/suggestions computes diagnostic alternatives; optional diagnostics/serde inactive and inspected. No filesystem/network/subprocess/unsafe/native payload/build hook. Not an exhaustive parser/resource or codegen-correctness proof. No builds or tests."""
+
+[[audits.fs_extra]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "1.3.0"
+notes = """
+Reviewed-at: 2026-11-11T19:07:21+07:00
+Report: dependency-reviews/2026-11-11_185637+0700.md
+Full exact-version AI source/effects review of both manifests and complete src/lib,dir,file,error.rs. Requested copy/move/create/remove/list/read/write uses caller paths, directory entries and options; no network, credential discovery, subprocess or build hook. AWS-LC-sys setup_include_paths:1534-1571 uses plain dir::copy with skip_exist/copy_inside into OUT_DIR/include. Nonblocking: file.rs:196-221 copy_with_progress with explicit buffer_size=0 creates/truncates destination, skips copying, reports source length; move_file_with_progress:298-305 then deletes source. This API is inactive in the consumer; effect concerns caller-selected source/destination, not established unrelated-data destruction. Symlink-following/hostile filesystem races and move correctness not certified. Observation unfixed/unexecuted. No builds or tests."""
+
+[[audits.image-webp]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.2.4"
+notes = """
+Reviewed-at: 2026-11-11T19:07:21+07:00
+Report: dependency-reviews/2026-11-11_185637+0700.md
+Full exact-version AI source/effects review of both manifests and production alpha_blending,decoder,encoder,extended,huffman,loop_filter,lossless,lossless_transform,transform,vp8,vp8_arithmetic_decoder,yuv and lib/module routing. Pure Rust forbids unsafe; reads/seeks supplied streams and writes supplied outputs. RIFF/VP8/VP8L parsing, pixel transforms/filtering/Huffman and animation work stays in image buffers; metadata bytes are caller/file data, not host collection. No filesystem path opens, network, subprocess, native payload or build hook. Image 0.25.10 wraps streams/buffers; no crate features. Nonblocking: set_memory_limit only gates metadata read_chunk; pixel/animation scratch, lossless tables and VP8 partition allocations ignore it (decoder.rs:551-555,622-654,687,809,840,870; vp8.rs:1029-1052,1200-1221). No complete hostile-image memory/arithmetic/conformance proof; no covert resource abuse found with operator-vetted input. No builds or tests."""
+
+[[audits.prometheus]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "0.14.0"
+notes = """
+Reviewed-at: 2026-11-11T19:07:21+07:00
+Report: dependency-reviews/2026-11-11_185637+0700.md
+Full exact-version AI source/effects review of both manifests, build.rs, all production src modules/macros, protobuf schema and complete normalized generated binding forms/descriptor initialization. Metrics/encoders operate on supplied values/streams. Default/protobuf active; gen build script no-op; push/process/nightly disabled. Optional push sends metrics/explicit auth to supplied URL; process reads selected process statistics; AFLocal starts one 200ms clock updater thread. No hidden uploader, listener or credential-file scan. Infumap owns /metrics HTTP serving. Nonblocking integrity defect: vec.rs:114-157 hashes concatenated label bytes without separators and children are keyed only by hash (:182-194), so [ab,c] and [a,bc] merge deterministically. No affected Infumap tuple established; not a hostile-label, concurrency or recursive dependency proof. No builds or tests; unfixed."""
+
+[[audits.r-efi]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "5.3.0"
+notes = """
+Reviewed-at: 2026-11-11T19:07:21+07:00
+Report: dependency-reviews/2026-11-11_185637+0700.md
+Full exact-version AI source/effects review of both manifests, all src/base,hii,system,protocol/vendor module declarations/attributes, executable value helpers and ABI macros. Structural binding inspection: passive constants/C-layout structures/unions/function-pointer aliases; only Boolean/Status/Guid conversions (fixed-size transmutes base.rs:751-760) and tcp4 ConfigData default execute library logic. ABI macros add efiapi to caller tokens. No autonomous firmware call, host I/O, active dependency or build script. getrandom 0.3.4 uses declarations only in target_os=uefi/getrandom_backend=efi_rng path, inactive on host Linux. Native examples/maintenance targets not consumer hooks and not executed. Not exhaustive ABI/firmware/raw-pointer soundness proof. Separate full decision from 6.0.0 with verified shared source. No builds or tests."""
+
+[[audits.r-efi]]
+who = "Codex (AI reviewer)"
+criteria = "safe-to-run"
+version = "6.0.0"
+notes = """
+Reviewed-at: 2026-11-11T19:07:21+07:00
+Report: dependency-reviews/2026-11-11_185637+0700.md
+Full exact-version AI source/effects review of both manifests, all src/base,hii,system,protocol/vendor declarations/attributes, executable value helpers and ABI macros. Passive firmware bindings do not invoke declared services. Boolean/Status/Guid conversions and tcp4 ConfigData default are local value operations. Complete normalized production comparison against independently full-reviewed 5.3.0 leaves only mechanical safe eficall fn -> unsafe extern efiapi prototypes; manifests drop obsolete efiapi/examples aliases. This is a separate full-version record, not a delta. No autonomous firmware call, host I/O, active dependency or build script. getrandom 0.4.3 UEFI RNG backend inactive on host Linux. Native examples not run; no comprehensive ABI/firmware/pointer proof. No builds or tests."""
