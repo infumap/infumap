@@ -1,8 +1,6 @@
 
 # cargo-vet audits file
 
-[audits]
-
 [[audits.futures-core]]
 who = "Codex (AI reviewer)"
 criteria = "safe-to-run"
@@ -27,6 +25,13 @@ user-id = 3618
 start = "2019-02-25"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 3618: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted."bitflags"]]
+criteria = ["safe-to-run"]
+user-id = 3204
+start = "2025-12-02"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Ashley Mannix (KodrAus): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nAshley Mannix is an established bitflags/UUID maintainer and verified publisher\nof the locked bitflags and UUID releases in both projects. Accept his upstream\nmaintenance, packaging and release process. Publisher-wide acceptance includes\nother account-published releases such as log and future dependencies from this\naccount; no independent source review. CI-published releases in the same\nprojects use separate identities and are not accepted by this account entry.\nSources: https://github.com/KodrAus and https://github.com/uuid-rs/uuid\n"
 
 [[trusted."bumpalo"]]
 criteria = ["safe-to-run"]
@@ -62,6 +67,41 @@ user-id = 6825
 start = "2019-03-06"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 6825: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted."futures-channel"]]
+criteria = ["safe-to-run"]
+user-id = 33035
+start = "2026-02-15"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Taiki Endo (taiki-e): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTaiki Endo is an established Rust concurrency/tooling maintainer and verified\npublisher of the locked Crossbeam, fastrand and futures releases. Accept his\nupstream maintenance, packaging and release process. Publisher-wide acceptance\nincludes future dependencies from this account; no independent source review.\nThe separate github:taiki-e/pin-project-lite CI identity is not accepted by this\nnumeric account decision and still needs its own policy decision.\nSources: https://github.com/taiki-e and https://github.com/crossbeam-rs/crossbeam\n"
+
+[[trusted."futures-core"]]
+criteria = ["safe-to-run"]
+user-id = 33035
+start = "2026-02-15"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Taiki Endo (taiki-e): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTaiki Endo is an established Rust concurrency/tooling maintainer and verified\npublisher of the locked Crossbeam, fastrand and futures releases. Accept his\nupstream maintenance, packaging and release process. Publisher-wide acceptance\nincludes future dependencies from this account; no independent source review.\nThe separate github:taiki-e/pin-project-lite CI identity is not accepted by this\nnumeric account decision and still needs its own policy decision.\nSources: https://github.com/taiki-e and https://github.com/crossbeam-rs/crossbeam\n"
+
+[[trusted."futures-macro"]]
+criteria = ["safe-to-run"]
+user-id = 33035
+start = "2026-02-15"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Taiki Endo (taiki-e): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTaiki Endo is an established Rust concurrency/tooling maintainer and verified\npublisher of the locked Crossbeam, fastrand and futures releases. Accept his\nupstream maintenance, packaging and release process. Publisher-wide acceptance\nincludes future dependencies from this account; no independent source review.\nThe separate github:taiki-e/pin-project-lite CI identity is not accepted by this\nnumeric account decision and still needs its own policy decision.\nSources: https://github.com/taiki-e and https://github.com/crossbeam-rs/crossbeam\n"
+
+[[trusted."futures-task"]]
+criteria = ["safe-to-run"]
+user-id = 33035
+start = "2026-02-15"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Taiki Endo (taiki-e): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTaiki Endo is an established Rust concurrency/tooling maintainer and verified\npublisher of the locked Crossbeam, fastrand and futures releases. Accept his\nupstream maintenance, packaging and release process. Publisher-wide acceptance\nincludes future dependencies from this account; no independent source review.\nThe separate github:taiki-e/pin-project-lite CI identity is not accepted by this\nnumeric account decision and still needs its own policy decision.\nSources: https://github.com/taiki-e and https://github.com/crossbeam-rs/crossbeam\n"
+
+[[trusted."futures-util"]]
+criteria = ["safe-to-run"]
+user-id = 33035
+start = "2026-02-15"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Taiki Endo (taiki-e): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTaiki Endo is an established Rust concurrency/tooling maintainer and verified\npublisher of the locked Crossbeam, fastrand and futures releases. Accept his\nupstream maintenance, packaging and release process. Publisher-wide acceptance\nincludes future dependencies from this account; no independent source review.\nThe separate github:taiki-e/pin-project-lite CI identity is not accepted by this\nnumeric account decision and still needs its own policy decision.\nSources: https://github.com/taiki-e and https://github.com/crossbeam-rs/crossbeam\n"
 
 [[trusted."hashbrown"]]
 criteria = ["safe-to-run"]
@@ -139,6 +179,13 @@ user-id = 2915
 start = "2019-02-22"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 2915: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted."log"]]
+criteria = ["safe-to-run"]
+user-id = 3204
+start = "2025-12-02"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Ashley Mannix (KodrAus): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nAshley Mannix is an established bitflags/UUID maintainer and verified publisher\nof the locked bitflags and UUID releases in both projects. Accept his upstream\nmaintenance, packaging and release process. Publisher-wide acceptance includes\nother account-published releases such as log and future dependencies from this\naccount; no independent source review. CI-published releases in the same\nprojects use separate identities and are not accepted by this account entry.\nSources: https://github.com/KodrAus and https://github.com/uuid-rs/uuid\n"
 
 [[trusted."memchr"]]
 criteria = ["safe-to-run"]
@@ -294,6 +341,13 @@ start = "2020-04-29"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 1139: Automatically inherited publisher-wide from mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
 
+[[trusted."uuid"]]
+criteria = ["safe-to-run"]
+user-id = 3204
+start = "2025-12-02"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Ashley Mannix (KodrAus): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nAshley Mannix is an established bitflags/UUID maintainer and verified publisher\nof the locked bitflags and UUID releases in both projects. Accept his upstream\nmaintenance, packaging and release process. Publisher-wide acceptance includes\nother account-published releases such as log and future dependencies from this\naccount; no independent source review. CI-published releases in the same\nprojects use separate identities and are not accepted by this account entry.\nSources: https://github.com/KodrAus and https://github.com/uuid-rs/uuid\n"
+
 [[trusted."wasi"]]
 criteria = ["safe-to-run"]
 user-id = 1
@@ -328,6 +382,20 @@ user-id = 64539
 start = "2021-01-15"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 64539: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted."zerocopy"]]
+criteria = ["safe-to-run"]
+user-id = 7178
+start = "2026-03-28"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Joshua Liebow-Feeser (joshlf): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nJoshua Liebow-Feeser is a zerocopy maintainer and verified publisher of the\nSDK's zerocopy/zerocopy-derive releases. Accept this upstream maintenance,\nproc-macro behavior, packaging and release process. Publisher-wide acceptance\nincludes future dependencies from this account; no independent source review\nor unsafe-code soundness audit. Infumap's newer github:google/zerocopy releases\nuse a separate CI identity and are not accepted by this numeric account entry.\nSources: https://github.com/joshlf and https://github.com/google/zerocopy\n"
+
+[[trusted."zerocopy-derive"]]
+criteria = ["safe-to-run"]
+user-id = 7178
+start = "2026-03-28"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Joshua Liebow-Feeser (joshlf): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nJoshua Liebow-Feeser is a zerocopy maintainer and verified publisher of the\nSDK's zerocopy/zerocopy-derive releases. Accept this upstream maintenance,\nproc-macro behavior, packaging and release process. Publisher-wide acceptance\nincludes future dependencies from this account; no independent source review\nor unsafe-code soundness audit. Infumap's newer github:google/zerocopy releases\nuse a separate CI identity and are not accepted by this numeric account entry.\nSources: https://github.com/joshlf and https://github.com/google/zerocopy\n"
 
 [[trusted."zmij"]]
 criteria = ["safe-to-run"]

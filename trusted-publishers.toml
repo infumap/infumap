@@ -12,3 +12,299 @@ end = "2028-11-10"
 
 # Optional individual decisions; these take precedence over inherited trust.
 # Add one with: python3 sync-publisher-trust.py --trust BurntSushi
+# The helper requires an existing audit-source endorsement. The entries below
+# instead record the operator's explicit upstream-maintainer decisions on
+# 2026-11-11, following the AI-assisted trust-options assessment.
+# Each start includes the earliest currently locked release by that account.
+# These decisions apply publisher-wide, including future dependencies published
+# by these accounts. They accept safe-to-run based on reputation and release
+# provenance, rather than certifying an independent source or cryptographic audit.
+# The fixed end dates require deliberate renewal; synchronization preserves notes
+# in the generated cargo-vet records for both projects.
+
+[[publishers]]
+user-id = 156764
+name = "Justin W Smith (justsmth)"
+criteria = "safe-to-run"
+start = "2026-10-28"
+end = "2027-11-10"
+notes = """
+Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Justin W Smith is an AWS Cryptography maintainer and the verified publisher of
+the locked aws-lc-rs/aws-lc-sys releases. Accept AWS's maintenance and release
+process, including the bundled native AWS-LC implementation, Rust bindings,
+packaging and build behavior. This is publisher-wide acceptance, including future
+dependencies from this account; no independent source or cryptographic audit.
+Sources: https://github.com/justsmth and https://github.com/aws/aws-lc-rs/releases
+"""
+
+[[publishers]]
+user-id = 4674
+name = "Paul Masurel (fulmicoton)"
+criteria = "safe-to-run"
+start = "2021-05-18"
+end = "2027-11-10"
+notes = """
+Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Paul Masurel is the Tantivy author and verified publisher of the locked search
+engine, bitpacking, census, fastdivide, levenshtein_automata, murmurhash32 and
+Tantivy helper releases. Accept this upstream author's implementation,
+maintenance, packaging and release process. Publisher-wide acceptance includes
+future dependencies from this account; no independent source review. This does
+not accept releases from separate publishers of Tantivy's dependencies.
+Sources: https://github.com/fulmicoton and https://github.com/quickwit-oss/tantivy
+"""
+
+[[publishers]]
+user-id = 6354
+name = "Pascal Seitz (PSeitz)"
+criteria = "safe-to-run"
+start = "2023-11-21"
+end = "2027-11-10"
+notes = """
+Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Pascal Seitz is a Tantivy maintainer and lz4_flex author, and the verified
+publisher of tantivy-fst, tantivy-tokenizer-api, ownedbytes, measure_time and
+lz4_flex releases in the graph. Accept his maintenance, packaging and release
+process, including the Tantivy FST fork. This is trust in the current publisher,
+not inherited trust in the original FST author. Publisher-wide acceptance includes
+future dependencies from this account; no independent source review.
+Sources: https://github.com/PSeitz and https://github.com/quickwit-oss/tantivy
+"""
+
+[[publishers]]
+user-id = 4185
+name = "Daniel Reiter Horn (danielrh)"
+criteria = "safe-to-run"
+start = "2022-09-12"
+end = "2027-11-10"
+notes = """
+Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Daniel Reiter Horn is the author of Dropbox's Rust Brotli and allocation-helper
+crates and the verified publisher of the locked brotli, brotli-decompressor,
+alloc-no-stdlib and alloc-stdlib releases. Accept this upstream implementation,
+maintenance, packaging and release process across both Brotli generations in
+the graph. Publisher-wide acceptance includes future dependencies from this
+account; no independent source review or parser-hardening audit.
+Sources: https://github.com/dropbox/rust-brotli and https://github.com/dropbox/rust-alloc-no-stdlib
+"""
+
+[[publishers]]
+user-id = 4718
+name = "Luca Barbato (lu-zero)"
+criteria = "safe-to-run"
+start = "2019-10-06"
+end = "2027-11-10"
+notes = """
+Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Luca Barbato is an established Xiph/rust-av maintainer and verified publisher of
+rav1e, v_frame, arg_enum_proc_macro, interpolate_name, noop_proc_macro and
+simd_helpers. Accept this upstream maintenance, native/assembly integration,
+build-time macro behavior, packaging and release process. Publisher-wide
+acceptance includes future dependencies from this account; no independent source
+review. Separate publishers of rav1e's dependencies need their own evidence.
+Sources: https://github.com/lu-zero and https://github.com/xiph/rav1e
+"""
+
+[[publishers]]
+user-id = 3357
+name = "Josh Holmer (shssoichiro)"
+criteria = "safe-to-run"
+start = "2023-02-03"
+end = "2027-11-10"
+notes = """
+Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Josh Holmer is the upstream rust-av scene-change/grain maintainer and verified
+publisher of av-scenechange, av1-grain and maybe-rayon releases in the graph.
+Accept this maintainer's implementation, packaging and release process. This is
+a separate decision from trusting rav1e's lu-zero publisher. Publisher-wide
+acceptance includes future dependencies from this account; no independent source
+review or codec-hardening audit.
+Sources: https://github.com/rust-av/av-scenechange and https://github.com/rust-av/av1-grain
+"""
+
+[[publishers]]
+user-id = 267
+name = "Tony Arcieri (tarcieri)"
+criteria = "safe-to-run"
+start = "2023-03-04"
+end = "2027-11-10"
+notes = """
+Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Tony Arcieri is an established RustCrypto maintainer and verified publisher of
+the graph's aead, aes, aes-gcm, argon2, base64ct, digest, ghash, password-hash and
+polyval releases, among other RustCrypto crates. Accept RustCrypto maintenance
+and this account's packaging/release process. Publisher-wide acceptance includes
+future dependencies from this account; it does not assert an independent source
+review, expert cryptographic audit or safe-to-deploy certification.
+Sources: https://github.com/orgs/RustCrypto/people and https://github.com/RustCrypto
+"""
+
+[[publishers]]
+user-id = 5059
+name = "Artyom Pavlov (newpavlov)"
+criteria = "safe-to-run"
+start = "2022-09-30"
+end = "2027-11-10"
+notes = """
+Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Artyom Pavlov is an established RustCrypto maintainer and verified publisher of
+the locked blake2, crypto-common and ctr releases, among other RustCrypto crates.
+Accept RustCrypto maintenance and this account's packaging/release process as
+a separate authority from tarcieri. Publisher-wide acceptance includes future
+dependencies from this account; no independent source or cryptographic audit.
+This account decision does not accept RustCrypto CI publisher signatures.
+Sources: https://github.com/orgs/RustCrypto/people and https://github.com/RustCrypto
+"""
+
+[[publishers]]
+user-id = 33035
+name = "Taiki Endo (taiki-e)"
+criteria = "safe-to-run"
+start = "2026-02-15"
+end = "2027-11-10"
+notes = """
+Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Taiki Endo is an established Rust concurrency/tooling maintainer and verified
+publisher of the locked Crossbeam, fastrand and futures releases. Accept his
+upstream maintenance, packaging and release process. Publisher-wide acceptance
+includes future dependencies from this account; no independent source review.
+The separate github:taiki-e/pin-project-lite CI identity is not accepted by this
+numeric account decision and still needs its own policy decision.
+Sources: https://github.com/taiki-e and https://github.com/crossbeam-rs/crossbeam
+"""
+
+[[publishers]]
+user-id = 128408
+name = "Shane F. Carr (sffc)"
+criteria = "safe-to-run"
+start = "2026-05-12"
+end = "2027-11-10"
+notes = """
+Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Shane F. Carr is an ICU4X maintainer and verified publisher of the locked litemap,
+potential_utf, writeable, zerofrom, zerofrom-derive and zerotrie releases. Accept
+ICU4X maintenance and this account's macro, packaging and release process. The
+historical Manishearth endorsement does not cover these releases; this is an
+explicit decision for their actual publisher. Publisher-wide acceptance includes
+future dependencies from this account; no independent source review.
+Sources: https://github.com/sffc and https://github.com/unicode-org/icu4x
+"""
+
+[[publishers]]
+user-id = 4484
+name = "Henri Sivonen (hsivonen)"
+criteria = "safe-to-run"
+start = "2026-04-27"
+end = "2027-11-10"
+notes = """
+Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Henri Sivonen is an established upstream IDNA/encoding developer and verified
+publisher of idna_adapter and encoding/helper releases in the graph. Accept his
+upstream maintenance, packaging and release process for Unicode and encoding
+integration. Publisher-wide acceptance includes future dependencies from this
+account; no independent source review. Other ICU4X publisher accounts are
+separate release authorities and require their own evidence.
+Source: https://github.com/hsivonen
+"""
+
+[[publishers]]
+user-id = 11453
+name = "197g"
+criteria = "safe-to-run"
+start = "2025-11-11"
+end = "2027-11-10"
+notes = """
+Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+This is the verified publisher of the canonical image-rs image, png, gif, tiff
+and weezl releases in the graph. Accept the image-rs maintenance, packaging and
+release process represented by this account. Publisher-wide acceptance includes
+future dependencies from this account; no independent source review or image
+parser-hardening audit. image-rs using a dependency is not evidence that its
+separately published code was audited or is covered by this account decision.
+Sources: https://github.com/197g and https://github.com/image-rs/image
+"""
+
+[[publishers]]
+user-id = 988
+name = "Kornel Lesinski (kornelski)"
+criteria = "safe-to-run"
+start = "2023-07-21"
+end = "2027-11-10"
+notes = """
+Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Kornel Lesinski is an established Rust imaging/platform maintainer and verified
+publisher of avif-serialize, imgref, loop9, ravif, rgb, urlencoding and the
+security-framework crates. Accept his upstream maintenance, native/platform
+integration, packaging and release process. Publisher-wide acceptance includes
+future dependencies from this account, beyond these motivating crates; no
+independent source review or codec-hardening audit.
+Source: https://github.com/kornelski
+"""
+
+[[publishers]]
+user-id = 3204
+name = "Ashley Mannix (KodrAus)"
+criteria = "safe-to-run"
+start = "2025-12-02"
+end = "2027-11-10"
+notes = """
+Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Ashley Mannix is an established bitflags/UUID maintainer and verified publisher
+of the locked bitflags and UUID releases in both projects. Accept his upstream
+maintenance, packaging and release process. Publisher-wide acceptance includes
+other account-published releases such as log and future dependencies from this
+account; no independent source review. CI-published releases in the same
+projects use separate identities and are not accepted by this account entry.
+Sources: https://github.com/KodrAus and https://github.com/uuid-rs/uuid
+"""
+
+[[publishers]]
+user-id = 3203
+name = "Alexandre Bury (gyscos)"
+criteria = "safe-to-run"
+start = "2026-10-16"
+end = "2027-11-10"
+notes = """
+Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Alexandre Bury is the zstd-rs author/maintainer and verified publisher of the
+locked zstd, zstd-safe and zstd-sys releases. Accept this upstream wrapper,
+bundled native zstd code, native build integration, packaging and release
+process. Publisher-wide acceptance includes future dependencies from this
+account; no independent source review or native-code security audit.
+Source: https://github.com/gyscos/zstd-rs
+"""
+
+[[publishers]]
+user-id = 15682
+name = "Jacob Pratt (jhpratt)"
+criteria = "safe-to-run"
+start = "2026-05-18"
+end = "2027-11-10"
+notes = """
+Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Jacob Pratt is a Time ecosystem maintainer and verified publisher of powerfmt
+and num-conv releases in the graph. Accept his upstream maintenance, packaging
+and release process. Publisher-wide acceptance includes future dependencies
+from this account; no independent source review. The github:time-rs/time and
+github:jhpratt/deranged CI publishers are separate identities that require
+their own policy decisions.
+Sources: https://github.com/jhpratt and https://github.com/time-rs/time
+"""
+
+[[publishers]]
+user-id = 7178
+name = "Joshua Liebow-Feeser (joshlf)"
+criteria = "safe-to-run"
+start = "2026-03-28"
+end = "2027-11-10"
+notes = """
+Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.
+Joshua Liebow-Feeser is a zerocopy maintainer and verified publisher of the
+SDK's zerocopy/zerocopy-derive releases. Accept this upstream maintenance,
+proc-macro behavior, packaging and release process. Publisher-wide acceptance
+includes future dependencies from this account; no independent source review
+or unsafe-code soundness audit. Infumap's newer github:google/zerocopy releases
+use a separate CI identity and are not accepted by this numeric account entry.
+Sources: https://github.com/joshlf and https://github.com/google/zerocopy
+"""

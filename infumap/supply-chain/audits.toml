@@ -1,8 +1,6 @@
 
 # cargo-vet audits file
 
-[audits]
-
 [[audits.base64]]
 who = "Codex (AI reviewer)"
 criteria = "safe-to-run"
@@ -48,12 +46,47 @@ Reviewed-at: 2026-11-11T08:18:34+07:00
 Report: dependency-reviews/2026-11-11_080717+0700.md
 AI source review of delta from Google-audited Nom 7.1.3. Compared published manifests, packaged lock and VCS metadata, parser modes, input traits, byte/bit/character/number primitives, combinators, docs and fixtures. Changes operate on supplied input. No build hook or new runtime dependency. Report records inherited escaped-transform progress issue and LengthCount reservation caveat outside av1-grain's parser path. No builds or tests."""
 
+[[trusted."aead"]]
+criteria = ["safe-to-run"]
+user-id = 267
+start = "2023-03-04"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Tony Arcieri (tarcieri): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTony Arcieri is an established RustCrypto maintainer and verified publisher of\nthe graph's aead, aes, aes-gcm, argon2, base64ct, digest, ghash, password-hash and\npolyval releases, among other RustCrypto crates. Accept RustCrypto maintenance\nand this account's packaging/release process. Publisher-wide acceptance includes\nfuture dependencies from this account; it does not assert an independent source\nreview, expert cryptographic audit or safe-to-deploy certification.\nSources: https://github.com/orgs/RustCrypto/people and https://github.com/RustCrypto\n"
+
+[[trusted."aes"]]
+criteria = ["safe-to-run"]
+user-id = 267
+start = "2023-03-04"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Tony Arcieri (tarcieri): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTony Arcieri is an established RustCrypto maintainer and verified publisher of\nthe graph's aead, aes, aes-gcm, argon2, base64ct, digest, ghash, password-hash and\npolyval releases, among other RustCrypto crates. Accept RustCrypto maintenance\nand this account's packaging/release process. Publisher-wide acceptance includes\nfuture dependencies from this account; it does not assert an independent source\nreview, expert cryptographic audit or safe-to-deploy certification.\nSources: https://github.com/orgs/RustCrypto/people and https://github.com/RustCrypto\n"
+
+[[trusted."aes-gcm"]]
+criteria = ["safe-to-run"]
+user-id = 267
+start = "2023-03-04"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Tony Arcieri (tarcieri): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTony Arcieri is an established RustCrypto maintainer and verified publisher of\nthe graph's aead, aes, aes-gcm, argon2, base64ct, digest, ghash, password-hash and\npolyval releases, among other RustCrypto crates. Accept RustCrypto maintenance\nand this account's packaging/release process. Publisher-wide acceptance includes\nfuture dependencies from this account; it does not assert an independent source\nreview, expert cryptographic audit or safe-to-deploy certification.\nSources: https://github.com/orgs/RustCrypto/people and https://github.com/RustCrypto\n"
+
 [[trusted."aho-corasick"]]
 criteria = ["safe-to-run"]
 user-id = 189
 start = "2019-02-25"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 189: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted."alloc-no-stdlib"]]
+criteria = ["safe-to-run"]
+user-id = 4185
+start = "2022-09-12"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Daniel Reiter Horn (danielrh): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nDaniel Reiter Horn is the author of Dropbox's Rust Brotli and allocation-helper\ncrates and the verified publisher of the locked brotli, brotli-decompressor,\nalloc-no-stdlib and alloc-stdlib releases. Accept this upstream implementation,\nmaintenance, packaging and release process across both Brotli generations in\nthe graph. Publisher-wide acceptance includes future dependencies from this\naccount; no independent source review or parser-hardening audit.\nSources: https://github.com/dropbox/rust-brotli and https://github.com/dropbox/rust-alloc-no-stdlib\n"
+
+[[trusted."alloc-stdlib"]]
+criteria = ["safe-to-run"]
+user-id = 4185
+start = "2022-09-12"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Daniel Reiter Horn (danielrh): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nDaniel Reiter Horn is the author of Dropbox's Rust Brotli and allocation-helper\ncrates and the verified publisher of the locked brotli, brotli-decompressor,\nalloc-no-stdlib and alloc-stdlib releases. Accept this upstream implementation,\nmaintenance, packaging and release process across both Brotli generations in\nthe graph. Publisher-wide acceptance includes future dependencies from this\naccount; no independent source review or parser-hardening audit.\nSources: https://github.com/dropbox/rust-brotli and https://github.com/dropbox/rust-alloc-no-stdlib\n"
 
 [[trusted."anstream"]]
 criteria = ["safe-to-run"]
@@ -104,6 +137,20 @@ start = "2019-07-30"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 696: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml); no independent source review."
 
+[[trusted."arg_enum_proc_macro"]]
+criteria = ["safe-to-run"]
+user-id = 4718
+start = "2019-10-06"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Luca Barbato (lu-zero): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nLuca Barbato is an established Xiph/rust-av maintainer and verified publisher of\nrav1e, v_frame, arg_enum_proc_macro, interpolate_name, noop_proc_macro and\nsimd_helpers. Accept this upstream maintenance, native/assembly integration,\nbuild-time macro behavior, packaging and release process. Publisher-wide\nacceptance includes future dependencies from this account; no independent source\nreview. Separate publishers of rav1e's dependencies need their own evidence.\nSources: https://github.com/lu-zero and https://github.com/xiph/rav1e\n"
+
+[[trusted."argon2"]]
+criteria = ["safe-to-run"]
+user-id = 267
+start = "2023-03-04"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Tony Arcieri (tarcieri): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTony Arcieri is an established RustCrypto maintainer and verified publisher of\nthe graph's aead, aes, aes-gcm, argon2, base64ct, digest, ghash, password-hash and\npolyval releases, among other RustCrypto crates. Accept RustCrypto maintenance\nand this account's packaging/release process. Publisher-wide acceptance includes\nfuture dependencies from this account; it does not assert an independent source\nreview, expert cryptographic audit or safe-to-deploy certification.\nSources: https://github.com/orgs/RustCrypto/people and https://github.com/RustCrypto\n"
+
 [[trusted."async-trait"]]
 criteria = ["safe-to-run"]
 user-id = 3618
@@ -117,6 +164,90 @@ user-id = 539
 start = "2019-06-10"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 539: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted."av-scenechange"]]
+criteria = ["safe-to-run"]
+user-id = 3357
+start = "2023-02-03"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Josh Holmer (shssoichiro): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nJosh Holmer is the upstream rust-av scene-change/grain maintainer and verified\npublisher of av-scenechange, av1-grain and maybe-rayon releases in the graph.\nAccept this maintainer's implementation, packaging and release process. This is\na separate decision from trusting rav1e's lu-zero publisher. Publisher-wide\nacceptance includes future dependencies from this account; no independent source\nreview or codec-hardening audit.\nSources: https://github.com/rust-av/av-scenechange and https://github.com/rust-av/av1-grain\n"
+
+[[trusted."av1-grain"]]
+criteria = ["safe-to-run"]
+user-id = 3357
+start = "2023-02-03"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Josh Holmer (shssoichiro): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nJosh Holmer is the upstream rust-av scene-change/grain maintainer and verified\npublisher of av-scenechange, av1-grain and maybe-rayon releases in the graph.\nAccept this maintainer's implementation, packaging and release process. This is\na separate decision from trusting rav1e's lu-zero publisher. Publisher-wide\nacceptance includes future dependencies from this account; no independent source\nreview or codec-hardening audit.\nSources: https://github.com/rust-av/av-scenechange and https://github.com/rust-av/av1-grain\n"
+
+[[trusted."avif-serialize"]]
+criteria = ["safe-to-run"]
+user-id = 988
+start = "2023-07-21"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Kornel Lesinski (kornelski): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nKornel Lesinski is an established Rust imaging/platform maintainer and verified\npublisher of avif-serialize, imgref, loop9, ravif, rgb, urlencoding and the\nsecurity-framework crates. Accept his upstream maintenance, native/platform\nintegration, packaging and release process. Publisher-wide acceptance includes\nfuture dependencies from this account, beyond these motivating crates; no\nindependent source review or codec-hardening audit.\nSource: https://github.com/kornelski\n"
+
+[[trusted."aws-lc-rs"]]
+criteria = ["safe-to-run"]
+user-id = 156764
+start = "2026-10-28"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Justin W Smith (justsmth): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nJustin W Smith is an AWS Cryptography maintainer and the verified publisher of\nthe locked aws-lc-rs/aws-lc-sys releases. Accept AWS's maintenance and release\nprocess, including the bundled native AWS-LC implementation, Rust bindings,\npackaging and build behavior. This is publisher-wide acceptance, including future\ndependencies from this account; no independent source or cryptographic audit.\nSources: https://github.com/justsmth and https://github.com/aws/aws-lc-rs/releases\n"
+
+[[trusted."aws-lc-sys"]]
+criteria = ["safe-to-run"]
+user-id = 156764
+start = "2026-10-28"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Justin W Smith (justsmth): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nJustin W Smith is an AWS Cryptography maintainer and the verified publisher of\nthe locked aws-lc-rs/aws-lc-sys releases. Accept AWS's maintenance and release\nprocess, including the bundled native AWS-LC implementation, Rust bindings,\npackaging and build behavior. This is publisher-wide acceptance, including future\ndependencies from this account; no independent source or cryptographic audit.\nSources: https://github.com/justsmth and https://github.com/aws/aws-lc-rs/releases\n"
+
+[[trusted."base64ct"]]
+criteria = ["safe-to-run"]
+user-id = 267
+start = "2023-03-04"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Tony Arcieri (tarcieri): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTony Arcieri is an established RustCrypto maintainer and verified publisher of\nthe graph's aead, aes, aes-gcm, argon2, base64ct, digest, ghash, password-hash and\npolyval releases, among other RustCrypto crates. Accept RustCrypto maintenance\nand this account's packaging/release process. Publisher-wide acceptance includes\nfuture dependencies from this account; it does not assert an independent source\nreview, expert cryptographic audit or safe-to-deploy certification.\nSources: https://github.com/orgs/RustCrypto/people and https://github.com/RustCrypto\n"
+
+[[trusted."bitflags"]]
+criteria = ["safe-to-run"]
+user-id = 3204
+start = "2025-12-02"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Ashley Mannix (KodrAus): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nAshley Mannix is an established bitflags/UUID maintainer and verified publisher\nof the locked bitflags and UUID releases in both projects. Accept his upstream\nmaintenance, packaging and release process. Publisher-wide acceptance includes\nother account-published releases such as log and future dependencies from this\naccount; no independent source review. CI-published releases in the same\nprojects use separate identities and are not accepted by this account entry.\nSources: https://github.com/KodrAus and https://github.com/uuid-rs/uuid\n"
+
+[[trusted."bitpacking"]]
+criteria = ["safe-to-run"]
+user-id = 4674
+start = "2021-05-18"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Paul Masurel (fulmicoton): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nPaul Masurel is the Tantivy author and verified publisher of the locked search\nengine, bitpacking, census, fastdivide, levenshtein_automata, murmurhash32 and\nTantivy helper releases. Accept this upstream author's implementation,\nmaintenance, packaging and release process. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review. This does\nnot accept releases from separate publishers of Tantivy's dependencies.\nSources: https://github.com/fulmicoton and https://github.com/quickwit-oss/tantivy\n"
+
+[[trusted."blake2"]]
+criteria = ["safe-to-run"]
+user-id = 5059
+start = "2022-09-30"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Artyom Pavlov (newpavlov): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nArtyom Pavlov is an established RustCrypto maintainer and verified publisher of\nthe locked blake2, crypto-common and ctr releases, among other RustCrypto crates.\nAccept RustCrypto maintenance and this account's packaging/release process as\na separate authority from tarcieri. Publisher-wide acceptance includes future\ndependencies from this account; no independent source or cryptographic audit.\nThis account decision does not accept RustCrypto CI publisher signatures.\nSources: https://github.com/orgs/RustCrypto/people and https://github.com/RustCrypto\n"
+
+[[trusted."block-buffer"]]
+criteria = ["safe-to-run"]
+user-id = 5059
+start = "2022-09-30"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Artyom Pavlov (newpavlov): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nArtyom Pavlov is an established RustCrypto maintainer and verified publisher of\nthe locked blake2, crypto-common and ctr releases, among other RustCrypto crates.\nAccept RustCrypto maintenance and this account's packaging/release process as\na separate authority from tarcieri. Publisher-wide acceptance includes future\ndependencies from this account; no independent source or cryptographic audit.\nThis account decision does not accept RustCrypto CI publisher signatures.\nSources: https://github.com/orgs/RustCrypto/people and https://github.com/RustCrypto\n"
+
+[[trusted."brotli"]]
+criteria = ["safe-to-run"]
+user-id = 4185
+start = "2022-09-12"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Daniel Reiter Horn (danielrh): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nDaniel Reiter Horn is the author of Dropbox's Rust Brotli and allocation-helper\ncrates and the verified publisher of the locked brotli, brotli-decompressor,\nalloc-no-stdlib and alloc-stdlib releases. Accept this upstream implementation,\nmaintenance, packaging and release process across both Brotli generations in\nthe graph. Publisher-wide acceptance includes future dependencies from this\naccount; no independent source review or parser-hardening audit.\nSources: https://github.com/dropbox/rust-brotli and https://github.com/dropbox/rust-alloc-no-stdlib\n"
+
+[[trusted."brotli-decompressor"]]
+criteria = ["safe-to-run"]
+user-id = 4185
+start = "2022-09-12"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Daniel Reiter Horn (danielrh): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nDaniel Reiter Horn is the author of Dropbox's Rust Brotli and allocation-helper\ncrates and the verified publisher of the locked brotli, brotli-decompressor,\nalloc-no-stdlib and alloc-stdlib releases. Accept this upstream implementation,\nmaintenance, packaging and release process across both Brotli generations in\nthe graph. Publisher-wide acceptance includes future dependencies from this\naccount; no independent source review or parser-hardening audit.\nSources: https://github.com/dropbox/rust-brotli and https://github.com/dropbox/rust-alloc-no-stdlib\n"
 
 [[trusted."bumpalo"]]
 criteria = ["safe-to-run"]
@@ -139,12 +270,26 @@ start = "2020-10-26"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 6741: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
 
+[[trusted."census"]]
+criteria = ["safe-to-run"]
+user-id = 4674
+start = "2021-05-18"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Paul Masurel (fulmicoton): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nPaul Masurel is the Tantivy author and verified publisher of the locked search\nengine, bitpacking, census, fastdivide, levenshtein_automata, murmurhash32 and\nTantivy helper releases. Accept this upstream author's implementation,\nmaintenance, packaging and release process. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review. This does\nnot accept releases from separate publishers of Tantivy's dependencies.\nSources: https://github.com/fulmicoton and https://github.com/quickwit-oss/tantivy\n"
+
 [[trusted."cfg-if"]]
 criteria = ["safe-to-run"]
 user-id = 55123
 start = "2022-10-29"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 55123: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted."cipher"]]
+criteria = ["safe-to-run"]
+user-id = 5059
+start = "2022-09-30"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Artyom Pavlov (newpavlov): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nArtyom Pavlov is an established RustCrypto maintainer and verified publisher of\nthe locked blake2, crypto-common and ctr releases, among other RustCrypto crates.\nAccept RustCrypto maintenance and this account's packaging/release process as\na separate authority from tarcieri. Publisher-wide acceptance includes future\ndependencies from this account; no independent source or cryptographic audit.\nThis account decision does not accept RustCrypto CI publisher signatures.\nSources: https://github.com/orgs/RustCrypto/people and https://github.com/RustCrypto\n"
 
 [[trusted."clap"]]
 criteria = ["safe-to-run"]
@@ -188,6 +333,62 @@ start = "2019-04-08"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 6743: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
 
+[[trusted."cpufeatures"]]
+criteria = ["safe-to-run"]
+user-id = 267
+start = "2023-03-04"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Tony Arcieri (tarcieri): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTony Arcieri is an established RustCrypto maintainer and verified publisher of\nthe graph's aead, aes, aes-gcm, argon2, base64ct, digest, ghash, password-hash and\npolyval releases, among other RustCrypto crates. Accept RustCrypto maintenance\nand this account's packaging/release process. Publisher-wide acceptance includes\nfuture dependencies from this account; it does not assert an independent source\nreview, expert cryptographic audit or safe-to-deploy certification.\nSources: https://github.com/orgs/RustCrypto/people and https://github.com/RustCrypto\n"
+
+[[trusted."crossbeam-channel"]]
+criteria = ["safe-to-run"]
+user-id = 33035
+start = "2026-02-15"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Taiki Endo (taiki-e): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTaiki Endo is an established Rust concurrency/tooling maintainer and verified\npublisher of the locked Crossbeam, fastrand and futures releases. Accept his\nupstream maintenance, packaging and release process. Publisher-wide acceptance\nincludes future dependencies from this account; no independent source review.\nThe separate github:taiki-e/pin-project-lite CI identity is not accepted by this\nnumeric account decision and still needs its own policy decision.\nSources: https://github.com/taiki-e and https://github.com/crossbeam-rs/crossbeam\n"
+
+[[trusted."crossbeam-deque"]]
+criteria = ["safe-to-run"]
+user-id = 33035
+start = "2026-02-15"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Taiki Endo (taiki-e): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTaiki Endo is an established Rust concurrency/tooling maintainer and verified\npublisher of the locked Crossbeam, fastrand and futures releases. Accept his\nupstream maintenance, packaging and release process. Publisher-wide acceptance\nincludes future dependencies from this account; no independent source review.\nThe separate github:taiki-e/pin-project-lite CI identity is not accepted by this\nnumeric account decision and still needs its own policy decision.\nSources: https://github.com/taiki-e and https://github.com/crossbeam-rs/crossbeam\n"
+
+[[trusted."crossbeam-epoch"]]
+criteria = ["safe-to-run"]
+user-id = 33035
+start = "2026-02-15"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Taiki Endo (taiki-e): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTaiki Endo is an established Rust concurrency/tooling maintainer and verified\npublisher of the locked Crossbeam, fastrand and futures releases. Accept his\nupstream maintenance, packaging and release process. Publisher-wide acceptance\nincludes future dependencies from this account; no independent source review.\nThe separate github:taiki-e/pin-project-lite CI identity is not accepted by this\nnumeric account decision and still needs its own policy decision.\nSources: https://github.com/taiki-e and https://github.com/crossbeam-rs/crossbeam\n"
+
+[[trusted."crossbeam-utils"]]
+criteria = ["safe-to-run"]
+user-id = 33035
+start = "2026-02-15"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Taiki Endo (taiki-e): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTaiki Endo is an established Rust concurrency/tooling maintainer and verified\npublisher of the locked Crossbeam, fastrand and futures releases. Accept his\nupstream maintenance, packaging and release process. Publisher-wide acceptance\nincludes future dependencies from this account; no independent source review.\nThe separate github:taiki-e/pin-project-lite CI identity is not accepted by this\nnumeric account decision and still needs its own policy decision.\nSources: https://github.com/taiki-e and https://github.com/crossbeam-rs/crossbeam\n"
+
+[[trusted."crypto-common"]]
+criteria = ["safe-to-run"]
+user-id = 5059
+start = "2022-09-30"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Artyom Pavlov (newpavlov): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nArtyom Pavlov is an established RustCrypto maintainer and verified publisher of\nthe locked blake2, crypto-common and ctr releases, among other RustCrypto crates.\nAccept RustCrypto maintenance and this account's packaging/release process as\na separate authority from tarcieri. Publisher-wide acceptance includes future\ndependencies from this account; no independent source or cryptographic audit.\nThis account decision does not accept RustCrypto CI publisher signatures.\nSources: https://github.com/orgs/RustCrypto/people and https://github.com/RustCrypto\n"
+
+[[trusted."ctr"]]
+criteria = ["safe-to-run"]
+user-id = 5059
+start = "2022-09-30"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Artyom Pavlov (newpavlov): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nArtyom Pavlov is an established RustCrypto maintainer and verified publisher of\nthe locked blake2, crypto-common and ctr releases, among other RustCrypto crates.\nAccept RustCrypto maintenance and this account's packaging/release process as\na separate authority from tarcieri. Publisher-wide acceptance includes future\ndependencies from this account; no independent source or cryptographic audit.\nThis account decision does not accept RustCrypto CI publisher signatures.\nSources: https://github.com/orgs/RustCrypto/people and https://github.com/RustCrypto\n"
+
+[[trusted."digest"]]
+criteria = ["safe-to-run"]
+user-id = 267
+start = "2023-03-04"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Tony Arcieri (tarcieri): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTony Arcieri is an established RustCrypto maintainer and verified publisher of\nthe graph's aead, aes, aes-gcm, argon2, base64ct, digest, ghash, password-hash and\npolyval releases, among other RustCrypto crates. Accept RustCrypto maintenance\nand this account's packaging/release process. Publisher-wide acceptance includes\nfuture dependencies from this account; it does not assert an independent source\nreview, expert cryptographic audit or safe-to-deploy certification.\nSources: https://github.com/orgs/RustCrypto/people and https://github.com/RustCrypto\n"
+
 [[trusted."displaydoc"]]
 criteria = ["safe-to-run"]
 user-id = 1139
@@ -195,12 +396,26 @@ start = "2020-04-29"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 1139: Automatically inherited publisher-wide from mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
 
+[[trusted."dunce"]]
+criteria = ["safe-to-run"]
+user-id = 988
+start = "2023-07-21"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Kornel Lesinski (kornelski): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nKornel Lesinski is an established Rust imaging/platform maintainer and verified\npublisher of avif-serialize, imgref, loop9, ravif, rgb, urlencoding and the\nsecurity-framework crates. Accept his upstream maintenance, native/platform\nintegration, packaging and release process. Publisher-wide acceptance includes\nfuture dependencies from this account, beyond these motivating crates; no\nindependent source review or codec-hardening audit.\nSource: https://github.com/kornelski\n"
+
 [[trusted."either"]]
 criteria = ["safe-to-run"]
 user-id = 539
 start = "2019-06-10"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 539: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted."encoding_rs"]]
+criteria = ["safe-to-run"]
+user-id = 4484
+start = "2026-04-27"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Henri Sivonen (hsivonen): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nHenri Sivonen is an established upstream IDNA/encoding developer and verified\npublisher of idna_adapter and encoding/helper releases in the graph. Accept his\nupstream maintenance, packaging and release process for Unicode and encoding\nintegration. Publisher-wide acceptance includes future dependencies from this\naccount; no independent source review. Other ICU4X publisher accounts are\nseparate release authorities and require their own evidence.\nSource: https://github.com/hsivonen\n"
 
 [[trusted."env_logger"]]
 criteria = ["safe-to-run"]
@@ -230,6 +445,20 @@ start = "2019-03-06"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 6825: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
 
+[[trusted."fastdivide"]]
+criteria = ["safe-to-run"]
+user-id = 4674
+start = "2021-05-18"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Paul Masurel (fulmicoton): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nPaul Masurel is the Tantivy author and verified publisher of the locked search\nengine, bitpacking, census, fastdivide, levenshtein_automata, murmurhash32 and\nTantivy helper releases. Accept this upstream author's implementation,\nmaintenance, packaging and release process. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review. This does\nnot accept releases from separate publishers of Tantivy's dependencies.\nSources: https://github.com/fulmicoton and https://github.com/quickwit-oss/tantivy\n"
+
+[[trusted."fastrand"]]
+criteria = ["safe-to-run"]
+user-id = 33035
+start = "2026-02-15"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Taiki Endo (taiki-e): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTaiki Endo is an established Rust concurrency/tooling maintainer and verified\npublisher of the locked Crossbeam, fastrand and futures releases. Accept his\nupstream maintenance, packaging and release process. Publisher-wide acceptance\nincludes future dependencies from this account; no independent source review.\nThe separate github:taiki-e/pin-project-lite CI identity is not accepted by this\nnumeric account decision and still needs its own policy decision.\nSources: https://github.com/taiki-e and https://github.com/crossbeam-rs/crossbeam\n"
+
 [[trusted."filetime"]]
 criteria = ["safe-to-run"]
 user-id = 1
@@ -243,6 +472,69 @@ user-id = 1139
 start = "2020-04-29"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 1139: Automatically inherited publisher-wide from mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted."futures-channel"]]
+criteria = ["safe-to-run"]
+user-id = 33035
+start = "2026-02-15"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Taiki Endo (taiki-e): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTaiki Endo is an established Rust concurrency/tooling maintainer and verified\npublisher of the locked Crossbeam, fastrand and futures releases. Accept his\nupstream maintenance, packaging and release process. Publisher-wide acceptance\nincludes future dependencies from this account; no independent source review.\nThe separate github:taiki-e/pin-project-lite CI identity is not accepted by this\nnumeric account decision and still needs its own policy decision.\nSources: https://github.com/taiki-e and https://github.com/crossbeam-rs/crossbeam\n"
+
+[[trusted."futures-core"]]
+criteria = ["safe-to-run"]
+user-id = 33035
+start = "2026-02-15"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Taiki Endo (taiki-e): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTaiki Endo is an established Rust concurrency/tooling maintainer and verified\npublisher of the locked Crossbeam, fastrand and futures releases. Accept his\nupstream maintenance, packaging and release process. Publisher-wide acceptance\nincludes future dependencies from this account; no independent source review.\nThe separate github:taiki-e/pin-project-lite CI identity is not accepted by this\nnumeric account decision and still needs its own policy decision.\nSources: https://github.com/taiki-e and https://github.com/crossbeam-rs/crossbeam\n"
+
+[[trusted."futures-io"]]
+criteria = ["safe-to-run"]
+user-id = 33035
+start = "2026-02-15"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Taiki Endo (taiki-e): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTaiki Endo is an established Rust concurrency/tooling maintainer and verified\npublisher of the locked Crossbeam, fastrand and futures releases. Accept his\nupstream maintenance, packaging and release process. Publisher-wide acceptance\nincludes future dependencies from this account; no independent source review.\nThe separate github:taiki-e/pin-project-lite CI identity is not accepted by this\nnumeric account decision and still needs its own policy decision.\nSources: https://github.com/taiki-e and https://github.com/crossbeam-rs/crossbeam\n"
+
+[[trusted."futures-macro"]]
+criteria = ["safe-to-run"]
+user-id = 33035
+start = "2026-02-15"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Taiki Endo (taiki-e): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTaiki Endo is an established Rust concurrency/tooling maintainer and verified\npublisher of the locked Crossbeam, fastrand and futures releases. Accept his\nupstream maintenance, packaging and release process. Publisher-wide acceptance\nincludes future dependencies from this account; no independent source review.\nThe separate github:taiki-e/pin-project-lite CI identity is not accepted by this\nnumeric account decision and still needs its own policy decision.\nSources: https://github.com/taiki-e and https://github.com/crossbeam-rs/crossbeam\n"
+
+[[trusted."futures-sink"]]
+criteria = ["safe-to-run"]
+user-id = 33035
+start = "2026-02-15"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Taiki Endo (taiki-e): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTaiki Endo is an established Rust concurrency/tooling maintainer and verified\npublisher of the locked Crossbeam, fastrand and futures releases. Accept his\nupstream maintenance, packaging and release process. Publisher-wide acceptance\nincludes future dependencies from this account; no independent source review.\nThe separate github:taiki-e/pin-project-lite CI identity is not accepted by this\nnumeric account decision and still needs its own policy decision.\nSources: https://github.com/taiki-e and https://github.com/crossbeam-rs/crossbeam\n"
+
+[[trusted."futures-task"]]
+criteria = ["safe-to-run"]
+user-id = 33035
+start = "2026-02-15"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Taiki Endo (taiki-e): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTaiki Endo is an established Rust concurrency/tooling maintainer and verified\npublisher of the locked Crossbeam, fastrand and futures releases. Accept his\nupstream maintenance, packaging and release process. Publisher-wide acceptance\nincludes future dependencies from this account; no independent source review.\nThe separate github:taiki-e/pin-project-lite CI identity is not accepted by this\nnumeric account decision and still needs its own policy decision.\nSources: https://github.com/taiki-e and https://github.com/crossbeam-rs/crossbeam\n"
+
+[[trusted."futures-util"]]
+criteria = ["safe-to-run"]
+user-id = 33035
+start = "2026-02-15"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Taiki Endo (taiki-e): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTaiki Endo is an established Rust concurrency/tooling maintainer and verified\npublisher of the locked Crossbeam, fastrand and futures releases. Accept his\nupstream maintenance, packaging and release process. Publisher-wide acceptance\nincludes future dependencies from this account; no independent source review.\nThe separate github:taiki-e/pin-project-lite CI identity is not accepted by this\nnumeric account decision and still needs its own policy decision.\nSources: https://github.com/taiki-e and https://github.com/crossbeam-rs/crossbeam\n"
+
+[[trusted."ghash"]]
+criteria = ["safe-to-run"]
+user-id = 267
+start = "2023-03-04"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Tony Arcieri (tarcieri): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTony Arcieri is an established RustCrypto maintainer and verified publisher of\nthe graph's aead, aes, aes-gcm, argon2, base64ct, digest, ghash, password-hash and\npolyval releases, among other RustCrypto crates. Accept RustCrypto maintenance\nand this account's packaging/release process. Publisher-wide acceptance includes\nfuture dependencies from this account; it does not assert an independent source\nreview, expert cryptographic audit or safe-to-deploy certification.\nSources: https://github.com/orgs/RustCrypto/people and https://github.com/RustCrypto\n"
+
+[[trusted."gif"]]
+criteria = ["safe-to-run"]
+user-id = 11453
+start = "2025-11-11"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. 197g: Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nThis is the verified publisher of the canonical image-rs image, png, gif, tiff\nand weezl releases in the graph. Accept the image-rs maintenance, packaging and\nrelease process represented by this account. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review or image\nparser-hardening audit. image-rs using a dependency is not evidence that its\nseparately published code was audited or is covered by this account decision.\nSources: https://github.com/197g and https://github.com/image-rs/image\n"
 
 [[trusted."hashbrown"]]
 criteria = ["safe-to-run"]
@@ -363,12 +655,47 @@ start = "2022-10-08"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 166196: Automatically inherited publisher-wide from mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
 
+[[trusted."idna_adapter"]]
+criteria = ["safe-to-run"]
+user-id = 4484
+start = "2026-04-27"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Henri Sivonen (hsivonen): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nHenri Sivonen is an established upstream IDNA/encoding developer and verified\npublisher of idna_adapter and encoding/helper releases in the graph. Accept his\nupstream maintenance, packaging and release process for Unicode and encoding\nintegration. Publisher-wide acceptance includes future dependencies from this\naccount; no independent source review. Other ICU4X publisher accounts are\nseparate release authorities and require their own evidence.\nSource: https://github.com/hsivonen\n"
+
+[[trusted."image"]]
+criteria = ["safe-to-run"]
+user-id = 11453
+start = "2025-11-11"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. 197g: Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nThis is the verified publisher of the canonical image-rs image, png, gif, tiff\nand weezl releases in the graph. Accept the image-rs maintenance, packaging and\nrelease process represented by this account. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review or image\nparser-hardening audit. image-rs using a dependency is not evidence that its\nseparately published code was audited or is covered by this account decision.\nSources: https://github.com/197g and https://github.com/image-rs/image\n"
+
+[[trusted."imgref"]]
+criteria = ["safe-to-run"]
+user-id = 988
+start = "2023-07-21"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Kornel Lesinski (kornelski): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nKornel Lesinski is an established Rust imaging/platform maintainer and verified\npublisher of avif-serialize, imgref, loop9, ravif, rgb, urlencoding and the\nsecurity-framework crates. Accept his upstream maintenance, native/platform\nintegration, packaging and release process. Publisher-wide acceptance includes\nfuture dependencies from this account, beyond these motivating crates; no\nindependent source review or codec-hardening audit.\nSource: https://github.com/kornelski\n"
+
 [[trusted."indexmap"]]
 criteria = ["safe-to-run"]
 user-id = 539
 start = "2019-06-10"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 539: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted."inout"]]
+criteria = ["safe-to-run"]
+user-id = 5059
+start = "2022-09-30"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Artyom Pavlov (newpavlov): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nArtyom Pavlov is an established RustCrypto maintainer and verified publisher of\nthe locked blake2, crypto-common and ctr releases, among other RustCrypto crates.\nAccept RustCrypto maintenance and this account's packaging/release process as\na separate authority from tarcieri. Publisher-wide acceptance includes future\ndependencies from this account; no independent source or cryptographic audit.\nThis account decision does not accept RustCrypto CI publisher signatures.\nSources: https://github.com/orgs/RustCrypto/people and https://github.com/RustCrypto\n"
+
+[[trusted."interpolate_name"]]
+criteria = ["safe-to-run"]
+user-id = 4718
+start = "2019-10-06"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Luca Barbato (lu-zero): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nLuca Barbato is an established Xiph/rust-av maintainer and verified publisher of\nrav1e, v_frame, arg_enum_proc_macro, interpolate_name, noop_proc_macro and\nsimd_helpers. Accept this upstream maintenance, native/assembly integration,\nbuild-time macro behavior, packaging and release process. Publisher-wide\nacceptance includes future dependencies from this account; no independent source\nreview. Separate publishers of rav1e's dependencies need their own evidence.\nSources: https://github.com/lu-zero and https://github.com/xiph/rav1e\n"
 
 [[trusted."inventory"]]
 criteria = ["safe-to-run"]
@@ -412,6 +739,13 @@ start = "2022-10-29"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 55123: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
 
+[[trusted."levenshtein_automata"]]
+criteria = ["safe-to-run"]
+user-id = 4674
+start = "2021-05-18"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Paul Masurel (fulmicoton): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nPaul Masurel is the Tantivy author and verified publisher of the locked search\nengine, bitpacking, census, fastdivide, levenshtein_automata, murmurhash32 and\nTantivy helper releases. Accept this upstream author's implementation,\nmaintenance, packaging and release process. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review. This does\nnot accept releases from separate publishers of Tantivy's dependencies.\nSources: https://github.com/fulmicoton and https://github.com/quickwit-oss/tantivy\n"
+
 [[trusted."libfuzzer-sys"]]
 criteria = ["safe-to-run"]
 user-id = 696
@@ -426,12 +760,47 @@ start = "2019-03-06"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 6825: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
 
+[[trusted."litemap"]]
+criteria = ["safe-to-run"]
+user-id = 128408
+start = "2026-05-12"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Shane F. Carr (sffc): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nShane F. Carr is an ICU4X maintainer and verified publisher of the locked litemap,\npotential_utf, writeable, zerofrom, zerofrom-derive and zerotrie releases. Accept\nICU4X maintenance and this account's macro, packaging and release process. The\nhistorical Manishearth endorsement does not cover these releases; this is an\nexplicit decision for their actual publisher. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review.\nSources: https://github.com/sffc and https://github.com/unicode-org/icu4x\n"
+
 [[trusted."lock_api"]]
 criteria = ["safe-to-run"]
 user-id = 2915
 start = "2019-02-22"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 2915: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted."loop9"]]
+criteria = ["safe-to-run"]
+user-id = 988
+start = "2023-07-21"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Kornel Lesinski (kornelski): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nKornel Lesinski is an established Rust imaging/platform maintainer and verified\npublisher of avif-serialize, imgref, loop9, ravif, rgb, urlencoding and the\nsecurity-framework crates. Accept his upstream maintenance, native/platform\nintegration, packaging and release process. Publisher-wide acceptance includes\nfuture dependencies from this account, beyond these motivating crates; no\nindependent source review or codec-hardening audit.\nSource: https://github.com/kornelski\n"
+
+[[trusted."lz4_flex"]]
+criteria = ["safe-to-run"]
+user-id = 6354
+start = "2023-11-21"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Pascal Seitz (PSeitz): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nPascal Seitz is a Tantivy maintainer and lz4_flex author, and the verified\npublisher of tantivy-fst, tantivy-tokenizer-api, ownedbytes, measure_time and\nlz4_flex releases in the graph. Accept his maintenance, packaging and release\nprocess, including the Tantivy FST fork. This is trust in the current publisher,\nnot inherited trust in the original FST author. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review.\nSources: https://github.com/PSeitz and https://github.com/quickwit-oss/tantivy\n"
+
+[[trusted."maybe-rayon"]]
+criteria = ["safe-to-run"]
+user-id = 3357
+start = "2023-02-03"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Josh Holmer (shssoichiro): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nJosh Holmer is the upstream rust-av scene-change/grain maintainer and verified\npublisher of av-scenechange, av1-grain and maybe-rayon releases in the graph.\nAccept this maintainer's implementation, packaging and release process. This is\na separate decision from trusting rav1e's lu-zero publisher. Publisher-wide\nacceptance includes future dependencies from this account; no independent source\nreview or codec-hardening audit.\nSources: https://github.com/rust-av/av-scenechange and https://github.com/rust-av/av1-grain\n"
+
+[[trusted."measure_time"]]
+criteria = ["safe-to-run"]
+user-id = 6354
+start = "2023-11-21"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Pascal Seitz (PSeitz): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nPascal Seitz is a Tantivy maintainer and lz4_flex author, and the verified\npublisher of tantivy-fst, tantivy-tokenizer-api, ownedbytes, measure_time and\nlz4_flex releases in the graph. Accept his maintenance, packaging and release\nprocess, including the Tantivy FST fork. This is trust in the current publisher,\nnot inherited trust in the original FST author. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review.\nSources: https://github.com/PSeitz and https://github.com/quickwit-oss/tantivy\n"
 
 [[trusted."memchr"]]
 criteria = ["safe-to-run"]
@@ -454,6 +823,20 @@ start = "2019-12-17"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 6025: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
 
+[[trusted."multiversion_no_op"]]
+criteria = ["safe-to-run"]
+user-id = 4484
+start = "2026-04-27"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Henri Sivonen (hsivonen): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nHenri Sivonen is an established upstream IDNA/encoding developer and verified\npublisher of idna_adapter and encoding/helper releases in the graph. Accept his\nupstream maintenance, packaging and release process for Unicode and encoding\nintegration. Publisher-wide acceptance includes future dependencies from this\naccount; no independent source review. Other ICU4X publisher accounts are\nseparate release authorities and require their own evidence.\nSource: https://github.com/hsivonen\n"
+
+[[trusted."murmurhash32"]]
+criteria = ["safe-to-run"]
+user-id = 4674
+start = "2021-05-18"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Paul Masurel (fulmicoton): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nPaul Masurel is the Tantivy author and verified publisher of the locked search\nengine, bitpacking, census, fastdivide, levenshtein_automata, murmurhash32 and\nTantivy helper releases. Accept this upstream author's implementation,\nmaintenance, packaging and release process. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review. This does\nnot accept releases from separate publishers of Tantivy's dependencies.\nSources: https://github.com/fulmicoton and https://github.com/quickwit-oss/tantivy\n"
+
 [[trusted."new_debug_unreachable"]]
 criteria = ["safe-to-run"]
 user-id = 2017
@@ -461,12 +844,26 @@ start = "2019-03-13"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 2017: Automatically inherited publisher-wide from mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
 
+[[trusted."noop_proc_macro"]]
+criteria = ["safe-to-run"]
+user-id = 4718
+start = "2019-10-06"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Luca Barbato (lu-zero): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nLuca Barbato is an established Xiph/rust-av maintainer and verified publisher of\nrav1e, v_frame, arg_enum_proc_macro, interpolate_name, noop_proc_macro and\nsimd_helpers. Accept this upstream maintenance, native/assembly integration,\nbuild-time macro behavior, packaging and release process. Publisher-wide\nacceptance includes future dependencies from this account; no independent source\nreview. Separate publishers of rav1e's dependencies need their own evidence.\nSources: https://github.com/lu-zero and https://github.com/xiph/rav1e\n"
+
 [[trusted."num-bigint"]]
 criteria = ["safe-to-run"]
 user-id = 539
 start = "2019-06-10"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 539: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted."num-conv"]]
+criteria = ["safe-to-run"]
+user-id = 15682
+start = "2026-05-18"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Jacob Pratt (jhpratt): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nJacob Pratt is a Time ecosystem maintainer and verified publisher of powerfmt\nand num-conv releases in the graph. Accept his upstream maintenance, packaging\nand release process. Publisher-wide acceptance includes future dependencies\nfrom this account; no independent source review. The github:time-rs/time and\ngithub:jhpratt/deranged CI publishers are separate identities that require\ntheir own policy decisions.\nSources: https://github.com/jhpratt and https://github.com/time-rs/time\n"
 
 [[trusted."num-derive"]]
 criteria = ["safe-to-run"]
@@ -510,6 +907,13 @@ start = "2019-04-08"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 6743: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
 
+[[trusted."opaque-debug"]]
+criteria = ["safe-to-run"]
+user-id = 5059
+start = "2022-09-30"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Artyom Pavlov (newpavlov): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nArtyom Pavlov is an established RustCrypto maintainer and verified publisher of\nthe locked blake2, crypto-common and ctr releases, among other RustCrypto crates.\nAccept RustCrypto maintenance and this account's packaging/release process as\na separate authority from tarcieri. Publisher-wide acceptance includes future\ndependencies from this account; no independent source or cryptographic audit.\nThis account decision does not accept RustCrypto CI publisher signatures.\nSources: https://github.com/orgs/RustCrypto/people and https://github.com/RustCrypto\n"
+
 [[trusted."openssl-probe"]]
 criteria = ["safe-to-run"]
 user-id = 4556
@@ -523,6 +927,13 @@ user-id = 2017
 start = "2019-03-13"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 2017: Automatically inherited publisher-wide from mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted."ownedbytes"]]
+criteria = ["safe-to-run"]
+user-id = 6354
+start = "2023-11-21"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Pascal Seitz (PSeitz): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nPascal Seitz is a Tantivy maintainer and lz4_flex author, and the verified\npublisher of tantivy-fst, tantivy-tokenizer-api, ownedbytes, measure_time and\nlz4_flex releases in the graph. Accept his maintenance, packaging and release\nprocess, including the Tantivy FST fork. This is trust in the current publisher,\nnot inherited trust in the original FST author. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review.\nSources: https://github.com/PSeitz and https://github.com/quickwit-oss/tantivy\n"
 
 [[trusted."parking_lot"]]
 criteria = ["safe-to-run"]
@@ -538,6 +949,13 @@ start = "2019-02-22"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 2915: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
 
+[[trusted."password-hash"]]
+criteria = ["safe-to-run"]
+user-id = 267
+start = "2023-03-04"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Tony Arcieri (tarcieri): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTony Arcieri is an established RustCrypto maintainer and verified publisher of\nthe graph's aead, aes, aes-gcm, argon2, base64ct, digest, ghash, password-hash and\npolyval releases, among other RustCrypto crates. Accept RustCrypto maintenance\nand this account's packaging/release process. Publisher-wide acceptance includes\nfuture dependencies from this account; it does not assert an independent source\nreview, expert cryptographic audit or safe-to-deploy certification.\nSources: https://github.com/orgs/RustCrypto/people and https://github.com/RustCrypto\n"
+
 [[trusted."paste"]]
 criteria = ["safe-to-run"]
 user-id = 3618
@@ -551,6 +969,34 @@ user-id = 1139
 start = "2020-04-29"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 1139: Automatically inherited publisher-wide from mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted."png"]]
+criteria = ["safe-to-run"]
+user-id = 11453
+start = "2025-11-11"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. 197g: Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nThis is the verified publisher of the canonical image-rs image, png, gif, tiff\nand weezl releases in the graph. Accept the image-rs maintenance, packaging and\nrelease process represented by this account. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review or image\nparser-hardening audit. image-rs using a dependency is not evidence that its\nseparately published code was audited or is covered by this account decision.\nSources: https://github.com/197g and https://github.com/image-rs/image\n"
+
+[[trusted."polyval"]]
+criteria = ["safe-to-run"]
+user-id = 267
+start = "2023-03-04"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Tony Arcieri (tarcieri): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTony Arcieri is an established RustCrypto maintainer and verified publisher of\nthe graph's aead, aes, aes-gcm, argon2, base64ct, digest, ghash, password-hash and\npolyval releases, among other RustCrypto crates. Accept RustCrypto maintenance\nand this account's packaging/release process. Publisher-wide acceptance includes\nfuture dependencies from this account; it does not assert an independent source\nreview, expert cryptographic audit or safe-to-deploy certification.\nSources: https://github.com/orgs/RustCrypto/people and https://github.com/RustCrypto\n"
+
+[[trusted."potential_utf"]]
+criteria = ["safe-to-run"]
+user-id = 128408
+start = "2026-05-12"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Shane F. Carr (sffc): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nShane F. Carr is an ICU4X maintainer and verified publisher of the locked litemap,\npotential_utf, writeable, zerofrom, zerofrom-derive and zerotrie releases. Accept\nICU4X maintenance and this account's macro, packaging and release process. The\nhistorical Manishearth endorsement does not cover these releases; this is an\nexplicit decision for their actual publisher. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review.\nSources: https://github.com/sffc and https://github.com/unicode-org/icu4x\n"
+
+[[trusted."powerfmt"]]
+criteria = ["safe-to-run"]
+user-id = 15682
+start = "2026-05-18"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Jacob Pratt (jhpratt): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nJacob Pratt is a Time ecosystem maintainer and verified publisher of powerfmt\nand num-conv releases in the graph. Accept his upstream maintenance, packaging\nand release process. Publisher-wide acceptance includes future dependencies\nfrom this account; no independent source review. The github:time-rs/time and\ngithub:jhpratt/deranged CI publishers are separate identities that require\ntheir own policy decisions.\nSources: https://github.com/jhpratt and https://github.com/time-rs/time\n"
 
 [[trusted."pretty_env_logger"]]
 criteria = ["safe-to-run"]
@@ -601,6 +1047,20 @@ start = "2019-02-25"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 3618: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
 
+[[trusted."rav1e"]]
+criteria = ["safe-to-run"]
+user-id = 4718
+start = "2019-10-06"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Luca Barbato (lu-zero): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nLuca Barbato is an established Xiph/rust-av maintainer and verified publisher of\nrav1e, v_frame, arg_enum_proc_macro, interpolate_name, noop_proc_macro and\nsimd_helpers. Accept this upstream maintenance, native/assembly integration,\nbuild-time macro behavior, packaging and release process. Publisher-wide\nacceptance includes future dependencies from this account; no independent source\nreview. Separate publishers of rav1e's dependencies need their own evidence.\nSources: https://github.com/lu-zero and https://github.com/xiph/rav1e\n"
+
+[[trusted."ravif"]]
+criteria = ["safe-to-run"]
+user-id = 988
+start = "2023-07-21"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Kornel Lesinski (kornelski): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nKornel Lesinski is an established Rust imaging/platform maintainer and verified\npublisher of avif-serialize, imgref, loop9, ravif, rgb, urlencoding and the\nsecurity-framework crates. Accept his upstream maintenance, native/platform\nintegration, packaging and release process. Publisher-wide acceptance includes\nfuture dependencies from this account, beyond these motivating crates; no\nindependent source review or codec-hardening audit.\nSource: https://github.com/kornelski\n"
+
 [[trusted."rayon"]]
 criteria = ["safe-to-run"]
 user-id = 539
@@ -642,6 +1102,13 @@ user-id = 359
 start = "2019-03-01"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 359: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted."rgb"]]
+criteria = ["safe-to-run"]
+user-id = 988
+start = "2023-07-21"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Kornel Lesinski (kornelski): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nKornel Lesinski is an established Rust imaging/platform maintainer and verified\npublisher of avif-serialize, imgref, loop9, ravif, rgb, urlencoding and the\nsecurity-framework crates. Accept his upstream maintenance, native/platform\nintegration, packaging and release process. Publisher-wide acceptance includes\nfuture dependencies from this account, beyond these motivating crates; no\nindependent source review or codec-hardening audit.\nSource: https://github.com/kornelski\n"
 
 [[trusted."rustix"]]
 criteria = ["safe-to-run"]
@@ -699,6 +1166,20 @@ start = "2019-02-22"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 2915: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
 
+[[trusted."security-framework"]]
+criteria = ["safe-to-run"]
+user-id = 988
+start = "2023-07-21"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Kornel Lesinski (kornelski): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nKornel Lesinski is an established Rust imaging/platform maintainer and verified\npublisher of avif-serialize, imgref, loop9, ravif, rgb, urlencoding and the\nsecurity-framework crates. Accept his upstream maintenance, native/platform\nintegration, packaging and release process. Publisher-wide acceptance includes\nfuture dependencies from this account, beyond these motivating crates; no\nindependent source review or codec-hardening audit.\nSource: https://github.com/kornelski\n"
+
+[[trusted."security-framework-sys"]]
+criteria = ["safe-to-run"]
+user-id = 988
+start = "2023-07-21"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Kornel Lesinski (kornelski): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nKornel Lesinski is an established Rust imaging/platform maintainer and verified\npublisher of avif-serialize, imgref, loop9, ravif, rgb, urlencoding and the\nsecurity-framework crates. Accept his upstream maintenance, native/platform\nintegration, packaging and release process. Publisher-wide acceptance includes\nfuture dependencies from this account, beyond these motivating crates; no\nindependent source review or codec-hardening audit.\nSource: https://github.com/kornelski\n"
+
 [[trusted."serde"]]
 criteria = ["safe-to-run"]
 user-id = 3618
@@ -734,6 +1215,20 @@ start = "2019-04-08"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 6743: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
 
+[[trusted."sha2"]]
+criteria = ["safe-to-run"]
+user-id = 5059
+start = "2022-09-30"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Artyom Pavlov (newpavlov): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nArtyom Pavlov is an established RustCrypto maintainer and verified publisher of\nthe locked blake2, crypto-common and ctr releases, among other RustCrypto crates.\nAccept RustCrypto maintenance and this account's packaging/release process as\na separate authority from tarcieri. Publisher-wide acceptance includes future\ndependencies from this account; no independent source or cryptographic audit.\nThis account decision does not accept RustCrypto CI publisher signatures.\nSources: https://github.com/orgs/RustCrypto/people and https://github.com/RustCrypto\n"
+
+[[trusted."simd_helpers"]]
+criteria = ["safe-to-run"]
+user-id = 4718
+start = "2019-10-06"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Luca Barbato (lu-zero): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nLuca Barbato is an established Xiph/rust-av maintainer and verified publisher of\nrav1e, v_frame, arg_enum_proc_macro, interpolate_name, noop_proc_macro and\nsimd_helpers. Accept this upstream maintenance, native/assembly integration,\nbuild-time macro behavior, packaging and release process. Publisher-wide\nacceptance includes future dependencies from this account; no independent source\nreview. Separate publishers of rav1e's dependencies need their own evidence.\nSources: https://github.com/lu-zero and https://github.com/xiph/rav1e\n"
+
 [[trusted."slab"]]
 criteria = ["safe-to-run"]
 user-id = 6741
@@ -755,6 +1250,69 @@ start = "2019-02-25"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 3618: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
 
+[[trusted."tantivy"]]
+criteria = ["safe-to-run"]
+user-id = 4674
+start = "2021-05-18"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Paul Masurel (fulmicoton): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nPaul Masurel is the Tantivy author and verified publisher of the locked search\nengine, bitpacking, census, fastdivide, levenshtein_automata, murmurhash32 and\nTantivy helper releases. Accept this upstream author's implementation,\nmaintenance, packaging and release process. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review. This does\nnot accept releases from separate publishers of Tantivy's dependencies.\nSources: https://github.com/fulmicoton and https://github.com/quickwit-oss/tantivy\n"
+
+[[trusted."tantivy-bitpacker"]]
+criteria = ["safe-to-run"]
+user-id = 4674
+start = "2021-05-18"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Paul Masurel (fulmicoton): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nPaul Masurel is the Tantivy author and verified publisher of the locked search\nengine, bitpacking, census, fastdivide, levenshtein_automata, murmurhash32 and\nTantivy helper releases. Accept this upstream author's implementation,\nmaintenance, packaging and release process. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review. This does\nnot accept releases from separate publishers of Tantivy's dependencies.\nSources: https://github.com/fulmicoton and https://github.com/quickwit-oss/tantivy\n"
+
+[[trusted."tantivy-columnar"]]
+criteria = ["safe-to-run"]
+user-id = 4674
+start = "2021-05-18"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Paul Masurel (fulmicoton): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nPaul Masurel is the Tantivy author and verified publisher of the locked search\nengine, bitpacking, census, fastdivide, levenshtein_automata, murmurhash32 and\nTantivy helper releases. Accept this upstream author's implementation,\nmaintenance, packaging and release process. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review. This does\nnot accept releases from separate publishers of Tantivy's dependencies.\nSources: https://github.com/fulmicoton and https://github.com/quickwit-oss/tantivy\n"
+
+[[trusted."tantivy-common"]]
+criteria = ["safe-to-run"]
+user-id = 4674
+start = "2021-05-18"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Paul Masurel (fulmicoton): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nPaul Masurel is the Tantivy author and verified publisher of the locked search\nengine, bitpacking, census, fastdivide, levenshtein_automata, murmurhash32 and\nTantivy helper releases. Accept this upstream author's implementation,\nmaintenance, packaging and release process. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review. This does\nnot accept releases from separate publishers of Tantivy's dependencies.\nSources: https://github.com/fulmicoton and https://github.com/quickwit-oss/tantivy\n"
+
+[[trusted."tantivy-fst"]]
+criteria = ["safe-to-run"]
+user-id = 6354
+start = "2023-11-21"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Pascal Seitz (PSeitz): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nPascal Seitz is a Tantivy maintainer and lz4_flex author, and the verified\npublisher of tantivy-fst, tantivy-tokenizer-api, ownedbytes, measure_time and\nlz4_flex releases in the graph. Accept his maintenance, packaging and release\nprocess, including the Tantivy FST fork. This is trust in the current publisher,\nnot inherited trust in the original FST author. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review.\nSources: https://github.com/PSeitz and https://github.com/quickwit-oss/tantivy\n"
+
+[[trusted."tantivy-query-grammar"]]
+criteria = ["safe-to-run"]
+user-id = 4674
+start = "2021-05-18"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Paul Masurel (fulmicoton): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nPaul Masurel is the Tantivy author and verified publisher of the locked search\nengine, bitpacking, census, fastdivide, levenshtein_automata, murmurhash32 and\nTantivy helper releases. Accept this upstream author's implementation,\nmaintenance, packaging and release process. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review. This does\nnot accept releases from separate publishers of Tantivy's dependencies.\nSources: https://github.com/fulmicoton and https://github.com/quickwit-oss/tantivy\n"
+
+[[trusted."tantivy-sstable"]]
+criteria = ["safe-to-run"]
+user-id = 4674
+start = "2021-05-18"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Paul Masurel (fulmicoton): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nPaul Masurel is the Tantivy author and verified publisher of the locked search\nengine, bitpacking, census, fastdivide, levenshtein_automata, murmurhash32 and\nTantivy helper releases. Accept this upstream author's implementation,\nmaintenance, packaging and release process. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review. This does\nnot accept releases from separate publishers of Tantivy's dependencies.\nSources: https://github.com/fulmicoton and https://github.com/quickwit-oss/tantivy\n"
+
+[[trusted."tantivy-stacker"]]
+criteria = ["safe-to-run"]
+user-id = 4674
+start = "2021-05-18"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Paul Masurel (fulmicoton): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nPaul Masurel is the Tantivy author and verified publisher of the locked search\nengine, bitpacking, census, fastdivide, levenshtein_automata, murmurhash32 and\nTantivy helper releases. Accept this upstream author's implementation,\nmaintenance, packaging and release process. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review. This does\nnot accept releases from separate publishers of Tantivy's dependencies.\nSources: https://github.com/fulmicoton and https://github.com/quickwit-oss/tantivy\n"
+
+[[trusted."tantivy-tokenizer-api"]]
+criteria = ["safe-to-run"]
+user-id = 6354
+start = "2023-11-21"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Pascal Seitz (PSeitz): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nPascal Seitz is a Tantivy maintainer and lz4_flex author, and the verified\npublisher of tantivy-fst, tantivy-tokenizer-api, ownedbytes, measure_time and\nlz4_flex releases in the graph. Accept his maintenance, packaging and release\nprocess, including the Tantivy FST fork. This is trust in the current publisher,\nnot inherited trust in the original FST author. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review.\nSources: https://github.com/PSeitz and https://github.com/quickwit-oss/tantivy\n"
+
 [[trusted."termcolor"]]
 criteria = ["safe-to-run"]
 user-id = 189
@@ -775,6 +1333,20 @@ user-id = 3618
 start = "2019-02-25"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 3618: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted."tiff"]]
+criteria = ["safe-to-run"]
+user-id = 11453
+start = "2025-11-11"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. 197g: Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nThis is the verified publisher of the canonical image-rs image, png, gif, tiff\nand weezl releases in the graph. Accept the image-rs maintenance, packaging and\nrelease process represented by this account. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review or image\nparser-hardening audit. image-rs using a dependency is not evidence that its\nseparately published code was audited or is covered by this account decision.\nSources: https://github.com/197g and https://github.com/image-rs/image\n"
+
+[[trusted."time-core"]]
+criteria = ["safe-to-run"]
+user-id = 15682
+start = "2026-05-18"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Jacob Pratt (jhpratt): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nJacob Pratt is a Time ecosystem maintainer and verified publisher of powerfmt\nand num-conv releases in the graph. Accept his upstream maintenance, packaging\nand release process. Publisher-wide acceptance includes future dependencies\nfrom this account; no independent source review. The github:time-rs/time and\ngithub:jhpratt/deranged CI publishers are separate identities that require\ntheir own policy decisions.\nSources: https://github.com/jhpratt and https://github.com/time-rs/time\n"
 
 [[trusted."tinystr"]]
 criteria = ["safe-to-run"]
@@ -916,6 +1488,13 @@ start = "2020-04-29"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 1139: Automatically inherited publisher-wide from mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
 
+[[trusted."universal-hash"]]
+criteria = ["safe-to-run"]
+user-id = 267
+start = "2023-03-04"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Tony Arcieri (tarcieri): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nTony Arcieri is an established RustCrypto maintainer and verified publisher of\nthe graph's aead, aes, aes-gcm, argon2, base64ct, digest, ghash, password-hash and\npolyval releases, among other RustCrypto crates. Accept RustCrypto maintenance\nand this account's packaging/release process. Publisher-wide acceptance includes\nfuture dependencies from this account; it does not assert an independent source\nreview, expert cryptographic audit or safe-to-deploy certification.\nSources: https://github.com/orgs/RustCrypto/people and https://github.com/RustCrypto\n"
+
 [[trusted."url"]]
 criteria = ["safe-to-run"]
 user-id = 1139
@@ -923,12 +1502,47 @@ start = "2020-04-29"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 1139: Automatically inherited publisher-wide from mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
 
+[[trusted."urlencoding"]]
+criteria = ["safe-to-run"]
+user-id = 988
+start = "2023-07-21"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Kornel Lesinski (kornelski): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nKornel Lesinski is an established Rust imaging/platform maintainer and verified\npublisher of avif-serialize, imgref, loop9, ravif, rgb, urlencoding and the\nsecurity-framework crates. Accept his upstream maintenance, native/platform\nintegration, packaging and release process. Publisher-wide acceptance includes\nfuture dependencies from this account, beyond these motivating crates; no\nindependent source review or codec-hardening audit.\nSource: https://github.com/kornelski\n"
+
 [[trusted."utf8-ranges"]]
 criteria = ["safe-to-run"]
 user-id = 189
 start = "2019-02-25"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 189: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted."utf8_iter"]]
+criteria = ["safe-to-run"]
+user-id = 4484
+start = "2026-04-27"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Henri Sivonen (hsivonen): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nHenri Sivonen is an established upstream IDNA/encoding developer and verified\npublisher of idna_adapter and encoding/helper releases in the graph. Accept his\nupstream maintenance, packaging and release process for Unicode and encoding\nintegration. Publisher-wide acceptance includes future dependencies from this\naccount; no independent source review. Other ICU4X publisher accounts are\nseparate release authorities and require their own evidence.\nSource: https://github.com/hsivonen\n"
+
+[[trusted."utf_types"]]
+criteria = ["safe-to-run"]
+user-id = 4484
+start = "2026-04-27"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Henri Sivonen (hsivonen): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nHenri Sivonen is an established upstream IDNA/encoding developer and verified\npublisher of idna_adapter and encoding/helper releases in the graph. Accept his\nupstream maintenance, packaging and release process for Unicode and encoding\nintegration. Publisher-wide acceptance includes future dependencies from this\naccount; no independent source review. Other ICU4X publisher accounts are\nseparate release authorities and require their own evidence.\nSource: https://github.com/hsivonen\n"
+
+[[trusted."uuid"]]
+criteria = ["safe-to-run"]
+user-id = 3204
+start = "2025-12-02"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Ashley Mannix (KodrAus): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nAshley Mannix is an established bitflags/UUID maintainer and verified publisher\nof the locked bitflags and UUID releases in both projects. Accept his upstream\nmaintenance, packaging and release process. Publisher-wide acceptance includes\nother account-published releases such as log and future dependencies from this\naccount; no independent source review. CI-published releases in the same\nprojects use separate identities and are not accepted by this account entry.\nSources: https://github.com/KodrAus and https://github.com/uuid-rs/uuid\n"
+
+[[trusted."v_frame"]]
+criteria = ["safe-to-run"]
+user-id = 4718
+start = "2019-10-06"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Luca Barbato (lu-zero): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nLuca Barbato is an established Xiph/rust-av maintainer and verified publisher of\nrav1e, v_frame, arg_enum_proc_macro, interpolate_name, noop_proc_macro and\nsimd_helpers. Accept this upstream maintenance, native/assembly integration,\nbuild-time macro behavior, packaging and release process. Publisher-wide\nacceptance includes future dependencies from this account; no independent source\nreview. Separate publishers of rav1e's dependencies need their own evidence.\nSources: https://github.com/lu-zero and https://github.com/xiph/rav1e\n"
 
 [[trusted."want"]]
 criteria = ["safe-to-run"]
@@ -957,6 +1571,13 @@ user-id = 2751
 start = "2019-03-16"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 2751: Automatically inherited publisher-wide from mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted."weezl"]]
+criteria = ["safe-to-run"]
+user-id = 11453
+start = "2025-11-11"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. 197g: Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nThis is the verified publisher of the canonical image-rs image, png, gif, tiff\nand weezl releases in the graph. Accept the image-rs maintenance, packaging and\nrelease process represented by this account. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review or image\nparser-hardening audit. image-rs using a dependency is not evidence that its\nseparately published code was audited or is covered by this account decision.\nSources: https://github.com/197g and https://github.com/image-rs/image\n"
 
 [[trusted."winapi-util"]]
 criteria = ["safe-to-run"]
@@ -1119,6 +1740,13 @@ start = "2019-04-08"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 6743: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
 
+[[trusted."writeable"]]
+criteria = ["safe-to-run"]
+user-id = 128408
+start = "2026-05-12"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Shane F. Carr (sffc): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nShane F. Carr is an ICU4X maintainer and verified publisher of the locked litemap,\npotential_utf, writeable, zerofrom, zerofrom-derive and zerotrie releases. Accept\nICU4X maintenance and this account's macro, packaging and release process. The\nhistorical Manishearth endorsement does not cover these releases; this is an\nexplicit decision for their actual publisher. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review.\nSources: https://github.com/sffc and https://github.com/unicode-org/icu4x\n"
+
 [[trusted."yoke"]]
 criteria = ["safe-to-run"]
 user-id = 166196
@@ -1132,6 +1760,27 @@ user-id = 166196
 start = "2022-10-08"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 166196: Automatically inherited publisher-wide from mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted."zerofrom"]]
+criteria = ["safe-to-run"]
+user-id = 128408
+start = "2026-05-12"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Shane F. Carr (sffc): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nShane F. Carr is an ICU4X maintainer and verified publisher of the locked litemap,\npotential_utf, writeable, zerofrom, zerofrom-derive and zerotrie releases. Accept\nICU4X maintenance and this account's macro, packaging and release process. The\nhistorical Manishearth endorsement does not cover these releases; this is an\nexplicit decision for their actual publisher. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review.\nSources: https://github.com/sffc and https://github.com/unicode-org/icu4x\n"
+
+[[trusted."zerofrom-derive"]]
+criteria = ["safe-to-run"]
+user-id = 128408
+start = "2026-05-12"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Shane F. Carr (sffc): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nShane F. Carr is an ICU4X maintainer and verified publisher of the locked litemap,\npotential_utf, writeable, zerofrom, zerofrom-derive and zerotrie releases. Accept\nICU4X maintenance and this account's macro, packaging and release process. The\nhistorical Manishearth endorsement does not cover these releases; this is an\nexplicit decision for their actual publisher. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review.\nSources: https://github.com/sffc and https://github.com/unicode-org/icu4x\n"
+
+[[trusted."zerotrie"]]
+criteria = ["safe-to-run"]
+user-id = 128408
+start = "2026-05-12"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Shane F. Carr (sffc): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nShane F. Carr is an ICU4X maintainer and verified publisher of the locked litemap,\npotential_utf, writeable, zerofrom, zerofrom-derive and zerotrie releases. Accept\nICU4X maintenance and this account's macro, packaging and release process. The\nhistorical Manishearth endorsement does not cover these releases; this is an\nexplicit decision for their actual publisher. Publisher-wide acceptance includes\nfuture dependencies from this account; no independent source review.\nSources: https://github.com/sffc and https://github.com/unicode-org/icu4x\n"
 
 [[trusted."zerovec"]]
 criteria = ["safe-to-run"]
@@ -1153,3 +1802,24 @@ user-id = 3618
 start = "2019-02-25"
 end = "2028-11-10"
 notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. crates.io account 3618: Automatically inherited publisher-wide from bytecode-alliance (https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-chain/audits.toml), mozilla (https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml); no independent source review."
+
+[[trusted."zstd"]]
+criteria = ["safe-to-run"]
+user-id = 3203
+start = "2026-10-16"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Alexandre Bury (gyscos): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nAlexandre Bury is the zstd-rs author/maintainer and verified publisher of the\nlocked zstd, zstd-safe and zstd-sys releases. Accept this upstream wrapper,\nbundled native zstd code, native build integration, packaging and release\nprocess. Publisher-wide acceptance includes future dependencies from this\naccount; no independent source review or native-code security audit.\nSource: https://github.com/gyscos/zstd-rs\n"
+
+[[trusted."zstd-safe"]]
+criteria = ["safe-to-run"]
+user-id = 3203
+start = "2026-10-16"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Alexandre Bury (gyscos): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nAlexandre Bury is the zstd-rs author/maintainer and verified publisher of the\nlocked zstd, zstd-safe and zstd-sys releases. Accept this upstream wrapper,\nbundled native zstd code, native build integration, packaging and release\nprocess. Publisher-wide acceptance includes future dependencies from this\naccount; no independent source review or native-code security audit.\nSource: https://github.com/gyscos/zstd-rs\n"
+
+[[trusted."zstd-sys"]]
+criteria = ["safe-to-run"]
+user-id = 3203
+start = "2026-10-16"
+end = "2027-11-10"
+notes = "Generated from trusted-publishers.toml by sync-publisher-trust.py. Alexandre Bury (gyscos): Selected by the operator on 2026-11-11 after AI-assisted trust-policy research.\nAlexandre Bury is the zstd-rs author/maintainer and verified publisher of the\nlocked zstd, zstd-safe and zstd-sys releases. Accept this upstream wrapper,\nbundled native zstd code, native build integration, packaging and release\nprocess. Publisher-wide acceptance includes future dependencies from this\naccount; no independent source review or native-code security audit.\nSource: https://github.com/gyscos/zstd-rs\n"
