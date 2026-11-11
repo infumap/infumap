@@ -229,11 +229,20 @@ That command resolves the account ID and requires an endorsement from a shared a
 entries use `safe-to-run`, the earliest endorsement start, and an end 365 days from today, or the date given
 with `--end YYYY-MM-DD`. Existing entries are not renewed. Add `--dry-run` to preview without saving.
 
-The generator checks each locked crates.io version's actual publisher account ID and publication date,
-including crates with multiple historical publishers. It does not infer trust from ownership or cover
-Git dependencies, other registries, or CI publisher signatures without account IDs. Missing publisher/date
-metadata produces no generated trust for that crate. Other accepted source reviews can still cover it;
-cargo-vet reports remaining gaps.
+The generator checks actual publisher account IDs and publication dates for locked crates.io versions and
+for audit bases connected to them by existing `safe-to-run` or `safe-to-deploy` deltas. It follows complete
+chains backward using local `audits.toml` records and retained evidence in `imports.lock`. A trusted older
+publisher can therefore anchor reviews leading to a locked release by a different publisher, without
+changing locked versions, approved accounts, criteria or publication-date limits. Generated notes name
+the verified audit-base releases. Refresh cargo-vet imports to make newly accepted deltas available.
+
+It does not infer trust from ownership or cover Git dependencies, other registries, or CI publisher
+signatures without account IDs. A successfully fetched release without a numeric publisher does not
+contribute numeric trust, but it does not suppress trust from another verified release of the same crate.
+Other accepted source reviews can still cover it; cargo-vet reports remaining gaps. Failed registry requests
+(including HTTP 429 rate limits), mismatched release responses, and missing or invalid publication dates stop synchronization
+before any policy or generated audit files are changed. Queued requests are canceled on failure; rerun
+synchronization after the registry is available again.
 
 The generator owns the `[[trusted.<crate>]]` tables in both `supply-chain/audits.toml` files, preserving source
 reviews and custom criteria. Edit `trusted-publishers.toml` rather than these generated tables. To disable

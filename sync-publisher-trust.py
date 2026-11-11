@@ -267,7 +267,50 @@ def locked_crates(project: Path) -> set[tuple[str, str]]:
     }
 
 
+def audit_versions(project: Path, dependencies: set[tuple[str, str]]) -> set[tuple[str, str]]:
+    """Include published audit bases connected to locked releases by existing deltas."""
+    store = project / "supply-chain"
+    audit_sets = [read_toml(store / "audits.toml")]
+    imports = store / "imports.lock"
+    if imports.exists():
+        audit_sets.extend(read_toml(imports).get("audits", {}).values())
+    names = {name for name, _ in dependencies}
+    predecessors = {}
+    published_version = r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?"
+    for audits in audit_sets:
+        for name, records in audits.get("audits", {}).items():
+            if name not in names:
+                continue
+            for record in records:
+                criteria = record.get("criteria", [])
+                if isinstance(criteria, str):
+                    criteria = [criteria]
+                if not any(c in ("safe-to-run", "safe-to-deploy") for c in criteria):
+                    continue
+                delta = record.get("delta")
+                if delta is None:
+                    continue
+                old, new = (version.strip() for version in delta.split("->"))
+                # Git audit versions are not published crates.io releases.
+                if not all(re.fullmatch(published_version, version) for version in (old, new)):
+                    continue
+                predecessors.setdefault((name, new), set()).add((name, old))
+
+    # Walk backward through whole delta chains, not just the last update. A
+    # trusted old publisher can anchor reviews of later releases by other users
+    # or CI, without adding those publishers or changing the locked versions.
+    versions = set(dependencies)
+    pending = list(dependencies)
+    while pending:
+        for predecessor in predecessors.get(pending.pop(), ()):
+            if predecessor not in versions:
+                versions.add(predecessor)
+                pending.append(predecessor)
+    return versions
+
+
 def fetch_publisher(crate: tuple[str, str]) -> tuple[int | None, date | None, str | None]:
+    """Raise on lookup errors; allow fetched releases without a numeric publisher."""
     name, version = crate
     url = f"https://crates.io/api/v1/crates/{quote(name, safe='')}/{quote(version, safe='')}"
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
@@ -276,17 +319,17 @@ def fetch_publisher(crate: tuple[str, str]) -> tuple[int | None, date | None, st
             release = json.load(response)["version"]
         if release["crate"] != name or release["num"] != version:
             raise ValueError("registry response does not match the locked crate/version")
+        published = datetime.fromisoformat(release["created_at"].replace("Z", "+00:00"))
+        if published.tzinfo is None:
+            raise ValueError("publication timestamp has no timezone")
         # Current owners and historical publisher lists cannot establish who published
         # this version. In particular, cargo vet trust --all skips mixed publishers.
         publisher = release.get("published_by")
         if not isinstance(publisher, dict) or type(publisher.get("id")) is not int:
-            raise ValueError("missing crates.io publisher account ID")
-        published = datetime.fromisoformat(release["created_at"].replace("Z", "+00:00"))
-        if published.tzinfo is None:
-            raise ValueError("publication timestamp has no timezone")
+            return None, None, "missing crates.io publisher account ID"
         return publisher["id"], published.astimezone(timezone.utc).date(), None
     except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
-        return None, None, str(error)
+        raise ValueError(f"Could not look up publisher for {name} {version}: {error}") from error
 
 
 def without_trust(text: str) -> str:
@@ -334,6 +377,43 @@ def render_trust(base: str, entries: dict[str, list[dict]]) -> str:
             )
     tomllib.loads(text)
     return text
+
+
+def render_project_trust(
+    base: str,
+    dependencies: set[tuple[str, str]],
+    versions: set[tuple[str, str]],
+    publishers: dict[int, dict],
+    metadata: dict,
+) -> tuple[str, int]:
+    if not publishers:
+        return render_trust(base, {}), 0
+    entries = {}
+    matched = set()
+    historical_bases = {}
+    for name, version in sorted(versions):
+        user_id, published, _ = metadata[(name, version)]
+        policy = publishers.get(user_id)
+        # A release without a numeric publisher cannot match numeric cargo-vet
+        # trust. It must not suppress a verified sibling or historical base that
+        # can connect to it through accepted deltas; CI itself remains untrusted.
+        # cargo-vet 0.10.3 uses UTC dates with an exclusive end bound.
+        if policy and published is not None and policy["start"] <= published < policy["end"]:
+            key = (name, user_id)
+            if key not in matched:
+                entries.setdefault(name, []).append(dict(policy))
+                matched.add(key)
+            if (name, version) not in dependencies:
+                historical_bases.setdefault(key, []).append(version)
+    for name, records in entries.items():
+        for record in records:
+            bases = historical_bases.get((name, record["user-id"]))
+            if bases:
+                record["notes"] += (
+                    " Verified audit-base releases for this crate: " + ", ".join(bases)
+                    + ". Existing delta audits determine coverage of the locked releases."
+                )
+    return render_trust(base, entries), len(matched)
 
 
 def write_atomic(path: Path, text: str) -> None:
@@ -384,39 +464,35 @@ def main() -> int:
     # Validate both stores before looking up releases or writing any policy changes.
     bases = {project: without_trust((project / "supply-chain/audits.toml").read_text(
         encoding="utf-8")) for project in projects}
-    crates = sorted(set().union(*projects.values())) if publishers else []
-    print(f"Looking up publishers for {len(crates)} locked crates.io versions...", flush=True)
+    versions = {project: audit_versions(project, dependencies) if publishers else dependencies
+                for project, dependencies in projects.items()}
+    crates = sorted(set().union(*versions.values())) if publishers else []
+    print(f"Looking up publishers for {len(crates)} locked and audit-base crates.io versions...", flush=True)
     metadata = {}
     with ThreadPoolExecutor(max_workers=4) as executor:
         pending = {executor.submit(fetch_publisher, crate): crate for crate in crates}
-        for future in as_completed(pending):
-            metadata[pending[future]] = future.result()
-            if len(metadata) % 100 == 0:
-                print(f"  Looked up {len(metadata)}/{len(crates)} versions", flush=True)
+        try:
+            for future in as_completed(pending):
+                metadata[pending[future]] = future.result()
+                if len(metadata) % 100 == 0:
+                    print(f"  Looked up {len(metadata)}/{len(crates)} versions", flush=True)
+        except Exception:
+            # Rate limits previously turned failed lookups into an empty trust
+            # snapshot. Cancel queued requests and abort before any policy or
+            # audit files are written; partial registry data cannot replace trust.
+            for future in pending:
+                future.cancel()
+            raise
     for (name, version), (_, _, error) in sorted(metadata.items()):
         if error:
-            print(f"Warning: {name} {version}: {error}; no generated trust", file=sys.stderr)
+            print(f"Warning: {name} {version}: {error}; no trust from this release", file=sys.stderr)
 
     updates = {}
     for project, dependencies in projects.items():
-        entries = {}
-        # If any locked version of a crate has unavailable metadata, omit that
-        # crate's trust entirely. Otherwise an entry for a sibling version could
-        # accidentally retain trust from a previous run with more complete data.
-        unknown = {name for (name, version) in dependencies
-                   if metadata.get((name, version), (None, None, None))[2]}
-        matched = set()
-        for name, version in sorted(dependencies):
-            user_id, published, _ = metadata.get((name, version), (None, None, None))
-            policy = publishers.get(user_id)
-            # cargo-vet 0.10.3 compares UTC dates with an exclusive end bound.
-            if (name not in unknown and policy and published is not None
-                    and policy["start"] <= published < policy["end"]):
-                if (name, user_id) not in matched:
-                    entries.setdefault(name, []).append(policy)
-                    matched.add((name, user_id))
-        updates[project / "supply-chain/audits.toml"] = render_trust(bases[project], entries)
-        print(f"{project.name}: {len(matched)} per-crate publisher trust records")
+        text, count = render_project_trust(
+            bases[project], dependencies, versions[project], publishers, metadata)
+        updates[project / "supply-chain/audits.toml"] = text
+        print(f"{project.name}: {count} per-crate publisher trust records")
     # Rebuild, don't append: removing an account or narrowing its dates/criteria
     # must revoke the generated policy on the very next audit invocation.
     if policy_text is not None:

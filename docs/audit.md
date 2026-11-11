@@ -24,8 +24,13 @@ missing or more than a week old.
 
 Rust checks run separately for `infumap/` and `infusdk/`, each against its own `Cargo.lock`.
 Before vetting, `sync-publisher-trust.py` generates per-crate trust records for both projects from the shared
-`trusted-publishers.toml`. Only locked crates.io versions with a matching publisher account ID and publication
-date qualify. Unknown publishers and failed lookups receive no generated trust; cargo-vet reports remaining gaps.
+`trusted-publishers.toml`. It checks locked crates.io versions and audit bases connected to them by retained
+`safe-to-run` or `safe-to-deploy` delta audits. Every trusted release must match an approved publisher account
+and its publication-date limits. This lets existing trust in an older publisher connect through reviewed
+changes to a newer locked release, without changing dependencies or trusting its newer publisher.
+Successfully fetched releases without a numeric publisher do not contribute numeric trust; cargo-vet reports
+remaining gaps. Failed registry requests (including HTTP 429 rate limits) or invalid release responses stop
+synchronization before any policy or audit files are changed.
 
 The Rust audit requires Python 3.11+ as well as the Cargo tools below:
 
