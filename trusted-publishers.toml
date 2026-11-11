@@ -1,0 +1,14 @@
+# Shared publisher policy for both Rust projects. IDs are crates.io account IDs.
+# List audit sources below to automatically trust their publishers on every audit.
+# For example: sources = ["mozilla", "bytecode-alliance"] trusts either source's publishers.
+# Run python3 sync-publisher-trust.py to apply changes, or add --dry-run to preview.
+# start is inclusive; end is exclusive, using UTC publication dates.
+# Dates are deliberately fixed: renew them here only after reconsidering trust.
+# sync-publisher-trust.py owns the trusted tables in each supply-chain/audits.toml.
+
+[inherit]
+sources = ["mozilla", "bytecode-alliance"]
+end = "2028-11-10"
+
+# Optional individual decisions; these take precedence over inherited trust.
+# Add one with: python3 sync-publisher-trust.py --trust BurntSushi

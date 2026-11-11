@@ -23,8 +23,11 @@ missing or more than a week old.
 | Python | `audit-python.sh` (pip-audit) | Known vulnerable packages in `tools/gpu/*/requirements.txt` |
 
 Rust checks run separately for `infumap/` and `infusdk/`, each against its own `Cargo.lock`.
+Before vetting, `sync-publisher-trust.py` generates per-crate trust records for both projects from the shared
+`trusted-publishers.toml`. Only locked crates.io versions with a matching publisher account ID and publication
+date qualify. Unknown publishers and failed lookups receive no generated trust; cargo-vet reports remaining gaps.
 
-Required tools:
+The Rust audit requires Python 3.11+ as well as the Cargo tools below:
 
 ```sh
 cargo install cargo-deny --locked
@@ -41,6 +44,15 @@ pipx install pip-audit          # GPU host only
 
 ## Resolving failures
 
+For an AI-assisted source-review batch, ask the coding agent:
+
+> Follow DEPENDENCY_REVIEW.md and review the next 3 suggested cargo-vet diffs.
+
+You can paste specific suggestions instead. The [review instructions](../DEPENDENCY_REVIEW.md) require
+dated reports in `dependency-reviews/` and `Codex (AI reviewer)` attribution with substantive notes in the
+projects' `supply-chain/audits.toml` files. Concerning or incomplete reviews remain uncertified. Inspect the
+report and working-tree changes, then rerun `./audit-rust.sh` as usual. No commit is made automatically.
+
 **Advisory.** Update to the fixed version (`cargo update -p <crate> --precise <version>`), or widen the range in
 `Cargo.toml` if the fix is outside it. If no fix exists and the advisory doesn't apply, add it to `ignore` in
 `deny.toml` with a reason, and remove it once a fix ships.
@@ -55,6 +67,23 @@ cargo vet inspect <crate> <version> --mode=local
 cargo vet certify <crate> <version> --criteria safe-to-run
 ```
 
+Publisher trust is inherited automatically from the sources listed in `trusted-publishers.toml`:
+
+```toml
+[inherit]
+sources = ["mozilla"]
+end = "2027-11-10"
+```
+
+Mozilla is enabled. Add `"bytecode-alliance"` to the list to also trust its publishers. Each audit refreshes
+the selected sources' publisher account IDs and regenerates trust for both projects. You do not need to
+select publishers individually. New and removed upstream endorsements take effect automatically, while
+`end` remains fixed. Optional individual entries retain their own dates and criteria.
+
+Run `python3 sync-publisher-trust.py --dry-run` to preview the inherited accounts, or omit `--dry-run` to
+regenerate records directly. This accepts publishers across crates as your own trust decision; it does not
+mean the sources reviewed each version you use. A feed lookup failure stops generation and the audit.
+
 The `safe-to-run` review focuses on unexpected file/credential access, network connections, process launches,
 downloaded code, installation, and resource misuse. Inspect `build.rs`, proc-macros, generated/native code,
 and any use of `std::net`, `std::fs`, `std::process` or `std::env` inconsistent with the crate's purpose.
@@ -64,8 +93,11 @@ Build-time code matters even for dependencies that are never deployed. Malicious
 Baseline exemptions have been removed, so existing dependencies require the same review evidence as updates.
 Audits published by Mozilla, Google, Bytecode Alliance, ISRG, and Zcash are imported (`[imports]` in
 `supply-chain/config.toml`); these include source reviews and wildcard attestations about release processes.
-Publisher trust and exemptions do not establish that source was reviewed and should not be used to clear the
-backlog. The commands above are alternatives for a diff or a full review; certify only after completing the
+Publisher trust from the shared allowlist accepts releases without individual source reviews. Edit
+`trusted-publishers.toml` to select sources, revoke individual trust, or change dates and criteria.
+Dates are never extended automatically.
+Do not edit generated `[[trusted.<crate>]]` records or add exemptions just to clear remaining failures.
+The commands above are alternatives for a diff or a full review; certify only after completing the
 corresponding inspection. A diff needs an accepted review of its base version. `cargo vet trust` accepts a
 publisher's releases over a date range, including future releases, instead of recording your inspection.
 Both projects require `safe-to-run` and default new certifications to it. Stronger `safe-to-deploy` reviews

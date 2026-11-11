@@ -13,3 +13,8 @@
 
 # Git
 - Never commit or push unless explicitly asked. Leave changes in the working tree for review.
+
+# Rust dependency reviews
+- When asked to review Rust dependencies or work through cargo-vet suggestions, follow
+  [DEPENDENCY_REVIEW.md](DEPENDENCY_REVIEW.md). It defines the review scope, AI attribution, evidence reports,
+  and when to certify completed source reviews. Do not start dependency reviews for unrelated tasks.

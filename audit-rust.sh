@@ -30,6 +30,8 @@ Usage: ./audit-rust.sh
 
 Audit the Rust dependency graph for all checked-in crates, then require every
 crate version to meet safe-to-run (cargo-vet, supply-chain/ in each crate directory).
+Requires Python 3.11+ to generate trust from trusted-publishers.toml before vetting
+and to check crate publication dates.
 
 The script prefers cargo-deny for advisories, source policy, and duplicate-version
 checks. If cargo-deny is unavailable but cargo-audit is installed, it falls back
@@ -205,14 +207,25 @@ How to resolve unvetted crates (run in the failing crate's directory):
   cargo vet inspect <crate> <version> --mode=local
   cargo vet certify <crate> <version> --criteria safe-to-run
 
+To automatically trust an audit source's publishers, edit trusted-publishers.toml:
+  [inherit]
+  sources = ["mozilla"]                  # or ["mozilla", "bytecode-alliance"]
+  end = "2027-11-10"                     # explicit publication cutoff
+Each audit refreshes those sources; new publishers are included automatically.
+Preview from the repo root: python3 sync-publisher-trust.py --dry-run
+Optional individual selection: python3 sync-publisher-trust.py --trust BurntSushi
+Dates are not extended automatically.
+
 Use the suggested diffs: an unaudited base version still needs a full review.
 Certify only after completing the review, and add notes about what you checked.
 Review unexpected file/credential access, networking, and code execution, including
 build scripts and proc-macros. safe-to-run does not cover production exploit resistance.
 Public audit sources are configured in each supply-chain/config.toml. Add sources
-only after deciding to trust their reviews. Publisher trust and blanket exemptions
-do not establish source-review coverage. `cargo vet trust` accepts a publisher's
-releases over a date range; it does not record the diff you just inspected.
+only after deciding to trust their reviews. Publisher trust is generated from the
+shared trusted-publishers.toml; edit that policy, not the generated trusted tables.
+The generator checks each locked version's actual publisher and publication date.
+Publisher trust does not establish source-review coverage; it accepts releases
+over a date range instead of recording the diff you just inspected.
 Commit the supply-chain/ changes, then re-run ./audit.sh --server.
 EOF
 }
@@ -222,6 +235,24 @@ if ! cargo vet --version >/dev/null 2>&1; then
   Run from any directory:
     cargo install cargo-vet --locked"
 fi
+
+# Publisher policy is shared, but cargo-vet stores trust per crate. Regenerate
+# before checking either project so dependency changes and revocations take effect.
+find_python() {
+  for cmd in python3 python; do
+    if command -v "$cmd" >/dev/null 2>&1 && "$cmd" -c 'import tomllib' >/dev/null 2>&1; then
+      printf '%s' "$cmd"
+      return 0
+    fi
+  done
+  return 1
+}
+
+PYTHON=""
+if ! PYTHON="$(find_python)"; then
+  skip "Python 3.11+ is required to generate publisher trust and check crate ages."
+fi
+"$PYTHON" "$ROOT_DIR/sync-publisher-trust.py"
 
 vet_exit=0
 for crate_dir in "${CRATE_DIRS[@]}"; do
@@ -272,23 +303,8 @@ EOF
 check_toolchain_pin
 
 # Check publish-date age of all crates.io dependencies.
-find_python() {
-  for cmd in python3 python; do
-    if command -v "$cmd" >/dev/null 2>&1; then
-      printf '%s' "$cmd"
-      return 0
-    fi
-  done
-  return 1
-}
-
-PYTHON=""
-if PYTHON="$(find_python)"; then
-  lock_paths=()
-  for crate_dir in "${CRATE_DIRS[@]}"; do
-    lock_paths+=("$ROOT_DIR/$crate_dir/Cargo.lock")
-  done
-  "$PYTHON" "$ROOT_DIR/check-crate-ages.py" "${lock_paths[@]}" || exit $?
-else
-  echo "Warning: Python not found; skipping crate publish-date age check." >&2
-fi
+lock_paths=()
+for crate_dir in "${CRATE_DIRS[@]}"; do
+  lock_paths+=("$ROOT_DIR/$crate_dir/Cargo.lock")
+done
+"$PYTHON" "$ROOT_DIR/check-crate-ages.py" "${lock_paths[@]}" || exit $?

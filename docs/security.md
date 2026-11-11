@@ -21,7 +21,8 @@ cargo install cargo-deny --locked
 cargo install cargo-vet --locked
 ```
 
-The Rust age check also needs Python 3.11+ (`tomllib`); the toolchain check uses `curl`. On a fresh checkout,
+The Rust publisher-trust generator and age check need Python 3.11+ (`tomllib`); the toolchain check uses `curl`.
+Missing Python skips the Rust audit and prevents a completion stamp. On a fresh checkout,
 install the web dependencies with `npm ci` in `web/` before auditing: the signature check needs the installed
 packages. Unlike the build script, `audit-npm.sh` uses the `npm` on `PATH` without bootstrapping the pinned version.
 
@@ -43,10 +44,11 @@ allow a stamp to be written. Running an individual script directly does not upda
 | Script | Actual checks |
 |---|---|
 | `audit.sh` | Requires exactly one host role; runs both Rust and npm checks for `--server`, or Python checks for `--gpu`, then records completion as above. |
-| `audit-rust.sh` | Checks `infumap/` and `infusdk/` separately, requiring both `Cargo.lock` files. Runs advisory/source policy checks, then cargo-vet, then toolchain and crate-age checks. A failure in an earlier stage prevents later stages. |
+| `audit-rust.sh` | Checks `infumap/` and `infusdk/` separately, requiring both `Cargo.lock` files. Runs advisory/source policy checks, generates publisher trust, then runs cargo-vet, then toolchain and crate-age checks. A failure in an earlier stage prevents later stages. |
 | `audit-npm.sh` | Runs `npm audit` in `web/` for known vulnerabilities, including development dependencies, then `npm audit signatures` to verify registry signatures and available provenance attestations for installed packages. Both must pass. It requires `web/package-lock.json` and does not install dependencies. |
 | `audit-python.sh` | Runs `pip-audit -r` separately for gateway, image_extract, and pdf_extract `requirements.txt` files, including resolved transitive dependencies. Continues through all three and fails if any audit fails. |
 | `check-crate-ages.py` | Deduplicates crates.io name/version pairs across the supplied lockfiles, queries publication dates, and fails if any verified version is less than seven days old. Skips local and Git dependencies. Called automatically by the Rust script. |
+| `sync-publisher-trust.py` | Looks up each locked crates.io version's publisher and UTC publication date, then replaces the trusted tables in both projects' `audits.toml` files using `trusted-publishers.toml`. Preserves source audits and custom criteria. Called before cargo-vet. |
 
 ### Rust policies and limits
 
@@ -68,9 +70,9 @@ allow a stamp to be written. Running an individual script directly does not upda
   policy is satisfied, not that every version was inspected or that the code is guaranteed safe.
 - **Toolchain age is advisory.** The script warns when the numeric Rust pin is two or more minor releases behind
   stable. An unparseable pin or failed version fetch only warns.
-- **Crate age has incomplete-data cases.** Missing Python skips the check with a warning; publication-date
-  lookup failures also only warn. Neither prevents a stamp if all other checks pass. A verified release under
-  seven days old fails; there is no script option to override the threshold.
+- **Crate age has incomplete-data cases.** Publication-date lookup failures only warn and do not prevent a stamp
+  if all other checks pass. A verified release under seven days old fails; there is no script option to
+  override the threshold.
 
 `web/.npmrc` separately disables dependency lifecycle scripts (`ignore-scripts=true`) and configures a seven-day
 minimum release age (`min-release-age=7`). These are npm installation policies, not additional audit stages.
@@ -89,7 +91,9 @@ pip-audit -r tools/gpu/pdf_extract/requirements-docling.txt
 
 ## Vetting Rust dependencies
 
-The live list of missing reviews comes from cargo-vet; no separate backlog file is maintained. In `infumap/`,
+The live list of missing reviews comes from cargo-vet; no separate backlog file is maintained. After changing
+lockfiles or the publisher allowlist, run `python3 sync-publisher-trust.py` from the repository root (or run
+`./audit-rust.sh`, which does this automatically before vetting). Then, in `infumap/`,
 then separately in `infusdk/`, run:
 
 ```sh
@@ -113,9 +117,9 @@ Imported `safe-to-deploy` reviews also satisfy `safe-to-run`; their stronger cla
 
 `cargo vet suggest` can identify further feeds that would reduce the work. Consider the organization and its
 review practices before adding one, for example `cargo vet import <source-name>` in each project that needs it.
-The [public registry](https://github.com/mozilla/cargo-vet/blob/main/registry.toml) lists candidates. A hint that
-another organization trusts a publisher is different from an available source review; it does not automatically
-add that publisher to our trusted set.
+The [public registry](https://github.com/mozilla/cargo-vet/blob/main/registry.toml) lists candidates. Publisher
+endorsements are different from source reviews. They are inherited automatically only from sources explicitly
+selected under `[inherit]` in `trusted-publishers.toml`.
 
 ### Review and certify one package
 
@@ -182,11 +186,58 @@ The end date limits publication dates; it does not make an already covered versi
 when that date passes. This is a broader publisher/release-process judgment, not a record of the diff you read.
 Changing its criterion to `safe-to-run` changes the promised standard but still does not record a source review.
 
-Publisher trust can be an intentional policy decision, but it bypasses individual version reviews and remains
-exposed to publisher mistakes or account compromise. For a version-by-version review process, use `certify`
-instead. If a trust entry was added unintentionally, remove that `[[trusted.<crate>]]` block from the relevant
-`audits.toml`, run `cargo vet fmt`, then `cargo vet` to see the missing reviews again. Do not replace it with
-an audit entry until that review has actually been completed. See [publisher trust](https://mozilla.github.io/cargo-vet/trusting-publishers.html).
+To automatically trust everyone endorsed by an audit source, edit the root `trusted-publishers.toml`:
+
+```toml
+[inherit]
+sources = ["mozilla"]
+end = "2027-11-10"
+```
+
+Mozilla is enabled. To inherit from either Mozilla or Bytecode Alliance, set
+`sources = ["mozilla", "bytecode-alliance"]`. Source names must be configured in both projects'
+`supply-chain/config.toml`; their URLs must agree. Then run from the repository root:
+
+```sh
+python3 sync-publisher-trust.py --dry-run  # show the inherited accounts without changing files
+python3 sync-publisher-trust.py            # regenerate both projects' per-crate trust records
+./audit-rust.sh                           # also regenerates trust before cargo-vet
+```
+
+Each audit fetches the selected sources' current `trusted` tables and inherits every crates.io account ID
+endorsed for `safe-to-run` or `safe-to-deploy`. New accounts are included automatically; accounts removed
+from all selected sources lose inherited trust on the next generation. Inherited accounts are not copied
+into manual `[[publishers]]` entries. If a selected feed cannot be read, generation fails and the audit stops.
+
+This delegates publisher selection to those sources and applies your own `safe-to-run` trust across their
+publishers' crates. It is broader than importing the sources' individual crate reviews. The earliest
+endorsement start date for each account becomes its inclusive start date; `inherit.end` is your fixed,
+exclusive UTC publication cutoff. Upstream endorsements may have old end dates: this policy uses your
+explicit cutoff instead. It never advances that cutoff automatically. Reconsider it before changing it.
+
+Existing individual `[[publishers]]` entries take precedence over inherited decisions for the same account,
+retaining their dates and criteria. They remain optional; you do not need to list inherited publishers by hand.
+You can still add an individual account with `python3 sync-publisher-trust.py --trust BurntSushi`.
+That command resolves the account ID and requires an endorsement from a shared audit source. New individual
+entries use `safe-to-run`, the earliest endorsement start, and an end 365 days from today, or the date given
+with `--end YYYY-MM-DD`. Existing entries are not renewed. Add `--dry-run` to preview without saving.
+
+The generator checks each locked crates.io version's actual publisher account ID and publication date,
+including crates with multiple historical publishers. It does not infer trust from ownership or cover
+Git dependencies, other registries, or CI publisher signatures without account IDs. Missing publisher/date
+metadata produces no generated trust for that crate. Other accepted source reviews can still cover it;
+cargo-vet reports remaining gaps.
+
+The generator owns the `[[trusted.<crate>]]` tables in both `supply-chain/audits.toml` files, preserving source
+reviews and custom criteria. Edit `trusted-publishers.toml` rather than these generated tables. To disable
+inherited trust, set `sources = []`; remove individual entries too if you want to remove all publisher trust.
+Direct `cargo vet` commands do not regenerate the records. Review and commit policy and generated records
+alongside lockfile changes.
+
+Publisher trust bypasses individual version reviews and remains exposed to publisher mistakes or account
+compromise. To revoke it, edit the allowlist, run `python3 sync-publisher-trust.py`, then run `cargo vet` in
+both projects. Do not replace missing trust with an audit entry until that review has actually been completed.
+See [publisher trust](https://mozilla.github.io/cargo-vet/trusting-publishers.html).
 
 Avoid restoring blanket exemptions or running `cargo vet regenerate exemptions` to clear failures: those accept
 versions without the missing review evidence. Even complete accepted coverage cannot guarantee that reviewers
