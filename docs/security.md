@@ -249,6 +249,18 @@ publisher can therefore anchor reviews leading to a locked release by a differen
 changing locked versions, approved accounts, criteria or publication-date limits. Generated notes name
 the verified audit-base releases. Refresh cargo-vet imports to make newly accepted deltas available.
 
+Publisher identities and UTC publication dates are reused for exact crate/version pairs already retained
+in either project's `imports.lock`; the generator fetches only missing records from crates.io. Account
+profile names are not used to identify publishers. Conflicting identities or dates, or malformed records
+for required versions, stop synchronization before files are changed. The generator reports how many
+versions were reused and how many need requests. It does not write new publisher metadata to `imports.lock`;
+cargo-vet manages that file, so missing records may need fetching again until cargo-vet retains them.
+
+This cache stores release provenance, not a previous acceptance decision. Selected endorsement feeds
+are still refreshed on every synchronization, and current accounts, CI crate scopes, criteria and date
+limits are reapplied to both cached and newly fetched records. Refresh cargo-vet imports to refresh its
+stored publisher evidence.
+
 It does not infer trust from ownership or cover Git dependencies or other registries. A successfully fetched
 release without a supported publisher identity does not contribute trust, but it does not suppress trust
 from another verified release of the same crate. Numeric account entries and scoped CI entries are matched

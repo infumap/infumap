@@ -30,6 +30,9 @@ explicitly scoped CI publisher, within its publication-date limits. This lets ex
 publisher connect through reviewed changes to a newer locked release, without changing dependencies or
 trusting its newer publisher.
 CI trust matches crates.io's release provenance and only the literal crate names listed in its policy entry.
+Exact-version publisher identities and UTC publication dates already retained in either project's
+`imports.lock` are reused; only missing records require crates.io requests. Output reports reused and
+fetched counts separately. Current publisher choices, crate scopes and date limits still apply on every run.
 Releases without a supported publisher identity receive no trust; cargo-vet reports remaining gaps.
 Failed registry requests (including HTTP 429 rate limits) or invalid release responses stop
 synchronization before any policy or audit files are changed.

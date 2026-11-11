@@ -349,6 +349,56 @@ def audit_versions(project: Path, dependencies: set[tuple[str, str]]) -> set[tup
     return versions
 
 
+def cached_publishers(
+    projects: list[Path], crates: set[tuple[str, str]],
+) -> dict[tuple[str, str], tuple[int | str | None, date | None, str | None]]:
+    """Reuse exact-release publisher facts retained by cargo-vet, not trust decisions."""
+    metadata = {}
+    origins = {}
+    if not crates:
+        return metadata
+    for project in projects:
+        path = project / "supply-chain/imports.lock"
+        if not path.exists():
+            continue
+        publishers = read_toml(path).get("publisher", {})
+        if not isinstance(publishers, dict):
+            raise ValueError(f"Invalid publisher table in {path}")
+        for name, records in publishers.items():
+            if not isinstance(records, list):
+                raise ValueError(f"Invalid publisher records for {name} in {path}")
+            for record in records:
+                if not isinstance(record, dict):
+                    raise ValueError(f"Invalid publisher record for {name} in {path}")
+                version = record.get("version")
+                if not isinstance(version, str) or (name, version) not in crates:
+                    continue
+                crate = (name, version)
+                try:
+                    published = parse_date(record["when"])
+                    if ("user-id" in record) == ("trusted-publisher" in record):
+                        raise ValueError("expected exactly one publisher identity")
+                    if "user-id" in record:
+                        identity = record["user-id"]
+                        if type(identity) is not int or identity <= 0:
+                            raise ValueError("invalid crates.io account ID")
+                    else:
+                        identity = record["trusted-publisher"]
+                        if not isinstance(identity, str) or not GITHUB_PUBLISHER.fullmatch(identity):
+                            raise ValueError("invalid GitHub publisher signature")
+                except (ValueError, KeyError, TypeError) as error:
+                    raise ValueError(f"Invalid cached publisher for {name} {version} in {path}: {error}") from error
+                details = (identity, published, None)
+                # Both projects can retain the same release. Ignore profile-name
+                # changes, but never choose between conflicting identities/dates.
+                if crate in metadata and metadata[crate] != details:
+                    raise ValueError(
+                        f"Conflicting cached publishers for {name} {version} in {origins[crate]} and {path}")
+                metadata[crate] = details
+                origins[crate] = path
+    return metadata
+
+
 def fetch_publisher(crate: tuple[str, str]) -> tuple[int | str | None, date | None, str | None]:
     """Raise on lookup errors; return the release's account or CI publisher identity."""
     name, version = crate
@@ -532,15 +582,23 @@ def main() -> int:
     versions = {project: audit_versions(project, dependencies) if publishers or ci_publishers else dependencies
                 for project, dependencies in projects.items()}
     crates = sorted(set().union(*versions.values())) if publishers or ci_publishers else []
-    print(f"Looking up publishers for {len(crates)} locked and audit-base crates.io versions...", flush=True)
-    metadata = {}
+    # imports.lock already retains exact-version publishing evidence used by
+    # cargo-vet. Reuse those facts instead of requesting the whole graph again:
+    # historical audit bases made that hit crates.io rate limits. Current policy,
+    # endorsement feeds, crate scopes and date limits are still applied below.
+    metadata = cached_publishers(list(projects), set(crates))
+    reused = len(metadata)
+    missing = [crate for crate in crates if crate not in metadata]
+    print(f"Publisher metadata: {len(crates)} versions required; {reused} reused from imports.lock; "
+          f"{len(missing)} to fetch.", flush=True)
     with ThreadPoolExecutor(max_workers=4) as executor:
-        pending = {executor.submit(fetch_publisher, crate): crate for crate in crates}
+        pending = {executor.submit(fetch_publisher, crate): crate for crate in missing}
         try:
             for future in as_completed(pending):
                 metadata[pending[future]] = future.result()
-                if len(metadata) % 100 == 0:
-                    print(f"  Looked up {len(metadata)}/{len(crates)} versions", flush=True)
+                fetched = len(metadata) - reused
+                if fetched % 100 == 0:
+                    print(f"  Fetched {fetched}/{len(missing)} missing versions", flush=True)
         except Exception:
             # Rate limits previously turned failed lookups into an empty trust
             # snapshot. Cancel queued requests and abort before any policy or
