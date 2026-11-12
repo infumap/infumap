@@ -54,6 +54,7 @@ import { MOUSE_RIGHT, mouseDownHandler } from "../input/mouse_down";
 import { shouldOpenNativeTextContextMenu } from "../input/native_text_context_menu";
 import { keyDownHandler, keyUpHandler } from "../input/key";
 import { requestArrange } from "../layout/arrange";
+import { startImageFetchBlockageWatch } from "../imageFetchWatch";
 import { MouseEventActionFlags } from "../input/enums";
 import { pasteHandler, pasteKeyDownListener } from "../input/paste";
 import { commitActiveTextEdit, edit_compositionEndHandler, edit_compositionKeyGuard, edit_compositionStartHandler, edit_structuralBeforeInputGuard, edit_structuralClipboardGuard, edit_structuralDropGuard, edit_structuralKeyDownGuard, textEditSelectionChangeListener } from "../input/edit";
@@ -125,6 +126,7 @@ export const Main: Component = () => {
 
   let mainDiv: HTMLDivElement | undefined;
   let disposed = false;
+  let stopImageFetchBlockageWatch: (() => void) | null = null;
   let clearExternalUploadHoverTimeoutId: number | null = null;
   const touchListenerOptions: AddEventListenerOptions = { passive: false };
   const externalFileDragListenerOptions: AddEventListenerOptions = { capture: true, passive: false };
@@ -301,11 +303,13 @@ export const Main: Component = () => {
     window.addEventListener('dragleave', externalFileDragLeaveListener, externalFileDragListenerOptions);
     window.addEventListener('mousemove', calendarRangeWindowMouseMoveListener);
     window.addEventListener('mouseup', calendarRangeWindowMouseUpListener);
+    stopImageFetchBlockageWatch = startImageFetchBlockageWatch(store);
   });
 
   onCleanup(() => {
     disposed = true;
     stopContainerSyncLoop();
+    stopImageFetchBlockageWatch?.();
     cancelExternalFileDragLeaveClear();
 
     mainDiv!.removeEventListener('contextmenu', contextMenuListener);

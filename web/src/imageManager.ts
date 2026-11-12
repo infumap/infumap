@@ -72,9 +72,13 @@ let objectUrlsRefCount: Map<string, number> = new Map<string, number>(); // cach
 
 const debug = false;
 
-// For diagnosing images stuck on their placeholder: fetches in progress (with when they started) and the last failure
-// of each key. Only read by imageFetchDebugStatus and the window.infumapImageManagerState console hook.
-let inFlightForDebug: Map<ImageFetchTask, number> = new Map<ImageFetchTask, number>();
+// Fetches in progress, with when they started. Unlike fetchInProgress, this has an entry per fetch even when two are
+// for the same key. Used to report what waiting images are blocked behind (imageFetchBlockage), and for debugging.
+let inFlight: Map<ImageFetchTask, number> = new Map<ImageFetchTask, number>();
+// When a fetch last started or finished.
+let lastFetchProgressMs = Date.now();
+// For diagnosing images stuck on their placeholder: the last failure of each key. Only read by imageFetchDebugStatus
+// and the window.infumapImageManagerState console hook.
 let failedForDebug: Map<string, string> = new Map<string, string>();
 // Responses that arrived after their image was released and its bookkeeping cleaned up, so were discarded. The browser
 // http cache still holds them. Most recent last, capped.
@@ -204,7 +208,8 @@ function serveWaiting() {
 function startFetch(task: ImageFetchTask) {
   const isHighPriority = task.priority == ImageFetchPriority.High;
   if (isHighPriority) { highPriorityFetchesInProgress += 1; }
-  inFlightForDebug.set(task, Date.now());
+  lastFetchProgressMs = Date.now();
+  inFlight.set(task, lastFetchProgressMs);
   const url = task.baseUrlMaybe == null
     ? task.path
     : new URL(task.path, task.baseUrlMaybe).href;
@@ -289,7 +294,8 @@ function startFetch(task: ImageFetchTask) {
       task.reject(error);
     })
     .finally(() => {
-      inFlightForDebug.delete(task);
+      inFlight.delete(task);
+      lastFetchProgressMs = Date.now();
       if (isHighPriority) { highPriorityFetchesInProgress -= 1; }
       serveWaiting();
     });
@@ -374,6 +380,48 @@ export function imageFetchesPending(): boolean {
 
 const priorityName = (priority: ImageFetchPriority): string => ImageFetchPriority[priority];
 
+export interface ImageFetchBlocker {
+  path: string,
+  priority: ImageFetchPriority,
+  /** A follow-up request: the server is fetching (from the object store) and resizing the image, then sending it. */
+  isGenerating: boolean,
+  ageMs: number,
+  /** False if every holder of the image has released it, e.g. it was on a page navigated away from. */
+  stillWanted: boolean,
+}
+
+export interface ImageFetchBlockage {
+  waitingCount: number,
+  /** When a fetch last started or finished. */
+  stalledSinceMs: number,
+  /** Oldest first. */
+  blockers: Array<ImageFetchBlocker>,
+}
+
+/**
+ * If images are waiting to be fetched but none can start, what they are waiting behind: the popup (High priority)
+ * fetches in progress, since whilst there are any nothing else starts, otherwise all fetches in progress (all
+ * MAX_CONCURRENT_FETCH_REQUESTS slots are taken). Null if nothing is waiting, or a waiting fetch can start. Note all
+ * slots being taken with images waiting is normal whilst a page of images loads; it is a problem only if it persists
+ * with no fetch starting or finishing, which stalledSinceMs tells.
+ */
+export function imageFetchBlockage(nowMs: number): ImageFetchBlockage | null {
+  if (waiting.length == 0 || canStartNextWaiting()) { return null; }
+  const blockers: Array<ImageFetchBlocker> = [];
+  for (const [task, startedMs] of inFlight) {
+    if (highPriorityFetchesInProgress > 0 && task.priority != ImageFetchPriority.High) { continue; }
+    blockers.push({
+      path: task.path,
+      priority: task.priority,
+      isGenerating: task.isFollowUp,
+      ageMs: nowMs - startedMs,
+      stillWanted: (objectUrlsRefCount.get(task.key) ?? 0) > 0,
+    });
+  }
+  blockers.sort((a, b) => b.ageMs - a.ageMs);
+  return { waitingCount: waiting.length, stalledSinceMs: lastFetchProgressMs, blockers };
+}
+
 /**
  * For the image resolution debug badge: where the fetch of path is at. "lost" means it is held (ref count > 0) but
  * there is neither an image nor a task for it, so it will never arrive.
@@ -382,7 +430,7 @@ export function imageFetchDebugStatus(path: string, origin: string | null): stri
   const key = cacheKey(path, origin);
   if (objectUrls.get(key) != null) { return "have"; }
   const now = Date.now();
-  for (const [task, startedMs] of inFlightForDebug) {
+  for (const [task, startedMs] of inFlight) {
     if (task.key == key) {
       return `${task.isFollowUp ? "gen" : "req"} ${Math.round((now - startedMs) / 1000)}s`;
     }
@@ -405,7 +453,7 @@ export function imageFetchDebugStatus(path: string, origin: string | null): stri
   const lost: Array<string> = [];
   for (const [key, refCount] of objectUrlsRefCount) {
     if (refCount > 0 && objectUrls.get(key) == null &&
-        !waiting.some(t => t.key == key) && ![...inFlightForDebug.keys()].some(t => t.key == key)) {
+        !waiting.some(t => t.key == key) && ![...inFlight.keys()].some(t => t.key == key)) {
       lost.push(key);
     }
   }
@@ -414,7 +462,7 @@ export function imageFetchDebugStatus(path: string, origin: string | null): stri
     highPriorityFetchesInProgress,
     fetchInProgressSize: fetchInProgress.size,
     canStartNextWaiting: canStartNextWaiting(),
-    inFlight: [...inFlightForDebug].map(([task, startedMs]) => ({
+    inFlight: [...inFlight].map(([task, startedMs]) => ({
       key: task.key,
       priority: priorityName(task.priority),
       followUp: task.isFollowUp,
