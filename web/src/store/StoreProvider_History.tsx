@@ -18,6 +18,7 @@
 
 import { createSignal } from "solid-js";
 import { VeFns, Veid, VisualElementPath } from "../layout/visual-element";
+import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../layout/arrange/page_list";
 import { panic } from "../util/lang";
 import { EMPTY_ITEM, Item, ItemType } from "../items/base/item";
 import { itemState } from "./ItemState";
@@ -243,11 +244,16 @@ export function makeHistoryStore(beforeNavigation: () => void): HistoryStoreCont
     displayedBrowserEntryId = hasPage ? entryId : null;
   };
 
+  // Synthetic links are never in itemState. Missing the list page main item link made Back into a list page whose
+  // selected item had focus (e.g. New Query after Ctrl-Shift-F) drop the rest of the breadcrumb chain.
+  const linkIsAvailable = (linkIdMaybe: Uid | null): boolean =>
+    linkIdMaybe == null || linkIdMaybe == POPUP_LINK_UID || linkIdMaybe == LIST_PAGE_MAIN_ITEM_LINK_ITEM ||
+    itemState.get(linkIdMaybe) != null;
+
   const pathItemsAreAvailable = (path: VisualElementPath | null): boolean => {
     while (path && path != UMBRELLA_PAGE_UID) {
       const veid = VeFns.veidFromPath(path);
-      if (!itemState.get(veid.itemId) ||
-        (veid.linkIdMaybe && veid.linkIdMaybe != POPUP_LINK_UID && !itemState.get(veid.linkIdMaybe))) {
+      if (!itemState.get(veid.itemId) || !linkIsAvailable(veid.linkIdMaybe)) {
         return false;
       }
       path = VeFns.parentPath(path);
@@ -279,7 +285,7 @@ export function makeHistoryStore(beforeNavigation: () => void): HistoryStoreCont
       !pathItemsAreAvailable(current.focusPath) ||
       current.popupBreadcrumbs.some(popup =>
         !itemState.get(popup.actualVeid.itemId) ||
-        (popup.actualVeid.linkIdMaybe && popup.actualVeid.linkIdMaybe != POPUP_LINK_UID && !itemState.get(popup.actualVeid.linkIdMaybe)) ||
+        !linkIsAvailable(popup.actualVeid.linkIdMaybe) ||
         !pathItemsAreAvailable(popup.vePath))) {
       return false;
     }
