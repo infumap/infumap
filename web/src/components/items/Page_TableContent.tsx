@@ -34,7 +34,6 @@ import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement"
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { HiddenAttachmentsMarker } from "./HiddenAttachmentsMarker";
 import { TableHeaderMarks } from "./TableHeaderMarks";
-import { columnSortDirection } from "../../items/base/sort-order";
 
 // Darker than the header background, as the text it stands in for is.
 const HEADER_OUTLINE_COLOR = "#94a3b8";
@@ -188,8 +187,7 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
               onKeyDown={ev => edit_keyDownHandler(store, props.visualElement, ev)}
               onKeyUp={ev => edit_keyUpHandler(store, ev)}>
               {column.name}
-              <TableHeaderMarks sort={columnSortDirection(page().orderChildrenBy, column.index)}
-                menu={!canEdit() || !store.perVe.getMouseIsOver(pagePath()) ? "none"
+              <TableHeaderMarks menu={!canEdit() || !store.perVe.getMouseIsOver(pagePath()) ? "none"
                   : store.mouseOverTableHeaderColumnNumber.get() == column.index ? "full" : "faint"}
                 editing={store.overlay.textEditInfo()?.itemPath == pagePath() && store.overlay.textEditInfo()?.colNum == column.index} />
             </div>

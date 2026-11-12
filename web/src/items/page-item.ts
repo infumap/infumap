@@ -1888,9 +1888,7 @@ export const PageFns = {
   },
 
   getFingerprint: (pageItem: PageItem): string => {
-    return pageItem.backgroundColorIndex + "~~~!@#~~~" + pageItem.title + "~~!@#~~~" + pageItem.arrangeAlgorithm + "~~!@#~~~" + pageItem.flags + "~~!@#~~~" + pageItem.permissionFlags +
-      // A table page shows the column it is sorted by in its heading.
-      "~~!@#~~~" + pageItem.orderChildrenBy;
+    return pageItem.backgroundColorIndex + "~~~!@#~~~" + pageItem.title + "~~!@#~~~" + pageItem.arrangeAlgorithm + "~~!@#~~~" + pageItem.flags + "~~!@#~~~" + pageItem.permissionFlags;
   },
 
   resolveListPageSelectedItem: (
