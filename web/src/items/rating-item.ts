@@ -32,7 +32,8 @@ import { VisualElementSignal } from '../util/signals';
 import { calcGeometryOfAttachmentItemImpl } from './base/attachments-item';
 import { calcBoundsInCell, handleListPageLineItemClickMaybe, isInsideDocumentPageClickContext } from './base/item-common-fns';
 import { arrangeNow, requestArrange } from '../layout/arrange';
-import { VeFns } from '../layout/visual-element';
+import { VeFns, VisualElementPath } from '../layout/visual-element';
+import { itemState } from '../store/ItemState';
 
 
 export type RatingType = "Number" | "Star" | "HorizontalBar" | "VerticalBar";
@@ -288,6 +289,11 @@ export const RatingFns = {
     const item = asRatingItem(visualElementSignal.get().displayItem);
     item.rating += 1;
     if (item.rating == 6) { item.rating = 0; }
+    // The new rating may move it in a container sorted by value. Sorting now would move it from under the mouse
+    // between clicks, and a click only cycles the rating (0 to 5), so it is sorted when the mouse leaves it instead.
+    const path = VeFns.veToPath(visualElement);
+    if (sortAfterClick != null && sortAfterClick.path != path) { RatingFns.sortClickedRatingIfMouseLeft(store, path); }
+    sortAfterClick = { itemId: item.id, path };
     requestArrange(store, "rating-click");
 
     function clickTimerHandler() {
@@ -296,6 +302,19 @@ export const RatingFns = {
     }
     if (clickTimer != null) { clearTimeout(clickTimer); }
     clickTimer = setTimeout(clickTimerHandler, PERSIST_AFTER_MS);
+  },
+
+  /**
+   * Sorts the last rating clicked into place in its container (and in those of links to it), once the mouse is no
+   * longer over it: overPath is the visual element it is over now.
+   */
+  sortClickedRatingIfMouseLeft: (store: StoreContextModel, overPath: VisualElementPath | null): void => {
+    if (sortAfterClick == null || sortAfterClick.path == overPath) { return; }
+    const item = itemState.get(sortAfterClick.itemId);
+    sortAfterClick = null;
+    if (item == null) { return; }
+    itemState.sortParentChildrenIfSorted(item);
+    requestArrange(store, "rating-click-sort");
   },
 
   asRatingMeasurable: (item: ItemTypeMixin): RatingMeasurable => {
@@ -322,6 +341,8 @@ export const RatingFns = {
 // for click handler
 const PERSIST_AFTER_MS = 1000;
 let clickTimer: any = null;
+/** The rating clicked last, while it waits for the mouse to leave it to be sorted into place. */
+let sortAfterClick: { itemId: Uid, path: VisualElementPath } | null = null;
 
 
 export function isRating(item: ItemTypeMixin | null): boolean {

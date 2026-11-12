@@ -21,6 +21,7 @@ import { HitboxFlags } from "../layout/hitbox";
 import { allowHalfBlockWidth, asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { itemCanCopy, itemCanEdit, itemCanMove, itemCanResize } from "../items/base/capabilities-item";
+import { RatingFns } from "../items/rating-item";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns, pageUsesEmbeddedInteractiveMode } from "../items/page-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { asNoteItem, isNote, NoteItem } from "../items/note-item";
@@ -1634,6 +1635,7 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
       : null;
   const overElementVe = overElementVes.get();
   const overElementPath = VeFns.veToPath(overElementVe);
+  RatingFns.sortClickedRatingIfMouseLeft(store, overElementPath);
   const overCompositeMoveOutPath = overCompositeMoveOutVes
     ? VeFns.veToPath(overCompositeMoveOutVes.get())
     : null;
