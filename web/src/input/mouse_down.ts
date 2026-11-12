@@ -27,7 +27,7 @@ import { HitboxFlags } from "../layout/hitbox";
 import { navigateBack, navigateUp } from "../layout/navigation";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
-import { VisualElement, VisualElementFlags, VisualElementPath, VeFns, veFlagIsRoot } from "../layout/visual-element";
+import { VisualElement, VisualElementFlags, VisualElementPath, VeFns, veFlagIsRoot, isTableView } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { BoundingBox, boundingBoxFromDOMRect, isInside } from "../util/geometry";
@@ -848,6 +848,13 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   }
 
   const overDisplayItem = hitVe.displayItem;
+  // A long hold on a column heading edits that heading. In a narrow column the menu hitbox covers the whole heading,
+  // so this is the only way to edit it there. Not from a column resize handle, whose meta has no column extent.
+  const columnHeaderMeta = (hitInfo.hitboxType & (HitboxFlags.TableColumnContextMenu | HitboxFlags.ContentEditable)) &&
+    !(hitInfo.hitboxType & HitboxFlags.HorizontalResize) &&
+    hitInfo.overElementMeta?.colNum != null && hitInfo.overElementMeta.startBl != null
+    ? hitInfo.overElementMeta
+    : null;
   const selectionClick = selectionClickFromModifiers();
   longHoldTimeoutId = setTimeout(() => {
     if (MouseActionState.empty()) { return; }
@@ -857,7 +864,10 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     // A move handle is only a drag affordance. Entering edit mode from it hides the handle, and presses where it was
     // then land in the text being edited, so the item can't be dragged until editing ends.
     if (pressedMoveHandle) { return; }
-    if (isPage(overDisplayItem) &&
+    if (columnHeaderMeta != null && isPage(overDisplayItem) && isTableView(hitVe)) {
+      PageFns.handleClick(hitVe, HitboxFlags.ContentEditable, store, columnHeaderMeta);
+      MouseActionState.set(null);
+    } else if (isPage(overDisplayItem) &&
       (hitVe.linkItemMaybe?.overrideArrangeAlgorithm ?? asPageItem(overDisplayItem).arrangeAlgorithm) == ArrangeAlgorithm.Calendar &&
       hitVe.calendarMiniDayLayouts.length > 0 &&
       !!(hitVe.flags & VisualElementFlags.ShowChildren)) {
@@ -876,7 +886,7 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
       MouseActionState.set(null);
     } else if (isTable(overDisplayItem)) {
       ClickState.setLinkWasClicked(false);
-      TableFns.handleClick(hitVe, null, store, true);
+      TableFns.handleClick(hitVe, columnHeaderMeta, store, true);
       MouseActionState.set(null);
     } else if (isComposite(overDisplayItem)) {
       ClickState.setLinkWasClicked(false);

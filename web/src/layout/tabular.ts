@@ -397,7 +397,9 @@ export function tabularColumnHitboxes(
       header.push(HitboxFns.create(
         HitboxFlags.TableColumnContextMenu,
         { x: column.endBl * blockSizePx.w - menuWidthPx, y: headerTopPx, w: menuWidthPx, h: headerHeightPx },
-        HitboxFns.createMeta({ colNum: column.index }),
+        // The full column extent as well as colNum: in a narrow column this hitbox covers the heading, so a long hold
+        // that edits the heading may only have this meta to go on.
+        HitboxFns.createMeta({ colNum: column.index, startBl: column.startBl, endBl: column.endBl }),
       ));
     }
   }
