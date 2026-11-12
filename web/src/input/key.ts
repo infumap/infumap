@@ -1464,6 +1464,7 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
       const closest = findClosest(VesCache.current, focusPath, direction, true);
       if (closest != null) {
         // Just set focus to the new item - don't pop up pages
+        scrollItemIntoViewForKeyNavigation(store, closest);
         store.history.setFocus(closest);
         arrangeNow(store, "key-arrow-focus-closest");
         return;
@@ -1537,6 +1538,8 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
     const closestVeid = VeFns.veidFromPath(closest);
     const closestItem = itemState.get(closestVeid.itemId);
     if (!closestItem) { return; }
+    // Before the attachment popup anchor is calculated from the item's position on screen below.
+    scrollItemIntoViewForKeyNavigation(store, closest);
 
     // Check if destination item is a page/image (should become popup)
     const isPageOrImage = isPage(closestItem) || isImage(closestItem);
@@ -1619,6 +1622,7 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
           const newChildId = pageChildren[idx];
           let newChildVeid = VeFns.veidFromId(newChildId);
           const newPath = VeFns.addVeidToPath(newChildVeid, parentPath);
+          scrollItemIntoViewForKeyNavigation(store, newPath);
           store.history.replacePopup({
             vePath: newPath,
             actualVeid: newChildVeid,
@@ -2032,9 +2036,38 @@ function buildTablePopupReplacementSpec(
 /**
  * Handle up/down navigation between attachments in different table rows.
  */
+/**
+ * Scroll the page or table showing the item at path as little as shows it, as arrow keys move a popup or the focus to
+ * an item that may be scrolled out of view. Moving a popup or the focus does not move items, so this reads the current
+ * scene, and is called before the arrange that follows the move so the scroll is arranged with it.
+ */
+function scrollItemIntoViewForKeyNavigation(store: StoreContextModel, path: VisualElementPath): void {
+  let ve = VesCache.current.readNode(path);
+  let parentVe = ve?.parentPath ? VesCache.current.readNode(ve.parentPath) : undefined;
+  // An attachment is placed relative to the item it is attached to, so show that item.
+  if (ve && parentVe && (ve.flags & VisualElementFlags.Attachment)) {
+    ve = parentVe;
+    parentVe = ve.parentPath ? VesCache.current.readNode(ve.parentPath) : undefined;
+  }
+  if (!ve || !parentVe) { return; }
+  if (isTableView(parentVe)) {
+    // Table rows are virtualized, so they are scrolled to by row rather than by bounds.
+    if (ve.row == null) { return; }
+    store.perItem.setTableScrollYPos(VeFns.veidFromVe(parentVe), TableFns.scrollYPosToIncludeRow(store, parentVe, ve.row));
+    return;
+  }
+  if (!isPage(parentVe.displayItem)) { return; }
+  if (ve.listPageRowBand != null) {
+    PageFns.scrollListPageRowIntoView(store, parentVe, ve);
+    return;
+  }
+  PageFns.scrollChildIntoView(store, parentVe, ve);
+}
+
 function replacePopupOrFocusPlaceholder(store: StoreContextModel, targetPath: string, reason: string): boolean {
   const targetVe = VesCache.current.readNode(targetPath);
   if (!targetVe) { return false; }
+  scrollItemIntoViewForKeyNavigation(store, targetPath);
 
   if (isPlaceholder(targetVe.displayItem)) {
     store.history.popPopup();

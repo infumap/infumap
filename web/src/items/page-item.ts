@@ -2113,6 +2113,31 @@ export const PageFns = {
     store.perItem.setPageScrollYProp(scrollVeid, nextPx / maxScrollPx);
   },
 
+  /**
+   * Scroll page pageVe (in either direction it scrolls) as little as shows its child childVe, or its top left if it does
+   * not fit, as keyboard navigation moves to it. Centering it, as revealChild does, would move the page half a screen
+   * each time navigation reached its edge. This reads the arranged children, so must be called after arranging.
+   */
+  scrollChildIntoView: (store: StoreContextModel, pageVe: VisualElement, childVe: VisualElement): void => {
+    if (!pageVe.viewportBoundsPx || !pageVe.childAreaBoundsPx) { return; }
+    const nextScrollProp = (scrollProp: number, viewportPx: number, contentPx: number, startPx: number, sizePx: number): number | null => {
+      const maxScrollPx = contentPx - viewportPx;
+      if (maxScrollPx <= 0) { return null; }
+      const scrollPx = scrollProp * maxScrollPx;
+      let nextPx = scrollPx;
+      if (startPx + sizePx > nextPx + viewportPx) { nextPx = startPx + sizePx - viewportPx; }
+      if (startPx < nextPx) { nextPx = startPx; }
+      nextPx = Math.max(0, Math.min(maxScrollPx, nextPx));
+      return nextPx == scrollPx ? null : nextPx / maxScrollPx;
+    };
+    const scrollVeid = pageScrollVeid(store, pageVe);
+    const { x, y, w, h } = childVe.boundsPx;
+    const nextX = nextScrollProp(store.perItem.getPageScrollXProp(scrollVeid), pageVe.viewportBoundsPx.w, pageVe.childAreaBoundsPx.w, x, w);
+    if (nextX != null) { store.perItem.setPageScrollXProp(scrollVeid, nextX); }
+    const nextY = nextScrollProp(store.perItem.getPageScrollYProp(scrollVeid), pageVe.viewportBoundsPx.h, pageVe.childAreaBoundsPx.h, y, h);
+    if (nextY != null) { store.perItem.setPageScrollYProp(scrollVeid, nextY); }
+  },
+
   setDefaultListPageSelectedItemMaybe: (store: StoreContextModel, itemVeid: Veid): void => {
     if (!isEmptyVeid(store.perItem.getSelectedListPageItem(itemVeid))) { return; }
     const item = itemState.get(itemVeid.itemId)!;
