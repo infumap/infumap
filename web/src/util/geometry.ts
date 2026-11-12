@@ -103,10 +103,15 @@ export function offsetBoundingBoxTopLeftBy(boundingBox: BoundingBox, offset: Vec
   });
 }
 
+/**
+ * Half-open: the top and left edges are inside, the bottom and right edges are not, so boxes that share an edge (e.g.
+ * consecutive table or list rows) tile the area. Excluding both edges left the shared edge in neither box, a one pixel
+ * line between rows where hits fell through to whatever was behind them.
+ */
 export function isInside(point: Vector, boundingBox: BoundingBox): boolean {
-  return point.x > boundingBox.x &&
+  return point.x >= boundingBox.x &&
     point.x < boundingBox.x + boundingBox.w &&
-    point.y > boundingBox.y &&
+    point.y >= boundingBox.y &&
     point.y < boundingBox.y + boundingBox.h;
 }
 
