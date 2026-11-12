@@ -54,6 +54,17 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
   const canEdit = () => !isTranslucent() && itemCanEdit(page()) && itemCanEdit(VeFns.treeItem(props.visualElement));
   const pagePath = () => VeFns.veToPath(props.visualElement);
   const pageVeid = () => VeFns.veidFromVe(props.visualElement);
+  // The column menu chevrons are faint while the mouse is over the page, as for a table. Mouse-over isn't tracked for a
+  // top-level root or popup (mouse_move), and the mouse is nearly always over a page shown that way anyway, so there
+  // they show while the mouse is over the header row instead.
+  const showColumnMenus = () =>
+    (props.visualElement.flags & (VisualElementFlags.TopLevelRoot | VisualElementFlags.Popup))
+      ? store.mouseOverTableHeader.get()?.path == pagePath()
+      : store.perVe.getMouseIsOver(pagePath());
+  const headerColumnUnderMouse = () => {
+    const over = store.mouseOverTableHeader.get();
+    return over?.path == pagePath() ? over.menuColNum : null;
+  };
   const viewport = () => props.visualElement.viewportBoundsPx!;
   const bodyViewport = () => props.visualElement.tableBodyViewportBoundsPx!;
   const blockSize = () => props.visualElement.tableRowBlockSizePx!;
@@ -187,8 +198,8 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
               onKeyDown={ev => edit_keyDownHandler(store, props.visualElement, ev)}
               onKeyUp={ev => edit_keyUpHandler(store, ev)}>
               {column.name}
-              <TableHeaderMarks menu={!canEdit() || !store.perVe.getMouseIsOver(pagePath()) ? "none"
-                  : store.mouseOverTableHeaderColumnNumber.get() == column.index ? "full" : "faint"}
+              <TableHeaderMarks menu={!canEdit() || !showColumnMenus() ? "none"
+                  : headerColumnUnderMouse() == column.index ? "full" : "faint"}
                 editing={store.overlay.textEditInfo()?.itemPath == pagePath() && store.overlay.textEditInfo()?.colNum == column.index} />
             </div>
           }</For>

@@ -349,7 +349,8 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
               onInput={ev => { ev.stopPropagation(); edit_inputListener(store, ev, false); }}>
               {spec.name}
               <TableHeaderMarks menu={!canEdit() || !store.perVe.getMouseIsOver(vePath()) ? "none"
-                  : store.mouseOverTableHeaderColumnNumber.get() == spec.idx ? "full" : "faint"}
+                  : store.mouseOverTableHeader.get()?.path == vePath() &&
+                    store.mouseOverTableHeader.get()?.menuColNum == spec.idx ? "full" : "faint"}
                 editing={store.overlay.textEditInfo()?.itemPath == vePath() && store.overlay.textEditInfo()?.colNum == spec.idx} />
             </div>
           }</For>

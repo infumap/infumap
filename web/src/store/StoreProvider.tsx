@@ -77,7 +77,8 @@ export interface StoreContextModel {
   externalFileDragActive: InfuSignal<boolean>,
   movingItemSourceCalendarInfo: InfuSignal<{ pageItemId: string, combinedIndex: number, year?: number } | null>,
   movingItemTargetCalendarInfo: InfuSignal<{ pageItemId: string, combinedIndex: number, year?: number } | null>,
-  mouseOverTableHeaderColumnNumber: InfuSignal<number | null>,
+  // The table or table page whose column header row is under the mouse, and the column whose menu chevron is, if any.
+  mouseOverTableHeader: InfuSignal<{ path: VisualElementPath, menuColNum: number | null } | null>,
 
   touchToolbar: () => void,
   touchToolbarDependency: () => void,
@@ -236,7 +237,7 @@ export function StoreProvider(props: StoreContextProps) {
     externalFileDragActive: createInfuSignal<boolean>(false),
     movingItemSourceCalendarInfo: createInfuSignal<{ pageItemId: string, combinedIndex: number, year?: number } | null>(null),
     movingItemTargetCalendarInfo: createInfuSignal<{ pageItemId: string, combinedIndex: number, year?: number } | null>(null),
-    mouseOverTableHeaderColumnNumber: createInfuSignal<number | null>(null),
+    mouseOverTableHeader: createInfuSignal<{ path: VisualElementPath, menuColNum: number | null } | null>(null),
 
     perVe,
     perItem,

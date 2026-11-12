@@ -384,7 +384,6 @@ function resolveExternalUploadTarget(
 
   if (syncHoverState) {
     clearMouseOverState(store);
-    store.mouseOverTableHeaderColumnNumber.set(null);
     syncExternalUploadMoveOverContainer(store, nextMoveOverContainerPath ?? orderedPageTargetPath);
   }
 
@@ -788,7 +787,6 @@ export function clearExternalUploadHover(store: StoreContextModel): void {
   syncExternalUploadMoveOverContainer(store, null);
   syncExternalUploadAttachHover(store, null, -1);
   clearMouseOverState(store);
-  store.mouseOverTableHeaderColumnNumber.set(null);
   store.externalFileDragActive.set(false);
   externalUploadDropTarget = null;
 }

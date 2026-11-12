@@ -248,6 +248,9 @@ export function mouseMoveHandler(store: StoreContextModel) {
 
 export function clearMouseOverState(store: StoreContextModel) {
   setCopyMoveCursorOverride(false);
+  if (store.mouseOverTableHeader.get() != null) {
+    store.mouseOverTableHeader.set(null);
+  }
   if (lastMouseOverPath) {
     store.perVe.setMouseIsOver(lastMouseOverPath, false);
     lastMouseOverPath = null;
@@ -1585,7 +1588,6 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
   if (!MouseActionState.empty()) {
     setCopyMoveCursorOverride(false);
     clearMouseOverState(store);
-    store.mouseOverTableHeaderColumnNumber.set(null);
     return;
   }
 
@@ -1611,15 +1613,20 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
   const copyOnlyMoveHover = isCopyOnlyMoveHover(store, hitInfo);
   const copyOnlyMoveOutHover = isCopyOnlyMoveOutHover(hitInfo);
   setCopyMoveCursorOverride(copyOnlyMoveHover && hasUser && !hasModal && !isInsideToolbarPopup);
-  if (hitInfo.overElementMeta && (hitInfo.hitboxType & HitboxFlags.TableColumnContextMenu) && hitInfoCanEditTableColumns(hitInfo) &&
-    !hasModal && !isInsideToolbarPopup) {
-    if (hitInfo.overElementMeta!.colNum) {
-      store.mouseOverTableHeaderColumnNumber.set(hitInfo.overElementMeta!.colNum);
-    } else {
-      store.mouseOverTableHeaderColumnNumber.set(0);
+  // Only column hitboxes carry colNum, and of those only the heading ones are ContentEditable or the menu, so this is the
+  // header row, including where a column resize handle crosses it.
+  const overTableHeader = hitInfo.overElementMeta?.colNum != null &&
+    !!(hitInfo.hitboxType & (HitboxFlags.TableColumnContextMenu | HitboxFlags.ContentEditable)) &&
+    hitInfoCanEditTableColumns(hitInfo) && !hasModal && !isInsideToolbarPopup;
+  const tableHeader = overTableHeader
+    ? {
+      path: VeFns.veToPath(HitInfoFns.getHitVe(hitInfo)),
+      menuColNum: (hitInfo.hitboxType & HitboxFlags.TableColumnContextMenu) ? hitInfo.overElementMeta!.colNum! : null,
     }
-  } else {
-    store.mouseOverTableHeaderColumnNumber.set(null);
+    : null;
+  const currentTableHeader = store.mouseOverTableHeader.get();
+  if (currentTableHeader?.path != tableHeader?.path || currentTableHeader?.menuColNum != tableHeader?.menuColNum) {
+    store.mouseOverTableHeader.set(tableHeader);
   }
 
   const overElementVes = HitInfoFns.getHitVes(hitInfo);
