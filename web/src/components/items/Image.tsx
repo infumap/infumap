@@ -25,7 +25,7 @@ import { commitActiveTextEdit, edit_inputListener, edit_keyDownHandler, edit_key
 import { BoundingBox, Dimensions, quantizeBoundingBox } from "../../util/geometry";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { VesCache } from "../../layout/ves-cache";
-import { ImageFetchPriority, acquireFetchedImageMaybe, getImage, releaseImage } from "../../imageManager";
+import { ImageFetchPriority, acquireFetchedImageMaybe, getImage, imageFetchDebugStatus, releaseImage } from "../../imageManager";
 import { imagePlaceholderSizePx, imagePlaceholderSrc } from "../../util/imagePlaceholder";
 import { VisualElementFlags, VeFns } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
@@ -742,12 +742,28 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
     const ratio = () => loadedNaturalWidthPx.get() / Math.max(1, displayedWidthDevicePx());
     const kindLetter = () => shownImageKind.get() == "placeholder" ? "P" : shownImageKind.get() == "interim" ? "I" : "F";
     const color = () => ratio() >= 0.95 ? "#16a34a" : ratio() >= 0.5 ? "#d97706" : "#dc2626";
+    // Where getting the wanted rendition is at, polled since the image manager state is not reactive. "unset" means
+    // the fetch effect has never acted (not detailed on mount, or an item was resizing), "ph ok" that the placeholder
+    // was judged sufficient, otherwise see imageFetchDebugStatus.
+    const fetchStatus = createInfuSignal<string>("");
+    const updateFetchStatus = () => {
+      fetchStatus.set(
+        !isDetailed_OnLoad ? "not detailed@mount"
+          : currentImgSrc == null ? "unset"
+          : currentImgSrc == "" ? "ph ok"
+          : !currentImgSrcIsHeld ? "stand-in ok"
+          : imageFetchDebugStatus(currentImgSrc, imgOriginOnLoad));
+    };
+    updateFetchStatus();
+    const intervalId = setInterval(updateFetchStatus, 1000);
+    onCleanup(() => clearInterval(intervalId));
     return (
       <div class="absolute pointer-events-none whitespace-nowrap"
         style={`left: 2px; top: 2px; z-index: 3; padding: 0px 3px; border-radius: 2px; ` +
           `font: 10px/14px ui-monospace, monospace; color: #ffffff; background-color: ${color()};`}>
         <div>{`${kindLetter()} ${Math.round(ratio() * 100)}%`}</div>
         <div>{`${loadedNaturalWidthPx.get()}/${displayedWidthDevicePx()}`}</div>
+        <div>{fetchStatus.get()}</div>
       </div>
     );
   };

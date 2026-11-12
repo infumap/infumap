@@ -72,6 +72,14 @@ let objectUrlsRefCount: Map<string, number> = new Map<string, number>(); // cach
 
 const debug = false;
 
+// For diagnosing images stuck on their placeholder: fetches in progress (with when they started) and the last failure
+// of each key. Only read by imageFetchDebugStatus and the window.infumapImageManagerState console hook.
+let inFlightForDebug: Map<ImageFetchTask, number> = new Map<ImageFetchTask, number>();
+let failedForDebug: Map<string, string> = new Map<string, string>();
+// Responses that arrived after their image was released and its bookkeeping cleaned up, so were discarded. The browser
+// http cache still holds them. Most recent last, capped.
+let droppedForDebug: Array<{ key: string, atMs: number }> = [];
+
 function containerDebugCounts(): string {
   return `objectUrls.size: ${objectUrls.size}. objectURlsRefCount.size: ${objectUrlsRefCount.size}. waitingForCleanup.size: ${waitingForCleanup.size}. fetchInProgress.size: ${fetchInProgress.size}. waiting.length: ${waiting.length}. `;
 }
@@ -105,6 +113,7 @@ export function getImage(
     onInterim: ((objectUrl: string) => void) | null = null): Promise<string> {
   const key = cacheKey(path, origin);
   if (debug) { console.debug(`getImage: ` + debugMsg(key) + containerDebugCounts()); }
+  failedForDebug.delete(key);
 
   const cleanupIdMaybe = waitingForCleanup.get(key);
   if (cleanupIdMaybe) {
@@ -195,6 +204,7 @@ function serveWaiting() {
 function startFetch(task: ImageFetchTask) {
   const isHighPriority = task.priority == ImageFetchPriority.High;
   if (isHighPriority) { highPriorityFetchesInProgress += 1; }
+  inFlightForDebug.set(task, Date.now());
   const url = task.baseUrlMaybe == null
     ? task.path
     : new URL(task.path, task.baseUrlMaybe).href;
@@ -256,6 +266,8 @@ function startFetch(task: ImageFetchTask) {
         // leave objectUrls and objectUrlsRefCount out of sync, and nothing would revoke it. The task's promise is left
         // unsettled: whoever requested the image has released it, so is not using the result.
         if (debug) { console.debug(`fetch complete but no longer required: ${task.key}.`); }
+        droppedForDebug.push({ key: task.key, atMs: Date.now() });
+        if (droppedForDebug.length > 200) { droppedForDebug.shift(); }
         return;
       }
       if (objectUrls.get(task.key) != null) {
@@ -271,11 +283,13 @@ function startFetch(task: ImageFetchTask) {
     })
     .catch((error) => {
       if (debug) { console.debug(`fetch failed: ${task.key}`); }
+      failedForDebug.set(task.key, String(error));
       fetchInProgress.delete(task.key);
       revokeInterimLater(task);
       task.reject(error);
     })
     .finally(() => {
+      inFlightForDebug.delete(task);
       if (isHighPriority) { highPriorityFetchesInProgress -= 1; }
       serveWaiting();
     });
@@ -357,3 +371,60 @@ export function acquireFetchedImageMaybe(itemId: string, origin: string | null):
 export function imageFetchesPending(): boolean {
   return waiting.length > 0 || fetchInProgress.size > 0;
 }
+
+const priorityName = (priority: ImageFetchPriority): string => ImageFetchPriority[priority];
+
+/**
+ * For the image resolution debug badge: where the fetch of path is at. "lost" means it is held (ref count > 0) but
+ * there is neither an image nor a task for it, so it will never arrive.
+ */
+export function imageFetchDebugStatus(path: string, origin: string | null): string {
+  const key = cacheKey(path, origin);
+  if (objectUrls.get(key) != null) { return "have"; }
+  const now = Date.now();
+  for (const [task, startedMs] of inFlightForDebug) {
+    if (task.key == key) {
+      return `${task.isFollowUp ? "gen" : "req"} ${Math.round((now - startedMs) / 1000)}s`;
+    }
+  }
+  const waitingIdx = waiting.findIndex(t => t.key == key);
+  if (waitingIdx != -1) {
+    return `q${waitingIdx + 1}/${waiting.length}${waiting[waitingIdx].isFollowUp ? " gen" : ""}`;
+  }
+  const failure = failedForDebug.get(key);
+  if (failure != null) { return `fail ${failure}`; }
+  if ((objectUrlsRefCount.get(key) ?? 0) > 0) { return "lost"; }
+  return "none";
+}
+
+/**
+ * For diagnosing images that don't load: call infumapImageManagerState() in the browser console.
+ */
+(window as any).infumapImageManagerState = () => {
+  const now = Date.now();
+  const lost: Array<string> = [];
+  for (const [key, refCount] of objectUrlsRefCount) {
+    if (refCount > 0 && objectUrls.get(key) == null &&
+        !waiting.some(t => t.key == key) && ![...inFlightForDebug.keys()].some(t => t.key == key)) {
+      lost.push(key);
+    }
+  }
+  return {
+    documentHidden: document.hidden,
+    highPriorityFetchesInProgress,
+    fetchInProgressSize: fetchInProgress.size,
+    canStartNextWaiting: canStartNextWaiting(),
+    inFlight: [...inFlightForDebug].map(([task, startedMs]) => ({
+      key: task.key,
+      priority: priorityName(task.priority),
+      followUp: task.isFollowUp,
+      ageS: Math.round((now - startedMs) / 1000),
+    })),
+    waitingCount: waiting.length,
+    waitingFirst20: waiting.slice(0, 20).map(t => ({ key: t.key, priority: priorityName(t.priority), followUp: t.isFollowUp })),
+    lost,
+    failed: Object.fromEntries(failedForDebug),
+    droppedCount: droppedForDebug.length,
+    droppedLast20: droppedForDebug.slice(-20).map(d => ({ key: d.key, agoS: Math.round((now - d.atMs) / 1000) })),
+  };
+};
