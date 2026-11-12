@@ -464,7 +464,6 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         <Show when={PageFns.showDocumentTitleInDocument(pageFns().pageItem())}>
           <DocumentPageTitle visualElement={props.visualElement} pageFns={props.pageFns} allowEditing={true} />
         </Show>
-        {pageFns().renderCatalogResultSelectionMaybe()}
         <VisualElement_DesktopShadowLayer visualElementSignals={pageChildren()} />
         <For each={pageChildren()}>{(childVes, index) => {
           const gapAfterBoundsPx = () => linearSelectionGapAfterBoundsPx(

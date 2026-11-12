@@ -20,7 +20,7 @@ import { LINE_HEIGHT_PX } from "../../constants";
 import { orderedGroupMoveItems } from "../../input/move_group";
 import { PageFlags } from "../../items/base/flags-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
-import { LinkFns, LinkItem, asLinkItem, isLink } from "../../items/link-item";
+import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem, asPageItem, isPage, pageUsesEmbeddedInteractiveMode } from "../../items/page-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -152,14 +152,15 @@ export function arrange_grid_page(
     setNaturalAttachmentBlockSizePx(store, childItem, cellGeometry, attachmentBlockSizePx, !hasCatalogResults);
     if (!hasCatalogResults) { addAttachCompositeHitboxMaybe(store, childItem, cellGeometry); }
     addLinkTriangleHitboxMaybe(cellGeometry, actualLinkItemMaybe);
-    const targetItemId = actualLinkItemMaybe ? LinkFns.getLinkToId(actualLinkItemMaybe) : undefined;
     const cellIndex = row * numCols + col;
     if (hasCatalogResults) {
+      // A click anywhere in the cell, these padding hitboxes included, goes to the result's location: see
+      // navigateToSearchGridResultClickMaybe in mouse_up.ts. They keep a click in the padding on the result rather
+      // than the results page.
       const hitboxMeta = {
         focusOnly: true,
         allowOutsideBounds: true,
         searchGridCellIndex: cellIndex,
-        ...(targetItemId ? { openContainingPageOfItemId: targetItemId } : {}),
       };
       const cellLocalLeftPx = pageSidePaddingPx + col * cellWPx - cellGeometry.boundsPx.x;
       const cellLocalTopPx = pageTopPaddingPx + row * cellHPx - cellGeometry.boundsPx.y;
@@ -212,13 +213,7 @@ export function arrange_grid_page(
 
       for (const hitbox of cellGeometry.hitboxes) {
         if (!(hitbox.type & HitboxFlags.Click)) { continue; }
-        const isCellPaddingHitbox = !!hitbox.meta?.focusOnly && !!hitbox.meta?.allowOutsideBounds;
-        hitbox.meta = {
-          ...(hitbox.meta ?? {}),
-          searchGridCellIndex: cellIndex,
-          ...(targetItemId && isCellPaddingHitbox ? { openContainingPageOfItemId: targetItemId } : {}),
-          ...(targetItemId && !isCellPaddingHitbox ? { openActualItem: true } : {}),
-        };
+        hitbox.meta = { ...(hitbox.meta ?? {}), searchGridCellIndex: cellIndex };
       }
     }
 

@@ -496,33 +496,6 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             `padding-top: ${pageFns.catalogDisplayContext().footerGapPx()}px;`} />
       </Show>,
 
-    renderCatalogResultSelectionMaybe: () => {
-      if (!pageFns.hasCatalogResultContext()) {
-        return <></>;
-      }
-
-      const selectedResultIndex = () => pageFns.catalogDisplayContext().selectedRowIndex();
-      const resultSelectionStyle = () => {
-        const numCols = Math.max(1, pageFns.pageItem().gridNumberOfColumns);
-        const selectedIndex = selectedResultIndex();
-        const row = Math.floor(selectedIndex / numCols);
-        const col = selectedIndex % numCols;
-        return `left: ${pageFns.gridPagePaddingPx() + col * props.visualElement.cellSizePx!.w}px; ` +
-          `top: ${pageFns.gridPageTopPaddingPx() + row * props.visualElement.cellSizePx!.h}px; ` +
-          `width: ${props.visualElement.cellSizePx!.w}px; ` +
-          `height: ${props.visualElement.cellSizePx!.h}px; ` +
-          `background-color: ${SELECTED_LIGHT}; z-index: 1;`;
-      };
-      return (
-        <Show when={pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid &&
-          props.visualElement.cellSizePx &&
-          selectedResultIndex() >= 0}>
-          <div class="absolute pointer-events-none"
-            style={resultSelectionStyle()} />
-        </Show>
-      );
-    },
-
     renderCatalogResultHoverMaybe: () => {
       if (!pageFns.hasCatalogResultContext()) {
         return <></>;

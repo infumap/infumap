@@ -120,6 +120,7 @@ import {
   queryChatActivityIsRunning,
 } from "./QueryChatActivity";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
+import { enterSearchResultsMaybe } from "../../input/key";
 import {
   CHAT_ATTACHMENT_FILE_ACCEPT,
   CHAT_ITEM_DROP_ATTRIBUTE,
@@ -1084,7 +1085,27 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         ev.stopPropagation();
         exitEditMode(ev.currentTarget instanceof HTMLElement ? ev.currentTarget : null);
         return;
+      case "ArrowDown":
+        if (moveFromQueryInputToSearchResultsMaybe(ev.currentTarget)) {
+          ev.preventDefault();
+          ev.stopPropagation();
+        }
+        return;
     }
+  };
+
+  /**
+   * Down from the end of an unchanged query goes back into the results, the reverse of up from their first row. An
+   * edited query is left alone: its results would not match it, and leaving would discard the edit.
+   */
+  const moveFromQueryInputToSearchResultsMaybe = (target: EventTarget | null): boolean => {
+    if (selectedInputMode() != "search" || !hasSearchResults()) { return false; }
+    if (!(target instanceof HTMLTextAreaElement)) { return false; }
+    if (target.selectionStart != target.value.length || target.selectionEnd != target.value.length) { return false; }
+    if (normalizeSearchText(target.value) != queryText()) { return false; }
+    exitEditMode(target);
+    store.history.setFocus(vePath());
+    return enterSearchResultsMaybe(store);
   };
 
   createEffect(() => {

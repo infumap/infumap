@@ -110,6 +110,8 @@ export interface HistoryStoreContextModel {
   currentPopupSpec: () => PopupSpec | null,
   currentPopupSpecVeid: () => Veid | null,
   hasPopupParent: () => boolean,
+  /** Sets where focus goes when the current popup closes. */
+  setCurrentPopupRestoreFocusPath: (path: VisualElementPath) => void,
 
   /**
    * Sets the focus path. If suppressFocusRing is set, the focus ring is not drawn while focus remains on this path
@@ -583,6 +585,13 @@ export function makeHistoryStore(beforeNavigation: () => void): HistoryStoreCont
     return breadcrumbs()[breadcrumbs().length - 1].popupBreadcrumbs.length > 1;
   };
 
+  const setCurrentPopupRestoreFocusPath = (path: VisualElementPath): void => {
+    const spec = currentPopupSpec();
+    if (spec == null) { return; }
+    // Only read when the popup closes, so nothing reactive depends on it.
+    spec.restoreFocusPath = path;
+  };
+
 
   const setFocus = (focusPath: VisualElementPath, suppressFocusRing: boolean = false): void => {
     if (breadcrumbs().length < 1) { panic("cannot set focus item when there is no current page."); }
@@ -696,6 +705,7 @@ export function makeHistoryStore(beforeNavigation: () => void): HistoryStoreCont
     currentPopupSpec,
     currentPopupSpecVeid,
     hasPopupParent,
+    setCurrentPopupRestoreFocusPath,
 
     setFocus,
     focusRingIsSuppressed,

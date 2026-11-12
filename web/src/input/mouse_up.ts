@@ -35,7 +35,7 @@ import { clearQueryChat } from "../items/chat";
 import { CHAT_TRANSCRIPT_MIME_TYPE, clientTextCopyData, isChatTextItem } from "../items/text-document";
 import { chatItemDropTargetAt, updateChatItemDropHover } from "../items/chat-attachment";
 import { openQueryChatTurnMarkdownPopup } from "../items/chat-turn-markdown";
-import { asLinkItem, isLink } from "../items/link-item";
+import { LinkFns, asLinkItem, isLink } from "../items/link-item";
 import { ArrangeAlgorithm, PageFns, asPageItem, documentPageChildClickIsInsideVisibleBounds, editLastDocumentRowFromBelowClickMaybe, handleDocumentRowSideClickMaybe, isPage } from "../items/page-item";
 import { asNoteItem, isNote } from "../items/note-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
@@ -45,7 +45,7 @@ import { asQueryItem, isQueryItem, isQuerySearchResultsPage, setChatPersistPrevi
 import { TableFns, asTableItem, isTable } from "../items/table-item";
 import { newOrderingAtBeginning, newOrderingAtEnd, newOrderingBetween } from "../util/ordering";
 import { arrangeNow, requestArrange } from "../layout/arrange";
-import { switchToPage } from "../layout/navigation";
+import { navigateToContainingPageOfItemAndFocus, switchToPage } from "../layout/navigation";
 import { HitboxFlags } from "../layout/hitbox";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VesCache } from "../layout/ves-cache";
@@ -274,6 +274,32 @@ function focusQueryItemFromResultsBackgroundClickMaybe(
   store.history.setFocus(activeVisualElement.parentPath);
   arrangeNow(store, "mouse-up-focus-search-from-results-background");
   return true;
+}
+
+/**
+ * A click anywhere in a cell of a search results grid goes to the result's location, with the result focused. The
+ * item's own click behaviour (e.g. an image opening full screen, a page opening in a popup) is not used: an item that
+ * fills its cell leaves no padding to click, so what a click does must not depend on where in the cell it lands. A
+ * result is opened in a popup from the keyboard instead (space on the focused result).
+ */
+function navigateToSearchGridResultClickMaybe(
+  store: StoreContextModel,
+  activeVisualElement: VisualElement,
+): boolean {
+  let current: VisualElement | null = activeVisualElement;
+  while (current != null && current.parentPath) {
+    const parentVe = MouseActionState.readVisualElement(current.parentPath);
+    if (parentVe == null) { return false; }
+    if (isPage(parentVe.displayItem) &&
+        isQuerySearchResultsPage(parentVe.displayItem) &&
+        asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Grid) {
+      if (current.actualLinkItemMaybe == null) { return false; }
+      void navigateToContainingPageOfItemAndFocus(store, LinkFns.getLinkToId(current.actualLinkItemMaybe));
+      return true;
+    }
+    current = parentVe;
+  }
+  return false;
 }
 
 function focusQueryItemFromChatPageClickMaybe(
@@ -1478,7 +1504,10 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         }
       }
 
-      if (MouseActionState.getHitMeta()?.queryChatTurnMarkdown) {
+      if (navigateToSearchGridResultClickMaybe(store, activeVisualElement)) {
+        DoubleClickState.preventDoubleClick();
+
+      } else if (MouseActionState.getHitMeta()?.queryChatTurnMarkdown) {
         DoubleClickState.preventDoubleClick();
         openQueryChatTurnMarkdownPopup(store, activeVisualElement);
 

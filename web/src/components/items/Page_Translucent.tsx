@@ -348,7 +348,6 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
             `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px; ` +
             `${miniatureChildItemRadiusStyle(store, pageFns().boundsPx().w)}`}>
           <PageGroupBoxes childVes={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()} childAreaBoundsPx={pageFns().childAreaBoundsPx()} pageItemId={props.visualElement.displayItem.id} />
-          {pageFns().renderCatalogResultSelectionMaybe()}
           <VisualElement_DesktopShadowLayer visualElementSignals={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()} />
           <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes =>
             <VisualElement_Desktop visualElement={childVes.get()} suppressLocalShadow={true} />
