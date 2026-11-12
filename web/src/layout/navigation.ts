@@ -19,7 +19,7 @@
 import { ROOT_USERNAME } from "../constants";
 import { requestContainerSyncSoon, server } from "../server";
 import { Item, PinnedTo } from "../items/base/item";
-import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
+import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../items/page-item";
 import { ensureQueryEntryUnderQueries } from "../items/query-entry";
 import { asQueryItem, isQueryItem } from "../items/query-item";
 import { queryChatHasContent } from "../items/chat";
@@ -187,6 +187,7 @@ async function navigateToContainingPageOfItemWithOptions(
       const focusPath = options.focusTarget ? focusPathForItemChain(pageVeid, bottomUpItemChain) : undefined;
       switchToPage(store, pageVeid, true, false, false, focusPath);
       await revealItemInTables(store, pageVeid, bottomUpItemChain);
+      await revealItemInPages(store, pageVeid, bottomUpItemChain);
       return true;
     }
 
@@ -232,6 +233,36 @@ async function revealItemInTables(store: StoreContextModel, pageVeid: Veid, bott
     }
     containerPath = VeFns.addVeidToPath(topDownItemChain[i], containerPath);
   }
+}
+
+/**
+ * Scroll the page, and each page between it and the item, so the item (or the container it is in, for an item in a
+ * composite or an attachment) is visible. Item positions are only final once the page's children are loaded, which
+ * they may not be when it is first shown.
+ */
+async function revealItemInPages(store: StoreContextModel, pageVeid: Veid, bottomUpItemChain: Array<Veid>): Promise<void> {
+  await initiateLoadChildItemsMaybe(store, pageVeid);
+  const currentPageVeid = store.history.currentPageVeid();
+  if (currentPageVeid == null || VeFns.compareVeids(currentPageVeid, pageVeid) != 0) { return; }
+  arrangeNow(store, "navigate-reveal-item-loaded");
+
+  let path: VisualElementPath = focusPathForItemChain(pageVeid, bottomUpItemChain);
+  let parentPath = VeFns.parentPath(path);
+  while (parentPath) {
+    const ve = VesCache.current.readNode(path);
+    const parentVe = VesCache.current.readNode(parentPath);
+    // Tables are scrolled by row, in revealItemInTables.
+    if (ve && parentVe && isPage(parentVe.displayItem) && !isTableView(parentVe)) {
+      if (ve.listPageRowBand != null) {
+        PageFns.scrollListPageRowIntoView(store, parentVe, ve);
+      } else {
+        PageFns.scrollChildIntoView(store, parentVe, ve);
+      }
+    }
+    path = parentPath;
+    parentPath = VeFns.parentPath(path);
+  }
+  arrangeNow(store, "navigate-reveal-item");
 }
 
 export async function navigateToContainingPageOfItem(store: StoreContextModel, itemId: Uid): Promise<boolean> {
