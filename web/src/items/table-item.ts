@@ -470,7 +470,9 @@ export const TableFns = {
   getFingerprint: (tableItem: TableItem): string => {
     let tableColText = "";
     for (let i = 0; i < tableItem.tableColumns.length; ++i) { tableColText += tableItem.tableColumns[i].name + "!$!!@"; }
-    return tableItem.title + "~~~!@#~~~" + tableItem.flags + "~~~%@#~~~" + tableColText + "~~~%^&~~~" + tableItem.numberOfVisibleColumns;
+    return tableItem.title + "~~~!@#~~~" + tableItem.flags + "~~~%@#~~~" + tableColText + "~~~%^&~~~" + tableItem.numberOfVisibleColumns +
+      // The heading of the column the table is sorted by shows it.
+      "~~~&*(~~~" + tableItem.orderChildrenBy;
   },
 
   /**

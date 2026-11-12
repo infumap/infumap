@@ -134,6 +134,29 @@ function isSortedOrder(orderChildrenBy: string | null): boolean {
   return parseSortOrder(orderChildrenBy) != null;
 }
 
+function sortAttachmentsOnly(parentId: Uid): void {
+  const container = asAttachmentsItem(itemState.get(parentId)!);
+  container.computed_attachments.sort((a, b) => {
+    const cmp = compareOrderings(itemState.get(a)!.ordering, itemState.get(b)!.ordering);
+    if (cmp !== 0) { return cmp; }
+    return a < b ? -1 : (a > b ? 1 : 0);
+  });
+}
+
+/**
+ * Re-sort the container of a row whose attachments (its cells) changed, if it's sorted by a column. Unlike a change of
+ * value (sortParentChildrenIfSorted), links to the row elsewhere aren't re-sorted: finding them means searching every
+ * item, and this runs for every attachment added, moved or removed.
+ */
+function sortRowContainerIfSortedByColumn(rowId: Uid): void {
+  const row = items.get(rowId);
+  if (row == null || row.relationshipToParent != RelationshipToParent.Child) { return; }
+  const container = items.get(row.parentId);
+  if (container == null || !isContainer(container)) { return; }
+  const order = parseSortOrder(asContainerItem(container).orderChildrenBy);
+  if (order != null && order.col > 0) { itemState.sortChildren(container.id); }
+}
+
 /** What item is sorted as: itself, or the target of a link. null for a link whose target isn't loaded. */
 function resolveForSort(item: Item | null): Item | null {
   if (item == null || !isLink(item)) { return item; }
@@ -230,6 +253,7 @@ export const itemState = {
       panic("delete: unexpected relationshipToParent.");
     }
     items.delete(id);
+    if (item.relationshipToParent == RelationshipToParent.Attachment) { sortRowContainerIfSortedByColumn(parentItem.id); }
   },
 
   /** Remove server-deleted items and any loaded parent references to them. */
@@ -387,9 +411,15 @@ export const itemState = {
 
   /**
    * Re-sort the sorted container(s) whose order depends on the value of item: its own parent, and the parents of any
-   * loaded links that resolve to it (links sort by their target's value). Value is also the order within a type.
+   * loaded links that resolve to it (links sort by their target's value). Value is also the order within a type. An
+   * attachment is a cell of its parent's row in a table, so the same goes for its parent.
    */
   sortParentChildrenIfSorted: (item: Item): void => {
+    if (item.relationshipToParent == RelationshipToParent.Attachment) {
+      const row = itemState.get(item.parentId);
+      if (row != null) { itemState.sortParentChildrenIfSorted(row); }
+    }
+
     const sortIfSorted = (child: Item) => {
       if (child.relationshipToParent != RelationshipToParent.Child) { return; }
       const parentItem = itemState.get(child.parentId);
@@ -409,13 +439,10 @@ export const itemState = {
     }
   },
 
+  /** Sort the attachments of an item, its cells in a table row, and so re-sort a table sorted by a column it is in. */
   sortAttachments: (parentId: Uid): void => {
-    const container = asAttachmentsItem(itemState.get(parentId)!);
-    container.computed_attachments.sort((a, b) => {
-      const cmp = compareOrderings(itemState.get(a)!.ordering, itemState.get(b)!.ordering);
-      if (cmp !== 0) { return cmp; }
-      return a < b ? -1 : (a > b ? 1 : 0);
-    });
+    sortAttachmentsOnly(parentId);
+    sortRowContainerIfSortedByColumn(parentId);
   },
 
   /**
@@ -476,7 +503,8 @@ export const itemState = {
     });
     const attachmentsToAdd = attachments.filter(id => !parent.computed_attachments.includes(id));
     parent.computed_attachments = [...parent.computed_attachments, ...attachmentsToAdd];
-    itemState.sortAttachments(parentId);
+    // A load sorts the container of the rows once all their attachments are in, not once for each row.
+    sortAttachmentsOnly(parentId);
   },
 
   applyAttachmentItemsSnapshotFromServerObjects: (parentId: Uid, attachmentItemObjects: Array<object>, origin: string | null): void => {
@@ -501,7 +529,8 @@ export const itemState = {
     }
 
     parent.computed_attachments = nextAttachmentIds;
-    itemState.sortAttachments(parentId);
+    // A load sorts the container of the rows once all their attachments are in, not once for each row.
+    sortAttachmentsOnly(parentId);
 
     for (const removedAttachmentId of existingAttachmentIds) {
       removeRelationshipSubtreeIfCurrent(removedAttachmentId, parentId, RelationshipToParent.Attachment);
@@ -699,6 +728,7 @@ export const itemState = {
       } else if (prevRelationshipToParent == RelationshipToParent.Attachment) {
         const prevParent = itemState.getAsAttachmentsItem(prevParentId)!;
         prevParent.computed_attachments = prevParent.computed_attachments.filter(i => i != item.id);
+        sortRowContainerIfSortedByColumn(prevParentId);
       }
     }
   },

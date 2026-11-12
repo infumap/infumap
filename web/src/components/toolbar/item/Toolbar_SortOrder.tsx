@@ -20,6 +20,7 @@ import { Component } from "solid-js";
 import { ClickState } from "../../../input/state";
 import { asContainerItem } from "../../../items/base/container-item";
 import { parseSortOrder } from "../../../items/base/sort-order";
+import { sortableColumnNames } from "../../../input/sort_order";
 import { useStore } from "../../../store/StoreProvider";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { getToolbarFocusItem } from "../toolbarFocus";
@@ -39,9 +40,10 @@ export const Toolbar_SortOrder: Component = () => {
   const label = () => {
     const o = order();
     if (o == null) { return "Manual order"; }
-    const what = o.col > 0 ? `Column ${o.col + 1}` : "Title";
-    if (o.key == "type") { return `${o.col > 0 ? what + " type" : "Type"}${o.descending ? " (reversed)" : ""}`; }
-    return `${what}: ${o.descending ? "Z to A" : "A to Z"}`;
+    if (o.key == "type") { return o.descending ? "Type (reversed)" : "Type"; }
+    const columns = sortableColumnNames(getToolbarFocusItem(store));
+    if (columns == null) { return `Title: ${o.descending ? "Z to A" : "A to Z"}`; }
+    return `${columns[o.col] ?? `Column ${o.col + 1}`}: ${o.descending ? "descending" : "ascending"}`;
   };
 
   const handleClick = () => {

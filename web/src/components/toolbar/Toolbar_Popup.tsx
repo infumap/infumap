@@ -50,6 +50,8 @@ import { isImage } from "../../items/image-item";
 import { asDataItem, isDataItem } from "../../items/base/data-item";
 import { asContainerItem } from "../../items/base/container-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
+import { remapSortColumn, setSortOrder, sortableColumnNames } from "../../input/sort_order";
+import { columnSortDirection, formatSortOrder } from "../../items/base/sort-order";
 import { Item, ItemType } from "../../items/base/item";
 import { Uid } from "../../util/uid";
 import { navigateToContainingPageOfItemAndFocus } from "../../layout/navigation";
@@ -348,6 +350,12 @@ function itemConversionMaybe(
   return null;
 }
 
+/** The rows of the sort menu: manual order, then a row for each column of a table, or the title orders, then type. */
+function sortMenuRows(store: StoreContextModel): number {
+  const columns = sortableColumnNames(getToolbarFocusItem(store));
+  return columns == null ? 4 : columns.length + 2;
+}
+
 function moreActionsRows(store: StoreContextModel): number {
   const focusPath = getToolbarFocusPathMaybe(store);
   return (itemConversionMaybe(store, focusPath) != null ? 1 : 0) +
@@ -368,7 +376,7 @@ function toolbarPopupHeight(store: StoreContextModel, overlayType: ToolbarPopupT
   if (overlayType == ToolbarPopupType.PageShape) { return toolbarDialogHeightPx(PAGE_SHAPE_POPUP_HEIGHT_PX); }
   if (overlayType == ToolbarPopupType.PageJustifiedLayout) { return toolbarDialogHeightPx(PAGE_JUSTIFIED_LAYOUT_POPUP_HEIGHT_PX); }
   if (overlayType == ToolbarPopupType.PageCalendarDisplayMode) { return toolbarMenuHeightPx(5); }
-  if (overlayType == ToolbarPopupType.ChildSortOrder) { return toolbarMenuHeightPx(4); }
+  if (overlayType == ToolbarPopupType.ChildSortOrder) { return toolbarMenuHeightPx(sortMenuRows(store)); }
   if (overlayType == ToolbarPopupType.MoreActions) { return toolbarMenuHeightPx(moreActionsRows(store)); }
   if (overlayType == ToolbarPopupType.Info) { return infoPopupHeightPx(store); }
   if (overlayType == ToolbarPopupType.Backlinks) { return BACKLINKS_POPUP_HEIGHT_PX; }
@@ -425,9 +433,9 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
     }
   } else if (popupType == ToolbarPopupType.ChildSortOrder) {
     return {
-      x: Math.max(0, Math.min(popupInfo.topLeftPx.x, store.desktopBoundsPx().w - 205)),
+      x: Math.max(0, Math.min(popupInfo.topLeftPx.x, store.desktopBoundsPx().w - 225)),
       y: popupInfo.topLeftPx.y,
-      w: 185,
+      w: 205,
       h: toolbarPopupHeight(store, popupType)
     }
   } else if (popupType == ToolbarPopupType.PageCalendarDisplayMode) {
@@ -1100,6 +1108,8 @@ export const Toolbar_Popup: Component = () => {
       store.overlay.setTextEditInfo(store.history, null, true);
     }
     targetPage.arrangeAlgorithm = arrangeAlgorithm;
+    // Only a table has columns to sort by.
+    if (arrangeAlgorithm != ArrangeAlgorithm.Table) { remapSortColumn(targetPage, () => null); }
     finalizeAAChange(targetPage);
   };
 
@@ -1149,16 +1159,20 @@ export const Toolbar_Popup: Component = () => {
       store.overlay.toolbarPopupInfoMaybe.set(null);
       return;
     }
-    const container = asContainerItem(focusItem);
-    if (container.orderChildrenBy != order) {
-      container.orderChildrenBy = order;
-      itemState.sortChildren(container.id);
-      requestArrange(store, "toolbar-popup-child-sort-order");
-      serverOrRemote.updateItem(container);
-      store.touchToolbar();
-    }
+    setSortOrder(store, asContainerItem(focusItem), order, "toolbar-popup-child-sort-order");
     store.overlay.toolbarPopupInfoMaybe.set(null);
   };
+  const sortColumns = () => {
+    store.touchToolbarDependency();
+    return sortableColumnNames(getToolbarFocusItem(store));
+  };
+  const sortDirectionOfColumn = (col: number) => columnSortDirection(sortOrder(), col);
+  // Choosing the column the table is sorted by again reverses it, as clicking a column heading does in a spreadsheet.
+  const handleColumnSortClick = (col: number) =>
+    handleSortOrderChange(formatSortOrder({ key: "value", col, descending: sortDirectionOfColumn(col) == "asc" }));
+  const columnSortDirectionClass = (selected: boolean): string =>
+    `shrink-0 w-[22px] h-[22px] ml-[2px] rounded text-[12px] cursor-pointer hover:bg-slate-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 ` +
+    (selected ? "bg-slate-300 text-slate-900" : "text-slate-500");
   const sortOrderChoiceClass = (order: string): string =>
     toolbarMenuItemClass(sortOrder() == order);
   const handleSortOrderKeyDown = (event: KeyboardEvent) => {
@@ -1241,6 +1255,7 @@ export const Toolbar_Popup: Component = () => {
     if (newValue < 1) { newValue = 1; }
     if (overlayTypeConst == ToolbarPopupType.TableNumCols) {
       tableItem().numberOfVisibleColumns = newValue;
+      remapSortColumn(tableItem(), col => col >= newValue ? null : col);
       while (tableItem().tableColumns.length < newValue) {
         tableItem().tableColumns.push({ name: `col ${tableItem().tableColumns.length}`, widthGr: 120 });
       }
@@ -1328,10 +1343,30 @@ export const Toolbar_Popup: Component = () => {
             onKeyDown={handleSortOrderKeyDown}>
             <button type="button" class={sortOrderChoiceClass("")} aria-pressed={sortOrder() == ""}
               onClick={() => handleSortOrderChange("")}>Manual order</button>
-            <button type="button" class={sortOrderChoiceClass("value[ASC]")} aria-pressed={sortOrder() == "value[ASC]"}
-              onClick={() => handleSortOrderChange("value[ASC]")}>Title: A → Z</button>
-            <button type="button" class={sortOrderChoiceClass("value[DESC]")} aria-pressed={sortOrder() == "value[DESC]"}
-              onClick={() => handleSortOrderChange("value[DESC]")}>Title: Z → A</button>
+            <Show when={sortColumns()} fallback={<>
+              <button type="button" class={sortOrderChoiceClass("value[ASC]")} aria-pressed={sortOrder() == "value[ASC]"}
+                onClick={() => handleSortOrderChange("value[ASC]")}>Title: A → Z</button>
+              <button type="button" class={sortOrderChoiceClass("value[DESC]")} aria-pressed={sortOrder() == "value[DESC]"}
+                onClick={() => handleSortOrderChange("value[DESC]")}>Title: Z → A</button>
+            </>}>{columns =>
+              <For each={columns()}>{(name, col) =>
+                <div class="flex items-center">
+                  <button type="button" class={`${toolbarMenuItemClass(sortDirectionOfColumn(col()) != null)} min-w-0 truncate`}
+                    aria-pressed={sortDirectionOfColumn(col()) != null} title={`Sort by ${name}`}
+                    onClick={() => handleColumnSortClick(col())}>{name}</button>
+                  <button type="button" class={columnSortDirectionClass(sortDirectionOfColumn(col()) == "asc")}
+                    title={`${name}: ascending`} aria-label={`Sort by ${name}, ascending`}
+                    onClick={() => handleSortOrderChange(formatSortOrder({ key: "value", col: col(), descending: false }))}>
+                    <i class="bi-arrow-up" aria-hidden="true" />
+                  </button>
+                  <button type="button" class={columnSortDirectionClass(sortDirectionOfColumn(col()) == "desc")}
+                    title={`${name}: descending`} aria-label={`Sort by ${name}, descending`}
+                    onClick={() => handleSortOrderChange(formatSortOrder({ key: "value", col: col(), descending: true }))}>
+                    <i class="bi-arrow-down" aria-hidden="true" />
+                  </button>
+                </div>
+              }</For>
+            }</Show>
             <button type="button" class={sortOrderChoiceClass("type[ASC]")} aria-pressed={sortOrder() == "type[ASC]"}
               onClick={() => handleSortOrderChange("type[ASC]")}>Type</button>
           </div>

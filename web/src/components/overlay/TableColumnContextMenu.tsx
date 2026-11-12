@@ -23,6 +23,9 @@ import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../../constants";
 import { TableFns } from "../../items/table-item";
 import { asTabularItem, isTabularItem, TableColumnAlign, TabularItem } from "../../items/base/tabular-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
+import { asContainerItem } from "../../items/base/container-item";
+import { columnSortDirection, formatSortOrder } from "../../items/base/sort-order";
+import { remapSortColumn, setSortOrder } from "../../input/sort_order";
 import { requestArrange } from "../../layout/arrange";
 import { VeFns, isTableView } from "../../layout/visual-element";
 import { VesCache } from "../../layout/ves-cache";
@@ -72,7 +75,7 @@ export const TableColumnContextMenu: Component = () => {
   };
   const menuPosPx = () => ({
     x: Math.max(0, Math.min(posPx().x + 10, store.desktopBoundsPx().w - 170)),
-    y: Math.max(0, Math.min(posPx().y - 12, store.desktopBoundsPx().h - (colNum() == 0 ? 92 : 152))),
+    y: Math.max(0, Math.min(posPx().y - 12, store.desktopBoundsPx().h - (colNum() == 0 ? 122 : 182))),
   });
 
   const newColToRight = async () => {
@@ -84,6 +87,8 @@ export const TableColumnContextMenu: Component = () => {
     const insertHeaderIdx = Math.min(column + 1, item.tableColumns.length);
     item.tableColumns.splice(insertHeaderIdx, 0, { name: `col ${insertHeaderIdx}` , widthGr: 120 });
     item.numberOfVisibleColumns += 1;
+    // The cells right of the new column moved. Inserting or deleting a header only moves headers, not cells.
+    remapSortColumn(asContainerItem(item), col => col > column ? col + 1 : col);
     finishChange("table-column-insert-right", item);
   };
 
@@ -103,8 +108,25 @@ export const TableColumnContextMenu: Component = () => {
     if (!await TableFns.removeColItemsAt(item.id, column - 1, store)) { rejectCellChange(); return; }
     item.tableColumns.splice(column, 1);
     item.numberOfVisibleColumns -= 1;
+    remapSortColumn(asContainerItem(item), col => col == column ? null : col > column ? col - 1 : col);
     finishChange("table-column-delete", item);
   }
+
+  const columnSort = () => columnSortDirection(asContainerItem(tableItem()).orderChildrenBy, colNum());
+
+  const setColumnSort = (descending: boolean) => {
+    const item = itemState.get(tableId());
+    if (item == null || !itemCanEdit(item) || colNum() >= tableItem().numberOfVisibleColumns) {
+      store.overlay.tableColumnContextMenuInfo.set(null);
+      return;
+    }
+    // Choosing the order the table is in again turns sorting off: unlike alignment, it has an off state.
+    const orderChildrenBy = columnSort() == (descending ? "desc" : "asc")
+      ? ""
+      : formatSortOrder({ key: "value", col: colNum(), descending });
+    setSortOrder(store, asContainerItem(item), orderChildrenBy, "table-column-sort");
+    store.overlay.tableColumnContextMenuInfo.set(null);
+  };
 
   const columnAlign = (): TableColumnAlign | null => tableItem().tableColumns[colNum()]?.align ?? null;
 
@@ -129,6 +151,13 @@ export const TableColumnContextMenu: Component = () => {
                 `z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY};`}
          onMouseDown={mouseDownListener}>
       <div class="border rounded w-[160px] bg-slate-50 mb-1 shadow-lg">
+        <div class="text-xs ml-[3px] mr-[5px] mt-[3px] p-[3px] flex items-center">
+          <span class="mr-auto">Sort</span>
+          <InfuIconButton icon="fa fa-arrow-up" highlighted={columnSort() == "asc"} clickHandler={() => setColumnSort(false)}
+            title={columnSort() == "asc" ? "Stop sorting" : "Sort ascending"} />
+          <InfuIconButton icon="fa fa-arrow-down" highlighted={columnSort() == "desc"} clickHandler={() => setColumnSort(true)}
+            title={columnSort() == "desc" ? "Stop sorting" : "Sort descending"} />
+        </div>
         <div class="text-xs ml-[3px] mr-[5px] mt-[3px] p-[3px] flex items-center">
           <span class="mr-auto">Align</span>
           <InfuIconButton icon="fa fa-align-left" highlighted={columnAlign() == null} clickHandler={() => setColumnAlign(null)} title="Align column left" />

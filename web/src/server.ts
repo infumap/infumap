@@ -1201,7 +1201,6 @@ function applyContainerSyncDelta(update: SyncContainerUpdate): boolean {
   }
 
   containerItem.computed_children = nextChildIds;
-  itemState.sortChildren(update.id);
   for (const childId of childDeleteIds) {
     itemState.pruneRelationshipSubtreeIfCurrent(childId, update.id, RelationshipToParent.Child);
   }
@@ -1211,6 +1210,8 @@ function applyContainerSyncDelta(update: SyncContainerUpdate): boolean {
       itemState.applyAttachmentItemsSnapshotFromServerObjects(parentId, attachmentObjects, null);
     }
   }
+  // After the attachments: they are the cells of a table sorted by a column.
+  itemState.sortChildren(update.id);
 
   containerItem.childrenLoaded = true;
   return true;
@@ -1955,6 +1956,8 @@ function reconcileItem(id: Uid, fetched: ItemsAndTheirAttachments): void {
   linkToLocalParent(item);
   if (isAttachmentsItem(item)) {
     itemState.applyAttachmentItemsSnapshotFromServerObjects(id, fetched.attachments[id] ?? [], null);
+    // Re-sorts a table sorted by a column the item is a row of, now its cells are in.
+    itemState.sortAttachments(id);
   }
   if (localItem == null && isContainer(item)) {
     // Its children were removed along with it.
@@ -1984,6 +1987,8 @@ function unlinkFromLocalParent(id: Uid, parentId: Uid, relationshipToParent: str
   } else if (relationshipToParent == RelationshipToParent.Attachment && isAttachmentsItem(parent)) {
     const attachmentsItem = asAttachmentsItem(parent);
     attachmentsItem.computed_attachments = attachmentsItem.computed_attachments.filter(attachmentId => attachmentId != id);
+    // Re-sorts a table sorted by a column the parent is a row of.
+    itemState.sortAttachments(parentId);
   }
 }
 

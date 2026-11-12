@@ -4,6 +4,7 @@ import { Component, createSignal } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { asPageItem } from "../../items/page-item";
 import { getToolbarFocusItem } from "./toolbarFocus";
+import { remapSortColumn } from "../../input/sort_order";
 import {
   TOOLBAR_DIALOG_INPUT_CLASS, ToolbarDialogHeader, ToolbarDialogPageShapeSection, closeToolbarDialog, toolbarDialogContentRef,
   toolbarDialogNumberInput, toolbarDialogPageChanged,
@@ -32,6 +33,7 @@ export const Toolbar_PageTableLayoutPopup: Component = () => {
     const page = pageItem();
     if (page.numberOfVisibleColumns == value) { return; }
     page.numberOfVisibleColumns = value;
+    remapSortColumn(page, col => col >= value ? null : col);
     // Columns hidden by reducing the count keep their settings, so only columns never shown before need adding.
     while (page.tableColumns.length < value) {
       page.tableColumns.push({ name: `col ${page.tableColumns.length}`, widthGr: NEW_COLUMN_WIDTH_GR });

@@ -68,3 +68,10 @@ export function compareSortValues(a: SortValue, b: SortValue, descending: boolea
   }
   return descending ? -cmp : cmp;
 }
+
+/** The direction orderChildrenBy sorts table column col by value in, or null if it doesn't sort by that column. */
+export function columnSortDirection(orderChildrenBy: string | null, col: number): "asc" | "desc" | null {
+  const order = parseSortOrder(orderChildrenBy);
+  if (order == null || order.key != "value" || order.col != col) { return null; }
+  return order.descending ? "desc" : "asc";
+}

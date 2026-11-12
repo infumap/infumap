@@ -39,6 +39,8 @@ import { arrangeNow } from "../../layout/arrange";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { AttachmentsOverflowMarker, HiddenAttachmentsMarker } from "./HiddenAttachmentsMarker";
 import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
+import { TableHeaderMarks } from "./TableHeaderMarks";
+import { columnSortDirection } from "../../items/base/sort-order";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -347,11 +349,10 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
               onKeyDown={keyDownHandler}
               onInput={ev => { ev.stopPropagation(); edit_inputListener(store, ev, false); }}>
               {spec.name}
-              <Show when={store.perVe.getMouseIsOver(vePath()) && store.mouseOverTableHeaderColumnNumber.get() == spec.idx}>
-                <div class="absolute" style="top: 0px; right: 7px; font-size: smaller;">
-                  <i class="fas fa-chevron-down" />
-                </div>
-              </Show>
+              <TableHeaderMarks sort={columnSortDirection(tableItem().orderChildrenBy, spec.idx)}
+                menu={!canEdit() || !store.perVe.getMouseIsOver(vePath()) ? "none"
+                  : store.mouseOverTableHeaderColumnNumber.get() == spec.idx ? "full" : "faint"}
+                editing={store.overlay.textEditInfo()?.itemPath == vePath() && store.overlay.textEditInfo()?.colNum == spec.idx} />
             </div>
           }</For>
         </div>
