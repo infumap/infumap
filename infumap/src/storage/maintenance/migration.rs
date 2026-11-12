@@ -232,6 +232,9 @@ fn migration_for(descriptor: LogDescriptor) -> InfuResult<Migration> {
         let mut state = std::collections::HashMap::new();
         migrate_records(output, descriptor, records, |record| item_db::migrate_record_v39_to_v40(record, &mut state))
       },
+      40 => {
+        |output, descriptor, records| migrate_records(output, descriptor, records, item_db::migrate_record_v40_to_v41)
+      }
       _ => return Err(format!("Unsupported item log migration from version {}.", descriptor.version).into()),
     },
     LogKind::User => match descriptor.version {

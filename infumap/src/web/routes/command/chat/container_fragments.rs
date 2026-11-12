@@ -37,6 +37,7 @@ use crate::ai::fragment::read_item_fragment_metadata;
 use crate::web::routes::command::scope::{ResolvedScope, readable, resolve_content};
 use crate::web::routes::command::search::{normalized_search_terms, sentence_matches_query_terms};
 use futures_util::{StreamExt, stream};
+use infusdk::item::sort_order::{SortKey, SortOrder, SortValue, compare_sort_values, item_sort_value};
 use infusdk::item::{NoteFlags, NoteUrl};
 
 /// Body text per fragment, excluding its header. The same budget infumap_get_fragment applies to documents.
@@ -1163,6 +1164,22 @@ fn type_sort_key(item: &Item) -> String {
   }
 }
 
+/// The item in column col of a table row, as the client's sortCell: the row's item for column 0, its attachment
+/// col - 1 after that. None where the cell is empty or can't be read.
+fn sort_cell<'a>(db: &'a Db, access: &Access, row: &'a Item, col: usize) -> InfuResult<Option<&'a Item>> {
+  if col == 0 {
+    return Ok(Some(row));
+  }
+  let mut attachments = db.item.get_attachments(&row.id)?;
+  attachments.sort_by(|a, b| a.ordering.cmp(&b.ordering).then_with(|| a.id.cmp(&b.id)));
+  Ok(
+    attachments
+      .get(col - 1)
+      .and_then(|cell| access.content(db, cell))
+      .filter(|cell| cell.item_type != ItemType::Placeholder),
+  )
+}
+
 /// Readable children in the order the container displays them.
 pub(in crate::web::routes::command) fn readable_children_in_display_order<'a>(
   db: &'a Db,
@@ -1181,21 +1198,45 @@ pub(in crate::web::routes::command) fn readable_children_in_display_order<'a>(
     Some(ArrangeAlgorithm::Calendar) => {
       items.sort_by(|a, b| a.datetime.cmp(&b.datetime).then_with(|| by_ordering(a, b)))
     }
-    _ => match container.order_children_by.as_deref() {
-      Some(order @ ("title[ASC]" | "title[DESC]" | "type[ASC]")) => {
-        let descending = order == "title[DESC]";
-        let by_type = order == "type[ASC]";
-        items.sort_by_cached_key(|item| {
-          let content = access.content(db, item);
-          let type_key = content.filter(|_| by_type).map(type_sort_key).unwrap_or_default();
-          let title = content.and_then(|content| content.title.as_deref()).unwrap_or("").to_lowercase();
-          (content.is_none(), type_key, title, item.id.clone())
-        });
-        if descending {
-          // Unresolved links stay last, as they do on screen.
-          let resolved = items.iter().take_while(|item| access.content(db, item).is_some()).count();
-          items[..resolved].reverse();
+    _ => match container.order_children_by.as_deref().and_then(SortOrder::parse) {
+      Some(order) => {
+        struct Keyed<'a> {
+          item: &'a Item,
+          unresolved: bool,
+          type_key: Option<String>,
+          value: Option<SortValue>,
+          row_value: Option<SortValue>,
         }
+        let mut keyed = Vec::with_capacity(items.len());
+        for item in items {
+          let row = access.content(db, item);
+          let cell = match row {
+            Some(row) => sort_cell(db, access, row, order.col)?,
+            None => None,
+          };
+          keyed.push(Keyed {
+            item,
+            unresolved: row.is_none(),
+            type_key: cell.filter(|_| order.key == SortKey::Type).map(type_sort_key),
+            value: cell.and_then(item_sort_value),
+            row_value: row.filter(|_| order.col > 0).and_then(item_sort_value),
+          });
+        }
+        // As the client's sortChildren: unresolved links last, a missing cell's type last, ties broken by the row's
+        // own value, then by id.
+        keyed.sort_by(|a, b| {
+          a.unresolved
+            .cmp(&b.unresolved)
+            .then_with(|| match (&a.type_key, &b.type_key) {
+              (Some(a), Some(b)) if order.descending => b.cmp(a),
+              (Some(a), Some(b)) => a.cmp(b),
+              (a, b) => a.is_none().cmp(&b.is_none()),
+            })
+            .then_with(|| compare_sort_values(&a.value, &b.value, order.descending))
+            .then_with(|| compare_sort_values(&a.row_value, &b.row_value, false))
+            .then_with(|| a.item.id.cmp(&b.item.id))
+        });
+        items = keyed.into_iter().map(|keyed| keyed.item).collect();
       }
       _ => items.sort_by(by_ordering),
     },
@@ -1874,6 +1915,68 @@ mod tests {
   }
 
   #[tokio::test]
+  async fn children_sort_by_value_and_by_table_column() {
+    fn rating(stars: i64, relationship: RelationshipToParent) -> impl FnOnce(&mut Item) {
+      move |item| {
+        item.item_type = ItemType::Rating;
+        item.relationship_to_parent = relationship;
+        item.title = None;
+        item.rating = Some(stars);
+        item.rating_type = Some(infusdk::item::RatingType::Star);
+        item.spatial_width_gr = None;
+        item.flags = None;
+      }
+    }
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+
+    let page = t.arranged_page(&home, "Ratings", ArrangeAlgorithm::List, "").await;
+    let two = t.non_note(&page, "", rating(2, RelationshipToParent::Child)).await;
+    let untitled = t.note(&page, "", RelationshipToParent::Child).await;
+    let five = t.non_note(&page, "", rating(5, RelationshipToParent::Child)).await;
+    let text = t.note(&page, "a note", RelationshipToParent::Child).await;
+    let ten = t.note(&page, "10", RelationshipToParent::Child).await;
+
+    let table = t.table(&home, "Scores", &["Name", "Score"]).await;
+    let mut rows = HashMap::new();
+    for (name, score) in
+      [("b", Some("3")), ("d", None), ("e", Some("10")), ("a", Some("3")), ("c", Some("")), ("f", Some("9"))]
+    {
+      let row = t.note(&table, name, RelationshipToParent::Child).await;
+      match score {
+        Some("3") => _ = t.non_note(&row, "", rating(3, RelationshipToParent::Attachment)).await,
+        Some("") => _ = t.placeholder(&row).await,
+        Some(score) => _ = t.note(&row, score, RelationshipToParent::Attachment).await,
+        None => {}
+      }
+      rows.insert(row, name);
+    }
+
+    let access = Access { user_id: &t.user_id, scope: None };
+    let sorted = |container_id: &Uid, order: &str| {
+      let mut container = t.db.item.get(container_id).unwrap().clone();
+      container.order_children_by = Some(order.to_owned());
+      readable_children_in_display_order(&t.db, &access, &container)
+        .unwrap()
+        .into_iter()
+        .map(|item| item.id.clone())
+        .collect::<Vec<_>>()
+    };
+    // Numbers before text, empty last in both directions.
+    assert_eq!(sorted(&page, "value[ASC]"), [two.clone(), five.clone(), ten.clone(), text.clone(), untitled.clone()]);
+    assert_eq!(sorted(&page, "value[DESC]"), [text, ten, five, two, untitled]);
+    assert_eq!(sorted(&page, "title[ASC]"), sorted(&page, "value[ASC]"), "the key before item log v41");
+
+    let names = |order: &str| sorted(&table, order).iter().map(|id| rows[id]).collect::<String>();
+    assert_eq!(names("value[ASC]"), "abcdef");
+    // Rows with the same score are in name order, whatever the direction. A placeholder or missing cell is empty.
+    assert_eq!(names("value@1[ASC]"), "abfecd");
+    assert_eq!(names("value@1[DESC]"), "efabcd");
+    assert_eq!(names("type@1[ASC]"), "feabcd");
+    assert_eq!(names("value@2[ASC]"), "abcdef", "no row has a cell there");
+  }
+
+  #[tokio::test]
   async fn composites_and_groups_are_never_split() {
     let mut t = TestDb::new().await;
     let home = t.home_id.clone();
@@ -2278,7 +2381,7 @@ mod tests {
     for (title, x, y) in [("third", 0, 20), ("second", 50, 0), ("first", 10, 0)] {
       t.note_with(&spatial, title, |item| item.spatial_position_gr = Some(Vector { x, y })).await;
     }
-    let sorted = t.arranged_page(&home, "Sorted", ArrangeAlgorithm::List, "title[DESC]").await;
+    let sorted = t.arranged_page(&home, "Sorted", ArrangeAlgorithm::List, "value[DESC]").await;
     t.link(&sorted, &new_uid()).await;
     for title in ["b", "c", "a"] {
       t.note(&sorted, title, RelationshipToParent::Child).await;
@@ -2303,7 +2406,7 @@ mod tests {
     assert_eq!(body(calendar_text).lines().next().unwrap().split(": ").next().unwrap(), "- 2026-01-01 Thu");
     assert_eq!(titles(calendar_text), ["earlier", "later"]);
 
-    let pinned = t.arranged_page(&home, "Pinned", ArrangeAlgorithm::List, "title[ASC]").await;
+    let pinned = t.arranged_page(&home, "Pinned", ArrangeAlgorithm::List, "value[ASC]").await;
     // Added in ordering order, which the pinned ones keep against their titles.
     let (top, bottom) = (Some(PinnedTo::Top), Some(PinnedTo::Bottom));
     for (title, pinned_to) in [("m", None), ("top z", top), ("top a", top), ("a bottom", bottom), ("b", None)] {

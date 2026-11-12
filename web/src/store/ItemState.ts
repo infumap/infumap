@@ -23,9 +23,12 @@ import { Item, PinnedTo } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { TabularFns } from "../items/base/tabular-item";
 import { asTitledItem, isTitledItem } from "../items/base/titled-item";
+import { SortValue, compareSortValues, parseSortOrder, textSortValue } from "../items/base/sort-order";
 import { asImageItem, isImage } from "../items/image-item";
 import { asLinkItem, isLink, LinkFns } from "../items/link-item";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../items/page-item";
+import { isPlaceholder } from "../items/placeholder-item";
+import { asRatingItem, isRating } from "../items/rating-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { panic } from "../util/lang";
 import { compareOrderings, newOrderingAtBeginning, newOrderingAtEnd, newOrderingBetween, newOrderingDirectlyAfter } from "../util/ordering";
@@ -128,7 +131,38 @@ export function wouldCreateRelationshipCycle(itemId: Uid, moveToParentId: Uid): 
 
 /** Whether orderChildrenBy sorts the children, rather than leaving them in the order of their orderings. */
 function isSortedOrder(orderChildrenBy: string | null): boolean {
-  return orderChildrenBy == "title[ASC]" || orderChildrenBy == "title[DESC]" || orderChildrenBy == "type[ASC]";
+  return parseSortOrder(orderChildrenBy) != null;
+}
+
+/** What item is sorted as: itself, or the target of a link. null for a link whose target isn't loaded. */
+function resolveForSort(item: Item | null): Item | null {
+  if (item == null || !isLink(item)) { return item; }
+  const targetId = LinkFns.getLinkToId(asLinkItem(item));
+  return targetId == EMPTY_UID ? null : itemState.get(targetId) ?? null;
+}
+
+/**
+ * The item in column col of a table row: the row's item for column 0, its attachment col - 1 after that, as a table
+ * shows them. null where the cell is empty.
+ */
+function sortCell(row: Item, col: number): Item | null {
+  if (col == 0) { return row; }
+  if (!isAttachmentsItem(row)) { return null; }
+  const attachmentIds = asAttachmentsItem(row).computed_attachments;
+  if (col > attachmentIds.length) { return null; }
+  const cell = resolveForSort(itemState.get(attachmentIds[col - 1]));
+  return cell == null || isPlaceholder(cell) ? null : cell;
+}
+
+/**
+ * What item shows, as it is sorted by value. A password's text is secret, so it has no value. Nor do items that show
+ * nothing (dividers, placeholders).
+ */
+function itemSortValue(item: Item | null): SortValue {
+  if (item == null) { return null; }
+  if (isRating(item)) { return { number: asRatingItem(item).rating }; }
+  if (isTitledItem(item)) { return textSortValue(asTitledItem(item).title); }
+  return null;
 }
 
 /**
@@ -255,15 +289,15 @@ export const itemState = {
     items.set(holderPage.id, holderPage);
   },
 
-  /** Whether the children of a container are in the order of their orderings, rather than sorted by title. */
+  /** Whether the children of a container are in the order of their orderings, rather than sorted. */
   childrenAreInOrderingOrder: (parentId: Uid): boolean => {
     const container = asContainerItem(itemState.get(parentId)!);
-    if (container.orderChildrenBy == "") { return true; }
+    if (parseSortOrder(container.orderChildrenBy) == null) { return true; }
     if (!isPage(container)) { return false; }
     // Spatial child order is z-order, which bring to front / send to back and item creation control via
-    // `ordering`. New pages default to title[ASC] and the sort control is hidden for spatial pages, so
+    // `ordering`. New pages default to value[ASC] and the sort control is hidden for spatial pages, so
     // honoring orderChildrenBy here silently stacked items by title. It's kept for when the page is
-    // switched to a title-sortable arrangement.
+    // switched to a sortable arrangement.
     const arrangeAlgorithm = asPageItem(container).arrangeAlgorithm;
     return arrangeAlgorithm == ArrangeAlgorithm.Document || arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch;
   },
@@ -276,51 +310,47 @@ export const itemState = {
         if (cmp !== 0) { return cmp; }
         return a < b ? -1 : (a > b ? 1 : 0);
       });
-    } else if (isSortedOrder(container.orderChildrenBy)) {
-      const descending = container.orderChildrenBy == "title[DESC]";
-      const byType = container.orderChildrenBy == "type[ASC]";
+    } else {
+      const order = parseSortOrder(container.orderChildrenBy)!;
       // The sort order is for the children that aren't pinned. The pinned ones are in the top and bottom bands of a
       // list page, in the order the user put them (their ordering). Elsewhere pins mean nothing, so are ignored: a
       // grid sorted by title stays sorted by title.
       const pinsApply = isPage(container) && asPageItem(container).arrangeAlgorithm == ArrangeAlgorithm.List;
       const bandRank = (item: Item): number =>
         !pinsApply || item.pinnedTo == null ? 1 : item.pinnedTo == PinnedTo.Top ? 0 : 2;
+      const keys = new Map(container.computed_children.map(id => {
+        const child = itemState.get(id)!;
+        const row = resolveForSort(child);
+        const cell = row == null ? null : sortCell(row, order.col);
+        return [id, {
+          band: bandRank(child),
+          ordering: child.ordering,
+          // Unresolved links are last, whatever the order: they have nothing to sort by.
+          unresolved: row == null,
+          type: order.key == "type" && cell != null ? typeSortKey(cell) : null,
+          value: itemSortValue(cell),
+          // Rows with the same value in the sorted column are in the order of their own values.
+          rowValue: order.col > 0 ? itemSortValue(row) : null,
+        }];
+      }));
       container.computed_children.sort((a, b) => {
-        const aItemOriginal = itemState.get(a)!;
-        const bItemOriginal = itemState.get(b)!;
-
-        const aBandRank = bandRank(aItemOriginal);
-        const bBandRank = bandRank(bItemOriginal);
-        if (aBandRank != bBandRank) { return aBandRank - bBandRank; }
-        if (aBandRank != 1) {
-          const cmp = compareOrderings(aItemOriginal.ordering, bItemOriginal.ordering);
+        const aKey = keys.get(a)!;
+        const bKey = keys.get(b)!;
+        if (aKey.band != bKey.band) { return aKey.band - bKey.band; }
+        if (aKey.band != 1) {
+          const cmp = compareOrderings(aKey.ordering, bKey.ordering);
           if (cmp !== 0) { return cmp; }
           return a < b ? -1 : (a > b ? 1 : 0);
         }
-
-        const aLinkTargetId = isLink(aItemOriginal) ? LinkFns.getLinkToId(asLinkItem(aItemOriginal)) : EMPTY_UID;
-        const bLinkTargetId = isLink(bItemOriginal) ? LinkFns.getLinkToId(asLinkItem(bItemOriginal)) : EMPTY_UID;
-        const aTarget = aLinkTargetId != EMPTY_UID ? itemState.get(aLinkTargetId) : null;
-        const bTarget = bLinkTargetId != EMPTY_UID ? itemState.get(bLinkTargetId) : null;
-
-        const aIsUnresolved = isLink(aItemOriginal) && (aTarget == null);
-        const bIsUnresolved = isLink(bItemOriginal) && (bTarget == null);
-
-        if (aIsUnresolved !== bIsUnresolved) { return aIsUnresolved ? 1 : -1; }
-
-        const aForSort = aTarget ? aTarget : aItemOriginal;
-        const bForSort = bTarget ? bTarget : bItemOriginal;
-
-        if (byType) {
-          const aType = typeSortKey(aForSort);
-          const bType = typeSortKey(bForSort);
-          if (aType != bType) { return aType < bType ? -1 : 1; }
+        if (aKey.unresolved != bKey.unresolved) { return aKey.unresolved ? 1 : -1; }
+        if (order.key == "type" && aKey.type != bKey.type) {
+          // A missing cell has no type, and is last, as an empty value is.
+          if (aKey.type == null || bKey.type == null) { return aKey.type == null ? 1 : -1; }
+          return (aKey.type < bKey.type) != order.descending ? -1 : 1;
         }
-
-        const aTitle = isTitledItem(aForSort) ? asTitledItem(aForSort).title.toLocaleLowerCase() : "";
-        const bTitle = isTitledItem(bForSort) ? asTitledItem(bForSort).title.toLocaleLowerCase() : "";
-        const cmp = aTitle.localeCompare(bTitle);
-        if (cmp !== 0) { return descending ? -cmp : cmp; }
+        let cmp = compareSortValues(aKey.value, bKey.value, order.descending);
+        if (cmp == 0) { cmp = compareSortValues(aKey.rowValue, bKey.rowValue, false); }
+        if (cmp != 0) { return cmp; }
         return a < b ? -1 : (a > b ? 1 : 0);
       });
 
@@ -356,8 +386,8 @@ export const itemState = {
   },
 
   /**
-   * Re-sort the sorted container(s) whose order depends on the title of item: its own parent, and the parents of any
-   * loaded links that resolve to it (links sort by their target's title). Title is also the order within a type.
+   * Re-sort the sorted container(s) whose order depends on the value of item: its own parent, and the parents of any
+   * loaded links that resolve to it (links sort by their target's value). Value is also the order within a type.
    */
   sortParentChildrenIfSorted: (item: Item): void => {
     const sortIfSorted = (child: Item) => {

@@ -19,6 +19,7 @@
 import { Component } from "solid-js";
 import { ClickState } from "../../../input/state";
 import { asContainerItem } from "../../../items/base/container-item";
+import { parseSortOrder } from "../../../items/base/sort-order";
 import { useStore } from "../../../store/StoreProvider";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
 import { getToolbarFocusItem } from "../toolbarFocus";
@@ -28,12 +29,20 @@ export const Toolbar_SortOrder: Component = () => {
   const store = useStore();
   let button: HTMLButtonElement | undefined;
 
-  const order = () => asContainerItem(getToolbarFocusItem(store)).orderChildrenBy;
-  const icon = () => order() == "title[DESC]" ? "bi-sort-alpha-up"
-    : order() == "type[ASC]" ? "bi-sort-down-alt" : "bi-sort-alpha-down";
-  const label = () => order() == "title[ASC]" ? "Title: A to Z"
-    : order() == "title[DESC]" ? "Title: Z to A"
-      : order() == "type[ASC]" ? "Type" : "Manual order";
+  const order = () => parseSortOrder(asContainerItem(getToolbarFocusItem(store)).orderChildrenBy);
+  const icon = () => {
+    const o = order();
+    if (o == null) { return "bi-sort-alpha-down"; }
+    if (o.key == "type") { return o.descending ? "bi-sort-up-alt" : "bi-sort-down-alt"; }
+    return o.descending ? "bi-sort-alpha-up" : "bi-sort-alpha-down";
+  };
+  const label = () => {
+    const o = order();
+    if (o == null) { return "Manual order"; }
+    const what = o.col > 0 ? `Column ${o.col + 1}` : "Title";
+    if (o.key == "type") { return `${o.col > 0 ? what + " type" : "Type"}${o.descending ? " (reversed)" : ""}`; }
+    return `${what}: ${o.descending ? "Z to A" : "A to Z"}`;
+  };
 
   const handleClick = () => {
     if (store.overlay.toolbarPopupInfoMaybe.get()?.type == ToolbarPopupType.ChildSortOrder) {
@@ -51,7 +60,7 @@ export const Toolbar_SortOrder: Component = () => {
     <button ref={button} id="toolbarSortOrderButton" type="button" title={`Sort: ${label()}`} aria-label={`Sort: ${label()}`}
       aria-expanded={store.overlay.toolbarPopupInfoMaybe.get()?.type == ToolbarPopupType.ChildSortOrder}
       class={`inline-block hover:border font-bold rounded w-[21px] h-[21px] text-center cursor-pointer text-[14px] relative text-gray-800 ` +
-        (order() != "" ? "bg-slate-300 hover:bg-slate-400" : "hover:bg-slate-300")}
+        (order() != null ? "bg-slate-300 hover:bg-slate-400" : "hover:bg-slate-300")}
       onMouseDown={() => ClickState.setButtonClickBoundsPx(button!.getBoundingClientRect())}
       onKeyDown={event => {
         if (event.key == "Enter" || event.key == " ") { event.stopPropagation(); }

@@ -752,7 +752,7 @@ export const PageFns = {
       justifiedRowAspect: 7.0,
       calendarDayRowHeightBl: CALENDAR_DAY_ROW_HEIGHT_BL,
 
-      orderChildrenBy: "title[ASC]",
+      orderChildrenBy: "value[ASC]",
 
       flags: PageFlags.None,
       permissionFlags: PermissionFlags.None,
@@ -1987,7 +1987,7 @@ export const PageFns = {
       return { parentContainer, insertIndex: siblingIds.indexOf(treeItem.id) + offset };
     };
     // Whether a position among a container's children has no meaning, because they are sorted. Not orderChildrenBy
-    // alone: an expanded spatial page (new pages default to title[ASC]) shows its children in ordering order.
+    // alone: an expanded spatial page (new pages default to value[ASC]) shows its children in ordering order.
     const isSorted = (container: ContainerItem) =>
       !itemState.childrenAreInOrderingOrder(container.id) && (container.id != page.id || band == "middle");
     if (moveOverIndex < rowVes.length) {

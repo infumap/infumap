@@ -32,6 +32,7 @@ import { itemCanEdit } from "./items/base/capabilities-item";
 import { itemCanAcceptManualChildren } from "./items/base/flags-item";
 import { ItemType } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
+import { parseSortOrder } from "./items/base/sort-order";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "./items/page-item";
 import { PlaceholderFns, isPlaceholder } from "./items/placeholder-item";
 import { isTable, TableFns } from "./items/table-item";
@@ -277,7 +278,7 @@ function orderedPageInsertionFromDesktopPx(
   desktopPx: Vector,
 ): JustifiedInsertion {
   const page = asPageItem(pageVe.displayItem);
-  if (page.arrangeAlgorithm == ArrangeAlgorithm.Justified && page.orderChildrenBy == "" &&
+  if (page.arrangeAlgorithm == ArrangeAlgorithm.Justified && parseSortOrder(page.orderChildrenBy) == null &&
     pageVe.viewportBoundsPx && pageVe.childAreaBoundsPx) {
     return justifiedInsertionFromDesktopPx(store, pageVe, desktopPx);
   }
@@ -290,7 +291,7 @@ function orderedPageInsertIndexFromDesktopPx(
   desktopPx: Vector,
 ): number {
   const page = asPageItem(pageVe.displayItem);
-  if (page.orderChildrenBy != "" && page.arrangeAlgorithm != ArrangeAlgorithm.Document) {
+  if (parseSortOrder(page.orderChildrenBy) != null && page.arrangeAlgorithm != ArrangeAlgorithm.Document) {
     return 0;
   }
 

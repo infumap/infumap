@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+pub mod sort_order;
+
 use crate::util::geometry::{Dimensions, GRID_SIZE, Vector};
 use crate::util::hash::{combine_hashes, hash_f64_to_uid, hash_i64_to_uid, hash_string_to_uid, hash_u8_vec_to_uid};
 use crate::util::infu::{InfuError, InfuResult};
@@ -705,7 +707,7 @@ pub struct Item {
   pub ordering: Vec<u8>,
 
   // container
-  pub order_children_by: Option<String>, // format e.g.: title[DESC],creation date[ASC],last modified date[ASC],my column name[DESC],...
+  pub order_children_by: Option<String>, // see sort_order.
 
   // positionable (everything but placeholder).
   pub spatial_position_gr: Option<Vector<i64>>,

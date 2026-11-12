@@ -1143,7 +1143,7 @@ export const Toolbar_Popup: Component = () => {
     const focusItem = getToolbarFocusItem(store);
     return isPage(focusItem) || isTable(focusItem) ? asContainerItem(focusItem).orderChildrenBy : "";
   };
-  const handleSortOrderChange = (order: "" | "title[ASC]" | "title[DESC]" | "type[ASC]") => {
+  const handleSortOrderChange = (order: string) => {
     const focusItem = getToolbarFocusItem(store);
     if ((!isPage(focusItem) && !isTable(focusItem)) || !itemCanEdit(focusItem)) {
       store.overlay.toolbarPopupInfoMaybe.set(null);
@@ -1159,7 +1159,7 @@ export const Toolbar_Popup: Component = () => {
     }
     store.overlay.toolbarPopupInfoMaybe.set(null);
   };
-  const sortOrderChoiceClass = (order: "" | "title[ASC]" | "title[DESC]" | "type[ASC]"): string =>
+  const sortOrderChoiceClass = (order: string): string =>
     toolbarMenuItemClass(sortOrder() == order);
   const handleSortOrderKeyDown = (event: KeyboardEvent) => {
     event.stopPropagation();
@@ -1328,10 +1328,10 @@ export const Toolbar_Popup: Component = () => {
             onKeyDown={handleSortOrderKeyDown}>
             <button type="button" class={sortOrderChoiceClass("")} aria-pressed={sortOrder() == ""}
               onClick={() => handleSortOrderChange("")}>Manual order</button>
-            <button type="button" class={sortOrderChoiceClass("title[ASC]")} aria-pressed={sortOrder() == "title[ASC]"}
-              onClick={() => handleSortOrderChange("title[ASC]")}>Title: A → Z</button>
-            <button type="button" class={sortOrderChoiceClass("title[DESC]")} aria-pressed={sortOrder() == "title[DESC]"}
-              onClick={() => handleSortOrderChange("title[DESC]")}>Title: Z → A</button>
+            <button type="button" class={sortOrderChoiceClass("value[ASC]")} aria-pressed={sortOrder() == "value[ASC]"}
+              onClick={() => handleSortOrderChange("value[ASC]")}>Title: A → Z</button>
+            <button type="button" class={sortOrderChoiceClass("value[DESC]")} aria-pressed={sortOrder() == "value[DESC]"}
+              onClick={() => handleSortOrderChange("value[DESC]")}>Title: Z → A</button>
             <button type="button" class={sortOrderChoiceClass("type[ASC]")} aria-pressed={sortOrder() == "type[ASC]"}
               onClick={() => handleSortOrderChange("type[ASC]")}>Type</button>
           </div>

@@ -42,7 +42,7 @@ use crate::util::mime::{mime_type_from_title_extension, normalized_mime_type};
 
 use super::user::User;
 
-pub const CURRENT_ITEM_LOG_VERSION: i64 = 40;
+pub const CURRENT_ITEM_LOG_VERSION: i64 = 41;
 
 /// Replay a staged log without adding its items to the live database's indexes.
 pub(crate) async fn validate_item_log(path: &str) -> InfuResult<()> {
@@ -2783,6 +2783,33 @@ pub fn migrate_record_v39_to_v40(
   }
 }
 
+/// Renames the "title" sort key "value": it sorts by what an item shows, which for a rating is its number. The other
+/// values orderChildrenBy had before version 41 are kept. Any it shouldn't have had meant manual order, so become "".
+pub fn migrate_record_v40_to_v41(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str()
+  {
+    "descriptor" => migrate_descriptor(kvs, 40),
+
+    "entry" | "replace" | "update" => {
+      let mut result = kvs.clone();
+      if let Some(order_children_by) = json::get_string_field(kvs, "orderChildrenBy")? {
+        let migrated = match order_children_by.as_str() {
+          "title[ASC]" => "value[ASC]",
+          "title[DESC]" => "value[DESC]",
+          "type[ASC]" => "type[ASC]",
+          _ => "",
+        };
+        result.insert(String::from("orderChildrenBy"), Value::String(migrated.to_owned()));
+      }
+      Ok(result)
+    }
+
+    "delete" | "containerVersion" => Ok(kvs.clone()),
+
+    unexpected_record_type => Err(format!("Unknown log record type '{}'.", unexpected_record_type).into()),
+  }
+}
+
 fn is_legacy_text_file_entry(kvs: &Map<String, Value>) -> InfuResult<bool> {
   let item_type = json::get_string_field(kvs, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
   if item_type != "file" {
@@ -2841,6 +2868,26 @@ fn item_id_from_infumap_url(url: &str) -> Option<Uid> {
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn v40_to_v41_renames_title_sort_key() {
+    let migrated = |record_type: &str, order: &str| {
+      let mut record = Map::new();
+      record.insert(String::from("__recordType"), Value::String(record_type.to_owned()));
+      record.insert(String::from("orderChildrenBy"), Value::String(order.to_owned()));
+      migrate_record_v40_to_v41(&record).unwrap().get("orderChildrenBy").unwrap().as_str().unwrap().to_owned()
+    };
+    assert_eq!(migrated("entry", "title[ASC]"), "value[ASC]");
+    assert_eq!(migrated("replace", "title[DESC]"), "value[DESC]");
+    assert_eq!(migrated("update", "type[ASC]"), "type[ASC]");
+    assert_eq!(migrated("update", ""), "");
+    assert_eq!(migrated("entry", "title[DESC],creation date[ASC]"), "");
+
+    let mut retitled = Map::new();
+    retitled.insert(String::from("__recordType"), Value::String(String::from("update")));
+    retitled.insert(String::from("title"), Value::String(String::from("x")));
+    assert!(!migrate_record_v40_to_v41(&retitled).unwrap().contains_key("orderChildrenBy"));
+  }
   use crate::web::routes::default_home_page;
   use infusdk::item::{NoteFlags, NoteUrl};
   use infusdk::util::uid::{EMPTY_UID, new_uid};
