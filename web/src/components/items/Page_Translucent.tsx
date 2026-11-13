@@ -147,7 +147,9 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
       if (isQueryChatPage() && followingLatestChatTurn) {
         translucentDiv.scrollTop = maxScrollYPx;
         latestTranslucentScrollTopPx = maxScrollYPx;
-        store.perItem.setPageScrollYProp(pageVeid, 1);
+        // The scroll signal has equals: false and this effect reads it above, so an unconditional write here re-runs
+        // the effect forever (stack overflow in Solid's runUpdates).
+        if (scrollYProp != 1) { store.perItem.setPageScrollYProp(pageVeid, 1); }
       } else if (shouldPreserveAbsoluteScrollTop) {
         const preservedScrollTopPx = Math.min(latestTranslucentScrollTopPx, maxScrollYPx);
         translucentDiv.scrollTop = preservedScrollTopPx;
