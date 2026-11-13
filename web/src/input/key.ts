@@ -55,11 +55,14 @@ import { ItemFns } from "../items/base/item-polymorphism";
 import { getVePropertiesForItem } from "../layout/arrange/util";
 import { isPlaceholder } from "../items/placeholder-item";
 import {
+  QUERY_SEARCH_MORE_BUTTON_FOCUS_INDEX,
   getQuerySearchFocusedResultIndex,
+  getQuerySearchHasMoreResults,
   getQuerySearchResults,
   getQuerySearchSelectedResultIndex,
   isQueryItem,
   isQuerySearchResultsPage,
+  requestQuerySearchLoadMore,
   setQuerySearchFocusedResultIndex,
   setQuerySearchSelectedResultIndex,
 } from "../items/query-item";
@@ -370,6 +373,83 @@ export function enterSearchResultsMaybe(store: StoreContextModel): boolean {
   return true;
 }
 
+function searchMoreButtonHasFocus(store: StoreContextModel, workspace: ActiveSearchWorkspace): boolean {
+  return getQuerySearchFocusedResultIndex(store, workspace.searchItemId) == QUERY_SEARCH_MORE_BUTTON_FOCUS_INDEX &&
+    store.history.getFocusPathMaybe() == workspace.searchVePath;
+}
+
+/** The result that had the focus (grid) or selection (catalog) when Down moved to the More button, for Up to go back. */
+let searchMoreButtonReturnIndex = -1;
+
+/** Down from the last row of results moves to the More button below them, if there is one. */
+function focusSearchMoreButtonMaybe(store: StoreContextModel, workspace: ActiveSearchWorkspace, fromIndex: number): boolean {
+  if (!getQuerySearchHasMoreResults(store, workspace.searchItemId)) { return false; }
+  searchMoreButtonReturnIndex = fromIndex;
+  setQuerySearchSelectedResultIndex(store, workspace.searchItemId, -1);
+  setQuerySearchFocusedResultIndex(store, workspace.searchItemId, QUERY_SEARCH_MORE_BUTTON_FOCUS_INDEX);
+  store.history.setFocus(workspace.searchVePath);
+  // The button is in the footer at the bottom of the results page's scrolled content.
+  if (workspace.resultsPageVe) {
+    store.perItem.setPageScrollYProp(VeFns.actualVeidFromVe(workspace.resultsPageVe), 1);
+  }
+  arrangeNow(store, "key-search-focus-more");
+  return true;
+}
+
+function focusOrSelectSearchResult(store: StoreContextModel, workspace: ActiveSearchWorkspace, resultIndex: number): void {
+  if (searchWorkspaceUsesGridLayout(workspace)) {
+    focusSearchGridResult(store, workspace, resultIndex);
+  } else {
+    selectSearchCatalogResult(store, workspace, resultIndex);
+  }
+}
+
+/**
+ * Keys on the More button. Enter or space loads the next page of results and, once they arrive, moves on to the first
+ * of them, which is what the user asked for more results to see. Up goes back to the result Down came from.
+ */
+function handleSearchMoreButtonKeyMaybe(store: StoreContextModel, workspace: ActiveSearchWorkspace, code: string): boolean {
+  if (!searchMoreButtonHasFocus(store, workspace)) { return false; }
+
+  if (code == "ArrowUp") {
+    if (workspace.resultsCount == 0) { return true; }
+    const returnIndex = searchMoreButtonReturnIndex >= 0 && searchMoreButtonReturnIndex < workspace.resultsCount
+      ? searchMoreButtonReturnIndex
+      : workspace.resultsCount - 1;
+    focusOrSelectSearchResult(store, workspace, returnIndex);
+    return true;
+  }
+
+  if (code == "Enter" || code == "Space") {
+    const searchItemId = workspace.searchItemId;
+    const firstNewIndex = workspace.resultsCount;
+    void requestQuerySearchLoadMore(searchItemId).then(loaded => {
+      if (!loaded) { return; }
+      arrangeNow(store, "key-search-more-loaded");
+      const current = getActiveSearchWorkspace(store);
+      // Leave the focus alone if the user moved it while the results were loading.
+      if (!current || current.searchItemId != searchItemId || !searchMoreButtonHasFocus(store, current)) { return; }
+      if (firstNewIndex < current.resultsCount) {
+        focusOrSelectSearchResult(store, current, firstNewIndex);
+      }
+    });
+    return true;
+  }
+
+  if (code == "ArrowLeft") {
+    // As from the first column of results: back to the list.
+    const currentPagePath = store.history.currentPagePath();
+    if (!currentPagePath) { return false; }
+    setQuerySearchFocusedResultIndex(store, workspace.searchItemId, -1);
+    store.history.setFocus(currentPagePath);
+    arrangeNow(store, "key-search-more-to-list");
+    return true;
+  }
+
+  // Down and Right have nowhere to go, and are not passed on to the page behind.
+  return code == "ArrowDown" || code == "ArrowRight";
+}
+
 function openSearchResultPopup(store: StoreContextModel, resultVe: VisualElement): void {
   const boundsPx = VeFns.veBoundsRelativeToDesktopPx(store, resultVe);
   ItemFns.handleOpenPopupClick(resultVe, store, false, {
@@ -386,6 +466,7 @@ function searchResultItemId(results: Array<SearchResult>, resultIndex: number): 
 function handleSearchWorkspaceArrowMaybe(store: StoreContextModel, ev: KeyboardEvent): boolean {
   const workspace = getActiveSearchWorkspace(store);
   if (!workspace) { return false; }
+  if (handleSearchMoreButtonKeyMaybe(store, workspace, ev.code)) { return true; }
   const focusPath = store.history.getFocusPathMaybe();
 
   const selectedRow = clampSearchResultIndex(
@@ -418,6 +499,8 @@ function handleSearchWorkspaceArrowMaybe(store: StoreContextModel, ev: KeyboardE
     if (nextIndex == null) {
       if (ev.code == "ArrowUp") {
         editSearchWorkspaceInput(store, workspace);
+      } else if (ev.code == "ArrowDown") {
+        focusSearchMoreButtonMaybe(store, workspace, focusedRow);
       }
       return true;
     }
@@ -459,6 +542,8 @@ function handleSearchWorkspaceArrowMaybe(store: StoreContextModel, ev: KeyboardE
   if (nextRowCandidate < 0 || nextRowCandidate >= workspace.resultsCount) {
     if (ev.code == "ArrowUp" && baseRow == 0) {
       editSearchWorkspaceInput(store, workspace);
+    } else if (ev.code == "ArrowDown") {
+      focusSearchMoreButtonMaybe(store, workspace, baseRow);
     }
     return true;
   }
@@ -508,6 +593,7 @@ function handleSearchWorkspaceTabMaybe(store: StoreContextModel, ev: KeyboardEve
 function handleSearchWorkspaceEnterMaybe(store: StoreContextModel): boolean {
   const workspace = getActiveSearchWorkspace(store);
   if (!workspace) { return false; }
+  if (handleSearchMoreButtonKeyMaybe(store, workspace, "Enter")) { return true; }
 
   const focusedRow = getEffectiveFocusedSearchResultIndex(store, workspace);
   const focusIsOnWorkspace = store.history.getFocusPathMaybe() == workspace.searchVePath;
@@ -553,6 +639,7 @@ function handleSearchWorkspaceEnterMaybe(store: StoreContextModel): boolean {
 function handleSearchWorkspaceSpaceMaybe(store: StoreContextModel): boolean {
   const workspace = getActiveSearchWorkspace(store);
   if (!workspace) { return false; }
+  if (handleSearchMoreButtonKeyMaybe(store, workspace, "Space")) { return true; }
   const focusedRow = getEffectiveFocusedSearchResultIndex(store, workspace);
   if (focusedRow < 0) { return false; }
   const focusedVe = workspace.resultChildVes[focusedRow];
@@ -640,7 +727,7 @@ function handleSearchWorkspaceEscapeMaybe(store: StoreContextModel): boolean {
     workspace.resultsCount,
   );
   const focusedRow = getEffectiveFocusedSearchResultIndex(store, workspace);
-  if (focusedRow < 0 && selectedRow < 0) { return false; }
+  if (focusedRow < 0 && selectedRow < 0 && !searchMoreButtonHasFocus(store, workspace)) { return false; }
 
   setQuerySearchSelectedResultIndex(store, workspace.searchItemId, -1);
   setQuerySearchFocusedResultIndex(store, workspace.searchItemId, -1);

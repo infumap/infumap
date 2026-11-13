@@ -21,7 +21,7 @@ import { Portal } from "solid-js/web";
 import { arrangeNow, requestArrange } from "../../layout/arrange";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { useStore } from "../../store/StoreProvider";
-import { FIND_HIGHLIGHT_COLOR, LIGHT_BORDER_COLOR, SELECTED_DARK } from "../../style";
+import { FIND_HIGHLIGHT_COLOR, FOCUS_RING_COLOR, LIGHT_BORDER_COLOR, SELECTED_DARK } from "../../style";
 import { VisualElementProps } from "../VisualElement";
 import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, highlightStyle } from "./helper";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
@@ -74,13 +74,16 @@ import {
   calcQueryWorkspaceControlsWidthPx,
   calcQueryWorkspaceResultsTopPx,
   getQueryMode,
+  QUERY_SEARCH_MORE_BUTTON_FOCUS_INDEX,
   getQuerySearchArrangeAlgorithm,
+  getQuerySearchFocusedResultIndex,
   getQuerySearchHasMoreResults,
   getQuerySearchResults,
   getQueryRuntime,
   getQueryText,
   queryIconClass,
   querySearchResultsFooterHostId,
+  registerQuerySearchLoadMoreHandler,
   setQuerySearchArrangeAlgorithm,
   setQueryChatActivityHeightPx,
   setQueryChatComposerHeightPx,
@@ -705,21 +708,26 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     void runSearch(false, editingElMaybe, false);
   };
 
-  const loadMoreSearchResults = async () => {
+  const loadMoreSearchResults = async (): Promise<boolean> => {
     if (isEditing() || isLoadingMore() || isSearching() || !searchHasMoreResults()) {
-      return;
+      return false;
     }
 
     const requestSerial = ++activeSearchRequestSerial;
     setIsLoadingMore(true);
     try {
-      await loadMoreQuerySearchResults(store, queryItem(), {
+      return await loadMoreQuerySearchResults(store, queryItem(), {
         shouldApply: () => requestSerial == activeSearchRequestSerial,
       });
     } finally {
       setIsLoadingMore(false);
     }
   };
+
+  createEffect(() => {
+    if (!isListPageMainRoot()) { return; }
+    onCleanup(registerQuerySearchLoadMoreHandler(queryItem().id, loadMoreSearchResults));
+  });
 
   const resetLocalQuerySessionUi = () => {
     activeSearchRequestSerial++;
@@ -1774,6 +1782,9 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     const lowerTopPx = calcQueryWorkspaceResultsTopPx();
     const arrangeSelectorTopPx = lowerTopPx - Math.round(QUERY_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX / 2);
     const showMoreButton = () => searchHasMoreResults();
+    const moreButtonHasFocusRing = () =>
+      getQuerySearchFocusedResultIndex(store, queryItem()) == QUERY_SEARCH_MORE_BUTTON_FOCUS_INDEX &&
+      store.history.getFocusPathMaybe() == vePath();
     const initialControlsTopPx = () => {
       const aboveInputPx = QUERY_PROFILE_ROW_HEIGHT_PX + QUERY_PROFILE_ROW_GAP_PX +
         (showDraftAttachments() ? draftAttachmentsRowPx() : 0) + scopeItemsRowPx();
@@ -2145,7 +2156,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           <Portal mount={moreButtonHost()!}>
             <button
               class="border border-[#999] rounded-xs bg-white text-black cursor-pointer disabled:cursor-default disabled:opacity-60"
-              style={`width: ${QUERY_WORKSPACE_MORE_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_MORE_BUTTON_HEIGHT_PX}px;`}
+              style={`width: ${QUERY_WORKSPACE_MORE_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_MORE_BUTTON_HEIGHT_PX}px;` +
+                (moreButtonHasFocusRing() ? ` outline: 2px solid ${FOCUS_RING_COLOR}; outline-offset: 1px;` : "")}
               type="button"
               disabled={isEditing() || isLoadingMore()}
               onMouseDown={(ev) => {

@@ -260,6 +260,35 @@ export function setQuerySearchSelectedResultIndex(store: StoreContextModel, quer
   store.perItem.setSearchSelectedResultIndex(queryItemId(queryItemOrId), index);
 }
 
+/**
+ * The focused result index while the "More" button below the results has the keyboard focus ring. It is a value of the
+ * focused index rather than separate state so that everything that resets the focused index (a new search, a click,
+ * keyboard moves) also takes the ring off the button. Negative, so code that clamps the index reads it as "no result".
+ */
+export const QUERY_SEARCH_MORE_BUTTON_FOCUS_INDEX = -2;
+
+/**
+ * The "More" button's own load function, registered by the search workspace that draws it, so the keyboard loads
+ * through the same path as a click: that path tracks the loading state the button shows and drops a response that
+ * arrives after a new search has started.
+ */
+const querySearchLoadMoreHandlers = new Map<Uid, () => Promise<boolean>>();
+
+export function registerQuerySearchLoadMoreHandler(queryItemId: Uid, handler: () => Promise<boolean>): () => void {
+  querySearchLoadMoreHandlers.set(queryItemId, handler);
+  return () => {
+    if (querySearchLoadMoreHandlers.get(queryItemId) == handler) {
+      querySearchLoadMoreHandlers.delete(queryItemId);
+    }
+  };
+}
+
+/** Resolves true if more results were added; false if nothing loaded (none to load, a load already running, etc.). */
+export function requestQuerySearchLoadMore(queryItemId: Uid): Promise<boolean> {
+  const handler = querySearchLoadMoreHandlers.get(queryItemId);
+  return handler ? handler() : Promise.resolve(false);
+}
+
 export function getQuerySearchFocusedResultIndex(store: StoreContextModel, queryItemOrId: QueryItemOrId): number {
   return store.perItem.getSearchFocusedResultIndex(queryItemId(queryItemOrId));
 }
