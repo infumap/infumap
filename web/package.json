@@ -22,7 +22,6 @@
     "@types/justified-layout": "^4.1.4",
     "@types/node": "^25.0.3",
     "@types/qrcode": "^1.5.5",
-    "@types/zxcvbn": "^4.4.5",
     "path": "^0.12.7",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.3.4",
@@ -33,8 +32,7 @@
   "dependencies": {
     "justified-layout": "^4.1.0",
     "qrcode": "^1.5.4",
-    "solid-js": "^1.9.10",
-    "zxcvbn": "^4.4.2"
+    "solid-js": "^1.9.10"
   },
   "packageManager": "npm@11.12.1+sha512.cdca14b85d647b3192028d02aadbe82d75f79a446aceea9874be98e6d768f20ebd3555770a48d0e9906106007877bbc690f715e9372f2e2dc644a3c3157fb14c"
 }
