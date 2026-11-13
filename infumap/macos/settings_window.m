@@ -320,7 +320,9 @@ static void SettingsRequest(NSString *settings, NSDictionary *request, void (^co
   provider[@"url"] = [self.url.stringValue stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
   NSString *key = self.secret.hidden ? self.revealedSecret.stringValue : self.secret.stringValue;
   if (key.length) provider[@"api_key"] = key; else [provider removeObjectForKey:@"api_key"];
-  provider[@"discover_models"] = @(self.discovery.state == NSControlStateValueOn);
+  // Boxing a C comparison with @(...) produces an integer NSNumber, serialized
+  // as 0/1. Rust expects a JSON boolean for both connection checks and saves.
+  provider[@"discover_models"] = self.discovery.state == NSControlStateValueOn ? @YES : @NO;
   if (self.discovery.state == NSControlStateValueOff && self.model.stringValue.length) provider[@"model_name"] = self.model.stringValue;
   else [provider removeObjectForKey:@"model_name"];
   NSMutableArray *efforts = [NSMutableArray array];
