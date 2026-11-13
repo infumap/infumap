@@ -23,6 +23,7 @@ import { TableFns, isTable } from "../items/table-item";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { arrangeNow, arrangeVirtual } from "../layout/arrange";
+import { initiateLoadItemMaybe } from "../layout/load";
 import { calcJustifiedPagePaddingPx } from "../layout/arrange/justified_metrics";
 import { catalogResultControlsTopInsetPx } from "../layout/catalog-display";
 import { findClosest, FindDirection, findDirectionFromKeyCode } from "../layout/find";
@@ -328,13 +329,55 @@ function nextSearchResultIndex(
 }
 
 
+/**
+ * A result is a link to the found item, and until that item has loaded (e.g. results just added by More) the link is
+ * drawn as itself. Focusing it then would make the link the focused item: the toolbar would show its "link to item"
+ * editor, which takes the keyboard focus. So until the item arrives, the focus stays on the workspace with the result's
+ * index recorded (arrow keys carry on from it), and moves onto the result once it has loaded.
+ */
+/** Calls `then`, after an arrange, once the item a result links to has loaded. */
+function whenSearchResultLoaded(
+  store: StoreContextModel,
+  results: Array<SearchResult>,
+  resultIndex: number,
+  then: () => void,
+): void {
+  const resultItemId = searchResultItemId(results, resultIndex);
+  if (!resultItemId) { return; }
+  void initiateLoadItemMaybe(store, resultItemId).then(() => {
+    arrangeNow(store, "key-search-result-loaded");
+    then();
+  });
+}
+
 function focusSearchResult(store: StoreContextModel, workspace: ActiveSearchWorkspace, resultIndex: number): void {
   const targetVe = workspace.resultChildVes[resultIndex];
   if (!targetVe) { return; }
   setQuerySearchFocusedResultIndex(store, workspace.searchItemId, resultIndex);
-  store.history.setFocus(VeFns.veToPath(targetVe));
   scrollSearchResultIndexIntoView(store, workspace, resultIndex);
-  arrangeNow(store, "key-search-focus-result");
+
+  if (!isLink(targetVe.displayItem)) {
+    store.history.setFocus(VeFns.veToPath(targetVe));
+    arrangeNow(store, "key-search-focus-result");
+    return;
+  }
+
+  store.history.setFocus(workspace.searchVePath);
+  arrangeNow(store, "key-search-focus-result-loading");
+  const searchItemId = workspace.searchItemId;
+  whenSearchResultLoaded(store, workspace.results, resultIndex, () => {
+    const current = getActiveSearchWorkspace(store);
+    // Leave the focus alone if the user moved it while the item was loading.
+    if (!current || current.searchItemId != searchItemId ||
+        getQuerySearchFocusedResultIndex(store, searchItemId) != resultIndex ||
+        store.history.getFocusPathMaybe() != current.searchVePath) {
+      return;
+    }
+    const loadedVe = current.resultChildVes[resultIndex];
+    if (!loadedVe || isLink(loadedVe.displayItem)) { return; }
+    store.history.setFocus(VeFns.veToPath(loadedVe));
+    arrangeNow(store, "key-search-focus-result-ready");
+  });
 }
 
 /** The query input is above the results, so up from their first row goes straight into editing it. */
@@ -503,7 +546,22 @@ function handleSearchWorkspaceSpaceMaybe(store: StoreContextModel): boolean {
   const focusedIndex = getEffectiveFocusedSearchResultIndex(store, workspace);
   if (focusedIndex < 0) { return false; }
   const focusedVe = workspace.resultChildVes[focusedIndex];
-  if (focusedVe) { openSearchResultPopup(store, focusedVe); }
+  if (!focusedVe) { return true; }
+  if (!isLink(focusedVe.displayItem)) {
+    openSearchResultPopup(store, focusedVe);
+    return true;
+  }
+  // Still loading (see focusSearchResult): open it once it has loaded, if it is still the focused result.
+  const searchItemId = workspace.searchItemId;
+  whenSearchResultLoaded(store, workspace.results, focusedIndex, () => {
+    const current = getActiveSearchWorkspace(store);
+    if (!current || current.searchItemId != searchItemId ||
+        getEffectiveFocusedSearchResultIndex(store, current) != focusedIndex) {
+      return;
+    }
+    const loadedVe = current.resultChildVes[focusedIndex];
+    if (loadedVe && !isLink(loadedVe.displayItem)) { openSearchResultPopup(store, loadedVe); }
+  });
   return true;
 }
 
@@ -557,11 +615,23 @@ function handleSearchResultPopupArrowMaybe(store: StoreContextModel, ev: Keyboar
 
   // Read again: the popup opens at the result's position on screen, which scrolling may have changed.
   const resultsPagePath = VeFns.veToPath(popup.resultsPageVe);
-  const targetVe = VesCache.render.getChildren(resultsPagePath)()[nextIndex]?.get();
-  if (!targetVe) { return true; }
-  openSearchResultPopup(store, targetVe);
-  store.history.setCurrentPopupRestoreFocusPath(VeFns.veToPath(targetVe));
-  arrangeNow(store, "key-search-popup-step");
+  const openTargetMaybe = (): boolean => {
+    const targetVe = VesCache.render.getChildren(resultsPagePath)()[nextIndex]?.get();
+    // A result still loading is drawn as its link, which must not become the popup (see focusSearchResult).
+    if (!targetVe || isLink(targetVe.displayItem)) { return false; }
+    openSearchResultPopup(store, targetVe);
+    store.history.setCurrentPopupRestoreFocusPath(VeFns.veToPath(targetVe));
+    arrangeNow(store, "key-search-popup-step");
+    return true;
+  };
+  if (!openTargetMaybe()) {
+    // The popup keeps showing the previous result until this one has loaded, unless the user has moved on or closed it.
+    whenSearchResultLoaded(store, getQuerySearchResults(store, popup.searchItemId) ?? [], nextIndex, () => {
+      if (searchResultPopupMaybe(store) == null) { return; }
+      if (getQuerySearchFocusedResultIndex(store, popup.searchItemId) != nextIndex) { return; }
+      openTargetMaybe();
+    });
+  }
   return true;
 }
 

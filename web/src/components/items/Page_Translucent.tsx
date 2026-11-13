@@ -135,6 +135,10 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
       }
 
       const maxScrollYPx = Math.max(0, pageFns().childAreaBoundsPx().h - props.visualElement.boundsPx.h);
+      // Read on every run, whichever branch is taken below: Solid tracks only what a run reads, so a run that skipped
+      // it would stop this effect following later scroll changes (e.g. arrow keys moving the focus through search
+      // results after more of them were loaded).
+      const scrollYProp = store.perItem.getPageScrollYProp(pageVeid);
       const shouldPreserveAbsoluteScrollTop =
         pageFns().hasCatalogResultContext() &&
         previousChildAreaHeightPx != null &&
@@ -150,9 +154,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
         latestTranslucentScrollTopPx = preservedScrollTopPx;
         store.perItem.setPageScrollYProp(pageVeid, maxScrollYPx > 0 ? preservedScrollTopPx / maxScrollYPx : 0);
       } else {
-        const nextScrollTopPx =
-          store.perItem.getPageScrollYProp(pageVeid) *
-          maxScrollYPx;
+        const nextScrollTopPx = scrollYProp * maxScrollYPx;
         translucentDiv.scrollTop = nextScrollTopPx;
         latestTranslucentScrollTopPx = nextScrollTopPx;
       }
