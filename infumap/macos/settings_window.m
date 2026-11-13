@@ -48,10 +48,12 @@ static void SettingsRequest(NSString *settings, NSDictionary *request, void (^co
 
 @interface InfumapSettingsWindow () <NSTableViewDataSource, NSTableViewDelegate, NSTextFieldDelegate, NSWindowDelegate>
 @property(nonatomic, copy) NSString *settings;
-@property(nonatomic, weak) id<InfumapSettingsDelegate> owner;
+// NSWindowController already declares a readonly owner property.
+@property(nonatomic, weak) id<InfumapSettingsDelegate> settingsDelegate;
 @property(nonatomic, strong) NSMutableDictionary *snapshot;
 @property(nonatomic, strong) NSMutableArray<NSMutableDictionary *> *providers;
-@property(nonatomic, strong) NSHashTable<NSMutableDictionary *> *newProviders;
+// A getter starting with new would acquire ARC factory-method ownership semantics.
+@property(nonatomic, strong) NSHashTable<NSMutableDictionary *> *unsavedProviders;
 @property(nonatomic, strong) NSTableView *sidebar;
 @property(nonatomic, strong) NSTableView *providerList;
 @property(nonatomic, strong) NSView *serverPage;
@@ -122,10 +124,10 @@ static void SettingsRequest(NSString *settings, NSDictionary *request, void (^co
   self = [super initWithWindow:window];
   if (!self) return nil;
   self.settings = settings;
-  self.owner = delegate;
+  self.settingsDelegate = delegate;
   self.selectedProvider = -1;
   self.providers = [NSMutableArray array];
-  self.newProviders = [NSHashTable hashTableWithOptions:NSPointerFunctionsObjectPointerPersonality | NSPointerFunctionsStrongMemory];
+  self.unsavedProviders = [NSHashTable hashTableWithOptions:NSPointerFunctionsObjectPointerPersonality | NSPointerFunctionsStrongMemory];
   window.title = @"Infumap Settings";
   window.releasedWhenClosed = NO;
   window.delegate = self;
@@ -255,7 +257,7 @@ static void SettingsRequest(NSString *settings, NSDictionary *request, void (^co
   self.filling = YES;
   self.snapshot = [snapshot mutableCopy];
   self.providers = [NSMutableArray array];
-  [self.newProviders removeAllObjects];
+  [self.unsavedProviders removeAllObjects];
   for (NSDictionary *provider in snapshot[@"providers"]) {
     [self.providers addObject:[provider mutableCopy]];
   }
@@ -285,7 +287,7 @@ static void SettingsRequest(NSString *settings, NSDictionary *request, void (^co
   self.port.enabled = editable && ![self.snapshot[@"port_overridden"] boolValue];
   self.add.enabled = providerEditable;
   self.remove.enabled = providerEditable && selected;
-  self.providerID.enabled = providerEditable && selected && [self.newProviders containsObject:self.providers[self.selectedProvider]];
+  self.providerID.enabled = providerEditable && selected && [self.unsavedProviders containsObject:self.providers[self.selectedProvider]];
   self.adapter.enabled = providerEditable && selected;
   self.url.enabled = providerEditable && selected;
   self.secret.enabled = providerEditable && selected;
@@ -298,8 +300,8 @@ static void SettingsRequest(NSString *settings, NSDictionary *request, void (^co
   self.check.enabled = ready && selected && !self.checking;
   self.reloadButton.enabled = !self.loading && !self.saving && !self.waitingForRestart;
   BOOL anyEditable = ![self.snapshot[@"address_overridden"] boolValue] || ![self.snapshot[@"port_overridden"] boolValue] || ![self.snapshot[@"providers_overridden"] boolValue];
-  self.saveButton.enabled = editable && anyEditable && ![self.owner settingsServerStopping];
-  self.saveButton.title = [self.owner settingsServerRunning] ? @"Save and Restart" : @"Save";
+  self.saveButton.enabled = editable && anyEditable && ![self.settingsDelegate settingsServerStopping];
+  self.saveButton.title = [self.settingsDelegate settingsServerRunning] ? @"Save and Restart" : @"Save";
 }
 
 - (void)updateURL {
@@ -401,7 +403,7 @@ static void SettingsRequest(NSString *settings, NSDictionary *request, void (^co
   NSUInteger index = 1;
   while ([ids containsObject:[NSString stringWithFormat:@"provider-%lu", (unsigned long)index]]) index++;
   [self.providers addObject:[@{@"id":[NSString stringWithFormat:@"provider-%lu", (unsigned long)index], @"url":@"http://127.0.0.1:8080/v1", @"adapter":@"openai", @"discover_models":@YES, @"reasoning_efforts":@[]} mutableCopy]];
-  [self.newProviders addObject:self.providers.lastObject];
+  [self.unsavedProviders addObject:self.providers.lastObject];
   self.filling = YES;
   [self.providerList reloadData];
   [self.providerList selectRowIndexes:[NSIndexSet indexSetWithIndex:self.providers.count - 1] byExtendingSelection:NO];
@@ -414,7 +416,7 @@ static void SettingsRequest(NSString *settings, NSDictionary *request, void (^co
 - (void)removeProvider:(id)sender {
   (void)sender;
   if (self.selectedProvider < 0) return;
-  [self.newProviders removeObject:self.providers[self.selectedProvider]];
+  [self.unsavedProviders removeObject:self.providers[self.selectedProvider]];
   [self.providers removeObjectAtIndex:self.selectedProvider];
   self.selectedProvider = -1;
   self.filling = YES;
@@ -483,13 +485,13 @@ static void SettingsRequest(NSString *settings, NSDictionary *request, void (^co
   if (!self.saveButton.enabled) return;
   [self.window makeFirstResponder:nil];
   [self commitProvider];
-  BOOL restart = [self.owner settingsServerRunning];
+  BOOL restart = [self.settingsDelegate settingsServerRunning];
   self.saving = YES;
   self.checkVersion++;
   self.message.textColor = NSColor.labelColor;
   self.message.stringValue = @"Saving settings…";
   [self updateEnabled];
-  [self.owner settingsSaveStarted];
+  [self.settingsDelegate settingsSaveStarted];
   SettingsRequest(self.settings, @{@"operation":@"save", @"revision":self.snapshot[@"revision"], @"address":self.address.stringValue,
     @"port":self.port.stringValue, @"providers":self.providers}, ^(NSDictionary *value, NSString *error) {
     self.saving = NO;
@@ -497,7 +499,7 @@ static void SettingsRequest(NSString *settings, NSDictionary *request, void (^co
       self.message.textColor = NSColor.systemRedColor;
       self.message.stringValue = error;
       [self updateEnabled];
-      [self.owner settingsSaveFinished];
+      [self.settingsDelegate settingsSaveFinished];
       return;
     }
     [self applySnapshot:value];
@@ -505,8 +507,8 @@ static void SettingsRequest(NSString *settings, NSDictionary *request, void (^co
     self.message.textColor = NSColor.labelColor;
     self.message.stringValue = restart ? @"Settings saved. Waiting for the server to restart…" : @"Settings saved.";
     [self updateEnabled];
-    [self.owner settingsSavedWithRestart:restart];
-    [self.owner settingsSaveFinished];
+    [self.settingsDelegate settingsSavedWithRestart:restart];
+    [self.settingsDelegate settingsSaveFinished];
   });
 }
 
@@ -515,12 +517,12 @@ static void SettingsRequest(NSString *settings, NSDictionary *request, void (^co
   if (self.waitingForRestart && !busy) {
     self.waitingForRestart = NO;
     self.message.stringValue = [@"Settings saved. Server: " stringByAppendingString:status];
-    self.message.textColor = [self.owner settingsServerRunning] ? NSColor.labelColor : NSColor.systemRedColor;
+    self.message.textColor = [self.settingsDelegate settingsServerRunning] ? NSColor.labelColor : NSColor.systemRedColor;
   }
   [self updateEnabled];
 }
 
-- (void)showLogs:(id)sender { (void)sender; [self.owner settingsShowLogs]; }
+- (void)showLogs:(id)sender { (void)sender; [self.settingsDelegate settingsShowLogs]; }
 - (void)cancel:(id)sender { (void)sender; if (!self.saving) [self close]; }
 - (BOOL)windowShouldClose:(NSWindow *)sender { (void)sender; return !self.saving; }
 @end
