@@ -535,7 +535,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           const isMouseOverRow = () =>
             store.perVe.getMoveOverRowNumber(pageFns.vePath()) == rowIndex() &&
             !store.anItemIsMoving.get();
-          const isSelectedResultRow = () => pageFns.catalogDisplayContext().selectedRowIndex() == rowIndex();
+          // The tint ties the focus ring on the result's preview to the details beside it.
+          const isFocusedResultRow = () => pageFns.hasCatalogResultContext() &&
+            store.history.getFocusPathMaybe() == VeFns.veToPath(childVe());
           const catalogItem = () => childVe().actualLinkItemMaybe ?? childVe().linkItemMaybe ?? childVe().displayItem;
           const rowDisplay = () => pageFns.catalogDisplayContext().rowDisplay(rowIndex(), catalogItem());
           const pathSegments = () => rowDisplay().pathSegments;
@@ -605,7 +607,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             metadataLines().reduce((sum, line) => sum + line.length, 0) + Math.max(0, metadataLines().length - 1) * 3;
           return (
             <>
-              <Show when={isSelectedResultRow()}>
+              <Show when={isFocusedResultRow()}>
                 <div class="absolute pointer-events-none"
                   style={`left: ${pageFns.catalogContentLeftPx()}px; top: ${topPx()}px; width: ${pageFns.catalogContentWidthPx()}px; height: ${pageFns.catalogRowHeightPx()}px; ` +
                     `background-color: ${SELECTED_LIGHT};`} />

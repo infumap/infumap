@@ -59,12 +59,10 @@ import {
   getQuerySearchFocusedResultIndex,
   getQuerySearchHasMoreResults,
   getQuerySearchResults,
-  getQuerySearchSelectedResultIndex,
   isQueryItem,
   isQuerySearchResultsPage,
   requestQuerySearchLoadMore,
   setQuerySearchFocusedResultIndex,
-  setQuerySearchSelectedResultIndex,
 } from "../items/query-item";
 import type { SearchResult } from "../server";
 import { commitActiveToolbarTitleEdit } from "./toolbar_title";
@@ -200,21 +198,24 @@ function clampSearchResultIndex(index: number, numResults: number): number {
   return Math.max(0, Math.min(index, numResults - 1));
 }
 
-function getSearchWorkspaceColumnCount(workspace: ActiveSearchWorkspace): number {
-  if (!workspace.resultsPageVe || !isPage(workspace.resultsPageVe.displayItem)) {
+/**
+ * Keyboard handling treats both search result layouts as a grid of results: the catalog is a grid with one column.
+ * The catalog once kept a separate row selection with the focus ring on the row's item one Tab away, and Enter did a
+ * different thing at each level. Its rows hold nothing else the keyboard can reach, so that bought nothing.
+ */
+function searchResultsPageColumnCount(resultsPageVe: VisualElement | null): number {
+  if (!resultsPageVe || !isPage(resultsPageVe.displayItem)) {
     return 1;
   }
-  const resultsPage = asPageItem(workspace.resultsPageVe.displayItem);
+  const resultsPage = asPageItem(resultsPageVe.displayItem);
   if (resultsPage.arrangeAlgorithm != ArrangeAlgorithm.Grid) {
     return 1;
   }
   return Math.max(1, resultsPage.gridNumberOfColumns);
 }
 
-function searchWorkspaceUsesGridLayout(workspace: ActiveSearchWorkspace): boolean {
-  return workspace.resultsPageVe != null &&
-    isPage(workspace.resultsPageVe.displayItem) &&
-    asPageItem(workspace.resultsPageVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Grid;
+function getSearchWorkspaceColumnCount(workspace: ActiveSearchWorkspace): number {
+  return searchResultsPageColumnCount(workspace.resultsPageVe);
 }
 
 function getEffectiveFocusedSearchResultIndex(store: StoreContextModel, workspace: ActiveSearchWorkspace): number {
@@ -244,7 +245,6 @@ function getEffectiveFocusedSearchResultIndex(store: StoreContextModel, workspac
 function scrollSearchResultIndexIntoView(store: StoreContextModel, workspace: ActiveSearchWorkspace, resultIndex: number): void {
   scrollSearchResultsPageIndexIntoView(store, workspace.resultsPageVe, getSearchWorkspaceColumnCount(workspace), resultIndex);
 }
-
 function scrollSearchResultsPageIndexIntoView(
   store: StoreContextModel,
   resultsPageVe: VisualElement | null,
@@ -286,7 +286,7 @@ function scrollSearchResultsPageIndexIntoView(
   }
 }
 
-function nextSearchGridResultIndex(
+function nextSearchResultIndex(
   resultsCount: number,
   numCols: number,
   baseIndex: number,
@@ -327,49 +327,47 @@ function nextSearchGridResultIndex(
   return null;
 }
 
-function selectSearchCatalogResult(store: StoreContextModel, workspace: ActiveSearchWorkspace, resultIndex: number): void {
-  setQuerySearchSelectedResultIndex(store, workspace.searchItemId, resultIndex);
-  setQuerySearchFocusedResultIndex(store, workspace.searchItemId, -1);
-  store.history.setFocus(workspace.searchVePath);
-  scrollSearchResultIndexIntoView(store, workspace, resultIndex);
-  arrangeNow(store, "key-search-select-result");
-}
 
-/**
- * The search grid has only the focus ring, as on other pages. The catalog layout keeps a separate row selection (no
- * ring) because its rows hold more than the item: path, metadata and snippet links.
- */
-function focusSearchGridResult(store: StoreContextModel, workspace: ActiveSearchWorkspace, resultIndex: number): void {
+function focusSearchResult(store: StoreContextModel, workspace: ActiveSearchWorkspace, resultIndex: number): void {
   const targetVe = workspace.resultChildVes[resultIndex];
   if (!targetVe) { return; }
-  setQuerySearchSelectedResultIndex(store, workspace.searchItemId, -1);
   setQuerySearchFocusedResultIndex(store, workspace.searchItemId, resultIndex);
   store.history.setFocus(VeFns.veToPath(targetVe));
   scrollSearchResultIndexIntoView(store, workspace, resultIndex);
-  arrangeNow(store, "key-search-grid-focus-result");
+  arrangeNow(store, "key-search-focus-result");
 }
 
 /** The query input is above the results, so up from their first row goes straight into editing it. */
 function editSearchWorkspaceInput(store: StoreContextModel, workspace: ActiveSearchWorkspace): void {
-  setQuerySearchSelectedResultIndex(store, workspace.searchItemId, -1);
   setQuerySearchFocusedResultIndex(store, workspace.searchItemId, -1);
   store.history.setFocus(workspace.searchVePath);
   store.overlay.autoFocusSearchInput.set(true);
   arrangeNow(store, "key-search-edit-input");
 }
 
+function focusSearchWorkspace(store: StoreContextModel, workspace: ActiveSearchWorkspace): void {
+  setQuerySearchFocusedResultIndex(store, workspace.searchItemId, -1);
+  store.history.setFocus(workspace.searchVePath);
+  arrangeNow(store, "key-search-focus-workspace");
+}
+
+function focusListFromSearchWorkspaceMaybe(store: StoreContextModel, workspace: ActiveSearchWorkspace): boolean {
+  const currentPagePath = store.history.currentPagePath();
+  if (!currentPagePath) { return false; }
+  setQuerySearchFocusedResultIndex(store, workspace.searchItemId, -1);
+  store.history.setFocus(currentPagePath);
+  arrangeNow(store, "key-search-to-list");
+  return true;
+}
+
 /**
- * Enter or Down from the search workspace (or its query input, once editing has ended) goes into the results: the
- * first result gets the focus ring in the grid, or is selected in the catalog. Returns false if there are none.
+ * Enter or Down from the search workspace (or its query input, once editing has ended) puts the focus ring on the
+ * first result. Returns false if there are none.
  */
 export function enterSearchResultsMaybe(store: StoreContextModel): boolean {
   const workspace = getActiveSearchWorkspace(store);
   if (!workspace || workspace.resultsCount == 0) { return false; }
-  if (searchWorkspaceUsesGridLayout(workspace)) {
-    focusSearchGridResult(store, workspace, 0);
-  } else {
-    selectSearchCatalogResult(store, workspace, 0);
-  }
+  focusSearchResult(store, workspace, 0);
   return true;
 }
 
@@ -378,14 +376,13 @@ function searchMoreButtonHasFocus(store: StoreContextModel, workspace: ActiveSea
     store.history.getFocusPathMaybe() == workspace.searchVePath;
 }
 
-/** The result that had the focus (grid) or selection (catalog) when Down moved to the More button, for Up to go back. */
+/** The result that had the focus when Down moved to the More button, for Up to go back to. */
 let searchMoreButtonReturnIndex = -1;
 
 /** Down from the last row of results moves to the More button below them, if there is one. */
 function focusSearchMoreButtonMaybe(store: StoreContextModel, workspace: ActiveSearchWorkspace, fromIndex: number): boolean {
   if (!getQuerySearchHasMoreResults(store, workspace.searchItemId)) { return false; }
   searchMoreButtonReturnIndex = fromIndex;
-  setQuerySearchSelectedResultIndex(store, workspace.searchItemId, -1);
   setQuerySearchFocusedResultIndex(store, workspace.searchItemId, QUERY_SEARCH_MORE_BUTTON_FOCUS_INDEX);
   store.history.setFocus(workspace.searchVePath);
   // The button is in the footer at the bottom of the results page's scrolled content.
@@ -394,14 +391,6 @@ function focusSearchMoreButtonMaybe(store: StoreContextModel, workspace: ActiveS
   }
   arrangeNow(store, "key-search-focus-more");
   return true;
-}
-
-function focusOrSelectSearchResult(store: StoreContextModel, workspace: ActiveSearchWorkspace, resultIndex: number): void {
-  if (searchWorkspaceUsesGridLayout(workspace)) {
-    focusSearchGridResult(store, workspace, resultIndex);
-  } else {
-    selectSearchCatalogResult(store, workspace, resultIndex);
-  }
 }
 
 /**
@@ -416,7 +405,7 @@ function handleSearchMoreButtonKeyMaybe(store: StoreContextModel, workspace: Act
     const returnIndex = searchMoreButtonReturnIndex >= 0 && searchMoreButtonReturnIndex < workspace.resultsCount
       ? searchMoreButtonReturnIndex
       : workspace.resultsCount - 1;
-    focusOrSelectSearchResult(store, workspace, returnIndex);
+    focusSearchResult(store, workspace, returnIndex);
     return true;
   }
 
@@ -430,21 +419,14 @@ function handleSearchMoreButtonKeyMaybe(store: StoreContextModel, workspace: Act
       // Leave the focus alone if the user moved it while the results were loading.
       if (!current || current.searchItemId != searchItemId || !searchMoreButtonHasFocus(store, current)) { return; }
       if (firstNewIndex < current.resultsCount) {
-        focusOrSelectSearchResult(store, current, firstNewIndex);
+        focusSearchResult(store, current, firstNewIndex);
       }
     });
     return true;
   }
 
-  if (code == "ArrowLeft") {
-    // As from the first column of results: back to the list.
-    const currentPagePath = store.history.currentPagePath();
-    if (!currentPagePath) { return false; }
-    setQuerySearchFocusedResultIndex(store, workspace.searchItemId, -1);
-    store.history.setFocus(currentPagePath);
-    arrangeNow(store, "key-search-more-to-list");
-    return true;
-  }
+  // As from the first column of results: back to the list.
+  if (code == "ArrowLeft") { return focusListFromSearchWorkspaceMaybe(store, workspace); }
 
   // Down and Right have nowhere to go, and are not passed on to the page behind.
   return code == "ArrowDown" || code == "ArrowRight";
@@ -467,126 +449,31 @@ function handleSearchWorkspaceArrowMaybe(store: StoreContextModel, ev: KeyboardE
   const workspace = getActiveSearchWorkspace(store);
   if (!workspace) { return false; }
   if (handleSearchMoreButtonKeyMaybe(store, workspace, ev.code)) { return true; }
-  const focusPath = store.history.getFocusPathMaybe();
 
-  const selectedRow = clampSearchResultIndex(
-    getQuerySearchSelectedResultIndex(store, workspace.searchItemId),
-    workspace.resultsCount,
-  );
-  const focusedRow = getEffectiveFocusedSearchResultIndex(store, workspace);
-  const selectSearchWorkspaceResult = (resultIndex: number) => selectSearchCatalogResult(store, workspace, resultIndex);
+  const focusedIndex = getEffectiveFocusedSearchResultIndex(store, workspace);
+  const numCols = getSearchWorkspaceColumnCount(workspace);
 
-  if (searchWorkspaceUsesGridLayout(workspace)) {
-    if (ev.code == "ArrowLeft" && (focusedRow < 0 || focusedRow % getSearchWorkspaceColumnCount(workspace) == 0)) {
-      const currentPagePath = store.history.currentPagePath();
-      if (!currentPagePath) { return false; }
-      setQuerySearchFocusedResultIndex(store, workspace.searchItemId, -1);
-      store.history.setFocus(currentPagePath);
-      arrangeNow(store, "key-search-grid-to-list");
-      return true;
-    }
-
-    if (focusedRow < 0) {
-      if (ev.code == "ArrowDown" && focusPath == workspace.searchVePath && workspace.resultsCount > 0) {
-        focusSearchGridResult(store, workspace, 0);
-        return true;
-      }
-      return false;
-    }
-
-    const nextIndex = nextSearchGridResultIndex(
-      workspace.resultsCount, getSearchWorkspaceColumnCount(workspace), focusedRow, ev.code);
-    if (nextIndex == null) {
-      if (ev.code == "ArrowUp") {
-        editSearchWorkspaceInput(store, workspace);
-      } else if (ev.code == "ArrowDown") {
-        focusSearchMoreButtonMaybe(store, workspace, focusedRow);
-      }
-      return true;
-    }
-    focusSearchGridResult(store, workspace, nextIndex);
-    return true;
+  if (ev.code == "ArrowLeft" && (focusedIndex < 0 || focusedIndex % numCols == 0)) {
+    return focusListFromSearchWorkspaceMaybe(store, workspace);
   }
 
-  if (ev.code == "ArrowLeft") {
-    if (focusPath != workspace.searchVePath) { return false; }
-    const currentPagePath = store.history.currentPagePath();
-    if (!currentPagePath) { return false; }
-    store.history.setFocus(currentPagePath);
-    arrangeNow(store, "key-search-to-list");
-    return true;
-  }
-
-  if (ev.code == "ArrowRight") {
-    if (focusedRow < 0) { return false; }
-    setQuerySearchFocusedResultIndex(store, workspace.searchItemId, -1);
-    store.history.setFocus(workspace.searchVePath);
-    arrangeNow(store, "key-search-item-to-row");
-    return true;
-  }
-
-  if (ev.code != "ArrowUp" && ev.code != "ArrowDown") {
-    return false;
-  }
-
-  const baseRow = focusedRow >= 0 ? focusedRow : selectedRow;
-  if (baseRow < 0) {
-    if (ev.code == "ArrowDown" && focusPath == workspace.searchVePath && workspace.resultsCount > 0) {
-      selectSearchWorkspaceResult(0);
-      return true;
+  if (focusedIndex < 0) {
+    if (ev.code == "ArrowDown" && store.history.getFocusPathMaybe() == workspace.searchVePath) {
+      return enterSearchResultsMaybe(store);
     }
     return false;
   }
 
-  const nextRowCandidate = baseRow + (ev.code == "ArrowUp" ? -1 : 1);
-  if (nextRowCandidate < 0 || nextRowCandidate >= workspace.resultsCount) {
-    if (ev.code == "ArrowUp" && baseRow == 0) {
+  const nextIndex = nextSearchResultIndex(workspace.resultsCount, numCols, focusedIndex, ev.code);
+  if (nextIndex == null) {
+    if (ev.code == "ArrowUp") {
       editSearchWorkspaceInput(store, workspace);
     } else if (ev.code == "ArrowDown") {
-      focusSearchMoreButtonMaybe(store, workspace, baseRow);
+      focusSearchMoreButtonMaybe(store, workspace, focusedIndex);
     }
     return true;
   }
-  const nextRow = nextRowCandidate;
-
-  setQuerySearchSelectedResultIndex(store, workspace.searchItemId, nextRow);
-  setQuerySearchFocusedResultIndex(store, workspace.searchItemId, focusedRow >= 0 ? nextRow : -1);
-  if (focusedRow >= 0) {
-    const targetVe = workspace.resultChildVes[nextRow];
-    if (targetVe) {
-      store.history.setFocus(VeFns.veToPath(targetVe));
-    }
-  }
-  scrollSearchResultIndexIntoView(store, workspace, nextRow);
-  arrangeNow(store, "key-search-row-nav");
-  return true;
-}
-
-function handleSearchWorkspaceTabMaybe(store: StoreContextModel, ev: KeyboardEvent): boolean {
-  const workspace = getActiveSearchWorkspace(store);
-  if (!workspace) { return false; }
-
-  const selectedRow = clampSearchResultIndex(
-    getQuerySearchSelectedResultIndex(store, workspace.searchItemId),
-    workspace.resultsCount,
-  );
-  const focusedRow = getEffectiveFocusedSearchResultIndex(store, workspace);
-
-  if (!ev.shiftKey) {
-    if (selectedRow < 0 || focusedRow >= 0) { return false; }
-    setQuerySearchFocusedResultIndex(store, workspace.searchItemId, selectedRow);
-    const targetVe = workspace.resultChildVes[selectedRow];
-    if (targetVe) {
-      store.history.setFocus(VeFns.veToPath(targetVe));
-    }
-    arrangeNow(store, "key-search-row-to-item");
-    return true;
-  }
-
-  if (focusedRow < 0) { return false; }
-  setQuerySearchFocusedResultIndex(store, workspace.searchItemId, -1);
-  store.history.setFocus(workspace.searchVePath);
-  arrangeNow(store, "key-search-item-to-row");
+  focusSearchResult(store, workspace, nextIndex);
   return true;
 }
 
@@ -595,43 +482,16 @@ function handleSearchWorkspaceEnterMaybe(store: StoreContextModel): boolean {
   if (!workspace) { return false; }
   if (handleSearchMoreButtonKeyMaybe(store, workspace, "Enter")) { return true; }
 
-  const focusedRow = getEffectiveFocusedSearchResultIndex(store, workspace);
-  const focusIsOnWorkspace = store.history.getFocusPathMaybe() == workspace.searchVePath;
-
-  if (searchWorkspaceUsesGridLayout(workspace)) {
-    if (focusedRow >= 0) {
-      const resultItemId = searchResultItemId(workspace.results, focusedRow);
-      if (resultItemId) { void navigateToContainingPageOfItemAndFocus(store, resultItemId); }
-      return true;
-    }
-    if (!focusIsOnWorkspace) { return false; }
-    if (!enterSearchResultsMaybe(store)) {
-      editSearchWorkspaceInput(store, workspace);
-    }
+  const focusedIndex = getEffectiveFocusedSearchResultIndex(store, workspace);
+  if (focusedIndex >= 0) {
+    const resultItemId = searchResultItemId(workspace.results, focusedIndex);
+    if (resultItemId) { void navigateToContainingPageOfItemAndFocus(store, resultItemId); }
     return true;
   }
 
-  if (focusedRow >= 0) {
-    const focusedVe = workspace.resultChildVes[focusedRow];
-    if (focusedVe) { openSearchResultPopup(store, focusedVe); }
-    return true;
-  }
-
-  const selectedRow = clampSearchResultIndex(
-    getQuerySearchSelectedResultIndex(store, workspace.searchItemId),
-    workspace.resultsCount,
-  );
-  if (selectedRow < 0) {
-    if (!focusIsOnWorkspace) { return false; }
-    if (!enterSearchResultsMaybe(store)) {
-      editSearchWorkspaceInput(store, workspace);
-    }
-    return true;
-  }
-
-  const resultItemId = searchResultItemId(workspace.results, selectedRow);
-  if (resultItemId) {
-    void navigateToContainingPageOfItemAndFocus(store, resultItemId);
+  if (store.history.getFocusPathMaybe() != workspace.searchVePath) { return false; }
+  if (!enterSearchResultsMaybe(store)) {
+    editSearchWorkspaceInput(store, workspace);
   }
   return true;
 }
@@ -640,22 +500,22 @@ function handleSearchWorkspaceSpaceMaybe(store: StoreContextModel): boolean {
   const workspace = getActiveSearchWorkspace(store);
   if (!workspace) { return false; }
   if (handleSearchMoreButtonKeyMaybe(store, workspace, "Space")) { return true; }
-  const focusedRow = getEffectiveFocusedSearchResultIndex(store, workspace);
-  if (focusedRow < 0) { return false; }
-  const focusedVe = workspace.resultChildVes[focusedRow];
+  const focusedIndex = getEffectiveFocusedSearchResultIndex(store, workspace);
+  if (focusedIndex < 0) { return false; }
+  const focusedVe = workspace.resultChildVes[focusedIndex];
   if (focusedVe) { openSearchResultPopup(store, focusedVe); }
   return true;
 }
 
-interface SearchGridPopup {
+interface SearchResultPopup {
   searchItemId: Uid,
   resultsPageVe: VisualElement,
   resultChildVes: Array<VisualElement>,
   resultIndex: number,
 }
 
-/** The open popup, if it shows a result of a search grid (opened with space, or stepped to with the arrow keys). */
-function searchGridPopupMaybe(store: StoreContextModel): SearchGridPopup | null {
+/** The open popup, if it shows a search result (opened with space, or stepped to with the arrow keys). */
+function searchResultPopupMaybe(store: StoreContextModel): SearchResultPopup | null {
   const popupSpec = store.history.currentPopupSpec();
   if (popupSpec == null || popupSpec.vePath == null) { return null; }
   const resultsPagePath = VeFns.parentPath(popupSpec.vePath);
@@ -663,8 +523,7 @@ function searchGridPopupMaybe(store: StoreContextModel): SearchGridPopup | null 
   const resultsPageVe = VesCache.current.readNode(resultsPagePath);
   if (!resultsPageVe ||
       !isPage(resultsPageVe.displayItem) ||
-      !isQuerySearchResultsPage(resultsPageVe.displayItem) ||
-      asPageItem(resultsPageVe.displayItem).arrangeAlgorithm != ArrangeAlgorithm.Grid) {
+      !isQuerySearchResultsPage(resultsPageVe.displayItem)) {
     return null;
   }
   const searchVe = resultsPageVe.parentPath ? VesCache.current.readNode(resultsPageVe.parentPath) : null;
@@ -679,22 +538,22 @@ function searchGridPopupMaybe(store: StoreContextModel): SearchGridPopup | null 
  * Arrow keys step the popup through the search results in grid order, keeping the focus ring with it, so closing the
  * popup leaves the ring on the last result shown.
  */
-function handleSearchGridPopupArrowMaybe(store: StoreContextModel, ev: KeyboardEvent): boolean {
+function handleSearchResultPopupArrowMaybe(store: StoreContextModel, ev: KeyboardEvent): boolean {
   if (ev.shiftKey || ev.metaKey || ev.ctrlKey || ev.altKey) { return false; }
-  const popup = searchGridPopupMaybe(store);
+  const popup = searchResultPopupMaybe(store);
   if (!popup) { return false; }
-  const numCols = asPageItem(popup.resultsPageVe.displayItem).gridNumberOfColumns;
+  const numCols = searchResultsPageColumnCount(popup.resultsPageVe);
   const numResults = popup.resultChildVes.length;
   // Left and right wrap to the adjacent row: browsing results one after another is the common case here.
   const nextIndex =
     ev.code == "ArrowLeft" ? (popup.resultIndex > 0 ? popup.resultIndex - 1 : null) :
     ev.code == "ArrowRight" ? (popup.resultIndex < numResults - 1 ? popup.resultIndex + 1 : null) :
-    nextSearchGridResultIndex(numResults, numCols, popup.resultIndex, ev.code);
+    nextSearchResultIndex(numResults, numCols, popup.resultIndex, ev.code);
   if (nextIndex == null) { return true; }
 
   setQuerySearchFocusedResultIndex(store, popup.searchItemId, nextIndex);
   scrollSearchResultsPageIndexIntoView(store, popup.resultsPageVe, numCols, nextIndex);
-  arrangeNow(store, "key-search-grid-popup-scroll");
+  arrangeNow(store, "key-search-popup-scroll");
 
   // Read again: the popup opens at the result's position on screen, which scrolling may have changed.
   const resultsPagePath = VeFns.veToPath(popup.resultsPageVe);
@@ -702,13 +561,13 @@ function handleSearchGridPopupArrowMaybe(store: StoreContextModel, ev: KeyboardE
   if (!targetVe) { return true; }
   openSearchResultPopup(store, targetVe);
   store.history.setCurrentPopupRestoreFocusPath(VeFns.veToPath(targetVe));
-  arrangeNow(store, "key-search-grid-popup-step");
+  arrangeNow(store, "key-search-popup-step");
   return true;
 }
 
-/** Enter in a search grid result popup goes to the result's location, as Enter on the focused result does. */
-function handleSearchGridPopupEnterMaybe(store: StoreContextModel): boolean {
-  const popup = searchGridPopupMaybe(store);
+/** Enter in a search result popup goes to the result's location, as Enter on the focused result does. */
+function handleSearchResultPopupEnterMaybe(store: StoreContextModel): boolean {
+  const popup = searchResultPopupMaybe(store);
   if (!popup) { return false; }
   const results = getQuerySearchResults(store, popup.searchItemId) ?? [];
   const resultItemId = searchResultItemId(results, popup.resultIndex);
@@ -721,18 +580,9 @@ function handleSearchGridPopupEnterMaybe(store: StoreContextModel): boolean {
 function handleSearchWorkspaceEscapeMaybe(store: StoreContextModel): boolean {
   const workspace = getActiveSearchWorkspace(store);
   if (!workspace) { return false; }
-
-  const selectedRow = clampSearchResultIndex(
-    getQuerySearchSelectedResultIndex(store, workspace.searchItemId),
-    workspace.resultsCount,
-  );
-  const focusedRow = getEffectiveFocusedSearchResultIndex(store, workspace);
-  if (focusedRow < 0 && selectedRow < 0 && !searchMoreButtonHasFocus(store, workspace)) { return false; }
-
-  setQuerySearchSelectedResultIndex(store, workspace.searchItemId, -1);
-  setQuerySearchFocusedResultIndex(store, workspace.searchItemId, -1);
-  store.history.setFocus(workspace.searchVePath);
-  arrangeNow(store, "key-search-clear-selection");
+  const focusedIndex = getEffectiveFocusedSearchResultIndex(store, workspace);
+  if (focusedIndex < 0 && !searchMoreButtonHasFocus(store, workspace)) { return false; }
+  focusSearchWorkspace(store, workspace);
   return true;
 }
 
@@ -822,17 +672,12 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     return;
   }
 
-  if (isReservedTabKey(ev) && !targetShouldKeepNativeTabBehavior(ev) && handleSearchWorkspaceTabMaybe(store, ev)) {
+  if (isArrowKey(ev.code) && (handleSearchWorkspaceArrowMaybe(store, ev) || handleSearchResultPopupArrowMaybe(store, ev))) {
     ev.preventDefault();
     return;
   }
 
-  if (isArrowKey(ev.code) && (handleSearchWorkspaceArrowMaybe(store, ev) || handleSearchGridPopupArrowMaybe(store, ev))) {
-    ev.preventDefault();
-    return;
-  }
-
-  if (ev.code == "Enter" && (handleSearchWorkspaceEnterMaybe(store) || handleSearchGridPopupEnterMaybe(store))) {
+  if (ev.code == "Enter" && (handleSearchWorkspaceEnterMaybe(store) || handleSearchResultPopupEnterMaybe(store))) {
     ev.preventDefault();
     return;
   }

@@ -31,7 +31,6 @@ import {
   calcQueryWorkspaceResultsFooterHeightPx,
   getQuerySearchHasMoreResults,
   getQuerySearchResults,
-  getQuerySearchSelectedResultIndex,
   isQuerySearchResultsPage,
   querySearchResultsFooterHostId,
 } from "../items/query-item";
@@ -63,7 +62,6 @@ export interface CatalogPageDisplayContext {
   footerGapPx: () => number,
   footerHeightPx: () => number,
   footerHostId: () => string,
-  selectedRowIndex: () => number,
   rowDisplay: (rowIndex: number, item: Item) => CatalogRowDisplay,
 }
 
@@ -196,18 +194,12 @@ export function catalogResultFooterHostId(pageItem: PageItem): string {
   return queryItemId == null ? "" : querySearchResultsFooterHostId(queryItemId);
 }
 
-export function catalogResultSelectedRowIndex(store: StoreContextModel, pageItem: PageItem): number {
-  const queryItemId = queryResultsSourceItemId(pageItem);
-  return queryItemId == null ? -1 : getQuerySearchSelectedResultIndex(store, queryItemId);
-}
-
 export function catalogPageDisplayContext(store: StoreContextModel, pageItem: PageItem): CatalogPageDisplayContext {
   return {
     resultControlsTopInsetPx: () => catalogResultControlsTopInsetPx(pageItem),
     footerGapPx: () => catalogResultFooterGapPx(),
     footerHeightPx: () => catalogResultFooterHeightPx(store, pageItem),
     footerHostId: () => catalogResultFooterHostId(pageItem),
-    selectedRowIndex: () => catalogResultSelectedRowIndex(store, pageItem),
     rowDisplay: (rowIndex: number, item: Item) => {
       const queryItemId = queryResultsSourceItemId(pageItem);
       return queryItemId == null

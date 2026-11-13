@@ -140,8 +140,6 @@ export interface PerItemStoreContextModel {
   getSearchLoadedPageCount: (itemId: string) => number,
   setSearchLoadedPageCount: (itemId: string, pageCount: number) => void,
 
-  getSearchSelectedResultIndex: (itemId: string) => number,
-  setSearchSelectedResultIndex: (itemId: string, index: number) => void,
 
   getSearchFocusedResultIndex: (itemId: string) => number,
   setSearchFocusedResultIndex: (itemId: string, index: number) => void,
@@ -168,7 +166,6 @@ export function makePerItemStore(
   const searchResults = new Map<string, InfuSignal<Array<SearchResult> | null>>();
   const searchHasMoreResults = new Map<string, InfuSignal<boolean>>();
   const searchLoadedPageCounts = new Map<string, NumberSignal>();
-  const searchSelectedResultIndexes = new Map<string, NumberSignal>();
   const searchFocusedResultIndexes = new Map<string, NumberSignal>();
   const searchArrangeAlgorithms = new Map<string, InfuSignal<ArrangeAlgorithm>>();
 
@@ -370,21 +367,6 @@ export function makePerItemStore(
     searchLoadedPageCounts.get(itemId)!.set(pageCount);
   };
 
-  const getSearchSelectedResultIndex = (itemId: string): number => {
-    if (!searchSelectedResultIndexes.get(itemId)) {
-      searchSelectedResultIndexes.set(itemId, createNumberSignal(-1));
-    }
-    return searchSelectedResultIndexes.get(itemId)!.get();
-  };
-
-  const setSearchSelectedResultIndex = (itemId: string, index: number): void => {
-    if (!searchSelectedResultIndexes.get(itemId)) {
-      searchSelectedResultIndexes.set(itemId, createNumberSignal(index));
-      return;
-    }
-    searchSelectedResultIndexes.get(itemId)!.set(index);
-  };
-
   const getSearchFocusedResultIndex = (itemId: string): number => {
     if (!searchFocusedResultIndexes.get(itemId)) {
       searchFocusedResultIndexes.set(itemId, createNumberSignal(-1));
@@ -465,7 +447,6 @@ export function makePerItemStore(
     searchResults.clear();
     searchHasMoreResults.clear();
     searchLoadedPageCounts.clear();
-    searchSelectedResultIndexes.clear();
     searchFocusedResultIndexes.clear();
     searchArrangeAlgorithms.clear();
   }
@@ -484,7 +465,6 @@ export function makePerItemStore(
     getSearchResults, setSearchResults,
     getSearchHasMoreResults, setSearchHasMoreResults,
     getSearchLoadedPageCount, setSearchLoadedPageCount,
-    getSearchSelectedResultIndex, setSearchSelectedResultIndex,
     getSearchFocusedResultIndex, setSearchFocusedResultIndex,
     getSearchArrangeAlgorithm, setSearchArrangeAlgorithm,
     clear

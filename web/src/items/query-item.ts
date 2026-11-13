@@ -252,14 +252,6 @@ export function setQuerySearchLoadedPageCount(store: StoreContextModel, queryIte
   store.perItem.setSearchLoadedPageCount(queryItemId(queryItemOrId), pageCount);
 }
 
-export function getQuerySearchSelectedResultIndex(store: StoreContextModel, queryItemOrId: QueryItemOrId): number {
-  return store.perItem.getSearchSelectedResultIndex(queryItemId(queryItemOrId));
-}
-
-export function setQuerySearchSelectedResultIndex(store: StoreContextModel, queryItemOrId: QueryItemOrId, index: number): void {
-  store.perItem.setSearchSelectedResultIndex(queryItemId(queryItemOrId), index);
-}
-
 /**
  * The focused result index while the "More" button below the results has the keyboard focus ring. It is a value of the
  * focused index rather than separate state so that everything that resets the focused index (a new search, a click,

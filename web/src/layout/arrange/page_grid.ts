@@ -155,7 +155,7 @@ export function arrange_grid_page(
     const cellIndex = row * numCols + col;
     if (hasCatalogResults) {
       // A click anywhere in the cell, these padding hitboxes included, goes to the result's location: see
-      // navigateToSearchGridResultClickMaybe in mouse_up.ts. They keep a click in the padding on the result rather
+      // navigateToSearchResultClickMaybe in mouse_up.ts. They keep a click in the padding on the result rather
       // than the results page.
       const hitboxMeta = {
         focusOnly: true,

@@ -277,12 +277,13 @@ function focusQueryItemFromResultsBackgroundClickMaybe(
 }
 
 /**
- * A click anywhere in a cell of a search results grid goes to the result's location, with the result focused. The
- * item's own click behaviour (e.g. an image opening full screen, a page opening in a popup) is not used: an item that
- * fills its cell leaves no padding to click, so what a click does must not depend on where in the cell it lands. A
- * result is opened in a popup from the keyboard instead (space on the focused result).
+ * A click anywhere in a cell of a search results grid, or a row of the catalog, goes to the result's location, with the
+ * result focused. The item's own click behaviour (e.g. an image opening full screen, a page opening in a popup) is not
+ * used: in the grid an item that fills its cell leaves no padding to click, so what a click does must not depend on
+ * where in the cell it lands, and the catalog does the same so the two layouts agree. A result is opened in a popup from
+ * the keyboard instead (space on the focused result).
  */
-function navigateToSearchGridResultClickMaybe(
+function navigateToSearchResultClickMaybe(
   store: StoreContextModel,
   activeVisualElement: VisualElement,
 ): boolean {
@@ -290,9 +291,7 @@ function navigateToSearchGridResultClickMaybe(
   while (current != null && current.parentPath) {
     const parentVe = MouseActionState.readVisualElement(current.parentPath);
     if (parentVe == null) { return false; }
-    if (isPage(parentVe.displayItem) &&
-        isQuerySearchResultsPage(parentVe.displayItem) &&
-        asPageItem(parentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Grid) {
+    if (isPage(parentVe.displayItem) && isQuerySearchResultsPage(parentVe.displayItem)) {
       if (current.actualLinkItemMaybe == null) { return false; }
       void navigateToContainingPageOfItemAndFocus(store, LinkFns.getLinkToId(current.actualLinkItemMaybe));
       return true;
@@ -1504,7 +1503,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         }
       }
 
-      if (navigateToSearchGridResultClickMaybe(store, activeVisualElement)) {
+      if (navigateToSearchResultClickMaybe(store, activeVisualElement)) {
         DoubleClickState.preventDoubleClick();
 
       } else if (MouseActionState.getHitMeta()?.queryChatTurnMarkdown) {

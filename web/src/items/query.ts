@@ -51,13 +51,11 @@ import {
   setQuerySearchArrangeAlgorithm,
   setQuerySearchLoadedPageCount,
   setQuerySearchResults,
-  setQuerySearchSelectedResultIndex,
   setQueryText,
   updateQueryRuntime,
 } from "./query-item";
 
 export interface QuerySearchRunOptions {
-  selectFirstResultRow: boolean,
   keepQueryFocusPath?: VisualElementPath,
   shouldApply?: () => boolean,
 }
@@ -67,7 +65,6 @@ export interface QuerySearchMoreOptions {
 }
 
 export function clearQuerySearchSelection(store: StoreContextModel, queryItem: QueryItem): void {
-  setQuerySearchSelectedResultIndex(store, queryItem, -1);
   setQuerySearchFocusedResultIndex(store, queryItem, -1);
 }
 
@@ -165,7 +162,6 @@ export async function runQuerySearch(
   setQuerySearchResults(store, queryItem, response.results);
   setQuerySearchHasMoreResults(store, queryItem, response.hasMore);
   setQuerySearchLoadedPageCount(store, queryItem, 1);
-  setQuerySearchSelectedResultIndex(store, queryItem, options.selectFirstResultRow && response.results.length > 0 ? 0 : -1);
   setQuerySearchFocusedResultIndex(store, queryItem, -1);
   requestArrange(store, "search-results");
   warmQuerySearchResults(store, response.results);

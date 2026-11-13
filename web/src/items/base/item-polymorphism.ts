@@ -40,7 +40,7 @@ import { calcGeometryOfEmptyItem_ListItem, isInsidePopupHierarchy } from './item
 import { HitboxFlags, HitboxMeta } from '../../layout/hitbox';
 import { LINE_HEIGHT_PX } from '../../constants';
 import { arrangeNow, requestArrange } from '../../layout/arrange';
-import { navigateToContainingPageOfItem, navigateToContainingPageOfItemAndFocus, switchToItem, switchToPage } from '../../layout/navigation';
+import { navigateToContainingPageOfItem, switchToItem, switchToPage } from '../../layout/navigation';
 import { VesCache } from '../../layout/ves-cache';
 import { VisualElementFlags, VeFns } from '../../layout/visual-element';
 import { RelationshipToParent } from '../../layout/relationship-to-parent';
@@ -311,10 +311,6 @@ export const ItemFns = {
     if (hitboxMeta?.inert) { return; }
     const visualElement = visualElementSignal.get();
     const item = visualElement.displayItem;
-    if (hitboxMeta?.openContainingPageOfItemId) {
-      void navigateToContainingPageOfItemAndFocus(store, hitboxMeta.openContainingPageOfItemId);
-      return;
-    }
     if (hitboxMeta?.openActualItem) {
       if (isQueryItem(item)) {
         // A query shows its chat or search only as the selected item of the Queries page; on its own it is drawn as

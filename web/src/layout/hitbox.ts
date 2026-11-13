@@ -87,7 +87,6 @@ export interface HitboxMeta {
   focusOnly?: boolean,
   inert?: boolean,
   openActualItem?: boolean,
-  openContainingPageOfItemId?: Uid,
   allowOutsideBounds?: boolean,
   includeEdges?: boolean,
   compositeMoveOut?: boolean,
@@ -141,9 +140,6 @@ export const HitboxFns = {
     }
     if (typeof (meta.openActualItem) != 'undefined') {
       result.openActualItem = meta.openActualItem;
-    }
-    if (typeof (meta.openContainingPageOfItemId) != 'undefined') {
-      result.openContainingPageOfItemId = meta.openContainingPageOfItemId;
     }
     if (typeof (meta.allowOutsideBounds) != 'undefined') {
       result.allowOutsideBounds = meta.allowOutsideBounds;

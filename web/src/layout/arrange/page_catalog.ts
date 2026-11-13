@@ -19,7 +19,7 @@
 import { orderedGroupMoveItems } from "../../input/move_group";
 import { Item } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
-import { LinkFns, LinkItem, asLinkItem, isLink } from "../../items/link-item";
+import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { ArrangeAlgorithm, PageItem, asPageItem, isPage, pageUsesEmbeddedInteractiveMode } from "../../items/page-item";
 import { PageFlags } from "../../items/base/flags-item";
 import { itemState } from "../../store/ItemState";
@@ -152,6 +152,9 @@ export function arrange_catalog_page(
     setNaturalAttachmentBlockSizePx(store, childItem, childGeometry, attachmentBlockSizePx, !hasCatalogResults);
     addLinkTriangleHitboxMaybe(childGeometry, actualLinkItemMaybe);
     if (hasCatalogResults) {
+      // A click anywhere in the row, the item included, goes to the result's location: see
+      // navigateToSearchResultClickMaybe in mouse_up.ts. This hitbox keeps a click beside the item on the result rather
+      // than the results page.
       childGeometry.hitboxes.push(HitboxFns.create(HitboxFlags.Click, {
         x: -childGeometry.boundsPx.x,
         y: pageTopPaddingPx + childGeometry.row * rowHeightPx - childGeometry.boundsPx.y,
@@ -175,15 +178,11 @@ export function arrange_catalog_page(
   }
 
   for (const child of childGeometries) {
-    const targetItemId = child.actualLinkItemMaybe ? LinkFns.getLinkToId(child.actualLinkItemMaybe) : undefined;
     for (const hitbox of child.geometry.hitboxes) {
       if (!(hitbox.type & HitboxFlags.Click)) { continue; }
-      const isRowHitbox = !!hitbox.meta?.focusOnly && !!hitbox.meta?.allowOutsideBounds;
       hitbox.meta = {
         ...(hitbox.meta ?? {}),
         catalogRowNumber: child.geometry.row,
-        ...(hasCatalogResults && targetItemId && isRowHitbox ? { openContainingPageOfItemId: targetItemId } : {}),
-        ...(hasCatalogResults && targetItemId && !isRowHitbox ? { openActualItem: true } : {}),
       };
     }
   }

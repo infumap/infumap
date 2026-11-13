@@ -503,7 +503,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   };
 
   const runSearch = async (
-    selectFirstResultRow: boolean,
     editingElMaybe?: HTMLElement | null,
     keepSearchWorkspaceFocus: boolean = false,
   ) => {
@@ -515,7 +514,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     setSearchingSerial(requestSerial);
     try {
       await runQuerySearch(store, queryItem(), text, {
-        selectFirstResultRow,
         keepQueryFocusPath: keepSearchWorkspaceFocus ? vePath() : undefined,
         shouldApply: () => requestSerial == activeSearchRequestSerial,
       });
@@ -705,7 +703,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       void startChat(editingElMaybe);
       return;
     }
-    void runSearch(false, editingElMaybe, false);
+    void runSearch(editingElMaybe, false);
   };
 
   const loadMoreSearchResults = async (): Promise<boolean> => {
@@ -2035,7 +2033,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           searchScope={() => selectedInputMode() == "search"}
           usesScopeItems={() => selectedInputMode() == "chat"}
           beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())}
-          onChange={() => { if (isSearchMode()) { void runSearch(false); } }}
+          onChange={() => { if (isSearchMode()) { void runSearch(); } }}
           buttonRef={el => { queryScopeButton = el; }} onTabKey={ev => handleQueryControlTab(ev, "scope")} />
         {renderScopeAddButton()}
         <Show when={selectedInputMode() == "chat"}>
