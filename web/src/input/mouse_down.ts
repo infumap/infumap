@@ -57,7 +57,7 @@ import { commitActiveToolbarTitleEdit } from "./toolbar_title";
 import { isInsideDocumentPageClickContext } from "../items/base/item-common-fns";
 import { readOnlyDocumentMoveOutVeAtClientPx } from "./document_move_out";
 import { NativeTextSelectionState } from "./native_text_selection";
-import { isQueryItem } from "../items/query-item";
+import { isQueryItem, isQuerySearchResultsPage } from "../items/query-item";
 
 
 export const MOUSE_LEFT = 0;
@@ -620,6 +620,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   }
 
   if (buttonNumber != MOUSE_LEFT && !store.history.currentPopupSpec()) {
+    if (focusSearchForBackMaybe(store)) { return defaultResult; }
     const focusItem = store.history.getFocusItem();
     const focusPath = store.history.getFocusPath();
     const owningQueryChatPath = owningQueryChatPathMaybe(focusPath);
@@ -1011,6 +1012,42 @@ export function focusPathInPopupForBackMaybe(store: StoreContextModel): VisualEl
   return null;
 }
 
+
+/**
+ * Back from the focus ring in a search's results goes where Escape does: to the search itself. The generic step to the
+ * parent would focus the results page, which is not somewhere the focus should rest.
+ */
+function focusSearchForBackMaybe(store: StoreContextModel): boolean {
+  if (store.history.currentPopupSpec()) { return false; }
+  const focusPath = store.history.getFocusPathMaybe();
+  const focusVe = focusPath ? VesCache.current.readNode(focusPath) : null;
+  if (!focusVe) { return false; }
+
+  // The ring on the More button, or on a result whose item is still loading, is recorded on the search, which keeps
+  // the focus meanwhile.
+  if (isQueryItem(focusVe.displayItem)) {
+    // Only the workspace showing the results (not, e.g., the query's row in the list of queries).
+    const resultsPageVe = VesCache.render.getChildren(focusPath!)()[0]?.get();
+    if (!resultsPageVe || !isPage(resultsPageVe.displayItem) || !isQuerySearchResultsPage(resultsPageVe.displayItem)) {
+      return false;
+    }
+    if (store.perItem.getSearchFocusedResultIndex(focusVe.displayItem.id) == -1) { return false; }
+    store.perItem.setSearchFocusedResultIndex(focusVe.displayItem.id, -1);
+    arrangeNow(store, "mouse-right-search-clear-focused-result");
+    return true;
+  }
+
+  const resultsPageVe = focusVe.parentPath ? VesCache.current.readNode(focusVe.parentPath) : null;
+  if (!resultsPageVe || !isPage(resultsPageVe.displayItem) || !isQuerySearchResultsPage(resultsPageVe.displayItem)) {
+    return false;
+  }
+  const searchVe = resultsPageVe.parentPath ? VesCache.current.readNode(resultsPageVe.parentPath) : null;
+  if (!searchVe || !isQueryItem(searchVe.displayItem)) { return false; }
+  store.perItem.setSearchFocusedResultIndex(searchVe.displayItem.id, -1);
+  store.history.setFocus(resultsPageVe.parentPath!);
+  arrangeNow(store, "mouse-right-search-from-result");
+  return true;
+}
 
 export async function mouseRightDownHandler(store: StoreContextModel) {
   // Always clear current selection set if present
