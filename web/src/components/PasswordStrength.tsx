@@ -28,14 +28,21 @@ function estimateStrength(password: string, username: string): number {
     .filter(pattern => pattern.test(password)).length;
 
   // This is a rough hint, not a guessability model. Favor length so passphrases don't need symbols.
-  let score = length < 8 ? 0 : length < 12 ? 1 : length < 16 ? 2 : length < 20 ? 3 : 4;
-  if (length >= 12 && variety >= 3) { score = Math.min(4, score + 1); }
+  let score = length < 6 ? 0 : length < 10 ? 1 : length < 14 ? 2 : length < 18 ? 3 : 4;
+  if (length >= 10 && variety >= 3) { score = Math.min(4, score + 1); }
+
+  const normalizedPassword = password.toLowerCase();
+  const normalizedUsername = username.toLowerCase();
+  // A username with a simple suffix is predictable; a longer passphrase can happen to start with it.
+  const usernameVariant = normalizedUsername.length > 0
+    && normalizedPassword.startsWith(normalizedUsername)
+    && /^[^\p{L}]*$/u.test(normalizedPassword.slice(normalizedUsername.length));
 
   // Length and variety alone would overrate repeated strings and a few obvious password choices.
-  const predictable = new Set(characters).size < 5
+  const predictable = new Set(characters).size < 4
     || /^(.+)\1+$/u.test(password)
     || /^(password|qwerty|letmein|welcome|admin|infumap)[\d\W_]*$/i.test(password)
-    || (username.length > 0 && password.toLowerCase().startsWith(username.toLowerCase()));
+    || usernameVariant;
   return predictable ? Math.min(1, score) : score;
 }
 
