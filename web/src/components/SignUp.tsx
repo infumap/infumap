@@ -26,13 +26,14 @@ import { useStore } from "../store/StoreProvider";
 import { RegisterResponse, Totp } from "../util/accountTypes";
 import { switchToNonPage } from "../layout/navigation";
 import { AuthCheckbox, AuthError, AuthField, AuthPage, HiddenUsernameInput } from "./AuthPage";
+import { PasswordStrength } from "./PasswordStrength";
 
 
 export const SignUp: Component = () => {
   const store = useStore();
 
-  let username: string = "";
-  let password: string = "";
+  const [username, setUsername] = createSignal("");
+  const [password, setPassword] = createSignal("");
   let totpToken: string = "";
 
   const [totp, setTotp] = createSignal<Totp | null>(null, { equals: false });
@@ -48,8 +49,8 @@ export const SignUp: Component = () => {
       return;
     }
     const r: RegisterResponse = await post(null, '/account/register', {
-      username: username,
-      password: password,
+      username: username(),
+      password: password(),
       totpSecret: store.general.prefer2fa() ? totpInfo.secret : null,
       totpToken: store.general.prefer2fa() ? totpToken : null,
       pageWidthPx: window.innerWidth,
@@ -57,7 +58,7 @@ export const SignUp: Component = () => {
     });
     if (r.success) {
       if (areSettingUp()) {
-        let r = await store.user.login(username, password, store.general.prefer2fa() ? totpToken : null);
+        let r = await store.user.login(username(), password(), store.general.prefer2fa() ? totpToken : null);
         if (r.success) {
           store.general.clearNetworkHistory();
           await store.general.retrieveInstallationState();
@@ -78,7 +79,7 @@ export const SignUp: Component = () => {
     if (areSettingUp() && store.general.installationState()!.hasRootUser) {
       switchToNonPage(store, store.general.installationState()!.enableSignup ? "/signup" : "/login");
     }
-    if (areSettingUp()) { username = ROOT_USERNAME; }
+    if (areSettingUp()) { setUsername(ROOT_USERNAME); }
     const json: any = await post(null, "/account/create-totp", {});
     setTotp({
       qr: json.qr,
@@ -100,13 +101,14 @@ export const SignUp: Component = () => {
           <Show when={!singleUserSetup()} fallback={<HiddenUsernameInput username={ROOT_USERNAME} />}>
             <AuthField label="Username" for="signup-username">
               <Show when={!areSettingUp()} fallback={<InfuTextInput id="signup-username" disabled={true} value={ROOT_USERNAME} fullWidth={true} />}>
-                <InfuTextInput id="signup-username" autocomplete="username" fullWidth={true} onInput={(v) => { username = v; }} />
+                <InfuTextInput id="signup-username" autocomplete="username" fullWidth={true} onInput={setUsername} />
               </Show>
             </AuthField>
           </Show>
           <AuthField label="Password" for="signup-password">
             <InfuTextInput id="signup-password" autocomplete="new-password" type="password" fullWidth={true}
-              onInput={(v) => { password = v; }} />
+              ariaDescribedBy="signup-password-strength" onInput={setPassword} />
+            <PasswordStrength id="signup-password-strength" password={password()} username={username()} />
           </AuthField>
           <AuthCheckbox id="signup-setup-2fa" label="Set up 2FA" checked={store.general.prefer2fa()}
             onClick={() => store.general.setPrefer2fa(!store.general.prefer2fa())} />

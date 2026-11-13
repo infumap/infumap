@@ -26,6 +26,7 @@ import { InfuTextInput } from "../library/InfuTextInput";
 import { post } from "../../server";
 import { ChangePasswordResponse, Totp, UpdateTotpResponse } from "../../util/accountTypes";
 import { RemoteSessions, RemoteSession } from "../../store/RemoteSessions";
+import { PasswordStrength } from "../PasswordStrength";
 
 
 interface IngestSessionInfo {
@@ -387,6 +388,8 @@ export const EditUserSettings: Component = () => {
                         <div class="inline-block text-sm text-slate-700 mr-[6px]" style="width: 90px;">new:</div>
                         <InfuTextInput
                           type="password"
+                          autocomplete="new-password"
+                          ariaDescribedBy="settings-password-strength"
                           value={newPasswordSignal.get()}
                           onInput={(v) => {
                             newPasswordSignal.set(v);
@@ -394,6 +397,10 @@ export const EditUserSettings: Component = () => {
                             passwordChangeSuccessSignal.set(null);
                           }}
                         />
+                        <div class="ml-[96px] w-[195px]">
+                          <PasswordStrength id="settings-password-strength" password={newPasswordSignal.get()}
+                            username={store.user.getUser().username} />
+                        </div>
                       </div>
                       <div class="mb-[8px]">
                         <div class="inline-block text-sm text-slate-700 mr-[6px]" style="width: 90px;">confirm:</div>

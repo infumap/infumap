@@ -63,7 +63,6 @@ const UNKNOWN_LOGIN_PRINCIPAL: &str = "unknown";
 /// Below this many pages, the web client shows getting-started hints.
 const FEW_PAGES_LIMIT: usize = 10;
 
-const MIN_PASSWORD_LENGTH: usize = 10;
 const MAX_PASSWORD_LENGTH: usize = 256;
 const SESSION_COOKIE_MAX_AGE_SECS: i64 = 60 * 60 * 24 * 30;
 
@@ -440,7 +439,7 @@ pub async fn register(
   let page_size_px = sanitize_page_size(payload.page_width_px, payload.page_height_px);
   let page_width_bl = page_size_px.w / NATURAL_BLOCK_SIZE_PX;
   let natural_aspect = ((page_size_px.w as f64) / (page_size_px.h as f64) * 1000.0).round() / 1000.0;
-  if let Err(msg) = validate_password_policy(&payload.password) {
+  if let Err(msg) = validate_new_password(&payload.password) {
     return json_response(&RegisterResponse { success: false, err: Some(String::from(msg)) });
   }
   if let Some(totp_secret) = &payload.totp_secret {
@@ -699,7 +698,7 @@ pub async fn change_password(
     });
   }
 
-  if let Err(msg) = validate_password_policy(&payload.new_password) {
+  if let Err(msg) = validate_new_password(&payload.new_password) {
     return json_response(&ChangePasswordResponse { success: false, err: Some(String::from(msg)) });
   }
 
@@ -843,18 +842,16 @@ pub(crate) fn set_cookie_header(response: &mut Response<BoxBody<Bytes, hyper::Er
   }
 }
 
-fn validate_password_policy(password: &str) -> Result<(), &'static str> {
-  if password.len() < MIN_PASSWORD_LENGTH {
-    return Err("password must be 10 or more characters");
+fn validate_new_password(password: &str) -> Result<(), &'static str> {
+  // Strength is advisory in the client; only require a nonempty password and retain input safety limits.
+  if password.is_empty() {
+    return Err("password must not be empty");
   }
   if password.len() > MAX_PASSWORD_LENGTH {
-    return Err("password must be 256 or fewer characters");
+    return Err("password must be 256 or fewer bytes");
   }
   if password.chars().any(|c| c.is_control()) {
     return Err("password contains invalid characters");
-  }
-  if !password.chars().any(|c| c.is_ascii_alphabetic()) || !password.chars().any(|c| c.is_ascii_digit()) {
-    return Err("password must include at least one letter and one number");
   }
   Ok(())
 }

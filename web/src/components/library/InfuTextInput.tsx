@@ -33,6 +33,7 @@ export type InfuTextInputProps = {
   fullWidth?: boolean,
   id?: string,
   autocomplete?: string,
+  ariaDescribedBy?: string,
   inputMode?: "text" | "numeric",
 };
 
@@ -78,6 +79,7 @@ export const InfuTextInput: Component<InfuTextInputProps> = (props: InfuTextInpu
            style={props.fullWidth ? "" : "width: 195px"}
            class={`border border-slate-300 p-2 rounded ${props.fullWidth ? "w-full" : ""}`}
            autocomplete={props.autocomplete ?? "on"}
+           aria-describedby={props.ariaDescribedBy}
            inputmode={props.inputMode}
            value={props.value ? props.value : ""}
            type={props.type ? props.type : "text"}
