@@ -12,6 +12,33 @@ unsafe extern "C" {
   fn infumap_menu_bar_main(executable: *const c_char, settings: *const c_char) -> i32;
 }
 
+// JSON crosses only this local in-process bridge; credentials are never put in
+// command-line arguments, logs, or an HTTP settings endpoint.
+#[unsafe(no_mangle)]
+unsafe extern "C" fn infumap_settings_request(settings: *const c_char, request: *const c_char) -> *mut c_char {
+  let result = std::panic::catch_unwind(|| {
+    if request.is_null() {
+      return r#"{"ok":false,"error":"Missing settings request."}"#.to_owned();
+    }
+    let request = unsafe { std::ffi::CStr::from_ptr(request) }.to_str();
+    let settings =
+      if settings.is_null() { Ok(None) } else { unsafe { std::ffi::CStr::from_ptr(settings) }.to_str().map(Some) };
+    match (settings, request) {
+      (Ok(settings), Ok(request)) => infumap::settings::request(settings, request),
+      _ => r#"{"ok":false,"error":"Settings input is not valid UTF-8."}"#.to_owned(),
+    }
+  })
+  .unwrap_or_else(|_| r#"{"ok":false,"error":"Could not process settings."}"#.to_owned());
+  CString::new(result).expect("JSON contains no literal NUL bytes").into_raw()
+}
+
+#[unsafe(no_mangle)]
+unsafe extern "C" fn infumap_settings_free(response: *mut c_char) {
+  if !response.is_null() {
+    drop(unsafe { CString::from_raw(response) });
+  }
+}
+
 fn main() {
   let matches = Command::new("infumap-macos")
     .version(env!("CARGO_PKG_VERSION"))

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 #import <AppKit/AppKit.h>
+#import "settings_window.h"
 #include <dispatch/dispatch.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -11,7 +12,7 @@
 #include <unistd.h>
 #include "icon.h"
 
-@interface InfumapMenuBar : NSObject <NSApplicationDelegate>
+@interface InfumapMenuBar : NSObject <NSApplicationDelegate, InfumapSettingsDelegate>
 @property(nonatomic, copy) NSString *executable;
 @property(nonatomic, copy) NSString *settings;
 @property(nonatomic, strong) NSURL *logURL;
@@ -27,12 +28,15 @@
 @property(nonatomic, strong) NSURL *serverURL;
 @property(nonatomic) BOOL stopping;
 @property(nonatomic) BOOL terminating;
+@property(nonatomic) BOOL restartAfterStop;
+@property(nonatomic, strong) InfumapSettingsWindow *settingsWindow;
 @property(nonatomic, strong) dispatch_source_t interruptSource;
 @property(nonatomic, strong) dispatch_source_t terminateSource;
 - (void)startServer:(id)sender;
 - (void)stopServer:(id)sender;
 - (void)openBrowser:(id)sender;
 - (void)showLogs:(id)sender;
+- (void)showSettings:(id)sender;
 - (void)quit:(id)sender;
 @end
 
@@ -46,9 +50,10 @@
 - (void)updateMenu:(NSString *)status {
   self.statusMenuItem.title = status;
   self.statusItem.button.toolTip = [@"Infumap — " stringByAppendingString:status];
-  self.startMenuItem.enabled = self.server == nil && !self.terminating;
+  self.startMenuItem.enabled = self.server == nil && !self.terminating && !self.settingsWindow.saving;
   self.stopMenuItem.enabled = self.server != nil && !self.stopping;
   self.openMenuItem.enabled = self.serverURL != nil && !self.stopping;
+  [self.settingsWindow serverStateChanged:status busy:self.stopping || self.restartAfterStop || (self.server != nil && self.serverURL == nil)];
 }
 
 - (NSMenuItem *)item:(NSString *)title action:(SEL)action menu:(NSMenu *)menu {
@@ -60,6 +65,28 @@
 
 - (void)applicationDidFinishLaunching:(NSNotification *)notification {
   (void)notification;
+  // Standard responder actions are needed for keyboard editing (especially
+  // pasting API keys) when this accessory app owns a settings window.
+  NSMenu *main = [[NSMenu alloc] initWithTitle:@"Infumap"];
+  NSMenuItem *applicationItem = [[NSMenuItem alloc] initWithTitle:@"Infumap" action:NULL keyEquivalent:@""];
+  NSMenu *applicationMenu = [[NSMenu alloc] initWithTitle:@"Infumap"];
+  NSMenuItem *settingsShortcut = [applicationMenu addItemWithTitle:@"Settings…" action:@selector(showSettings:) keyEquivalent:@","];
+  settingsShortcut.target = self;
+  [applicationMenu addItem:NSMenuItem.separatorItem];
+  NSMenuItem *quitShortcut = [applicationMenu addItemWithTitle:@"Quit Infumap" action:@selector(quit:) keyEquivalent:@"q"];
+  quitShortcut.target = self;
+  applicationItem.submenu = applicationMenu;
+  [main addItem:applicationItem];
+  NSMenuItem *editItem = [[NSMenuItem alloc] initWithTitle:@"Edit" action:NULL keyEquivalent:@""];
+  NSMenu *edit = [[NSMenu alloc] initWithTitle:@"Edit"];
+  for (NSArray<NSString *> *command in @[@[@"Undo", @"undo:", @"z"], @[@"Redo", @"redo:", @"Z"],
+    @[@"Cut", @"cut:", @"x"], @[@"Copy", @"copy:", @"c"], @[@"Paste", @"paste:", @"v"], @[@"Select All", @"selectAll:", @"a"]]) {
+    NSMenuItem *item = [edit addItemWithTitle:command[0] action:NSSelectorFromString(command[1]) keyEquivalent:command[2]];
+    item.target = nil;
+  }
+  editItem.submenu = edit;
+  [main addItem:editItem];
+  NSApp.mainMenu = main;
   self.statusItem = [NSStatusBar.systemStatusBar statusItemWithLength:NSVariableStatusItemLength];
   NSImage *image = [[NSImage alloc] initWithData:[NSData dataWithBytes:infumap_icon length:sizeof(infumap_icon)]];
   if (image) {
@@ -79,6 +106,7 @@
   [menu addItem:NSMenuItem.separatorItem];
   self.openMenuItem = [self item:@"Open Infumap in Browser" action:@selector(openBrowser:) menu:menu];
   [self item:@"Show Logs" action:@selector(showLogs:) menu:menu];
+  [self item:@"Settings…" action:@selector(showSettings:) menu:menu];
   [menu addItem:NSMenuItem.separatorItem];
   [self item:@"Quit Infumap" action:@selector(quit:) menu:menu];
   self.statusItem.menu = menu;
@@ -99,7 +127,7 @@
 
 - (void)startServer:(id)sender {
   (void)sender;
-  if (self.server || self.terminating) return;
+  if (self.server || self.terminating || self.settingsWindow.saving) return;
   self.stopping = NO;
   self.serverURL = nil;
   [self record:@"Starting Infumap web server."];
@@ -164,7 +192,13 @@
       app.stopping = NO;
       [app record:[NSString stringWithFormat:@"Server exited with status %d.", finished.terminationStatus]];
       [app updateMenu:expected && finished.terminationStatus == 0 ? @"Stopped" : @"Server exited — see logs"];
-      if (app.terminating) [NSApp replyToApplicationShouldTerminate:YES];
+      if (app.terminating) {
+        if (!app.settingsWindow.saving) [NSApp replyToApplicationShouldTerminate:YES];
+      }
+      else if (app.restartAfterStop) {
+        app.restartAfterStop = NO;
+        [app startServer:nil];
+      }
     });
   };
   NSError *error = nil;
@@ -217,6 +251,34 @@
     }];
 }
 
+- (void)showSettings:(id)sender {
+  (void)sender;
+  if (!self.settingsWindow) self.settingsWindow = [[InfumapSettingsWindow alloc] initWithSettings:self.settings delegate:self];
+  [self.settingsWindow serverStateChanged:self.statusMenuItem.title busy:self.stopping || self.restartAfterStop || (self.server != nil && self.serverURL == nil)];
+  [self.settingsWindow open];
+}
+
+- (BOOL)settingsServerRunning { return self.server != nil; }
+- (BOOL)settingsServerStopping { return self.stopping || self.terminating; }
+- (void)settingsShowLogs { [self showLogs:nil]; }
+- (void)settingsSaveStarted { [self updateMenu:self.statusMenuItem.title]; }
+- (void)settingsSaveFinished {
+  [self updateMenu:self.statusMenuItem.title];
+  if (!self.terminating) return;
+  if (self.server) [self stopServer:nil];
+  else [NSApp replyToApplicationShouldTerminate:YES];
+}
+- (void)settingsSavedWithRestart:(BOOL)restart {
+  if (self.terminating) return;
+  [self record:@"Settings saved."];
+  if (restart) {
+    if (self.server) {
+      self.restartAfterStop = YES;
+      [self stopServer:nil];
+    } else { [self startServer:nil]; }
+  } else { [self updateMenu:self.statusMenuItem.title]; }
+}
+
 - (void)quit:(id)sender {
   (void)sender;
   [NSApp terminate:nil];
@@ -224,9 +286,10 @@
 
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender {
   (void)sender;
-  if (!self.server) return NSTerminateNow;
+  if (!self.server && !self.settingsWindow.saving) return NSTerminateNow;
   self.terminating = YES;
-  [self stopServer:nil];
+  self.restartAfterStop = NO;
+  if (!self.settingsWindow.saving) [self stopServer:nil];
   return NSTerminateLater;
 }
 @end

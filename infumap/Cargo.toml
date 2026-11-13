@@ -49,6 +49,7 @@ tantivy = "0.27.0"
 time = { version = "0.3.36", features = ["formatting"] }
 tokio = { version = "1.37.0", features = ["full"] }
 tokio-stream = "0.1"
+toml_edit = "0.22.27"
 totp-rs = { version = "5.5.1", features = ["qr", "otpauth"] }
 uuid = { version = "1.8.0", features = ["v4"] }
 zerocopy = "0.8.27"

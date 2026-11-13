@@ -49,7 +49,7 @@ On an Apple Silicon Mac, you can also build a menu bar version:
 ./infumap/target/aarch64-apple-darwin/release/infumap-macos
 ```
 
-It starts the server automatically and adds an Infumap icon to the menu bar. The menu lets you start or stop the server, open Infumap in your browser, view logs in Console, or quit. It uses the same settings and data as `infumap web`. See [macOS menu bar usage](docs/developer.md#macos-menu-bar-binary) for configuration and build details.
+It starts the server automatically and adds an Infumap icon to the menu bar. The menu lets you start or stop the server, open Infumap in your browser, view logs in Console, edit server and chat-provider settings, or quit. It uses the same settings and data as `infumap web`. See [macOS menu bar usage](docs/developer.md#macos-menu-bar-binary) for configuration and build details.
 
 You can use Infumap locally, or install it on a server on the internet in order to:
 - Access your information from anywhere.

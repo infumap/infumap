@@ -533,7 +533,7 @@ pub async fn init_fs_maybe_and_get_config(settings_path_maybe: Option<&String>) 
 }
 
 fn build_config(settings_path_maybe: Option<String>) -> InfuResult<Config> {
-  let mut config_builder = if let Some(path) = &settings_path_maybe {
+  let config_builder = if let Some(path) = &settings_path_maybe {
     info!("Reading config from: {} + overriding with env vars where set.", path);
     Config::builder().add_source(config::File::new(path, FileFormat::Toml))
   } else {
@@ -541,7 +541,19 @@ fn build_config(settings_path_maybe: Option<String>) -> InfuResult<Config> {
     Config::builder()
   }
   .add_source(config::Environment::with_prefix(ENV_CONFIG_PREFIX));
-  config_builder = add_config_defaults(config_builder)?;
+  finish_config(config_builder)
+}
+
+pub(crate) fn config_from_settings_text(text: &str, include_environment: bool) -> InfuResult<Config> {
+  let mut builder = Config::builder().add_source(config::File::from_str(text, FileFormat::Toml));
+  if include_environment {
+    builder = builder.add_source(config::Environment::with_prefix(ENV_CONFIG_PREFIX));
+  }
+  finish_config(builder)
+}
+
+fn finish_config(config_builder: ConfigBuilder<DefaultState>) -> InfuResult<Config> {
+  let config_builder = add_config_defaults(config_builder)?;
 
   let result = match config_builder.build() {
     Ok(c) => c,

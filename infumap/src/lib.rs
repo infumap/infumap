@@ -6,6 +6,7 @@ pub mod cli;
 mod config;
 mod logging;
 mod query_configuration;
+pub mod settings;
 pub mod setup;
 mod storage;
 mod tokiort;
