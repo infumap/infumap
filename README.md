@@ -1,11 +1,10 @@
 # Infumap
 
-Infumap solves two problems very well:
+Infumap is the home for all of your information.
 
-1. It gives you a secure, durable place to store all your information. Once something is in Infumap, you know it's safe and that you can find it again. This could be a link to a website, a bank statement from 1998 or a passing thought.
+Once you put something in it, you know you're not going to loose it. You know you'll be able to find it later. And you know it's safe from other people accessing it.
 
-2. It gives you a way to define and persist structure around your information. Doing your taxes means collecting documents of different kinds, doing a bit of research and writing side notes as you go. Planning a trip is the same. Infumap lets you turn that work into a single artifact you can arrange as you like. When you come back to it next year, everything is there, still in context and still making sense.
-
+It also gives you a way to define and persist structure around your information. Doing your taxes means collecting documents of different kinds, doing a bit of research and writing side notes as you go. Planning a trip is the same. Infumap lets you turn that work into a single artifact you can arrange as you like. When you come back to it next year, everything is there, still in context and still making sense.
 
 Summary:
 - A secure, durable home for all of your information.
