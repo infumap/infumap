@@ -14,20 +14,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-mod ai;
-mod cli;
-mod config;
-mod query_configuration;
-mod setup;
-mod storage;
-mod tokiort;
-mod util;
-mod web;
-use std::str::FromStr;
-
 use clap::Command;
-use infusdk::util::infu::InfuResult;
-use std::env;
+use infumap::{cli, init_logger, web};
 
 #[tokio::main]
 async fn main() {
@@ -102,27 +90,7 @@ async fn main() {
         std::process::exit(1);
       }
       // Not using logger here, as the error may have been in initializing the logger.
-      println!("{}", e);
+      eprintln!("{}", e);
     }
   }
-}
-
-fn init_logger(level: Option<String>) -> InfuResult<()> {
-  // pretty_env_logger::init();
-  let level = if let Some(level) = level {
-    log::LevelFilter::from_str(&level).map_err(|e| format!("Could not parse log level: {}", e))?
-  } else {
-    let key = "INFUMAP_LOG_LEVEL";
-    let log_level_str = match env::var(key) {
-      Err(_) => "info".to_owned(),
-      Ok(v) => v,
-    };
-    log::LevelFilter::from_str(&log_level_str).map_err(|e| format!("Could not parse log level: {}", e))?
-  };
-  pretty_env_logger::formatted_timed_builder()
-    .format_timestamp_secs()
-    .filter_module("infumap", level)
-    .filter_module("infusdk", level)
-    .init();
-  Ok(())
 }

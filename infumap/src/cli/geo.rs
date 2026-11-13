@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use clap::{Arg, ArgMatches, Command};
 use infusdk::util::infu::InfuResult;
-use log::info;
+use log::{info, warn};
 use tokio::sync::Mutex;
 use tokio::time::sleep;
 
@@ -117,7 +117,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     summary.record(&outcome);
 
     if let GeoProcessOutcome::Deferred { reason, retry_after_secs } = outcome {
-      println!(
+      warn!(
         "Stopping reverse geocoding: Geoapify reported {}; try again after {}.",
         reason.label(),
         format_duration_for_display(Duration::from_secs(retry_after_secs.max(1)))

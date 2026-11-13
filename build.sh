@@ -21,6 +21,7 @@ WEB_BUILD_ARGS=()
 INFUMAP_BUILD_ARGS=()
 MINIFY_WEB=1
 DEV_BUILD=0
+MACOS_MENU_BAR=0
 
 print_usage() {
   cat <<'EOF'
@@ -31,6 +32,7 @@ Build the web client and Infumap server.
 Options:
   --dev        Dev build: no web minification, no Rust optimizations (faster).
   --no-minify  Disable web minification for easier debugging.
+  --macos-menu-bar  Build the Apple Silicon macOS menu bar binary.
   -h, --help   Show this help.
 
 Arguments:
@@ -59,12 +61,22 @@ while [[ $# -gt 0 ]]; do
       WEB_BUILD_ARGS+=(--no-minify)
       shift
       ;;
+    --macos-menu-bar)
+      MACOS_MENU_BAR=1
+      INFUMAP_BUILD_ARGS+=(--macos-menu-bar)
+      shift
+      ;;
     *)
       INFUMAP_BUILD_ARGS+=("$1")
       shift
       ;;
   esac
 done
+
+if [[ $MACOS_MENU_BAR -eq 1 && "$(uname -s)" != Darwin ]]; then
+  echo "Error: --macos-menu-bar requires macOS and Apple's Command Line Tools."
+  exit 1
+fi
 
 echo "Build options:"
 if [[ $DEV_BUILD -eq 1 ]]; then

@@ -23,6 +23,7 @@ use config::Config;
 use futures_util::{StreamExt, stream};
 use infusdk::item::is_data_item_type;
 use infusdk::util::infu::InfuResult;
+use log::warn;
 
 use crate::config::{
   CONFIG_DATA_DIR, CONFIG_ENABLE_LOCAL_OBJECT_STORAGE, CONFIG_S3_1_BUCKET, CONFIG_S3_1_ENDPOINT, CONFIG_S3_1_KEY,
@@ -292,7 +293,7 @@ async fn copy_file_with_retries(
     let Some(delay) = remaining_delays.next() else {
       return Err(error);
     };
-    println!("Retrying {}_{} in {} s: {}", file.user_id, file.item_id, delay.as_secs(), error);
+    warn!("Retrying {}_{} in {} s: {}", file.user_id, file.item_id, delay.as_secs(), error);
     tokio::time::sleep(*delay).await;
   }
 }

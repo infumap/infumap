@@ -42,6 +42,30 @@ Execute the build script in the repo root:
 
 This will create a fully self-contained `infumap` executable here: `./infumap/target/release/infumap`.
 
+### macOS menu bar binary
+
+On macOS with Apple's Command Line Tools installed, build the Apple Silicon version with:
+
+```sh
+rustup target add aarch64-apple-darwin
+./build.sh --macos-menu-bar
+./infumap/target/aarch64-apple-darwin/release/infumap-macos
+```
+
+The output is one executable with the web client and menu bar icon embedded. It requires macOS 11 or later and does not need a separate `infumap` server executable. Add `--dev` for an unoptimized build; its output is under `target/aarch64-apple-darwin/debug/`.
+
+Running it starts the web server automatically. Its menu offers **Start Web Server**, **Stop Web Server**, **Open Infumap in Browser**, **Show Logs**, and **Quit Infumap**. The browser action becomes available once startup finishes and uses the configured listening address and port. Wildcard listening addresses use the corresponding loopback address for the browser. Logs append across restarts to `~/Library/Logs/Infumap/server.log`; **Show Logs** opens this file in macOS Console, with Finder as a fallback.
+
+Configuration, environment overrides, and data directories work as for `infumap web`. To select a settings file or directory:
+
+```sh
+./infumap/target/aarch64-apple-darwin/release/infumap-macos --settings /path/to/settings.toml
+```
+
+Only one menu bar instance and one managed server can run per user. Stop an existing command-line server before launching the menu bar version against the same data. Stop and Quit wait for startup maintenance and active HTTP requests to finish; the menu displays **Stopping…** until the child process exits. Closing the launcher's terminal or terminating the launcher also requests server shutdown. Pending search indexing is recovered at the next startup.
+
+After a web build, rebuild just the menu bar executable with `./infumap/build.sh --macos-menu-bar`. The native menu uses AppKit from the macOS SDK and adds no Rust dependencies.
+
 ## Additional Information
 
 The `build.sh` script generates the various client side artifacts as well as Rust code for route handlers to serve them (using the `web/generate_dist_handlers.py` script) before building the server executable `./infumap/target/release/infumap`. This executable is fully self contained - to deploy Infumap, you simply need to copy this one file.

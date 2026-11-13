@@ -29,6 +29,7 @@ use infusdk::util::geometry::GRID_SIZE;
 use infusdk::util::infu::InfuResult;
 use infusdk::util::json;
 use infusdk::util::uid::is_uid;
+use log::warn;
 use serde_json::Map;
 use serde_json::Value;
 use tokio::fs;
@@ -305,14 +306,8 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
         Err(e) => {
           let item_type = if is_text_or_markdown_filename(filename) { ItemType::Text } else { ItemType::File };
           item.insert("itemType".to_owned(), Value::String(item_type.as_str().to_owned()));
-          print!(
-            "Could not interpret file '{}' as an image ({}), adding as an item of type {} {}/{}... ",
-            filename,
-            e,
-            item_type,
-            i + 1,
-            local_filenames.len()
-          );
+          warn!("Could not interpret file '{}' as an image; uploading as {}: {}", filename, item_type, e);
+          print!("Adding {} '{}' {}/{}... ", item_type, filename, i + 1, local_filenames.len());
           std::io::stdout().flush()?;
         }
       }
@@ -363,7 +358,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
           break;
         }
         Err(e) => {
-          println!("there was a connection issue sending the add-item request - retrying: {}", e);
+          warn!("Connection issue uploading '{}' on attempt {}; retrying in 2 s: {}", filename, attempts, e);
           tokio::time::sleep(Duration::from_secs(2)).await;
         }
       }

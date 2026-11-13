@@ -18,6 +18,7 @@ use std::io::{BufRead, Write};
 
 use clap::{Arg, ArgMatches, Command};
 use infusdk::util::infu::InfuResult;
+use log::warn;
 use rpassword::read_password;
 
 use crate::cli::{installation_state_url_from_base_url, login_url_from_base_url};
@@ -55,7 +56,7 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     match logout(session_name).await {
       Ok(_) => {}
       Err(e) => {
-        println!("An error occurred logging out existing session (ignoring): {}.", e);
+        warn!("Could not log out existing session '{}'; continuing with login: {}", session_name, e);
       }
     };
   }

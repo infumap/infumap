@@ -2,6 +2,15 @@
 name = "infumap"
 version = "0.10.0"
 edition = "2024"
+default-run = "infumap"
+
+[features]
+macos-menubar = []
+
+[[bin]]
+name = "infumap-macos"
+path = "src/macos_main.rs"
+required-features = ["macos-menubar"]
 
 [dependencies]
 aes-gcm = "0.10.3"

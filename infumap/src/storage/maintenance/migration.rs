@@ -191,7 +191,7 @@ fn migration_for(descriptor: LogDescriptor) -> InfuResult<Migration> {
           item_db::migrate_record_v28_to_v29(record, &mut state, &mut stats)
         })?;
         for line in stats.render_summary() {
-          println!("{}", line);
+          info!("MIME type migration v28 -> v29 (candidate '{}'): {}", output.display(), line);
         }
         Ok(())
       },

@@ -399,11 +399,14 @@ pub async fn delete_all(image_cache: Arc<Mutex<ImageCache>>, user_id: &Uid, item
 }
 
 pub fn _print_summary(image_cache: Arc<Mutex<ImageCache>>) {
+  if !log::log_enabled!(log::Level::Debug) {
+    return;
+  }
   let image_cache = image_cache.lock().unwrap();
   let mut ordered: Vec<(&std::string::String, &FileInfo)> = image_cache.fileinfo_by_filename.iter().collect();
   ordered.sort_by(|a, b| score(a.1).partial_cmp(&score(&b.1)).unwrap());
   for entry in ordered {
-    println!("{} - {}", entry.0, score(entry.1));
+    debug!("Image cache '{}' entry '{}': eviction score {}.", image_cache.cache_dir.display(), entry.0, score(entry.1));
   }
 }
 

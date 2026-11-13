@@ -38,8 +38,8 @@ use std::time::{Duration, Instant};
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
-use tokio::sync::Mutex;
-use tokio::task::spawn_blocking;
+use tokio::sync::{Mutex, OwnedMutexGuard, watch};
+use tokio::task::{JoinSet, spawn_blocking};
 use tokio::{task, time};
 
 use crate::ai::document_pipeline::init_document_fragment_pipeline_loop;
@@ -118,6 +118,44 @@ pub async fn start_server(config: Config) -> InfuResult<()> {
 }
 
 pub async fn start_server_with_options(config: Config, skip_backup_validation: bool) -> InfuResult<()> {
+  start_server_controlled(config, skip_backup_validation, None).await
+}
+
+/// Kept alive until after the runtime is dropped: holding the database lock prevents
+/// background workers from starting another database write during runtime shutdown.
+pub struct ServerControl {
+  shutdown: watch::Receiver<bool>,
+  on_ready: Option<Box<dyn FnOnce(SocketAddr) -> InfuResult<()> + Send>>,
+  quiesced_db: Option<OwnedMutexGuard<Db>>,
+}
+
+impl ServerControl {
+  pub fn new(
+    shutdown: watch::Receiver<bool>,
+    on_ready: impl FnOnce(SocketAddr) -> InfuResult<()> + Send + 'static,
+  ) -> Self {
+    Self { shutdown, on_ready: Some(Box::new(on_ready)), quiesced_db: None }
+  }
+}
+
+fn server_address(config: &Config) -> InfuResult<SocketAddr> {
+  let address = format!(
+    "{}:{}",
+    config.get_string(CONFIG_ADDRESS).map_err(|e| e.to_string())?,
+    config.get_int(CONFIG_PORT).map_err(|e| e.to_string())?
+  );
+  address.parse().map_err(|error| format!("Invalid socket address: {} ({})", address, error).into())
+}
+
+pub async fn start_server_controlled(
+  config: Config,
+  skip_backup_validation: bool,
+  mut control: Option<&mut ServerControl>,
+) -> InfuResult<()> {
+  // Reserve the managed server's port before maintenance touches any data. An
+  // existing listener must cause startup to fail before migration or compaction.
+  let managed_listener =
+    if control.is_some() { Some(TcpListener::bind(server_address(&config)?).await?) } else { None };
   Lazy::force(&LLM_LOG_ENABLED);
   let data_dir = config.get_string(CONFIG_DATA_DIR).map_err(|e| e.to_string())?;
   let compact_min_savings = startup_compact_min_savings_bytes(&config)?;
@@ -275,17 +313,7 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
     }
   };
 
-  let addr_str = format!(
-    "{}:{}",
-    config.get_string(CONFIG_ADDRESS).map_err(|e| e.to_string())?,
-    config.get_int(CONFIG_PORT).map_err(|e| e.to_string())?
-  );
-  let addr: SocketAddr = match addr_str.parse() {
-    Ok(addr) => addr,
-    Err(e) => {
-      return Err(format!("Invalid socket address: {} ({})", addr_str, e).into());
-    }
-  };
+  let addr = server_address(&config)?;
 
   let config = Arc::new(config);
 
@@ -341,7 +369,7 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
     let prometheus_addr: SocketAddr = match prometheus_addr_str.parse() {
       Ok(addr) => addr,
       Err(e) => {
-        return Err(format!("Invalid prometheus socket address: {} ({})", addr_str, e).into());
+        return Err(format!("Invalid prometheus socket address: {} ({})", prometheus_addr_str, e).into());
       }
     };
     spawn_prometheus_listener(prometheus_addr).await?;
@@ -366,8 +394,23 @@ pub async fn start_server_with_options(config: Config, skip_backup_validation: b
   init_image_background_pipeline_loop(config.clone(), db.clone(), object_store.clone(), startup_work)?;
   crate::ai::search_processing_activity::spawn_progress_logger(db.clone());
 
-  let result =
-    listen(addr, db.clone(), object_store.clone(), image_cache.clone(), favicon_cache.clone(), config.clone()).await;
+  let result = listen(
+    addr,
+    db.clone(),
+    object_store.clone(),
+    image_cache.clone(),
+    favicon_cache.clone(),
+    config.clone(),
+    managed_listener,
+    control.as_deref_mut(),
+  )
+  .await;
+  if let Some(control) = control {
+    // Requests have drained. Let any database write already held by a worker
+    // finish, then keep new writes blocked until the caller drops the runtime.
+    control.quiesced_db = Some(db.lock_owned().await);
+    info!("Web server stopped.");
+  }
   result
 }
 
@@ -725,36 +768,85 @@ async fn listen(
   image_cache: Arc<std::sync::Mutex<ImageCache>>,
   favicon_cache: Arc<std::sync::Mutex<FaviconCache>>,
   config: Arc<config::Config>,
+  listener: Option<TcpListener>,
+  mut control: Option<&mut ServerControl>,
 ) -> InfuResult<()> {
-  let listener = TcpListener::bind(addr).await?;
-  loop {
-    let (stream, _) = listener.accept().await?;
+  let listener = match listener {
+    Some(listener) => listener,
+    None => TcpListener::bind(addr).await?,
+  };
+  let mut shutdown = control.as_ref().map(|control| control.shutdown.clone());
+  if !shutdown.as_ref().is_some_and(|shutdown| *shutdown.borrow()) {
+    if let Some(control) = control.as_mut() {
+      if let Some(on_ready) = control.on_ready.take() {
+        on_ready(listener.local_addr()?)?;
+      }
+    }
+  }
+  let mut connections = JoinSet::new();
+  let (connections_shutdown, connection_shutdown) = watch::channel(false);
+  let result = loop {
+    let accepted = tokio::select! {
+      biased;
+      _ = wait_for_shutdown(&mut shutdown) => break Ok(()),
+      Some(result) = connections.join_next() => {
+        if let Err(error) = result { warn!("HTTP connection task failed: {}", error); }
+        continue;
+      },
+      result = listener.accept() => result,
+    };
+    let (stream, _) = match accepted {
+      Ok(accepted) => accepted,
+      Err(error) => break Err(error.into()),
+    };
     let db = db.clone();
     let object_store = object_store.clone();
     let image_cache = image_cache.clone();
     let favicon_cache = favicon_cache.clone();
     let config = config.clone();
+    let mut shutdown = Some(connection_shutdown.clone());
 
     let io = TokioIo::new(stream);
-    tokio::task::spawn(async move {
-      if let Err(err) = http1::Builder::new()
-        .serve_connection(
-          io,
-          service_fn(move |req| {
-            http_serve(
-              db.clone(),
-              object_store.clone(),
-              image_cache.clone(),
-              favicon_cache.clone(),
-              config.clone(),
-              req,
-            )
-          }),
-        )
-        .await
-      {
+    connections.spawn(async move {
+      let connection = http1::Builder::new().serve_connection(
+        io,
+        service_fn(move |req| {
+          http_serve(db.clone(), object_store.clone(), image_cache.clone(), favicon_cache.clone(), config.clone(), req)
+        }),
+      );
+      tokio::pin!(connection);
+      let result = tokio::select! {
+        result = &mut connection => result,
+        _ = wait_for_shutdown(&mut shutdown) => {
+          connection.as_mut().graceful_shutdown();
+          connection.await
+        }
+      };
+      if let Err(err) = result {
         info!("Error serving connection: {:?}", err);
       }
     });
+  };
+  drop(listener);
+  let _ = connections_shutdown.send(true);
+  info!("Waiting for active HTTP requests to finish.");
+  while let Some(result) = connections.join_next().await {
+    if let Err(error) = result {
+      warn!("HTTP connection task failed during shutdown: {}", error);
+    }
+  }
+  result
+}
+
+async fn wait_for_shutdown(shutdown: &mut Option<watch::Receiver<bool>>) {
+  match shutdown {
+    Some(shutdown) => {
+      while !*shutdown.borrow_and_update() {
+        if shutdown.changed().await.is_err() {
+          break;
+        }
+      }
+    }
+    None => std::future::pending::<()>().await,
   }
 }

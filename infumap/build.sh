@@ -18,6 +18,7 @@ set -euo pipefail
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 DEV_BUILD=0
+MACOS_MENU_BAR=0
 EXTRA_ARGS=()
 TARGET=""
 
@@ -25,6 +26,10 @@ while [[ $# -gt 0 ]]; do
   case $1 in
     --dev)
       DEV_BUILD=1
+      shift
+      ;;
+    --macos-menu-bar)
+      MACOS_MENU_BAR=1
       shift
       ;;
     *)
@@ -37,6 +42,19 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ $MACOS_MENU_BAR -eq 1 ]]; then
+  if [[ "$(uname -s)" != Darwin ]]; then
+    echo "Error: --macos-menu-bar requires macOS and Apple's Command Line Tools."
+    exit 1
+  fi
+  if [[ -n "$TARGET" && "$TARGET" != aarch64-apple-darwin ]]; then
+    echo "Error: the macOS menu bar binary only supports aarch64-apple-darwin."
+    exit 1
+  fi
+  TARGET=aarch64-apple-darwin
+  EXTRA_ARGS+=(--features macos-menubar --bin infumap-macos)
+fi
 
 pushd "$(dirname "$0")" >/dev/null
 
