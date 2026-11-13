@@ -109,7 +109,9 @@ static void SettingsRequest(NSString *settings, NSDictionary *request, void (^co
   column.width = frame.size.width - 4;
   [table addTableColumn:column];
   table.headerView = nil;
-  table.rowHeight = 30;
+  // Use AppKit's row metrics instead of a fixed height unrelated to the font.
+  table.style = NSTableViewStylePlain;
+  table.rowSizeStyle = NSTableViewRowSizeStyleMedium;
   table.dataSource = self;
   table.delegate = self;
   scroll.documentView = table;
@@ -360,11 +362,26 @@ static void SettingsRequest(NSString *settings, NSDictionary *request, void (^co
 }
 
 - (NSView *)tableView:(NSTableView *)tableView viewForTableColumn:(NSTableColumn *)column row:(NSInteger)row {
-  (void)column;
   NSString *name = tableView == self.sidebar ? @[@"Server", @"Chat Providers"][row] : self.providers[row][@"id"];
-  NSTextField *label = [NSTextField labelWithString:name.length ? name : @"New provider"];
-  label.lineBreakMode = NSLineBreakByTruncatingTail;
-  return label;
+  NSTableCellView *cell = (NSTableCellView *)[tableView makeViewWithIdentifier:column.identifier owner:self];
+  if (!cell) {
+    cell = [[NSTableCellView alloc] initWithFrame:NSZeroRect];
+    cell.identifier = column.identifier;
+    NSTextField *label = [NSTextField labelWithString:@""];
+    label.font = [NSFont systemFontOfSize:[NSFont systemFontSizeForControlSize:NSControlSizeRegular]];
+    label.lineBreakMode = NSLineBreakByTruncatingTail;
+    label.maximumNumberOfLines = 1;
+    label.translatesAutoresizingMaskIntoConstraints = NO;
+    [cell addSubview:label];
+    cell.textField = label;
+    [NSLayoutConstraint activateConstraints:@[
+      [label.leadingAnchor constraintEqualToAnchor:cell.leadingAnchor constant:4],
+      [label.trailingAnchor constraintEqualToAnchor:cell.trailingAnchor constant:-4],
+      [label.centerYAnchor constraintEqualToAnchor:cell.centerYAnchor],
+    ]];
+  }
+  cell.textField.stringValue = name.length ? name : @"New provider";
+  return cell;
 }
 
 - (BOOL)tableView:(NSTableView *)tableView shouldSelectRow:(NSInteger)row {
@@ -391,8 +408,8 @@ static void SettingsRequest(NSString *settings, NSDictionary *request, void (^co
   if (self.selectedProvider < 0) return;
   self.checkVersion++;
   [self commitProvider];
-  NSTextField *name = (NSTextField *)[self.providerList viewAtColumn:0 row:self.selectedProvider makeIfNecessary:NO];
-  name.stringValue = self.providerID.stringValue.length ? self.providerID.stringValue : @"New provider";
+  NSTableCellView *cell = (NSTableCellView *)[self.providerList viewAtColumn:0 row:self.selectedProvider makeIfNecessary:NO];
+  cell.textField.stringValue = self.providerID.stringValue.length ? self.providerID.stringValue : @"New provider";
   self.checkResult.stringValue = @"Provider changed; check the connection again when ready.";
   self.checkResult.toolTip = nil;
 }
