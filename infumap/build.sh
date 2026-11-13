@@ -58,7 +58,22 @@ fi
 
 pushd "$(dirname "$0")" >/dev/null
 
-CARGO_ARGS=(build --locked)
+# Zig supplies the target's musl headers, compiler and linker even when the
+# build host is macOS or uses a different CPU architecture. Rustup alone only
+# installs Rust's target libraries, which cannot build our C dependencies.
+CARGO_COMMAND=build
+case "$TARGET" in
+  x86_64-unknown-linux-musl|aarch64-unknown-linux-musl)
+    if ! command -v zig >/dev/null 2>&1 || ! command -v cargo-zigbuild >/dev/null 2>&1; then
+      echo "Error: Linux musl builds require Zig and cargo-zigbuild on PATH."
+      echo "See docs/developer.md for setup instructions."
+      exit 1
+    fi
+    CARGO_COMMAND=zigbuild
+    ;;
+esac
+
+CARGO_ARGS=("$CARGO_COMMAND" --locked)
 if [[ $DEV_BUILD -eq 0 ]]; then
   CARGO_ARGS+=(--release)
 fi

@@ -39,6 +39,9 @@ Arguments:
   target-triple  Optional Rust target triple for the Infumap server build.
                  For backward compatibility, a bare positional argument is
                  treated as the target triple.
+
+Linux musl targets use Zig and cargo-zigbuild (see docs/developer.md).
+Use ./build-release.sh to build and package a release executable.
 EOF
 }
 
