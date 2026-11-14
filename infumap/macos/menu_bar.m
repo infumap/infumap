@@ -87,20 +87,23 @@
   [main addItem:editItem];
   NSApp.mainMenu = main;
   self.statusItem = [NSStatusBar.systemStatusBar statusItemWithLength:NSVariableStatusItemLength];
-  // Template rendering uses alpha, so the favicon's opaque white disc would
-  // hide its lettering. Draw an outline on transparency and let AppKit tint it.
+  // Template rendering uses alpha: cut the letters out of the solid disc so
+  // they remain transparent when AppKit tints the icon for the menu bar.
   NSImage *image = [NSImage imageWithSize:NSMakeSize(18, 18) flipped:YES drawingHandler:^BOOL(NSRect rect) {
-    [NSColor.blackColor setStroke];
-    NSBezierPath *circle = [NSBezierPath bezierPathWithOvalInRect:NSInsetRect(rect, 0.75, 0.75)];
-    circle.lineWidth = 1.25;
-    [circle stroke];
-    NSDictionary<NSAttributedStringKey, id> *attributes = @{
-      NSFontAttributeName: [NSFont systemFontOfSize:9 weight:NSFontWeightMedium],
-      NSForegroundColorAttributeName: NSColor.blackColor,
-    };
-    NSSize size = [@"IM" sizeWithAttributes:attributes];
-    [@"IM" drawAtPoint:NSMakePoint(NSMidX(rect) - size.width / 2, NSMidY(rect) - size.height / 2)
-      withAttributes:attributes];
+    [NSColor.blackColor setFill];
+    [[NSBezierPath bezierPathWithOvalInRect:NSInsetRect(rect, 0.5, 0.5)] fill];
+    NSImage *letters = [NSImage imageWithSize:rect.size flipped:YES drawingHandler:^BOOL(NSRect textRect) {
+      NSDictionary<NSAttributedStringKey, id> *attributes = @{
+        NSFontAttributeName: [NSFont systemFontOfSize:9 weight:NSFontWeightMedium],
+        NSForegroundColorAttributeName: NSColor.blackColor,
+      };
+      NSSize size = [@"IM" sizeWithAttributes:attributes];
+      [@"IM" drawAtPoint:NSMakePoint(NSMidX(textRect) - size.width / 2, NSMidY(textRect) - size.height / 2)
+        withAttributes:attributes];
+      return YES;
+    }];
+    [letters drawInRect:rect fromRect:NSZeroRect operation:NSCompositingOperationDestinationOut
+      fraction:1 respectFlipped:YES hints:nil];
     return YES;
   }];
   image.template = YES;
