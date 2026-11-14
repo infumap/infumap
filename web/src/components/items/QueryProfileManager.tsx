@@ -21,8 +21,8 @@ export function profileNameProblem(name: string): string | null {
   return null;
 }
 
-const iconButtonClass = "flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent";
-const moveButtonClass = "flex h-[14px] w-6 cursor-pointer items-center justify-center rounded text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:cursor-default disabled:opacity-25 disabled:hover:bg-transparent";
+const iconButtonClass = "flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded text-neutral-500 hover:bg-control-hover hover:text-neutral-800 disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent";
+const moveButtonClass = "flex h-[14px] w-6 cursor-pointer items-center justify-center rounded text-neutral-500 hover:bg-control-hover hover:text-neutral-800 disabled:cursor-default disabled:opacity-25 disabled:hover:bg-transparent";
 
 /** Account profile management. Queries keep their setups. */
 export function QueryProfileManager(props: { onClose: () => void }) {
@@ -90,7 +90,7 @@ export function QueryProfileManager(props: { onClose: () => void }) {
     else if (!ev.shiftKey && document.activeElement == last) { ev.preventDefault(); first.focus(); }
   };
 
-  const row = (profile: QueryProfile, index: () => number) => <div class="border-b border-slate-100 px-3 py-2 last:border-b-0">
+  const row = (profile: QueryProfile, index: () => number) => <div class="border-b border-chrome-line px-3 py-2 last:border-b-0">
     <Show when={deleting() == profile.id} fallback={
       <div class="flex items-center gap-1">
         <div class="flex shrink-0 flex-col">
@@ -103,7 +103,7 @@ export function QueryProfileManager(props: { onClose: () => void }) {
         </div>
         <div class="min-w-0 grow pl-1">
           <Show when={renaming() == profile.id} fallback={
-            <button type="button" class="block max-w-full cursor-text truncate rounded px-1 text-left text-[13px] font-medium hover:bg-slate-100"
+            <button type="button" class="block max-w-full cursor-text truncate rounded px-1 text-left text-[13px] font-medium hover:bg-control-hover"
               title="Rename" disabled={busy()} onClick={() => startRename(profile)}>{profile.name}</button>
           }>
             <form class="flex items-center gap-1" onSubmit={ev => submitRename(ev, profile)}>
@@ -114,20 +114,20 @@ export function QueryProfileManager(props: { onClose: () => void }) {
               <button type="button" class={dialogButtonClass()} disabled={busy()} onClick={() => setRenaming(null)}>Cancel</button>
             </form>
           </Show>
-          <div class="truncate px-1 text-[11px] text-slate-500">{queryConfigurationSummary(store, profile.configuration)}</div>
+          <div class="truncate px-1 text-[11px] text-neutral-500">{queryConfigurationSummary(store, profile.configuration)}</div>
         </div>
         <button type="button" class={iconButtonClass} aria-pressed={isPinned(profile.id)}
           aria-label={`${isPinned(profile.id) ? "Unpin" : "Pin"} ${profile.name}`}
           title={isPinned(profile.id) ? "Pinned: shown as a shortcut above the input" : "Pin as a shortcut above the input"}
           disabled={busy()} onClick={() => void run(() => store.general.queryProfiles.setPinned(profile.id, !isPinned(profile.id)))}>
-          <i class={isPinned(profile.id) ? "bi-pin-angle-fill text-slate-800" : "bi-pin-angle"} /></button>
+          <i class={isPinned(profile.id) ? "bi-pin-angle-fill text-neutral-800" : "bi-pin-angle"} /></button>
         <Show when={isDefault(profile.id)} fallback={
           <button type="button" class={iconButtonClass} aria-label={`Make ${profile.name} the default`}
             title="Make the default for new queries" disabled={busy()}
             onClick={() => void run(() => store.general.queryProfiles.setDefault(profile.id))}>
             <i class="bi-house" /></button>
         }>
-          <span class="flex h-7 w-7 shrink-0 items-center justify-center text-slate-800" role="img"
+          <span class="flex h-7 w-7 shrink-0 items-center justify-center text-neutral-800" role="img"
             aria-label={`${profile.name} is the default`} title="Default for new queries"><i class="bi-house-fill" /></span>
         </Show>
         <button type="button" class={iconButtonClass} aria-label={`Duplicate ${profile.name}`} title="Duplicate"
@@ -142,7 +142,7 @@ export function QueryProfileManager(props: { onClose: () => void }) {
       <div class="flex flex-wrap items-center gap-2 py-1 text-[12px]">
         <span class="min-w-0 grow">
           Delete “{profile.name}”?
-          <Show when={nextDefault(profile)}>{next => <span class="text-slate-500"> “{next().name}” will become the default.</span>}</Show>
+          <Show when={nextDefault(profile)}>{next => <span class="text-neutral-500"> “{next().name}” will become the default.</span>}</Show>
         </span>
         <button type="button" class={`${dialogButtonClass()} !text-red-700`} disabled={busy()}
           ref={el => queueMicrotask(() => el.focus())}
@@ -163,10 +163,10 @@ export function QueryProfileManager(props: { onClose: () => void }) {
       <DialogHeader title="Query profiles" onClose={props.onClose}
         description="Pinned profiles are shortcuts above the input. New queries start with the default." />
       <Show when={error() ?? store.general.queryProfiles.error()}>{message =>
-        <div role="alert" class="shrink-0 border-b border-slate-200 bg-red-50 px-3 py-2 text-[12px] text-red-700">{message()}</div>
+        <div role="alert" class="shrink-0 border-b border-chrome-line bg-red-50 px-3 py-2 text-[12px] text-red-700">{message()}</div>
       }</Show>
       <div class="min-h-0 grow overflow-y-auto">
-        <Show when={collection() != null} fallback={<div class="px-3 py-3 text-[12px] text-slate-500">Loading profiles…</div>}>
+        <Show when={collection() != null} fallback={<div class="px-3 py-3 text-[12px] text-neutral-500">Loading profiles…</div>}>
           <For each={profiles()}>{(profile, index) => row(profile, index)}</For>
         </Show>
       </div>

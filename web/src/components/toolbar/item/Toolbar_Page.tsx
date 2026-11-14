@@ -561,7 +561,7 @@ export const Toolbar_Page: Component = () => {
         <InfuIconButton icon="bi-type-h1" highlighted={showTitleInDocument()} clickHandler={handleToggleDocumentTitle} title="Show document title" />
       </div>
       <div ref={documentLayoutDiv}
-        class="inline-block border border-slate-400 rounded-md ml-[10px] px-[5px] hover:bg-slate-300 cursor-pointer whitespace-nowrap"
+        class="inline-block border border-control-border rounded-control ml-[10px] px-[5px] hover:bg-control-hover cursor-pointer whitespace-nowrap"
         style={`font-size: 13px;`}
         title="Document layout"
         onClick={handleDocumentLayoutClick}
@@ -578,7 +578,7 @@ export const Toolbar_Page: Component = () => {
     <div id="toolbarItemOptionsDiv"
       class="grow-0" style="flex-order: 0;">
       <Show when={showEmptyTrash()}>
-        <div class="inline-block w-[100px] border border-slate-400 text-center rounded-md ml-[10px] cursor-pointer"
+        <div class="inline-block w-[100px] border border-control-border text-center rounded-control ml-[10px] hover:bg-control-hover cursor-pointer"
           style={`font-size: 13px;`}
           title="Permanently delete everything in the trash"
           onClick={emptyTrashHandler}>
@@ -591,7 +591,7 @@ export const Toolbar_Page: Component = () => {
       <Show when={canEdit()}>
         <Show when={showPageSizeButton()}>
           <div ref={sizeDiv}
-            class="inline-block border border-slate-400 rounded-md ml-[10px] px-[5px] hover:bg-slate-300 cursor-pointer whitespace-nowrap"
+            class="inline-block border border-control-border rounded-control ml-[10px] px-[5px] hover:bg-control-hover cursor-pointer whitespace-nowrap"
             style={`font-size: 13px;`}
             title="Page size"
             onClick={handleSizeClick}
@@ -602,7 +602,7 @@ export const Toolbar_Page: Component = () => {
         </Show>
         <Show when={showGridLayoutButton()}>
           <div ref={gridLayoutDiv}
-            class="inline-block border border-slate-400 rounded-md ml-[10px] px-[5px] hover:bg-slate-300 cursor-pointer whitespace-nowrap"
+            class="inline-block border border-control-border rounded-control ml-[10px] px-[5px] hover:bg-control-hover cursor-pointer whitespace-nowrap"
             style={`font-size: 13px;`}
             title="Grid layout"
             onClick={handleGridLayoutClick}
@@ -613,7 +613,7 @@ export const Toolbar_Page: Component = () => {
         </Show>
         <Show when={showPageShapeButton()}>
           <div ref={pageShapeDiv}
-            class="inline-block border border-slate-400 rounded-md ml-[10px] px-[5px] hover:bg-slate-300 cursor-pointer whitespace-nowrap"
+            class="inline-block border border-control-border rounded-control ml-[10px] px-[5px] hover:bg-control-hover cursor-pointer whitespace-nowrap"
             style={`font-size: 13px;`}
             title="Page shape"
             onClick={handlePageShapeClick}
@@ -624,7 +624,7 @@ export const Toolbar_Page: Component = () => {
         </Show>
         <Show when={showCatalogLayoutButton()}>
           <div ref={catalogLayoutDiv}
-            class="inline-block border border-slate-400 rounded-md ml-[10px] px-[5px] hover:bg-slate-300 cursor-pointer whitespace-nowrap"
+            class="inline-block border border-control-border rounded-control ml-[10px] px-[5px] hover:bg-control-hover cursor-pointer whitespace-nowrap"
             style={`font-size: 13px;`}
             title="Catalog layout"
             onClick={handleCatalogLayoutClick}
@@ -635,7 +635,7 @@ export const Toolbar_Page: Component = () => {
         </Show>
         <Show when={showTableButtons()}>
           <div ref={tableLayoutDiv}
-            class="inline-block border border-slate-400 rounded-md ml-[10px] mr-[7px] px-[5px] hover:bg-slate-300 cursor-pointer whitespace-nowrap"
+            class="inline-block border border-control-border rounded-control ml-[10px] mr-[7px] px-[5px] hover:bg-control-hover cursor-pointer whitespace-nowrap"
             style={`font-size: 13px;`}
             title="Table layout"
             onClick={handleTableLayoutClick}
@@ -648,7 +648,7 @@ export const Toolbar_Page: Component = () => {
         </Show>
         <Show when={showJustifiedLayoutButton()}>
           <div ref={justifiedLayoutDiv}
-            class="inline-block border border-slate-400 rounded-md ml-[10px] px-[5px] hover:bg-slate-300 cursor-pointer whitespace-nowrap"
+            class="inline-block border border-control-border rounded-control ml-[10px] px-[5px] hover:bg-control-hover cursor-pointer whitespace-nowrap"
             style={`font-size: 13px;`}
             title="Justified layout"
             onClick={handleJustifiedLayoutClick}
@@ -659,9 +659,9 @@ export const Toolbar_Page: Component = () => {
         </Show>
         <Show when={showCalendarButtons()}>
           <div ref={calendarDisplayModeDiv}
-            class="inline-block w-[88px] border border-slate-400 rounded-md ml-[10px] cursor-pointer"
+            class="inline-block w-[88px] border border-control-border rounded-control ml-[10px] cursor-pointer"
             style={`font-size: 13px;`}>
-            <div class="inline-block w-[86px] pl-[6px] hover:bg-slate-300"
+            <div class="inline-block w-[86px] pl-[6px] rounded-[3px] hover:bg-control-hover"
               title="Calendar view"
               onClick={handleCalendarDisplayModeClick}
               onMouseDown={handleCalendarDisplayModeDown}>
@@ -680,9 +680,9 @@ export const Toolbar_Page: Component = () => {
         </Show>
         <Show when={!isQueriesPage()}>
           <div ref={arrangeAlgoDiv}
-            class="inline-block w-[76px] border border-slate-400 rounded-md ml-[10px] cursor-pointer"
+            class="inline-block w-[76px] border border-control-border rounded-control ml-[10px] cursor-pointer"
             style={`font-size: 13px;`}>
-            <div class="inline-block w-[74px] pl-[6px] hover:bg-slate-300"
+            <div class="inline-block w-[74px] pl-[6px] rounded-[3px] hover:bg-control-hover"
               title="Arrangement"
               onClick={handleArrangeAlgoClick}
               onMouseDown={handleArrangeAlgoDown}>
@@ -722,7 +722,7 @@ export const Toolbar_Page: Component = () => {
       <Toolbar_ItemOrdering />
 
       {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
-      <div class="fixed border-r border-slate-300" style={`height: 25px; right: ${infoDividerRightPx()}px; top: 7px;`}></div>
+      <div class="fixed border-r border-chrome-line" style={`height: 25px; right: ${infoDividerRightPx()}px; top: 7px;`}></div>
 
       <Show when={showVirtualDocumentButtons()}>
         <div ref={openTextFileDiv} class="inline-block pl-[16px]" onMouseDown={handleOpenTextFileDown}>

@@ -119,7 +119,7 @@ export const Toolbar_Table: Component = () => {
       class="grow-0" style="flex-order: 0;">
       <Show when={canEdit()}>
         <div ref={numColsDiv}
-          class="inline-block w-[45px] border border-slate-400 rounded-md ml-[10px] mr-[10px] hover:bg-slate-300 cursor-pointer"
+          class="inline-block w-[45px] border border-control-border rounded-control ml-[10px] mr-[10px] hover:bg-control-hover cursor-pointer"
           style={`font-size: 13px;`}
           title="Visible columns"
           onClick={handleNumColsClick}
@@ -140,7 +140,7 @@ export const Toolbar_Table: Component = () => {
       <Toolbar_ItemOrdering />
 
       {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
-      <div class="fixed border-r border-slate-300" style={`height: 25px; right: ${TOOLBAR_INFO_DIVIDER_RIGHT_PX}px; top: 7px;`}></div>
+      <div class="fixed border-r border-chrome-line" style={`height: 25px; right: ${TOOLBAR_INFO_DIVIDER_RIGHT_PX}px; top: 7px;`}></div>
 
       <Toolbar_InfoAndId />
 

@@ -151,12 +151,12 @@ export const Toolbar_PageJustifiedLayoutPopup: Component = () => {
         description="Items keep their shape and fill rows the width of the page, which scrolls down. Row height sets how big they are." />
 
       <div class="px-3 py-3">
-        <div class="relative overflow-hidden rounded border border-slate-200 bg-slate-50"
+        <div class="relative overflow-hidden rounded-control border border-chrome-line bg-neutral-50"
           style={`width: ${SCHEMATIC_W_PX}px; height: ${SCHEMATIC_H_PX}px;`}>
-          <div class="absolute overflow-hidden border border-slate-400 bg-white" style={frameStyle} title="The window, at full screen">
+          <div class="absolute overflow-hidden border border-neutral-400 bg-white" style={frameStyle} title="The window, at full screen">
             <For each={miniature().boxes}>{box =>
               // Drawn a pixel smaller than laid out: at this scale the spacing between items is less than a pixel.
-              <div class={`absolute rounded-[1px] ${itemDims.length == 0 ? "border border-dashed border-slate-300" : "bg-slate-300"}`}
+              <div class={`absolute rounded-[1px] ${itemDims.length == 0 ? "border border-dashed border-neutral-300" : "bg-neutral-300"}`}
                 style={`left: ${box.left}px; top: ${box.top}px; width: ${Math.max(1, box.width - 1)}px; height: ${Math.max(1, box.height - 1)}px;`} />
             }</For>
             <Show when={scrolls()}>
@@ -169,15 +169,15 @@ export const Toolbar_PageJustifiedLayoutPopup: Component = () => {
 
         <div class="mt-3 flex items-center gap-2">
           <div class={`w-[72px] shrink-0 leading-[15px] ${DIALOG_LABEL_CLASS}`}>Row height
-            <div class="text-[11px] text-slate-500">{justifiedRowSizeWord(rowAspect())}</div>
+            <div class="text-[11px] text-neutral-500">{justifiedRowSizeWord(rowAspect())}</div>
           </div>
-          <i class="bi-grid-3x3-gap text-[11px] text-slate-400" title="Smaller" />
-          <input class="min-w-0 grow accent-slate-600" type="range" min="0" max={SLIDER_STEPS} step="1" aria-label="Row height"
+          <i class="bi-grid-3x3-gap text-[11px] text-neutral-400" title="Smaller" />
+          <input class="min-w-0 grow accent-neutral-600" type="range" min="0" max={SLIDER_STEPS} step="1" aria-label="Row height"
             value={sliderFromRowAspect(rowAspect())}
             onInput={ev => apply(rowAspectFromSlider(parseInt(ev.currentTarget.value)), false)}
             onChange={ev => apply(rowAspectFromSlider(parseInt(ev.currentTarget.value)))}
             onKeyDown={ev => { ev.stopPropagation(); if (ev.key == "Escape") { ev.preventDefault(); close(); } }} />
-          <i class="bi-grid-1x2 text-[13px] text-slate-400" title="Larger" />
+          <i class="bi-grid-1x2 text-[13px] text-neutral-400" title="Larger" />
         </div>
 
         <div class="mt-2 flex items-center gap-2">

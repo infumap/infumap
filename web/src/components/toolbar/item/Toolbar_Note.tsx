@@ -247,9 +247,9 @@ export const Toolbar_Note: Component = () => {
 
   const renderTextStyleSelector = () =>
     <div ref={textStyleDiv}
-      class="inline-block w-[70px] border border-slate-400 rounded-md ml-[3px] cursor-pointer"
+      class="inline-block w-[70px] border border-control-border rounded-control ml-[3px] cursor-pointer"
       style={`font-size: 13px;`}>
-      <div class="inline-block w-[68px] pl-[6px] hover:bg-slate-300"
+      <div class="inline-block w-[68px] pl-[6px] rounded-[3px] hover:bg-control-hover"
         title="Text style"
         onClick={textStyleButtonHandler}
         onMouseDown={handleTextStyleDown}>
@@ -260,7 +260,7 @@ export const Toolbar_Note: Component = () => {
   const renderIndentSelector = () =>
     <Show when={NoteFns.textStyle(noteItem()) == NoteTextStyle.Bullet || NoteFns.textStyle(noteItem()) == NoteTextStyle.Numbered}>
       <div ref={indentDiv}
-        class="inline-block w-[45px] border border-slate-400 rounded-md ml-[6px] cursor-pointer hover:bg-slate-300"
+        class="inline-block w-[45px] border border-control-border rounded-control ml-[6px] cursor-pointer hover:bg-control-hover"
         style={`font-size: 13px;`}
         title="Indent level"
         onClick={indentButtonHandler}
@@ -308,7 +308,7 @@ export const Toolbar_Note: Component = () => {
       <Toolbar_ItemOrdering />
 
       {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
-      <div class="fixed border-r border-slate-300" style={`height: 25px; right: ${TOOLBAR_INFO_DIVIDER_RIGHT_PX}px; top: 7px;`}></div>
+      <div class="fixed border-r border-chrome-line" style={`height: 25px; right: ${TOOLBAR_INFO_DIVIDER_RIGHT_PX}px; top: 7px;`}></div>
 
       <Toolbar_InfoAndId />
 
@@ -343,7 +343,7 @@ export const Toolbar_Note: Component = () => {
       <Toolbar_ItemOrdering />
 
       {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
-      <div class="fixed border-r border-slate-300" style={`height: 25px; right: ${TOOLBAR_INFO_DIVIDER_RIGHT_PX}px; top: 7px;`}></div>
+      <div class="fixed border-r border-chrome-line" style={`height: 25px; right: ${TOOLBAR_INFO_DIVIDER_RIGHT_PX}px; top: 7px;`}></div>
 
       <Toolbar_InfoAndId />
 

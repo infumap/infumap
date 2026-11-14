@@ -83,10 +83,10 @@ export const Toolbar_PageGridLayoutPopup: Component = () => {
         description="The grid fills the width of the page and scrolls down. Columns and cell shape set how big the cells are." />
 
       <div class="px-3 py-3">
-        <div class="relative overflow-hidden rounded border border-slate-200 bg-slate-50"
+        <div class="relative overflow-hidden rounded-control border border-chrome-line bg-neutral-50"
           style={`width: ${SCHEMATIC_W_PX}px; height: ${SCHEMATIC_H_PX}px;`}>
           <Index each={cellIndexes()}>{i =>
-            <div class={`absolute rounded-[2px] ${itemCount == 0 ? "border border-dashed border-slate-300" : "bg-slate-300"}`}
+            <div class={`absolute rounded-[2px] ${itemCount == 0 ? "border border-dashed border-neutral-300" : "bg-neutral-300"}`}
               style={cellStyle(i())} />
           }</Index>
           <Show when={overflows()}>

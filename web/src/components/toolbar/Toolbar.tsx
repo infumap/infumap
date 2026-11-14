@@ -394,7 +394,7 @@ export const Toolbar: Component = () => {
 
       <div class="grow-0 ml-[7px] mr-[7px] relative" style="flex-order: 1; height: 25px;">
         {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
-        <div class="fixed border-r border-slate-300" style={`height: 25px; right: ${TOOLBAR_RIGHT_DIVIDER_RIGHT_PX}px; top: 7px;`}></div>
+        <div class="fixed border-r border-chrome-line" style={`height: 25px; right: ${TOOLBAR_RIGHT_DIVIDER_RIGHT_PX}px; top: 7px;`}></div>
       </div>
 
       <div class="grow-0 pr-[8px]" style="flex-order: 2;">
@@ -517,7 +517,7 @@ export const Toolbar: Component = () => {
     <div class="absolute print:hidden"
       style={`z-index: ${Z_INDEX_GLOBAL_TOOLBAR_TRIGGER}; ` +
         `right: 6px; top: -3px;`} onmousedown={showToolbar} title={showToolbarTitle()}>
-      <i class={`fa fa-chevron-down hover:bg-slate-300 p-[2px] text-xs ${!store.dockVisible.get() ? 'text-white' : 'text-slate-400'}`} />
+      <i class={`fa fa-chevron-down hover:bg-control-hover p-[2px] text-xs ${!store.dockVisible.get() ? 'text-white' : 'text-neutral-400'}`} />
     </div>;
 
   return (

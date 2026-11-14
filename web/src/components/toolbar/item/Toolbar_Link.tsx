@@ -134,7 +134,7 @@ export const Toolbar_Link: Component = () => {
           <div class="inline-block ml-[8px]">
             <span class="mr-[6px]">link to item:</span>
             <input ref={el => { linkResourceInput = el; el.placeholder = LINK_INPUT_PLACEHOLDER; el.title = LINK_INPUT_TITLE; }}
-                   class="pl-[7px] pt-[4px] pb-[4px] w-[420px] text-slate-800 font-mono text-sm placeholder:text-slate-400"
+                   class="pl-[7px] pt-[4px] pb-[4px] w-[420px] text-neutral-800 font-mono text-sm placeholder:text-neutral-400"
                    type="text"
                    spellcheck={false}
                    onInput={inputHandler}
@@ -153,7 +153,7 @@ export const Toolbar_Link: Component = () => {
         <Toolbar_ItemOrdering />
 
         {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
-        <div class="fixed border-r border-slate-300" style={`height: 25px; right: ${TOOLBAR_INFO_DIVIDER_RIGHT_PX}px; top: 7px;`}></div>
+        <div class="fixed border-r border-chrome-line" style={`height: 25px; right: ${TOOLBAR_INFO_DIVIDER_RIGHT_PX}px; top: 7px;`}></div>
 
         <Toolbar_InfoAndId />
       </div>

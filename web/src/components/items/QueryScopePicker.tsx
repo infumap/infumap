@@ -105,12 +105,12 @@ export function QueryScopePicker(props: QueryScopePickerProps) {
   const row = (id: Uid | null, name: string, description: string, problem: string | null, close: () => void, unavailable: boolean = false) => (
     <button type="button" role="radio" aria-checked={selectedId() == id} disabled={disabled() || unavailable || itemsActive()}
       data-picker-autofocus={selectedId() == id ? true : undefined}
-      class="flex w-full items-start gap-2 cursor-pointer rounded px-3 py-1.5 text-left hover:bg-slate-100 disabled:cursor-default disabled:opacity-50"
+      class="flex w-full items-start gap-2 cursor-pointer rounded px-3 py-1.5 text-left hover:bg-control-hover disabled:cursor-default disabled:opacity-50"
       onClick={() => select(id, close)}>
-      <i class={`mt-1 shrink-0 text-[12px] ${selectedId() == id ? "bi-record-circle text-slate-700" : "bi-circle text-slate-400"}`} />
+      <i class={`mt-1 shrink-0 text-[12px] ${selectedId() == id ? "bi-record-circle text-neutral-700" : "bi-circle text-neutral-400"}`} />
       <div class="min-w-0 grow">
         <div class="truncate text-[13px]">{name}</div>
-        <div class="text-[11px] text-slate-500">{description}</div>
+        <div class="text-[11px] text-neutral-500">{description}</div>
         <Show when={problem != null}><div class="text-[11px] text-amber-700">{problem}</div></Show>
       </div>
     </button>
@@ -132,20 +132,20 @@ export function QueryScopePicker(props: QueryScopePickerProps) {
       </DialogHeader>
       <div class="min-h-0 grow overflow-y-auto">
         <Show when={itemsActive()}>
-          <div class="border-b border-slate-200 py-1">
-            <div class="flex items-center px-3 py-1 text-[12px] font-medium text-slate-600">Chosen items
+          <div class="border-b border-chrome-line py-1">
+            <div class="flex items-center px-3 py-1 text-[12px] font-medium text-neutral-600">Chosen items
               <button type="button" class="ml-auto text-[12px] font-normal text-blue-700 hover:underline disabled:cursor-default disabled:opacity-50"
                 disabled={disabled()} title="Remove all chosen items, so the scope below is used again" onClick={clearItems}>Clear</button>
             </div>
-            <div class="px-3 pb-1 text-[11px] text-slate-500">Search is limited to these and everything inside them, in place of the scope below.</div>
+            <div class="px-3 pb-1 text-[11px] text-neutral-500">Search is limited to these and everything inside them, in place of the scope below.</div>
             <Show when={missingItemsText()}><div class="px-3 pb-1 text-[11px] text-amber-700">{missingItemsText()}</div></Show>
             <For each={scopeItems()}>{itemId =>
               <div class="flex items-center gap-2 px-3 py-1" title={itemId}>
-                <i class={`shrink-0 text-[12px] ${queryScopeItemResolved(itemId) ? "bi-funnel text-slate-500" : "bi-exclamation-triangle text-amber-600"}`} />
+                <i class={`shrink-0 text-[12px] ${queryScopeItemResolved(itemId) ? "bi-funnel text-neutral-500" : "bi-exclamation-triangle text-amber-600"}`} />
                 <div class="min-w-0 grow truncate text-[13px]" classList={{ "text-amber-700": !queryScopeItemResolved(itemId) }}>
                   {queryScopeItemTitle(itemId)}
                 </div>
-                <button type="button" class="h-5 w-5 shrink-0 rounded text-slate-500 hover:bg-slate-100 hover:text-black disabled:cursor-default disabled:opacity-50"
+                <button type="button" class="h-5 w-5 shrink-0 rounded text-neutral-500 hover:bg-control-hover hover:text-black disabled:cursor-default disabled:opacity-50"
                   disabled={disabled()} aria-label={`Remove ${queryScopeItemTitle(itemId)} from the scope`} title="Remove"
                   onClick={() => removeItem(itemId)}><i class="bi-x-lg text-[11px]" /></button>
               </div>
@@ -153,17 +153,17 @@ export function QueryScopePicker(props: QueryScopePickerProps) {
           </div>
         </Show>
         <div class="py-1" classList={{ "opacity-60": itemsActive() }} role="radiogroup" aria-label="Infumap search scope">
-          <Show when={itemsActive()}><div class="px-3 py-1 text-[11px] text-slate-500">Used again when the chosen items are cleared.</div></Show>
+          <Show when={itemsActive()}><div class="px-3 py-1 text-[11px] text-neutral-500">Used again when the chosen items are cleared.</div></Show>
           {row(null, "Everything", "Everything under your home page", null, close)}
           <Show when={missing()}>{row(selectedId(), "Missing scope", `Saved scope: ${selectedId()}`, "This scope no longer exists or is not accessible. Choose another.", close, true)}</Show>
           <Show when={selectedId() != null && selectedSummary() == null && !missing()}>{row(selectedId(), "Saved scope (unverified)", `Saved scope: ${selectedId()}`, "Could not check this scope. Reopen to try again.", close, true)}</Show>
-          <Show when={queryScopes() == null && queryScopesError() == null}><div class="px-3 py-2 text-[12px] text-slate-500">Loading scopes…</div></Show>
+          <Show when={queryScopes() == null && queryScopesError() == null}><div class="px-3 py-2 text-[12px] text-neutral-500">Loading scopes…</div></Show>
           <Show when={queryScopesError()}><div class="px-3 py-2 text-[12px] text-red-700">{queryScopesError()}</div></Show>
           <For each={queryScopes()?.scopes ?? []}>{scope => row(scope.id, queryScopeName(scope.id), queryScopeDescription(scope), queryScopeProblemText(scope.problems), close)}</For>
         </div>
       </div>
       <Show when={queryScopes() != null}>
-        <div class="shrink-0 border-t border-slate-200 px-3 py-2">
+        <div class="shrink-0 border-t border-chrome-line px-3 py-2">
           <button type="button" class={`block ${DIALOG_LINK_CLASS}`}
             title="Links in a scope page include items; links in its Exclude page exclude them." onClick={() => {
             const pageId = queryScopes()?.scopesPageId;

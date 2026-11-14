@@ -117,16 +117,16 @@ export function QueryModelPicker(props: QueryPickerProps) {
     <div class="flex items-center gap-1 px-2">
       <button type="button" role="radio" aria-checked={selection() != null && keyFor(selection()!) == keyFor(choice)}
         disabled={!canChange() || !choice.available}
-        class="flex min-w-0 grow items-start gap-2 cursor-pointer rounded px-2 py-1.5 text-left hover:bg-slate-100 disabled:cursor-default disabled:opacity-50"
+        class="flex min-w-0 grow items-start gap-2 cursor-pointer rounded px-2 py-1.5 text-left hover:bg-control-hover disabled:cursor-default disabled:opacity-50"
         onClick={() => select(choice, close)}>
         <div class="min-w-0 grow">
           <div class="truncate text-[13px]">{choice.backend}: {choice.name}</div>
-          <Show when={choice.info}><div class="text-[11px] text-slate-500">{modelDetails(choice.info!)}</div></Show>
+          <Show when={choice.info}><div class="text-[11px] text-neutral-500">{modelDetails(choice.info!)}</div></Show>
           <Show when={choice.reason != null}><div class="text-[11px] text-amber-700">{choice.reason}</div></Show>
         </div>
-        <Show when={selection() != null && keyFor(selection()!) == keyFor(choice)}><i class="bi-check-lg shrink-0 text-slate-700" /></Show>
+        <Show when={selection() != null && keyFor(selection()!) == keyFor(choice)}><i class="bi-check-lg shrink-0 text-neutral-700" /></Show>
       </button>
-      <button type="button" class="h-7 w-7 shrink-0 rounded text-slate-400 hover:bg-slate-100 disabled:opacity-40"
+      <button type="button" class="h-7 w-7 shrink-0 rounded text-neutral-400 hover:bg-control-hover disabled:opacity-40"
         disabled={favoriteBusy() || store.general.queryProfiles.collection() == null}
         aria-pressed={favoriteKeys().has(keyFor(choice))}
         aria-label={`${favoriteKeys().has(keyFor(choice)) ? "Remove" : "Add"} favorite: ${choice.backend}: ${choice.name}`}
@@ -162,16 +162,16 @@ export function QueryModelPicker(props: QueryPickerProps) {
         <Show when={store.general.queryProfiles.error()}><div class="px-3 py-1 text-[12px] text-red-700">{store.general.queryProfiles.error()}</div></Show>
         <Show when={store.general.chatBackendsError()}><div class="px-3 py-1 text-[12px] text-red-700">{store.general.chatBackendsError()}</div></Show>
         <Show when={favoriteError()}><div class="px-3 py-1 text-[12px] text-red-700" role="alert">{favoriteError()}</div></Show>
-        <Show when={store.general.chatBackends() == null && store.general.chatBackendsError() == null}><div class="px-3 py-2 text-[12px] text-slate-500">Loading models…</div></Show>
-        <Show when={favoriteChoices().length > 0}><div class="px-3 py-1 text-[11px] font-medium text-slate-500">Favorites</div>{rows(favoriteChoices, close)}</Show>
-        <Show when={otherChoices().length > 0}><div class="px-3 py-1 text-[11px] font-medium text-slate-500">All models</div>{rows(otherChoices, close)}</Show>
-        <Show when={choices().length == 0 && store.general.chatBackends() != null}><div class="px-3 py-2 text-[12px] text-slate-500">No matching models or providers.</div></Show>
+        <Show when={store.general.chatBackends() == null && store.general.chatBackendsError() == null}><div class="px-3 py-2 text-[12px] text-neutral-500">Loading models…</div></Show>
+        <Show when={favoriteChoices().length > 0}><div class="px-3 py-1 text-[11px] font-medium text-neutral-500">Favorites</div>{rows(favoriteChoices, close)}</Show>
+        <Show when={otherChoices().length > 0}><div class="px-3 py-1 text-[11px] font-medium text-neutral-500">All models</div>{rows(otherChoices, close)}</Show>
+        <Show when={choices().length == 0 && store.general.chatBackends() != null}><div class="px-3 py-2 text-[12px] text-neutral-500">No matching models or providers.</div></Show>
         <For each={store.general.chatBackends()?.backends.filter(backend => backend.modelsError != null) ?? []}>{backend =>
           <div class="px-3 py-1 text-[12px] text-amber-700">{backend.label}: {backend.modelsError}</div>
         }</For>
       </div>
       <Show when={efforts().length > 0 || selection()?.reasoningEffort != null}>
-        <div class="shrink-0 border-t border-slate-200 px-3 py-2 text-[12px]">
+        <div class="shrink-0 border-t border-chrome-line px-3 py-2 text-[12px]">
           <label class="flex items-center gap-2">Reasoning effort
             <select class={`ml-auto ${DIALOG_INPUT_CLASS}`} disabled={!canChange()}
               value={selection()?.reasoningEffort ?? ""}

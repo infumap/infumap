@@ -50,22 +50,22 @@ export function QueryPromptList(props: QueryPromptListProps) {
     list?.querySelector(`#${props.listId}-${active}`)?.scrollIntoView({ block: "nearest" });
   }));
   return <div ref={list} id={props.listId} role="listbox" aria-label="Prompts" class="py-1">
-    <Show when={queryPrompts() == null && queryPromptsError() == null}><div class="px-3 py-2 text-[12px] text-slate-500">Loading prompts…</div></Show>
+    <Show when={queryPrompts() == null && queryPromptsError() == null}><div class="px-3 py-2 text-[12px] text-neutral-500">Loading prompts…</div></Show>
     <Show when={queryPromptsError()}><div class="px-3 py-2 text-[12px] text-red-700">{queryPromptsError()}</div></Show>
     <Show when={queryPrompts() != null && props.prompts().length == 0}>
-      <div class="px-3 py-2 text-[12px] text-slate-500">
+      <div class="px-3 py-2 text-[12px] text-neutral-500">
         {props.filtered() ? "No prompts match." : "No prompts yet. Notes and composites on the Prompts page are listed here."}
       </div>
     </Show>
     <For each={props.prompts()}>{(prompt, index) =>
       <div id={`${props.listId}-${index()}`} role="option" aria-selected={props.active() == index()} aria-disabled={prompt.tooLong == true}
-        class="cursor-pointer px-3 py-1.5" classList={{ "bg-slate-100": props.active() == index(), "opacity-60 cursor-default": prompt.tooLong == true }}
+        class="cursor-pointer px-3 py-1.5" classList={{ "bg-control-hover": props.active() == index(), "opacity-60 cursor-default": prompt.tooLong == true }}
         title={prompt.tooLong ? TOO_LONG_TEXT : prompt.text}
         onMouseMove={() => { if (props.active() != index()) { props.setActive(index()); } }}
         onMouseDown={ev => ev.preventDefault()}
         onClick={() => props.onChoose(prompt)}>
         <div class="truncate text-[13px]">{prompt.name}</div>
-        <Show when={prompt.tooLong} fallback={<Show when={queryPromptPreview(prompt)}>{preview => <div class="truncate text-[11px] text-slate-500">{preview()}</div>}</Show>}>
+        <Show when={prompt.tooLong} fallback={<Show when={queryPromptPreview(prompt)}>{preview => <div class="truncate text-[11px] text-neutral-500">{preview()}</div>}</Show>}>
           <div class="text-[11px] text-amber-700">{TOO_LONG_TEXT}</div>
         </Show>
       </div>
@@ -115,7 +115,7 @@ export function QueryPromptPicker(props: QueryPromptPickerProps) {
           <QueryPromptList listId={listId} prompts={prompts} filtered={() => filter().trim() != ""} active={active} setActive={setActive} onChoose={choose} />
         </div>
         <Show when={queryPrompts() != null}>
-          <div class="shrink-0 border-t border-slate-200 px-3 py-2">
+          <div class="shrink-0 border-t border-chrome-line px-3 py-2">
             <button type="button" class={`block ${DIALOG_LINK_CLASS}`}
               title="Each note or composite on the Prompts page is a prompt." onClick={() => {
                 const pageId = queryPrompts()?.promptsPageId;
@@ -212,7 +212,7 @@ export function QueryPromptSuggestionList(props: QueryPromptSuggestionListProps)
           <QueryPromptList listId={listId} prompts={props.suggestions.prompts} filtered={() => false}
             active={props.suggestions.active} setActive={props.suggestions.setActive} onChoose={props.onChoose} />
         </div>
-        <div class="flex shrink-0 items-center gap-2 border-t border-slate-200 px-3 py-1.5 text-[11px] text-slate-500">
+        <div class="flex shrink-0 items-center gap-2 border-t border-chrome-line px-3 py-1.5 text-[11px] text-neutral-500">
           <span class="min-w-0 truncate">↑↓ choose · Enter insert · Esc dismiss</span>
           <button type="button" class={`ml-auto shrink-0 ${DIALOG_LINK_CLASS}`} onClick={() => {
             const pageId = queryPrompts()?.promptsPageId;

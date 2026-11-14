@@ -159,7 +159,7 @@ export const ToolbarDialogPageShapeControls: Component<{ page: () => PageItem }>
 
 /** The page shape controls as the last section of a layout dialog. */
 export const ToolbarDialogPageShapeSection: Component<{ page: () => PageItem }> = (props) => (
-  <div class="shrink-0 border-t border-slate-200 px-3 py-2">
+  <div class="shrink-0 border-t border-chrome-line px-3 py-2">
     <div class={DIALOG_NOTE_CLASS}>Shape of this page in popups and where it is embedded</div>
     <div class="mt-[6px]"><ToolbarDialogPageShapeControls page={props.page} /></div>
   </div>

@@ -115,7 +115,7 @@ export const Toolbar_NetworkStatus: Component = () => {
     // later Space would toggle the dialog. The icon is placed like a Font Awesome glyph: a 1em box on the text
     // baseline, so it lines up with them whatever the font metrics.
     <div role="button" id={NETWORK_STATUS_INDICATOR_ID}
-      class="hover:border rounded w-[21px] h-[21px] inline-block text-center cursor-pointer ml-[3px] text-[14px] hover:bg-slate-300 relative"
+      class="rounded-control w-[21px] h-[21px] inline-block text-center cursor-pointer ml-[3px] text-[14px] hover:bg-control-hover relative"
       title={summary().sentence}
       aria-label={`Network status: ${summary().sentence}`}
       onMouseEnter={() => setHoverNowMs(Date.now())}
@@ -251,16 +251,16 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
   };
 
   const SectionHeading = (props: { children: JSX.Element }): JSX.Element =>
-    <div class="text-xs text-slate-600 mb-1 flex justify-between items-center">{props.children}</div>;
+    <div class="text-xs text-neutral-600 mb-1 flex justify-between items-center">{props.children}</div>;
 
   const WriteProblemRow = (props: { problem: NetworkProblem }): JSX.Element => (
     <div class="text-sm px-2 py-1 bg-red-50 rounded mb-1">
       <div class="flex justify-between items-start gap-2">
         <ItemTitle itemId={props.problem.itemId} fallback={`${props.problem.description}${hostSuffix(props.problem.host)}`} />
         <span class="flex items-center gap-2 shrink-0">
-          <span class="text-xs text-slate-500">{ago(props.problem.lastMs)}</span>
+          <span class="text-xs text-neutral-500">{ago(props.problem.lastMs)}</span>
           <button onClick={() => store.general.dismissNetworkProblem(props.problem.key)} title="Dismiss"
-            class="text-slate-500 hover:text-slate-700 leading-none cursor-pointer">&times;</button>
+            class="text-neutral-500 hover:text-neutral-700 leading-none cursor-pointer">&times;</button>
         </span>
       </div>
       <div class="text-xs text-red-700" title={props.problem.message}>
@@ -278,11 +278,11 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
       <div class="flex justify-between items-start gap-2">
         <span class="font-medium">{requestLabel(props.problem)}</span>
         <span class="flex items-center gap-2 shrink-0">
-          <span class="text-xs text-slate-500">
+          <span class="text-xs text-neutral-500">
             {props.problem.count > 1 ? `×${props.problem.count} · ` : ""}{ago(props.problem.lastMs)}
           </span>
           <button onClick={() => store.general.dismissNetworkProblem(props.problem.key)} title="Dismiss"
-            class="text-slate-500 hover:text-slate-700 leading-none cursor-pointer">&times;</button>
+            class="text-neutral-500 hover:text-neutral-700 leading-none cursor-pointer">&times;</button>
         </span>
       </div>
       <div class="text-xs text-amber-800" title={props.problem.message}>
@@ -292,7 +292,7 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
   );
 
   const ActivityRow = (props: { request: NetworkRequestInfo, detail: string, muted?: boolean }): JSX.Element => (
-    <div class={`text-xs flex justify-between gap-3 ${props.muted ? "text-slate-400" : "text-slate-700"}`}
+    <div class={`text-xs flex justify-between gap-3 ${props.muted ? "text-neutral-400" : "text-neutral-700"}`}
       title={props.request.itemId ?? ""}>
       <span class="truncate">{requestLabel(props.request)}</span>
       <span class="shrink-0">{props.detail}</span>
@@ -310,7 +310,7 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
         <div class="shrink-0 mt-[2px] mx-[3px]"><NetworkStatusIcon level={summary().level} sizePx={14} /></div>
         <div class="flex-1 text-sm font-medium">{summary().sentence}</div>
         <button onClick={handleClose} title="Close (Esc)"
-          class="text-slate-500 hover:text-slate-700 text-lg leading-none cursor-pointer -mt-1">&times;</button>
+          class="text-neutral-500 hover:text-neutral-700 text-lg leading-none cursor-pointer -mt-1">&times;</button>
       </div>
 
       <Show when={pendingSaves().length > 0 || writeProblems().length > 0}>
@@ -318,9 +318,9 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
           <SectionHeading><span>Not saved ({pendingSaves().length + writeProblems().length})</span></SectionHeading>
           <For each={pendingSaves()}>
             {(save) => (
-              <div class={`text-sm px-2 py-1 rounded mb-1 ${save.failed ? "bg-red-50" : "bg-slate-50"}`}>
+              <div class={`text-sm px-2 py-1 rounded mb-1 ${save.failed ? "bg-red-50" : "bg-neutral-50"}`}>
                 <ItemTitle itemId={save.itemId} fallback="Text" />
-                <div class={`text-xs ${save.failed ? "text-red-700" : "text-slate-500"}`}>
+                <div class={`text-xs ${save.failed ? "text-red-700" : "text-neutral-500"}`}>
                   {save.failed ? `Text not saved yet: ${failReasonText(save.reason)}.` : "Text not saved yet: saving…"}
                 </div>
               </div>
@@ -332,7 +332,7 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
           <Show when={store.general.sessionEnded() != null} fallback={
             <Show when={store.textEdit.failedSaveCount() > 0}>
               <div class="flex items-baseline gap-2 mt-1">
-                <span class="text-xs text-slate-600">{textSaveRetryText(store, nowMs())}</span>
+                <span class="text-xs text-neutral-600">{textSaveRetryText(store, nowMs())}</span>
                 <button onClick={() => { void store.textEdit.flush(); }} class={LINK_CLASS}>Retry now</button>
               </div>
             </Show>
@@ -378,11 +378,11 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
 
       <div>
         <button onClick={toggleActivity} aria-expanded={activityExpanded()}
-          class="w-full flex justify-between items-center text-xs text-slate-600 hover:text-slate-800 cursor-pointer">
+          class="w-full flex justify-between items-center text-xs text-neutral-600 hover:text-neutral-800 cursor-pointer">
           <span>{activityExpanded() ? "▾" : "▸"} Activity</span>
-          <span class="text-slate-400">{activityCounts()}</span>
+          <span class="text-neutral-400">{activityCounts()}</span>
         </button>
-        <div class="text-xs text-slate-500 mt-0.5 pl-[11px]">Background sync: {syncStatus()}</div>
+        <div class="text-xs text-neutral-500 mt-0.5 pl-[11px]">Background sync: {syncStatus()}</div>
         <Show when={activityExpanded()}>
           <div class="mt-1 pl-[11px] max-h-[180px] overflow-y-auto flex flex-col gap-0.5">
             <For each={inProgressRequests()}>
@@ -398,7 +398,7 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
                   : request.startedMs != null && request.endedMs != null ? formatDuration(request.endedMs - request.startedMs) : ""} />}
             </For>
             <Show when={inProgressRequests().length + queuedRequests().length + recentRequests().length == 0}>
-              <div class="text-xs text-slate-400">No requests in the last few seconds.</div>
+              <div class="text-xs text-neutral-400">No requests in the last few seconds.</div>
             </Show>
           </div>
         </Show>

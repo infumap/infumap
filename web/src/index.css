@@ -12,9 +12,24 @@
   --radius-item: var(--item-radius-base);
   /* Outline color of items on the desktop (notes, tables, embedded pages, ...). */
   --color-item-border: #a6a6a6;
-  /* Border and text of the buttons in dialogs and a chat's controls. */
-  --color-control-border: #d6d6d6;
-  --color-control-text: #555555;
+
+  /*
+    Chrome: the toolbar, its menus and dialogs, pickers, and the controls in items such as a chat's. These share their
+    values with items (and style.ts, where styles are written inline), so chrome and items look like one thing.
+  */
+  /* Outline of buttons, inputs and dialog panels: the same as items. */
+  --color-control-border: #a6a6a6;
+  --color-control-text: #333333;
+  /* Lighter than the selected color, so a hovered button doesn't look selected. */
+  --color-control-hover: #e8e8e8;
+  /* A highlighted toolbar button, a chosen option, a selected menu entry: the color of a selected item (SELECTED_DARK). */
+  --color-control-selected: #d4d9e1;
+  /* Dividers within chrome, and the toolbar's own lines (LIGHT_BORDER_COLOR). */
+  --color-chrome-line: #e1e3e1;
+  /* The keyboard focus indicator (FOCUS_RING_COLOR). */
+  --color-focus: rgb(0 82 255 / 0.9);
+  /* Fixed, unlike --radius-item, which scales down inside translucent pages. Matches an item at full size. */
+  --radius-control: 4px;
 }
 
 /*

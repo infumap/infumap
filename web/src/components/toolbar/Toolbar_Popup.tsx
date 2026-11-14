@@ -542,11 +542,11 @@ export const Toolbar_Popup: Component = () => {
   const selectedEmoji = () => selectedEmojiValue();
   const itemIconChoiceClass = (selected: boolean): string =>
     `inline-flex items-center justify-center w-[32px] h-[32px] border rounded text-[18px] leading-none cursor-pointer focus:outline-none ` +
-    `disabled:cursor-not-allowed disabled:opacity-40 disabled:bg-slate-50 disabled:text-slate-400 disabled:hover:bg-slate-50 disabled:hover:border-slate-200 ` +
-    (selected ? `bg-slate-200 border-slate-400` : `bg-white border-slate-300 hover:bg-slate-300 hover:border-slate-400`);
+    `disabled:cursor-not-allowed disabled:opacity-40 disabled:bg-neutral-50 disabled:text-neutral-400 disabled:hover:bg-neutral-50 ` +
+    (selected ? `bg-control-selected border-control-border` : `bg-white border-control-border hover:bg-control-hover`);
   const emojiChoiceClass = (selected: boolean): string =>
     `inline-flex items-center justify-center w-[32px] h-[32px] rounded text-[18px] leading-none cursor-pointer focus:outline-none ` +
-    (selected ? `bg-slate-200 ring-1 ring-slate-400` : `bg-transparent hover:bg-slate-300`);
+    (selected ? `bg-control-selected` : `bg-transparent hover:bg-control-hover`);
   const emojiFontStyle = () =>
     `font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;`;
   const defaultItemIconText = (): string =>
@@ -897,7 +897,7 @@ export const Toolbar_Popup: Component = () => {
           <span class="text-blue-700 cursor-pointer hover:underline" onClick={openItemTextClickHandler}>extracted text</span>
         </Show>
         <Show when={showExtractedTextDebugLink() && showFragmentsDebugLink()}>
-          <span class="mx-2 text-slate-400">|</span>
+          <span class="mx-2 text-neutral-400">|</span>
         </Show>
         <Show when={showFragmentsDebugLink()}>
           <span class="text-blue-700 cursor-pointer hover:underline" onClick={openItemFragmentsClickHandler}>fragments</span>
@@ -1045,8 +1045,8 @@ export const Toolbar_Popup: Component = () => {
   const handleColumnSortClick = (col: number) =>
     handleSortOrderChange(formatSortOrder({ key: "value", col, descending: sortDirectionOfColumn(col) == "asc" }));
   const columnSortDirectionClass = (selected: boolean): string =>
-    `shrink-0 w-[22px] h-[22px] ml-[2px] rounded text-[12px] cursor-pointer hover:bg-slate-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 ` +
-    (selected ? "bg-slate-300 text-slate-900" : "text-slate-500");
+    `shrink-0 w-[22px] h-[22px] ml-[2px] rounded text-[12px] cursor-pointer hover:bg-control-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus ` +
+    (selected ? "bg-control-selected text-neutral-900" : "text-neutral-500");
   const sortOrderChoiceClass = (order: string): string =>
     toolbarMenuItemClass(sortOrder() == order);
   const handleSortOrderKeyDown = (event: KeyboardEvent) => {
@@ -1278,10 +1278,10 @@ export const Toolbar_Popup: Component = () => {
             <div class="flex flex-col items-center font-mono"
               style={`padding: ${ID_POPUP_PADDING_PX}px ${ID_POPUP_PADDING_PX}px ${ID_POPUP_PADDING_BOTTOM_PX}px; font-size: ${ID_FONT_SIZE_PX}px; line-height: ${ID_LINE_HEIGHT_PX}px;`}>
               <QrCode text={itemUrl()} sizePx={QR_CODE_SIZE_PX} />
-              <div class="select-all text-slate-600" style={`margin-top: ${ID_QR_GAP_PX}px;`}>{qrInfoItem().id}</div>
+              <div class="select-all text-neutral-600" style={`margin-top: ${ID_QR_GAP_PX}px;`}>{qrInfoItem().id}</div>
               <div class="whitespace-nowrap" style={`margin-top: ${ID_LINE_GAP_PX}px;`}>
-                <span class="text-slate-500"><i class="fa fa-check text-green-600 mr-[5px]" />{copied() == "id" ? `${qrInfoItem().itemType} id copied` : "url copied"}</span>
-                <span class="mx-[6px] text-slate-300">·</span>
+                <span class="text-neutral-500"><i class="fa fa-check text-green-600 mr-[5px]" />{copied() == "id" ? `${qrInfoItem().itemType} id copied` : "url copied"}</span>
+                <span class="mx-[6px] text-neutral-300">·</span>
                 <Show when={copied() == "id"} fallback={
                   <span class="text-blue-700 cursor-pointer hover:underline" onclick={copyItemIdClickHandler}>copy id</span>}>
                   <span class="text-blue-700 cursor-pointer hover:underline" title={itemUrl()} onclick={copyItemUrlClickHandler}>copy url</span>
@@ -1297,10 +1297,10 @@ export const Toolbar_Popup: Component = () => {
             onMouseMove={handleMouseMove}>
             <div class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-[10px] px-[14px] font-mono text-[11px]"
               style={`grid-auto-rows: ${INFO_ROW_HEIGHT_PX}px; padding-top: ${INFO_ROWS_PADDING_Y_PX}px; padding-bottom: ${INFO_ROWS_PADDING_Y_PX}px;`}>
-              <For each={infoPopupRows(store)} fallback={<div class="col-span-2 flex items-center text-slate-400">no info for this item</div>}>{row =>
+              <For each={infoPopupRows(store)} fallback={<div class="col-span-2 flex items-center text-neutral-400">no info for this item</div>}>{row =>
                 <>
-                  <div class="flex items-center text-slate-400 whitespace-nowrap">{infoRowLabel(row)}</div>
-                  <div class={`flex items-center min-w-0 whitespace-nowrap ${infoRowIsZero(row) ? "text-slate-300" : "text-slate-700"}`}>{renderInfoRowValue(row)}</div>
+                  <div class="flex items-center text-neutral-400 whitespace-nowrap">{infoRowLabel(row)}</div>
+                  <div class={`flex items-center min-w-0 whitespace-nowrap ${infoRowIsZero(row) ? "text-neutral-300" : "text-neutral-700"}`}>{renderInfoRowValue(row)}</div>
                 </>
               }</For>
             </div>
@@ -1311,18 +1311,18 @@ export const Toolbar_Popup: Component = () => {
             style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
-            <div class="flex items-center px-[8px] py-[6px] border-b border-slate-200">
+            <div class="flex items-center px-[8px] py-[6px] border-b border-chrome-line">
               <span class="text-blue-700 cursor-pointer hover:underline" onClick={() => setInfoPopupType(ToolbarPopupType.Info)}>
                 <i class="fa fa-chevron-left mr-1" />back
               </span>
-              <span class="ml-auto font-mono text-slate-400">Linked from: {backlinks()?.length ?? 0}</span>
+              <span class="ml-auto font-mono text-neutral-400">Linked from: {backlinks()?.length ?? 0}</span>
             </div>
             <div class="flex-1 overflow-y-auto py-[2px]">
               <For each={backlinks() ?? []}>{backlink =>
-                <div class="px-[8px] py-[4px] truncate cursor-pointer hover:bg-slate-300"
+                <div class="px-[8px] py-[4px] truncate cursor-pointer hover:bg-control-hover"
                   title={backlinkPathLabel(backlink)}
                   onClick={() => { void backlinkClickHandler(backlink); }}>
-                  <i class={`fa ${backlink.kind == "note" ? "fa-sticky-note" : "fa-link"} text-slate-400 w-[14px] mr-1`} />
+                  <i class={`fa ${backlink.kind == "note" ? "fa-sticky-note" : "fa-link"} text-neutral-400 w-[14px] mr-1`} />
                   {backlinkPathLabel(backlink)}
                 </div>
               }</For>
@@ -1355,7 +1355,7 @@ export const Toolbar_Popup: Component = () => {
             style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
-            <div class="flex items-center gap-[7px] p-[8px] border-b border-slate-200 bg-white">
+            <div class="flex items-center gap-[7px] p-[8px] border-b border-chrome-line bg-white">
               <button class={itemIconChoiceClass(itemIconIsAuto())}
                 title="Auto icon"
                 type="button"
@@ -1385,7 +1385,7 @@ export const Toolbar_Popup: Component = () => {
               </Show>
               <div class="grow"></div>
               <input ref={emojiInputElement}
-                class="border border-slate-300 rounded-md h-[32px] px-[4px] text-center bg-white focus:outline-none focus:border-blue-500 placeholder:text-[10px] placeholder:font-sans"
+                class="border border-control-border rounded-control h-[32px] px-[4px] text-center bg-white focus:outline-none focus:border-focus placeholder:text-[10px] placeholder:font-sans"
                 style={`width: 48px; font-size: ${emojiInputFontSize()}px; ${emojiInputFontStyle()}`}
                 autocomplete="off"
                 value={emojiInputValue()}
@@ -1398,10 +1398,10 @@ export const Toolbar_Popup: Component = () => {
                 onKeyUp={handleCustomEmojiKeyUp}
                 onKeyPress={handleCustomEmojiKeyPress} />
             </div>
-            <div class="relative px-[8px] py-[6px] border-b border-slate-200 bg-white">
-              <i class="fa fa-search absolute left-[17px] top-1/2 -translate-y-1/2 text-[11px] text-slate-400 pointer-events-none" />
+            <div class="relative px-[8px] py-[6px] border-b border-chrome-line bg-white">
+              <i class="fa fa-search absolute left-[17px] top-1/2 -translate-y-1/2 text-[11px] text-neutral-400 pointer-events-none" />
               <input
-                class="w-full h-[30px] pl-[27px] pr-[27px] border border-slate-300 rounded-md bg-white text-[12px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-blue-500"
+                class="w-full h-[30px] pl-[27px] pr-[27px] border border-control-border rounded-control bg-white text-[12px] text-neutral-700 placeholder:text-neutral-400 focus:outline-none focus:border-focus"
                 type="search"
                 aria-label="Search emoji"
                 placeholder="Search emoji"
@@ -1416,7 +1416,7 @@ export const Toolbar_Popup: Component = () => {
               style={`height: ${boxBoundsPx().h - 92}px;`}>
               <For each={filteredEmojiCategories()}>{category =>
                 <div class="pt-[8px]">
-                  <div class="px-[12px] pb-[3px] text-[10px] uppercase tracking-wide text-slate-500">
+                  <div class="px-[12px] pb-[3px] text-[10px] uppercase tracking-wide text-neutral-500">
                     {category.name}
                   </div>
                   <div class="grid gap-[3px] px-[8px] justify-center"
@@ -1434,7 +1434,7 @@ export const Toolbar_Popup: Component = () => {
                 </div>
               }</For>
               <Show when={filteredEmojiCategories().length == 0}>
-                <div class="flex flex-col items-center justify-center h-full px-[16px] text-center text-[12px] text-slate-400">
+                <div class="flex flex-col items-center justify-center h-full px-[16px] text-center text-[12px] text-neutral-400">
                   <i class="fa fa-search mb-[7px] text-[16px]" />
                   No emoji found
                 </div>

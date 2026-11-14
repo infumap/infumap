@@ -61,8 +61,8 @@ export const Toolbar_SortOrder: Component = () => {
   return (
     <button ref={button} id="toolbarSortOrderButton" type="button" title={`Sort: ${label()}`} aria-label={`Sort: ${label()}`}
       aria-expanded={store.overlay.toolbarPopupInfoMaybe.get()?.type == ToolbarPopupType.ChildSortOrder}
-      class={`inline-block hover:border font-bold rounded w-[21px] h-[21px] text-center cursor-pointer text-[14px] relative text-gray-800 ` +
-        (order() != null ? "bg-slate-300 hover:bg-slate-400" : "hover:bg-slate-300")}
+      class={`inline-block font-bold rounded-control w-[21px] h-[21px] text-center cursor-pointer text-[14px] relative text-neutral-800 ` +
+        (order() != null ? "bg-control-selected" : "hover:bg-control-hover")}
       onMouseDown={() => ClickState.setButtonClickBoundsPx(button!.getBoundingClientRect())}
       onKeyDown={event => {
         if (event.key == "Enter" || event.key == " ") { event.stopPropagation(); }

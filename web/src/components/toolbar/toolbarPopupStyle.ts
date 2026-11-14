@@ -26,15 +26,17 @@ export const PAGE_SHAPE_POPUP_HEIGHT_PX = 136;
 export const PAGE_TABLE_LAYOUT_POPUP_HEIGHT_PX = 180;
 export const PAGE_DOCUMENT_LAYOUT_POPUP_HEIGHT_PX = 200;
 
-// Use the conversion menu's border throughout the toolbar, with a plain white surface.
-export const TOOLBAR_POPUP_CLASS = "absolute border border-slate-400 rounded bg-white shadow-sm";
+// Menus and other small popups from the toolbar: the outline, corner radius and shadow of a dialog (DIALOG_SURFACE_CLASS),
+// which are those of items.
+export const TOOLBAR_POPUP_CLASS = "absolute border border-control-border rounded-control bg-white shadow-xl";
 export const TOOLBAR_MENU_CLASS = `${TOOLBAR_POPUP_CLASS} p-[3px]`;
 
 // A 20px line plus 3px padding on each side; the panel adds padding and a 1px border.
 export const toolbarMenuHeightPx = (rows: number): number => rows * 26 + 8;
 
 export const toolbarMenuItemClass = (selected = false): string =>
-  `block w-full text-left text-sm leading-[20px] p-[3px] cursor-pointer hover:bg-slate-300 focus-visible:bg-slate-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 ${selected ? "font-bold text-slate-900" : "text-black"}`;
+  `block w-full text-left text-sm leading-[20px] p-[3px] rounded-control cursor-pointer text-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus ` +
+  (selected ? "bg-control-selected" : "hover:bg-control-hover focus-visible:bg-control-hover");
 
 // Anchor every dropdown and message to the toolbar, regardless of the trigger's baseline.
 export const toolbarPopupTopPx = (store: StoreContextModel): number => store.topToolbarHeightPx() + 5;

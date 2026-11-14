@@ -157,10 +157,12 @@ export let FEATURE_COLOR = translucent(0, 0.636);
 
 export let FEATURE_COLOR_DARK = "#000000";
 
+// Also --color-chrome-line in index.css, for dividers in the toolbar, menus and dialogs.
 export let LIGHT_BORDER_COLOR = "#e1e3e1"; // matches chrome v120 color scheme.
 
 export let BORDER_COLOR = "#c9d5e2"; // slate-300.
 
+// Also --color-control-selected in index.css, for highlighted buttons and chosen options in chrome.
 export let SELECTED_DARK = "#d4d9e1";
 
 export let SELECTED_LIGHT = "#f3f3f3";
@@ -176,6 +178,7 @@ export const SELECTION_MARQUEE_FILL_COLOR = '#4a90e214';
 export const PAGE_TITLE_TEXT_SHADOW = '0 1px 3px rgba(0, 0, 0, 0.35), 0 0 1px rgba(0, 0, 0, 0.25)';
 
 export const FOCUS_RING_INNER_COLOR = 'rgba(255, 255, 255, 0.72)';
+// Also --color-focus in index.css, for the focus indicator of controls in chrome.
 export const FOCUS_RING_COLOR = 'rgba(0, 82, 255, 0.9)';
 export const FOCUS_RING_BOX_SHADOW =
   `inset 0 0 0 1px ${FOCUS_RING_INNER_COLOR}, inset 0 0 0 3px ${FOCUS_RING_COLOR}`;

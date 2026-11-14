@@ -45,9 +45,9 @@ export const Toolbar_Rating: Component = () => {
       class="grow-0" style="flex-order: 0">
       <div class="inline-block">
         <Show when={canEdit()}>
-          <div class="inline-block w-[115px] border border-slate-400 rounded-md ml-[10px] mr-[4px] cursor-pointer"
+          <div class="inline-block w-[115px] border border-control-border rounded-control ml-[10px] mr-[4px] cursor-pointer"
             style={`font-size: 13px;`}>
-            <div class="inline-block w-[113px] pl-[6px] hover:bg-slate-300"
+            <div class="inline-block w-[113px] pl-[6px] rounded-[3px] hover:bg-control-hover"
               title="Rating type"
               onClick={(e) => {
                 if (store.overlay.toolbarPopupInfoMaybe.get() != null && store.overlay.toolbarPopupInfoMaybe.get()!.type == ToolbarPopupType.RatingType) {
@@ -66,7 +66,7 @@ export const Toolbar_Rating: Component = () => {
         <Toolbar_ItemOrdering />
 
         {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
-        <div class="fixed border-r border-slate-300" style={`height: 25px; right: ${TOOLBAR_INFO_DIVIDER_RIGHT_PX}px; top: 7px;`}></div>
+        <div class="fixed border-r border-chrome-line" style={`height: 25px; right: ${TOOLBAR_INFO_DIVIDER_RIGHT_PX}px; top: 7px;`}></div>
 
         <Toolbar_InfoAndId />
 

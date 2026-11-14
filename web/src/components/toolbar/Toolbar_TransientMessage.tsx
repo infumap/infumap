@@ -33,7 +33,7 @@ export const Toolbar_TransientMessage: Component = () => {
   return (
     <div class={`${TOOLBAR_POPUP_CLASS} px-[12px] py-[6px] text-sm`}
          classList={{
-           "text-slate-800": !isError(),
+           "text-neutral-800": !isError(),
            "text-white font-semibold": isError()
          }}
          style={`right: ${5}px; top: ${toolbarPopupTopPx(store)}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; ${isError() ? 'background-color: #dc2626;' : ''}`}>

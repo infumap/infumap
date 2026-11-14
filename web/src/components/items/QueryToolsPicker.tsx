@@ -98,29 +98,29 @@ export function QueryToolsPicker(props: ToolsPickerProps) {
         <For each={issues()}>{issue => <div role="status" class="mt-1 text-[11px] text-amber-700">{issue.message}</div>}</For>
       </DialogHeader>
       <div class="min-h-0 grow overflow-y-auto py-1">
-        <fieldset class="border-b border-slate-200 px-3 py-2" disabled={locked()}>
-          <legend class="px-0 pt-2 text-[12px] font-medium text-slate-600">Tool approvals</legend>
+        <fieldset class="border-b border-chrome-line px-3 py-2" disabled={locked()}>
+          <legend class="px-0 pt-2 text-[12px] font-medium text-neutral-600">Tool approvals</legend>
           <For each={[
             { value: "automatic" as ToolApproval, label: "Automatic", description: "Run tools automatically. Ask before external requests when Infumap tools are enabled or the chat contains attachments." },
             { value: "always_ask" as ToolApproval, label: "Always ask", description: "Ask before every tool call, including Infumap retrieval." },
           ]}>{option => <label class="flex cursor-pointer items-start gap-2 py-1 text-[13px]">
-            <input type="radio" name={`tool-approval-${props.queryItem().id}`} class="mt-1 accent-slate-700"
+            <input type="radio" name={`tool-approval-${props.queryItem().id}`} class="mt-1 accent-neutral-700"
               checked={approval() == option.value} disabled={locked()} onChange={() => {
                 if (locked()) { return; }
                 props.beforeChange?.();
                 updateQueryConfiguration(store, props.queryItem(), { toolApproval: option.value });
               }} />
-            <div><div>{option.label}</div><div class="text-[11px] text-slate-500">{option.description}</div></div>
+            <div><div>{option.label}</div><div class="text-[11px] text-neutral-500">{option.description}</div></div>
           </label>}</For>
         </fieldset>
         <Show when={store.general.queryProfiles.error()}><div class="px-3 py-1 text-[12px] text-red-700">{store.general.queryProfiles.error()}</div></Show>
         <Show when={store.general.chatBackendsError()}><div class="px-3 py-1 text-[12px] text-red-700">{store.general.chatBackendsError()}</div></Show>
         <Show when={store.general.chatBackends() == null && store.general.chatBackendsError() == null}>
-          <div class="px-3 py-1 text-[12px] text-slate-500">Loading tool sources…</div>
+          <div class="px-3 py-1 text-[12px] text-neutral-500">Loading tool sources…</div>
         </Show>
-        <For each={sources()}>{source => <div class="border-b border-slate-100 px-3 py-2 last:border-b-0">
+        <For each={sources()}>{source => <div class="border-b border-chrome-line px-3 py-2 last:border-b-0">
           <label class="flex items-start gap-2 text-[13px]">
-            <input type="checkbox" data-picker-autofocus={source.id == "infumap_data" ? true : undefined} class="mt-1 accent-slate-700" checked={enabled().has(source.id)}
+            <input type="checkbox" data-picker-autofocus={source.id == "infumap_data" ? true : undefined} class="mt-1 accent-neutral-700" checked={enabled().has(source.id)}
               disabled={locked() || (!source.available && !enabled().has(source.id))}
               aria-label={`Enable ${source.label}`}
               onChange={ev => {
@@ -131,17 +131,17 @@ export function QueryToolsPicker(props: ToolsPickerProps) {
               }} />
             <div class="min-w-0 grow">
               <div class="flex items-center gap-1.5"><i class={source.id == "infumap_data" ? "bi-database shrink-0 text-[12px]" : "bi-tools shrink-0 text-[12px]"} /><span class="min-w-0 break-words">{source.label}</span></div>
-              <Show when={source.description != ""}><div class="text-[11px] text-slate-500">{source.description}</div></Show>
-              <Show when={source.requireApproval}><div class="text-[11px] text-slate-500">Always requires approval.</div></Show>
-              <Show when={source.externalRequests && !source.requireApproval}><div class="text-[11px] text-slate-500">May send arguments to external services.</div></Show>
+              <Show when={source.description != ""}><div class="text-[11px] text-neutral-500">{source.description}</div></Show>
+              <Show when={source.requireApproval}><div class="text-[11px] text-neutral-500">Always requires approval.</div></Show>
+              <Show when={source.externalRequests && !source.requireApproval}><div class="text-[11px] text-neutral-500">May send arguments to external services.</div></Show>
               <Show when={!source.available}><div class="text-[11px] text-amber-700">{store.general.chatBackendsRefreshing() ? "Checking availability…" : source.reason ?? "Unavailable"}</div></Show>
             </div>
           </label>
           <Show when={source.tools.length > 0}>
-            <details class="ml-5 mt-1 text-[11px] text-slate-500">
+            <details class="ml-5 mt-1 text-[11px] text-neutral-500">
               <summary class="cursor-pointer">Functions ({source.tools.length})</summary>
-              <For each={source.tools}>{tool => <div class="mt-2 rounded border border-slate-200 p-2">
-                <div class="font-medium text-slate-700">{functionTitle(tool)}</div>
+              <For each={source.tools}>{tool => <div class="mt-2 rounded border border-neutral-200 p-2">
+                <div class="font-medium text-neutral-700">{functionTitle(tool)}</div>
                 <div class="mt-0.5 whitespace-pre-wrap break-words">{functionDescription(tool)}</div>
                 <details class="mt-1">
                   <summary class="cursor-pointer">Raw schema: {functionName(tool)}</summary>

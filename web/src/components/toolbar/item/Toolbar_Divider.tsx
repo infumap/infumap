@@ -91,7 +91,7 @@ export const Toolbar_Divider: Component = () => {
         <Toolbar_ItemOrdering />
 
         <Show when={hasOptions()}>
-          <div class="fixed border-r border-slate-300" style={`height: 25px; right: ${TOOLBAR_INFO_DIVIDER_RIGHT_PX}px; top: 7px;`}></div>
+          <div class="fixed border-r border-chrome-line" style={`height: 25px; right: ${TOOLBAR_INFO_DIVIDER_RIGHT_PX}px; top: 7px;`}></div>
         </Show>
 
         <Toolbar_InfoAndId infoClass={hasOptions() ? undefined : "inline-block pl-[2px]"} />

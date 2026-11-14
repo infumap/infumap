@@ -95,16 +95,16 @@ export const Toolbar_PageCatalogLayoutPopup: Component = () => {
         description="One item per row: a preview, with its details beside it. The preview shape sets how tall the rows are." />
 
       <div class="px-3 py-3">
-        <div class="relative overflow-hidden rounded border border-slate-200 bg-slate-50"
+        <div class="relative overflow-hidden rounded-control border border-chrome-line bg-neutral-50"
           style={`width: ${SCHEMATIC_W_PX}px; height: ${SCHEMATIC_H_PX}px;`}>
-          <div class="absolute overflow-hidden border border-slate-400 bg-white" style={frameStyle} title="The window, at full screen">
+          <div class="absolute overflow-hidden border border-neutral-400 bg-white" style={frameStyle} title="The window, at full screen">
             <Index each={rowIndexes()}>{i =>
               <>
-                <div class={`absolute rounded-[1px] ${itemCount == 0 ? "border border-dashed border-slate-300" : "bg-slate-300"}`}
+                <div class={`absolute rounded-[1px] ${itemCount == 0 ? "border border-dashed border-neutral-300" : "bg-neutral-300"}`}
                   style={previewStyle(i())} />
                 <Show when={layout().showDetailColumn}>
                   <Index each={[0, 1, 2]}>{line =>
-                    <div class={`absolute rounded-[1px] ${line() == 0 ? "bg-slate-400" : "bg-slate-200"}`} style={detailStyle(i(), line())} />
+                    <div class={`absolute rounded-[1px] ${line() == 0 ? "bg-neutral-400" : "bg-neutral-200"}`} style={detailStyle(i(), line())} />
                   }</Index>
                 </Show>
               </>

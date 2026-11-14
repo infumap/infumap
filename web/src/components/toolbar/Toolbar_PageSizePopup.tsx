@@ -217,11 +217,11 @@ export const Toolbar_PageSizePopup: Component = () => {
         description="In blocks: one block is the height of a line of text. Drag the outline to resize." />
 
       <div class="px-3 py-3">
-        <div class="relative overflow-hidden rounded border border-slate-200 bg-slate-50"
+        <div class="relative overflow-hidden rounded-control border border-chrome-line bg-neutral-50"
           style={`width: ${SCHEMATIC_W_PX}px; height: ${SCHEMATIC_H_PX}px;`}>
-          <div class={`absolute border bg-white ${itemsOutside() ? "border-amber-500" : "border-slate-400"}`} style={boxStyle(pageRectPx())} />
+          <div class={`absolute border bg-white ${itemsOutside() ? "border-amber-500" : "border-neutral-400"}`} style={boxStyle(pageRectPx())} />
           <For each={childRects}>{r =>
-            <div class={`absolute rounded-[1px] ${isOutside(r) ? "bg-amber-400" : "bg-slate-300"}`} style={boxStyle(childRectPx(r))} />
+            <div class={`absolute rounded-[1px] ${isOutside(r) ? "bg-amber-400" : "bg-neutral-300"}`} style={boxStyle(childRectPx(r))} />
           }</For>
           <div class="absolute cursor-ew-resize hover:bg-blue-500/20" style={`${boxStyle({ x: pageRectPx().x + pageRectPx().w - 4, y: pageRectPx().y, w: 8, h: pageRectPx().h })} touch-action: none;`}
             title="Drag to change the width" {...handleProps("right")} />
@@ -236,7 +236,7 @@ export const Toolbar_PageSizePopup: Component = () => {
             <input class={TOOLBAR_DIALOG_INPUT_CLASS} type="number" min={MIN_SIZE_BL} max={MAX_SIZE_BL} step="1" value={sizeBl().w}
               {...sizeInput("w")} />
           </label>
-          <span class="text-slate-400">×</span>
+          <span class="text-neutral-400">×</span>
           <label class="flex items-center gap-[6px]">Height
             <input class={TOOLBAR_DIALOG_INPUT_CLASS} type="number" min={MIN_SIZE_BL} max={MAX_SIZE_BL} step="1" value={sizeBl().h}
               {...sizeInput("h")} />
@@ -251,7 +251,7 @@ export const Toolbar_PageSizePopup: Component = () => {
         </Show>
       </div>
 
-      <div class="flex shrink-0 items-center gap-2 border-t border-slate-200 px-3 py-2">
+      <div class="flex shrink-0 items-center gap-2 border-t border-chrome-line px-3 py-2">
         <button type="button" class={dialogButtonClass()} disabled={childRects.length == 0}
           title="Size the page to its items, plus a block of margin" onClick={handleFitToItems}>Fit to items</button>
         <button type="button" class={dialogButtonClass()}

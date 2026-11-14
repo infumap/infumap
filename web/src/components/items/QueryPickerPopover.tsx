@@ -115,7 +115,7 @@ export function QueryPickerPopover(props: PopoverProps) {
   return <>
     <button
       ref={el => { button = el; props.buttonRef?.(el); }} type="button" disabled={props.disabled}
-      class={props.buttonAppearance?.class ?? `flex h-[22px] min-w-0 items-center gap-1 overflow-hidden rounded-md border border-control-border bg-white px-2 text-control-text hover:bg-slate-50 disabled:cursor-default disabled:opacity-50 ${props.buttonClass ?? ""}`}
+      class={props.buttonAppearance?.class ?? `flex h-[22px] min-w-0 items-center gap-1 overflow-hidden rounded-md border border-control-border bg-white px-2 text-control-text hover:bg-control-hover disabled:cursor-default disabled:opacity-50 ${props.buttonClass ?? ""}`}
       style={props.buttonAppearance?.style ?? "font-size: 12px; line-height: 18px;"} title={props.title}
       aria-label={props.ariaLabel} aria-haspopup="dialog" aria-expanded={open()}
       onMouseDown={stopQueryPickerEvent} onMouseUp={stopQueryPickerEvent}

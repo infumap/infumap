@@ -28,8 +28,8 @@ interface QueryProfileBarProps {
 }
 
 const CHIP_GAP_PX = 4;
-const chipClass = "flex h-[24px] max-w-[180px] shrink-0 cursor-pointer items-center gap-1 rounded-md border px-2 focus-visible:outline-2 focus-visible:outline-blue-500 disabled:cursor-default disabled:opacity-50";
-const actionClass = "flex w-full min-w-0 cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left text-[12px] text-slate-700 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-blue-500 disabled:cursor-default disabled:opacity-40";
+const chipClass = "flex h-[24px] max-w-[180px] shrink-0 cursor-pointer items-center gap-1 rounded-md border px-2 focus-visible:outline-2 focus-visible:outline-focus disabled:cursor-default disabled:opacity-50";
+const actionClass = "flex w-full min-w-0 cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left text-[12px] text-neutral-700 hover:bg-control-hover focus-visible:outline-2 focus-visible:outline-focus disabled:cursor-default disabled:opacity-40";
 
 /**
  * One-click shortcuts with a modified indicator, and a menu of every profile and save actions.
@@ -194,8 +194,8 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
     <button type="button" aria-pressed={isActive(profile)} disabled={reason() != null} title={profileTitle(profile)}
       class={chipClass}
       classList={{
-        "border-slate-500 bg-slate-100 text-slate-900": isActive(profile),
-        "border-control-border bg-white hover:bg-slate-50": !isActive(profile),
+        "border-control-border bg-control-selected text-neutral-900": isActive(profile),
+        "border-control-border bg-white hover:bg-control-hover": !isActive(profile),
       }}
       onClick={() => apply(profile)} onKeyDown={keyDown}>
       <span class="min-w-0 truncate">{profile.name}</span>
@@ -207,13 +207,13 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
 
   const menuRow = (profile: QueryProfile, close: () => void) => <div class="flex items-center gap-1 px-2">
     <button type="button" role="radio" aria-checked={isActive(profile)} disabled={reason() != null}
-      class="flex min-w-0 grow cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-left hover:bg-slate-100 disabled:cursor-default disabled:opacity-50"
+      class="flex min-w-0 grow cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-left hover:bg-control-hover disabled:cursor-default disabled:opacity-50"
       data-picker-autofocus={isActive(profile) ? true : undefined}
       onClick={() => { apply(profile); close(); }}>
       <i class={`mt-[3px] w-3 shrink-0 text-[12px] ${isActive(profile) ? "bi-check-lg" : ""}`} />
       <div class="min-w-0 grow">
-        <div class="truncate text-[13px]">{profile.name}<Show when={isActive(profile) && modified()}><span class="text-slate-500"> · modified</span></Show></div>
-        <div class="truncate text-[11px] text-slate-500">{queryConfigurationSummary(store, profile.configuration)}</div>
+        <div class="truncate text-[13px]">{profile.name}<Show when={isActive(profile) && modified()}><span class="text-neutral-500"> · modified</span></Show></div>
+        <div class="truncate text-[11px] text-neutral-500">{queryConfigurationSummary(store, profile.configuration)}</div>
         <Show when={unavailable(profile).length > 0}>
           <div class="truncate text-[11px] text-amber-700" title={unavailable(profile).map(issue => issue.message).join("\n")}>
             <i class="bi-exclamation-triangle mr-1" />Unavailable: {unavailable(profile).map(issue => issue.subject).join(", ")}
@@ -221,12 +221,12 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
         </Show>
       </div>
     </button>
-    <button type="button" class="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-40"
+    <button type="button" class="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded text-neutral-400 hover:bg-control-hover hover:text-neutral-800 disabled:opacity-40"
       aria-pressed={pinnedIds().has(profile.id)} disabled={busy()}
       aria-label={`${pinnedIds().has(profile.id) ? "Unpin" : "Pin"} ${profile.name}`}
       title={pinnedIds().has(profile.id) ? "Unpin" : "Pin as a shortcut"}
       onClick={() => void run(() => store.general.queryProfiles.setPinned(profile.id, !pinnedIds().has(profile.id)))}>
-      <i class={pinnedIds().has(profile.id) ? "bi-pin-angle-fill text-slate-700" : "bi-pin-angle"} />
+      <i class={pinnedIds().has(profile.id) ? "bi-pin-angle-fill text-neutral-700" : "bi-pin-angle"} />
     </button>
   </div>;
 
@@ -257,36 +257,36 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
               </div>
             }</Show>
             <Show when={collection() == null && store.general.queryProfiles.error() == null}>
-              <div class="px-3 py-2 text-[12px] text-slate-500">Loading profiles…</div>
+              <div class="px-3 py-2 text-[12px] text-neutral-500">Loading profiles…</div>
             </Show>
-            <Show when={reason()}><div class="px-3 py-1 text-[11px] text-slate-500">{reason()}</div></Show>
+            <Show when={reason()}><div class="px-3 py-1 text-[11px] text-neutral-500">{reason()}</div></Show>
             <For each={profiles()}>{profile => menuRow(profile, close)}</For>
           </div>
           <Show when={naming()} fallback={
-            <div class="shrink-0 border-t border-slate-200 px-2 py-1">
+            <div class="shrink-0 border-t border-chrome-line px-2 py-1">
               <Show when={modified() ? active() : null}>{profile =>
                 <button type="button" class={actionClass}
                   disabled={saveBlockedReason() != null || busy()}
                   title={saveBlockedReason() ?? `Save this query's scope, model and tools to “${profile().name}”`}
                   onClick={() => saveToActive(close)}>
-                  <i class="bi-save w-3 shrink-0 text-slate-500" aria-hidden="true" />
+                  <i class="bi-save w-3 shrink-0 text-neutral-500" aria-hidden="true" />
                   <span class="min-w-0 truncate">Save changes to “{profile().name}”</span>
                 </button>
               }</Show>
               <button type="button" class={actionClass}
                 disabled={collection() == null || saveBlockedReason() != null || busy()} title={saveBlockedReason() ?? "Save this query's scope, model and tools as a new profile"}
                 onClick={() => { props.beforeChange?.(); setNewName(""); setNaming(true); }}>
-                <i class="bi-plus-lg w-3 shrink-0 text-slate-500" aria-hidden="true" />
+                <i class="bi-plus-lg w-3 shrink-0 text-neutral-500" aria-hidden="true" />
                 <span>Save as new…</span>
               </button>
               <button type="button" class={actionClass}
                 disabled={collection() == null || busy()} onClick={() => { close(); setManaging(true); }}>
-                <i class="bi-sliders w-3 shrink-0 text-slate-500" aria-hidden="true" />
+                <i class="bi-sliders w-3 shrink-0 text-neutral-500" aria-hidden="true" />
                 <span>Manage…</span>
               </button>
             </div>
           }>
-            <form class="shrink-0 space-y-2 border-t border-slate-200 px-3 py-2 text-[12px]" onSubmit={ev => saveAsNew(ev, close)}>
+            <form class="shrink-0 space-y-2 border-t border-chrome-line px-3 py-2 text-[12px]" onSubmit={ev => saveAsNew(ev, close)}>
               <div class="flex items-center gap-2">
                 <input ref={el => queueMicrotask(() => el.focus())} aria-label="New profile name" placeholder="Profile name"
                   class={`min-w-0 grow ${DIALOG_INPUT_CLASS}`}

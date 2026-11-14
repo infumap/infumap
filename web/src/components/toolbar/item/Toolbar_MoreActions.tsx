@@ -59,9 +59,9 @@ export const Toolbar_MoreActions: Component = () => {
     <Show when={canConvert() || toolbarFocusIsCurrentPage(store)}>
       <button ref={button} type="button" title="More actions" aria-label="More actions"
         aria-expanded={store.overlay.toolbarPopupInfoMaybe.get()?.type == ToolbarPopupType.MoreActions}
-        class={`inline-block ml-[3px] hover:border font-bold rounded w-[21px] h-[21px] text-center cursor-pointer text-[14px] relative text-gray-800 ` +
+        class={`inline-block ml-[3px] font-bold rounded-control w-[21px] h-[21px] text-center cursor-pointer text-[14px] relative text-neutral-800 ` +
           (store.overlay.toolbarPopupInfoMaybe.get()?.type == ToolbarPopupType.MoreActions
-            ? "bg-slate-300 hover:bg-slate-400" : "hover:bg-slate-300")}
+            ? "bg-control-selected" : "hover:bg-control-hover")}
         onMouseDown={handleMouseDown}
         onClick={handleClick}>
         <i class="fa fa-ellipsis" aria-hidden="true" />

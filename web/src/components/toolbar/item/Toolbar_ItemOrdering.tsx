@@ -100,7 +100,7 @@ export const Toolbar_ItemOrdering: Component = () => {
   return (
     <Show when={itemOrderingIsShown(store)}>
       <div class="inline-block ml-[4px]">
-        <div class="inline-block align-middle border-r border-slate-300 mr-[7px]"
+        <div class="inline-block align-middle border-r border-chrome-line mr-[7px]"
           style="height: 25px;" />
         <div class="inline-block align-middle">
           <InfuIconButton icon="bi-layer-forward" highlighted={false} clickHandler={moveFocusedItemToTop} title="Bring to front" />

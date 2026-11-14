@@ -96,7 +96,7 @@ export const Toolbar_Text: Component = () => {
         <Toolbar_ItemOrdering />
 
         {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
-        <div class="fixed border-r border-slate-300" style={`height: 25px; right: ${TOOLBAR_INFO_DIVIDER_WITH_EXTRA_BUTTON_RIGHT_PX}px; top: 7px;`}></div>
+        <div class="fixed border-r border-chrome-line" style={`height: 25px; right: ${TOOLBAR_INFO_DIVIDER_WITH_EXTRA_BUTTON_RIGHT_PX}px; top: 7px;`}></div>
 
         <div ref={openFileDiv} class="inline-block pl-[18px]" onMouseDown={handleOpenFileDown}>
           <InfuIconButton icon="fa fa-download" highlighted={false} clickHandler={handleOpenFile} title="Open text file" />
