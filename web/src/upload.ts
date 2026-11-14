@@ -17,7 +17,7 @@
 */
 
 import { GRID_SIZE } from "./constants";
-import { HitInfoFns } from "./input/hit";
+import { HitInfo, HitInfoFns } from "./input/hit";
 import { clearMouseOverState } from "./input/mouse_move";
 import { CursorEventState } from "./input/state";
 import { HitboxFlags } from "./layout/hitbox";
@@ -27,7 +27,8 @@ import { stackedInsertionIndexFromDesktopPx } from "./layout/stacked-insertion";
 import { catalogInsertionIndexFromDesktopPx } from "./layout/catalog-display";
 import { VesCache } from "./layout/ves-cache";
 import { VeFns, VisualElement, VisualElementFlags, VisualElementPath } from "./layout/visual-element";
-import { asAttachmentsItem, AttachmentsItem, attachmentAnchorRightPxForVe, attachmentBlockSizePxForVe, calcSpatialAttachmentInsertIndex } from "./items/base/attachments-item";
+import { asAttachmentsItem, AttachmentsItem, attachmentAnchorRightPxForVe, attachmentBlockSizePxForVe, calcSpatialAttachmentInsertIndex, isAttachmentsItem } from "./items/base/attachments-item";
+import { isComposite } from "./items/composite-item";
 import { itemCanEdit } from "./items/base/capabilities-item";
 import { itemCanAcceptManualChildren } from "./items/base/flags-item";
 import { ItemType } from "./items/base/item";
@@ -90,9 +91,10 @@ function uploadItemTypeForFile(file: File): ItemType {
 }
 
 type UploadTarget =
-  | { kind: "page-background", parent: PageItem }
+  // Appended to the page's children. posGr is where they go if the page is spatial: the drop position when the page
+  // shows its contents there (the page itself, or a translucent child page), otherwise its top left.
+  | { kind: "page-position", parent: PageItem, posGr: Vector }
   | { kind: "page-ordered", parent: PageItem, insertIndex: number }
-  | { kind: "page-child-container", parent: PageItem }
   | { kind: "container-row", parentId: string, insertIndex: number }
   | { kind: "table-cell-attachment", parent: AttachmentsItem, insertPosition: number }
   | { kind: "attach-hitbox", parent: AttachmentsItem, insertPosition: number };
@@ -101,9 +103,15 @@ type UploadPlacement = {
   parentId: string,
   relationshipToParent: string,
   ordering?: Uint8Array,
-  pageParentMaybe: PageItem | null,
-  useDropPosition: boolean,
+  // Set if the parent is a spatial page.
+  spatialPageParentMaybe: PageItem | null,
+  posGr: Vector,
 };
+
+// Files dropped together on a spatial page are cascaded, a block apart, so none ends up hidden exactly under another.
+// Each run of CASCADE_RUN_LENGTH starts a further CASCADE_RUN_OFFSET_BL to the right, keeping all positions distinct.
+const CASCADE_RUN_LENGTH = 10;
+const CASCADE_RUN_OFFSET_BL = 2;
 
 let externalUploadMoveOverContainerPath: VisualElementPath | null = null;
 let externalUploadAttachHitboxPath: VisualElementPath | null = null;
@@ -114,8 +122,14 @@ let externalUploadInProgress = false;
 
 // Added to drags that start in this page, so they aren't taken for drags from another page.
 const PAGE_DRAG_TYPE = "application/x-infumap-page-drag";
-const WEB_PAGE_DRAG_MESSAGE_INTERVAL_MS = 3000;
-let lastWebPageDragMessageMs = -Infinity;
+const DRAG_HINT_INTERVAL_MS = 3000;
+// A file drag is refused for this long before saying why, so passing over a refusing spot on the way somewhere else
+// doesn't flash a message.
+const REFUSED_FILE_DRAG_HINT_DELAY_MS = 400;
+let lastDragHint: { text: string, ms: number } | null = null;
+// dragover fires every ~50ms while the pointer is over the page, so a longer gap means the drag left and came back.
+const REFUSED_FILE_DRAG_GAP_MS = 250;
+let refusedFileDragSince: { text: string, ms: number, lastMs: number } | null = null;
 
 
 function showTransientMessage(
@@ -160,18 +174,36 @@ export function showWebPageDragMessageMaybe(store: StoreContextModel, dataTransf
   if (!types.includes("text/uri-list") || types.includes(PAGE_DRAG_TYPE) || dataTransferContainsFiles(dataTransfer)) {
     return;
   }
-  // Called on every dragover. Shown again before it expires, so it stays up for as long as the drag is over the page.
+  showDragHintMaybe(store, "Can't drop from web pages. To add an image, right-click it, choose Copy image, and paste here");
+}
+
+/**
+ * Says why a drag is refused: a refused drag gets no drop event, so this is the only chance. Called on every dragover,
+ * so it is shown again just before it expires, which keeps it up for as long as the drag stays refused.
+ */
+function showDragHintMaybe(store: StoreContextModel, text: string): void {
   const nowMs = performance.now();
-  if (nowMs - lastWebPageDragMessageMs < WEB_PAGE_DRAG_MESSAGE_INTERVAL_MS) {
+  if (lastDragHint != null && lastDragHint.text == text && nowMs - lastDragHint.ms < DRAG_HINT_INTERVAL_MS) {
     return;
   }
-  lastWebPageDragMessageMs = nowMs;
-  showTransientMessage(
-    store,
-    "Can't drop from web pages. To add an image, right-click it, choose Copy image, and paste here",
-    TransientMessageType.Info,
-    WEB_PAGE_DRAG_MESSAGE_INTERVAL_MS + 1500,
-  );
+  lastDragHint = { text, ms: nowMs };
+  showTransientMessage(store, text, TransientMessageType.Info, DRAG_HINT_INTERVAL_MS + 1500);
+}
+
+function showRefusedFileDragHintMaybe(store: StoreContextModel, text: string | null): void {
+  if (text == null) {
+    refusedFileDragSince = null;
+    return;
+  }
+  const nowMs = performance.now();
+  if (refusedFileDragSince == null || refusedFileDragSince.text != text ||
+    nowMs - refusedFileDragSince.lastMs > REFUSED_FILE_DRAG_GAP_MS) {
+    refusedFileDragSince = { text, ms: nowMs, lastMs: nowMs };
+  }
+  refusedFileDragSince.lastMs = nowMs;
+  if (nowMs - refusedFileDragSince.ms >= REFUSED_FILE_DRAG_HINT_DELAY_MS) {
+    showDragHintMaybe(store, text);
+  }
 }
 
 function isAttachmentTarget(target: UploadTarget): boolean {
@@ -191,9 +223,8 @@ function parentChainAcceptsManualChildAdd(parentId: string): boolean {
 
 function uploadTargetAcceptsManualChildAdd(target: UploadTarget): boolean {
   switch (target.kind) {
-    case "page-background":
+    case "page-position":
     case "page-ordered":
-    case "page-child-container":
       return target.parent.clientOnly !== true &&
         itemCanEdit(target.parent) &&
         itemCanAcceptManualChildren(target.parent);
@@ -203,6 +234,41 @@ function uploadTargetAcceptsManualChildAdd(target: UploadTarget): boolean {
     case "attach-hitbox":
       return parentChainAcceptsManualChildAdd(target.parent.id);
   }
+}
+
+function uploadTargetParentId(target: UploadTarget): string {
+  return target.kind == "container-row" ? target.parentId : target.parent.id;
+}
+
+/**
+ * Why files can't be put in the target, or null if they can. fileCount is 0 if not known, which it may not be while
+ * dragging (see updateExternalUploadHover).
+ */
+function uploadTargetRefusalMessage(
+  store: StoreContextModel,
+  target: UploadTarget | null,
+  fileCount: number,
+  noTargetMessage: string,
+): string | null {
+  if (target == null) {
+    return noTargetMessage;
+  }
+  const parentId = uploadTargetParentId(target);
+  // Uploads go to this server, so can't be added to an item that is shown from another.
+  if (itemState.get(parentId)?.origin != null) {
+    return "Can't add files to an item from another server";
+  }
+  // Items are moved to the trash to delete them. A file dropped on its icon in the dock is far more likely a slip.
+  if (parentId == store.user.getUserMaybe()?.trashPageId) {
+    return "Can't upload files to the trash";
+  }
+  if (!uploadTargetAcceptsManualChildAdd(target)) {
+    return "Can't add items to this page";
+  }
+  if (isAttachmentTarget(target) && fileCount > 1) {
+    return "Only one file can be attached at a time";
+  }
+  return null;
 }
 
 function clearTableUploadHoverState(store: StoreContextModel, tablePath: VisualElementPath): void {
@@ -245,7 +311,6 @@ function syncExternalUploadAttachHover(store: StoreContextModel, nextPath: Visua
 }
 
 function attachmentInsertIndexFromDesktopPx(store: StoreContextModel, attachVe: VisualElement, desktopPx: Vector): number {
-  const attachVePath = VeFns.veToPath(attachVe);
   const attachItem = asAttachmentsItem(attachVe.displayItem);
   // Attachments are laid out along the top of the item, which (unlike the contents of a page) doesn't scroll.
   const veBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, attachVe);
@@ -256,7 +321,6 @@ function attachmentInsertIndexFromDesktopPx(store: StoreContextModel, attachVe: 
     desktopPx.x,
     attachItem.computed_attachments.length,
   );
-  store.perVe.setMoveOverAttachmentIndex(attachVePath, clampedIndex);
   return clampedIndex;
 }
 
@@ -346,6 +410,38 @@ function orderedPageInsertIndexFromDesktopPx(
   }
 }
 
+/** Rounded to the half block grid, as for an item moved there (calculateMoveToPagePositionGr). */
+function spatialDropPositionGr(store: StoreContextModel, pageVe: VisualElement, desktopPx: Vector): Vector | null {
+  const posGr = VeFns.desktopPxToPageGr(store, pageVe, desktopPx);
+  if (posGr == null) {
+    return null;
+  }
+  return {
+    x: Math.max(0, Math.round(posGr.x / GRID_SIZE * 2.0) / 2.0 * GRID_SIZE),
+    y: Math.max(0, Math.round(posGr.y / GRID_SIZE * 2.0) / 2.0 * GRID_SIZE),
+  };
+}
+
+/**
+ * Files dropped on a child page go into it, as an item moved there does (mouseUpHandler_moving_toOpaquePage). That
+ * includes a translucent page: the page as a whole is the target, as for an item move, and nothing inside it reacts.
+ * If the page shows its spatial contents, the files go where they were dropped; otherwise at its top left.
+ */
+function childPageUploadTarget(store: StoreContextModel, childPageVe: VisualElement, desktopPx: Vector): UploadTarget {
+  const childPage = asPageItem(childPageVe.displayItem);
+  const showsSpatialContents =
+    childPage.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch &&
+    !!(childPageVe.flags & VisualElementFlags.ShowChildren) &&
+    childPageVe.childAreaBoundsPx != null &&
+    childPageVe.viewportBoundsPx != null;
+  const posGr = showsSpatialContents ? spatialDropPositionGr(store, childPageVe, desktopPx) : null;
+  return { kind: "page-position", parent: childPage, posGr: posGr ?? { x: 0, y: 0 } };
+}
+
+/**
+ * Where files dropped at the position go, following an item moved there where it can: into the page, container or
+ * table row under the pointer, or attached to the item whose attachment strip it is over.
+ */
 function resolveExternalUploadTarget(
   store: StoreContextModel,
   desktopPx: Vector,
@@ -353,82 +449,109 @@ function resolveExternalUploadTarget(
 ): UploadTarget | null {
   const hitInfo = HitInfoFns.hitForDrop(store, desktopPx, [], false);
   const tableContainerVeMaybe = HitInfoFns.getTableContainerVe(hitInfo);
-  const rootPageVeMaybe = isPage(hitInfo.rootVes.get().displayItem) ? hitInfo.rootVes.get() : null;
-  const orderedPageTargetVeMaybe =
-    tableContainerVeMaybe == null &&
-      rootPageVeMaybe != null &&
-      supportsOrderedPageExternalUpload(asPageItem(rootPageVeMaybe.displayItem))
-      ? rootPageVeMaybe
-      : null;
-  const nextMoveOverContainerPath = tableContainerVeMaybe != null ? VeFns.veToPath(tableContainerVeMaybe) : null;
-  const normalizedTableMoveDesktopPx = tableContainerVeMaybe != null
-    ? TableFns.normalizeMoveOverDesktopPx(store, tableContainerVeMaybe, desktopPx)
-    : desktopPx;
+  if (syncHoverState) {
+    clearMouseOverState(store);
+  }
+
+  if (tableContainerVeMaybe != null) {
+    return resolveTableUploadTarget(store, hitInfo, tableContainerVeMaybe, desktopPx, syncHoverState);
+  }
+
+  const setHover = (containerPath: VisualElementPath | null, attachPath: VisualElementPath | null, attachIndex: number, ordered: boolean) => {
+    if (!syncHoverState) { return; }
+    syncExternalUploadMoveOverContainer(store, containerPath);
+    syncExternalUploadAttachHover(store, attachPath, attachIndex);
+    store.externalFileDragActive.set(ordered);
+  };
+
+  // As for an item moved there, the attachment strip takes precedence over the container it is in.
+  const overVeMaybe = hitInfo.overVes?.get() ?? null;
+  if (overVeMaybe != null && (hitInfo.hitboxType & HitboxFlags.Attach) && isAttachmentsItem(overVeMaybe.displayItem)) {
+    const insertPosition = attachmentInsertIndexFromDesktopPx(store, overVeMaybe, desktopPx);
+    setHover(null, VeFns.veToPath(overVeMaybe), insertPosition, false);
+    return { kind: "attach-hitbox", parent: asAttachmentsItem(overVeMaybe.displayItem), insertPosition };
+  }
+
+  const rootVe = hitInfo.rootVes.get();
+  const rootPath = VeFns.veToPath(rootVe);
+  const containerVe = HitInfoFns.getOverContainerVe(hitInfo);
+  const containerPath = VeFns.veToPath(containerVe);
+  if (isPage(containerVe.displayItem) && containerPath != rootPath) {
+    setHover(containerPath, null, -1, false);
+    return childPageUploadTarget(store, containerVe, desktopPx);
+  }
+
+  if (!isPage(rootVe.displayItem)) {
+    setHover(null, null, -1, false);
+    return null;
+  }
+  const rootPage = asPageItem(rootVe.displayItem);
+
+  // Over a composite in an ordered page, e.g. a document, files go into the page at the insertion line, as before.
+  if (supportsOrderedPageExternalUpload(rootPage)) {
+    const insertion = orderedPageInsertionFromDesktopPx(store, rootVe, desktopPx);
+    const insertIndex = insertion.index;
+    setHover(rootPath, null, -1, true);
+    if (syncHoverState) {
+      store.perVe.setMoveOverIndex(rootPath, insertIndex);
+      store.perVe.setMoveOverIndexAndPosition(rootPath, { index: insertIndex, position: insertion.afterPrevious ? 1 : 0 });
+    }
+    if (rootPage.arrangeAlgorithm == ArrangeAlgorithm.List) {
+      const insertionTarget = PageFns.listPageInsertionTarget(rootVe, insertIndex, []);
+      return { kind: "container-row", parentId: insertionTarget.parentContainer.id, insertIndex: insertionTarget.insertIndex };
+    }
+    return { kind: "page-ordered", parent: rootPage, insertIndex };
+  }
+
+  setHover(null, null, -1, false);
+  // Composites aren't targets: an item moved onto one joins it, which isn't what dropping a file should do.
+  if (isComposite(containerVe.displayItem)) {
+    return null;
+  }
+
+  if (rootPage.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch) {
+    // Over one of its items too, as for an item moved there: the files go where they were dropped.
+    const posGr = spatialDropPositionGr(store, rootVe, desktopPx) ?? hitInfo.overPositionGr ?? { x: 0, y: 0 };
+    return { kind: "page-position", parent: rootPage, posGr };
+  }
+
+  // Other arrangements (e.g. calendar) only take files on their background.
+  return hitInfo.hitboxType == HitboxFlags.None
+    ? { kind: "page-position", parent: rootPage, posGr: { x: 0, y: 0 } }
+    : null;
+}
+
+function resolveTableUploadTarget(
+  store: StoreContextModel,
+  hitInfo: HitInfo,
+  tableContainerVe: VisualElement,
+  desktopPx: Vector,
+  syncHoverState: boolean,
+): UploadTarget {
+  const normalizedTableMoveDesktopPx = TableFns.normalizeMoveOverDesktopPx(store, tableContainerVe, desktopPx);
   const isOverTableRootAttach =
     !!(hitInfo.hitboxType & HitboxFlags.Attach) &&
     hitInfo.overVes != null &&
     isTable(hitInfo.overVes.get().displayItem);
   const shouldTreatTableHeaderAsFirstRow =
     isOverTableRootAttach &&
-    tableContainerVeMaybe != null &&
     normalizedTableMoveDesktopPx.y != desktopPx.y;
   const tableChildContainerDropTargetPath =
-    tableContainerVeMaybe != null &&
-      hitInfo.overVes != null &&
+    hitInfo.overVes != null &&
       !!(hitInfo.hitboxType & HitboxFlags.OpenPopup) &&
       !!(hitInfo.overVes.get().flags & VisualElementFlags.InsideTable) &&
       isPage(hitInfo.overVes.get().displayItem)
       ? VeFns.veToPath(hitInfo.overVes.get())
       : null;
-  const orderedPageTargetPath = orderedPageTargetVeMaybe != null ? VeFns.veToPath(orderedPageTargetVeMaybe) : null;
+  const tablePath = VeFns.veToPath(tableContainerVe);
 
   if (syncHoverState) {
-    clearMouseOverState(store);
-    syncExternalUploadMoveOverContainer(store, nextMoveOverContainerPath ?? orderedPageTargetPath);
-  }
-
-  if (tableContainerVeMaybe == null) {
-    if (orderedPageTargetVeMaybe != null) {
-      const insertion = orderedPageInsertionFromDesktopPx(store, orderedPageTargetVeMaybe, desktopPx);
-      const insertIndex = insertion.index;
-      if (syncHoverState) {
-        store.perVe.setMoveOverIndex(orderedPageTargetPath!, insertIndex);
-        store.perVe.setMoveOverIndexAndPosition(orderedPageTargetPath!, { index: insertIndex, position: insertion.afterPrevious ? 1 : 0 });
-        syncExternalUploadAttachHover(store, null, -1);
-        store.externalFileDragActive.set(true);
-      }
-
-      const orderedPage = asPageItem(orderedPageTargetVeMaybe.displayItem);
-      if (orderedPage.arrangeAlgorithm == ArrangeAlgorithm.List) {
-        const insertionTarget = PageFns.listPageInsertionTarget(orderedPageTargetVeMaybe, insertIndex, []);
-        return {
-          kind: "container-row",
-          parentId: insertionTarget.parentContainer.id,
-          insertIndex: insertionTarget.insertIndex,
-        };
-      }
-      return {
-        kind: "page-ordered",
-        parent: orderedPage,
-        insertIndex,
-      };
-    }
-
-    if (syncHoverState) {
-      syncExternalUploadAttachHover(store, null, -1);
-      store.externalFileDragActive.set(false);
-    }
-
-    const hitItem = HitInfoFns.getHitVe(hitInfo).displayItem;
-    return hitInfo.hitboxType == HitboxFlags.None && isPage(hitItem)
-      ? { kind: "page-background", parent: asPageItem(hitItem) }
-      : null;
+    syncExternalUploadMoveOverContainer(store, tablePath);
   }
 
   let nextAttachHitboxPath: VisualElementPath | null = null;
   let nextAttachInsertIndex = -1;
   let target: UploadTarget;
-  const tablePath = VeFns.veToPath(tableContainerVeMaybe);
 
   if (isOverTableRootAttach && !shouldTreatTableHeaderAsFirstRow && hitInfo.overVes != null) {
     nextAttachHitboxPath = VeFns.veToPath(hitInfo.overVes.get());
@@ -442,8 +565,8 @@ function resolveExternalUploadTarget(
       clearTableUploadHoverState(store, tablePath);
     }
   } else {
-    const { insertRow, attachmentPos } = TableFns.tableModifiableColRow(store, tableContainerVeMaybe, desktopPx);
-    const tableCellAttachmentTarget = getTableCellAttachmentTarget(store, tableContainerVeMaybe, insertRow);
+    const { insertRow, attachmentPos } = TableFns.tableModifiableColRow(store, tableContainerVe, desktopPx);
+    const tableCellAttachmentTarget = getTableCellAttachmentTarget(store, tableContainerVe, insertRow);
     if (syncHoverState) {
       store.perVe.setMoveOverRowNumber(tablePath, insertRow);
       store.perVe.setMoveOverChildContainerPath(tablePath, tableChildContainerDropTargetPath);
@@ -451,10 +574,7 @@ function resolveExternalUploadTarget(
     }
 
     if (tableChildContainerDropTargetPath != null && hitInfo.overVes != null && isPage(hitInfo.overVes.get().displayItem)) {
-      target = {
-        kind: "page-child-container",
-        parent: asPageItem(hitInfo.overVes.get().displayItem),
-      };
+      target = { kind: "page-position", parent: asPageItem(hitInfo.overVes.get().displayItem), posGr: { x: 0, y: 0 } };
     } else if (tableCellAttachmentTarget != null && attachmentPos >= 0) {
       target = {
         kind: "table-cell-attachment",
@@ -462,7 +582,7 @@ function resolveExternalUploadTarget(
         insertPosition: attachmentPos,
       };
     } else {
-      const insertionTarget = TableFns.tableInsertionTarget(store, tableContainerVeMaybe, insertRow);
+      const insertionTarget = TableFns.tableInsertionTarget(store, tableContainerVe, insertRow);
       target = {
         kind: "container-row",
         parentId: insertionTarget.parentContainer.id,
@@ -513,27 +633,14 @@ function confirmLargeExternalUploadMaybe(files: ReadonlyArray<File>): boolean {
   return window.confirm(message);
 }
 
-function uploadPositionForPage(
-  store: StoreContextModel,
-  desktopPx: Vector,
-  parent: PageItem,
-  useDropPosition: boolean,
-): Vector {
-  if (!useDropPosition || parent.arrangeAlgorithm != ArrangeAlgorithm.SpatialStretch) {
-    return { x: 0.0, y: 0.0 };
-  }
-
-  const hitInfo = HitInfoFns.hitForDrop(store, desktopPx, [], false);
-  if (hitInfo.overPositionGr != null) {
-    return hitInfo.overPositionGr;
-  }
-
-  const hitVe = HitInfoFns.getHitVe(hitInfo);
-  const propX = (desktopPx.x - hitVe.boundsPx.x) / hitVe.boundsPx.w;
-  const propY = (desktopPx.y - hitVe.boundsPx.y) / hitVe.boundsPx.h;
+function cascadedUploadPositionGr(page: PageItem, baseGr: Vector, fileIndex: number): Vector {
+  const step = fileIndex % CASCADE_RUN_LENGTH;
+  const run = Math.floor(fileIndex / CASCADE_RUN_LENGTH);
+  // At least the minimum upload width (see spatialWidthGrForUpload) stays inside the page.
+  const maxXGr = Math.max(0, page.innerSpatialWidthGr - 2.5 * GRID_SIZE);
   return {
-    x: Math.floor(parent.innerSpatialWidthGr / GRID_SIZE * propX * 2.0) / 2.0 * GRID_SIZE,
-    y: Math.floor(parent.innerSpatialWidthGr / GRID_SIZE / parent.naturalAspect * propY * 2.0) / 2.0 * GRID_SIZE
+    x: Math.min(baseGr.x + (step + run * CASCADE_RUN_OFFSET_BL) * GRID_SIZE, maxXGr),
+    y: baseGr.y + step * GRID_SIZE,
   };
 }
 
@@ -614,29 +721,24 @@ function placementForUploadTarget(
   fileIndex: number,
 ): UploadPlacement {
   switch (target.kind) {
-    case "page-background":
+    case "page-position": {
+      // No ordering: the server appends to the page's children, which needn't be loaded, e.g. for an opaque page.
+      const isSpatial = target.parent.arrangeAlgorithm == ArrangeAlgorithm.SpatialStretch;
       return {
         parentId: target.parent.id,
         relationshipToParent: RelationshipToParent.Child,
-        pageParentMaybe: target.parent,
-        useDropPosition: true,
+        spatialPageParentMaybe: isSpatial ? target.parent : null,
+        posGr: isSpatial ? cascadedUploadPositionGr(target.parent, target.posGr, fileIndex) : { x: 0, y: 0 },
       };
+    }
 
     case "page-ordered":
       return {
         parentId: target.parent.id,
         relationshipToParent: RelationshipToParent.Child,
         ordering: itemState.newOrderingAtChildrenPosition(target.parent.id, target.insertIndex + fileIndex, null),
-        pageParentMaybe: null,
-        useDropPosition: false,
-      };
-
-    case "page-child-container":
-      return {
-        parentId: target.parent.id,
-        relationshipToParent: RelationshipToParent.Child,
-        pageParentMaybe: target.parent,
-        useDropPosition: false,
+        spatialPageParentMaybe: null,
+        posGr: { x: 0, y: 0 },
       };
 
     case "container-row":
@@ -644,8 +746,8 @@ function placementForUploadTarget(
         parentId: target.parentId,
         relationshipToParent: RelationshipToParent.Child,
         ordering: itemState.newOrderingAtChildrenPosition(target.parentId, target.insertIndex + fileIndex, null),
-        pageParentMaybe: null,
-        useDropPosition: false,
+        spatialPageParentMaybe: null,
+        posGr: { x: 0, y: 0 },
       };
 
     case "table-cell-attachment":
@@ -653,8 +755,8 @@ function placementForUploadTarget(
         parentId: target.parent.id,
         relationshipToParent: RelationshipToParent.Attachment,
         ordering: prepareTableCellAttachmentOrdering(target.parent, store, target.insertPosition),
-        pageParentMaybe: null,
-        useDropPosition: false,
+        spatialPageParentMaybe: null,
+        posGr: { x: 0, y: 0 },
       };
 
     case "attach-hitbox":
@@ -662,23 +764,22 @@ function placementForUploadTarget(
         parentId: target.parent.id,
         relationshipToParent: RelationshipToParent.Attachment,
         ordering: prepareAttachHitboxOrdering(target.parent, store, target.insertPosition),
-        pageParentMaybe: null,
-        useDropPosition: false,
+        spatialPageParentMaybe: null,
+        posGr: { x: 0, y: 0 },
       };
   }
 }
 
 function spatialWidthGrForUpload(
-  parent: PageItem | null,
-  useDropPosition: boolean,
-  posPx: Vector,
+  spatialParent: PageItem | null,
+  posGr: Vector,
   defaultWidthGr: number,
 ): number {
-  if (parent == null || !useDropPosition || parent.arrangeAlgorithm != ArrangeAlgorithm.SpatialStretch) {
+  if (spatialParent == null) {
     return defaultWidthGr;
   }
 
-  let maxWidthBl = Math.floor((parent.innerSpatialWidthGr - posPx.x - GRID_SIZE / 2.0) / GRID_SIZE);
+  let maxWidthBl = Math.floor((spatialParent.innerSpatialWidthGr - posGr.x - GRID_SIZE / 2.0) / GRID_SIZE);
   if (maxWidthBl < 2) {
     maxWidthBl = 2;
   }
@@ -689,7 +790,6 @@ function spatialWidthGrForUpload(
 function makeUploadPartialObject(
   file: File,
   placement: UploadPlacement,
-  posPx: Vector,
   spatialWidthGr: number,
   itemType: ItemType,
 ): object {
@@ -699,7 +799,7 @@ function makeUploadPartialObject(
     relationshipToParent: placement.relationshipToParent,
     ordering: placement.ordering != null ? Array.from(placement.ordering) : undefined,
     title: file.name,
-    spatialPositionGr: posPx,
+    spatialPositionGr: placement.posGr,
     spatialWidthGr,
     originalCreationDate: sanitizeOriginalCreationDate(Math.round(file.lastModified / 1000.0), `uploading ${itemType} ${file.name}`),
     fileSizeBytes: file.size,
@@ -709,7 +809,6 @@ function makeUploadPartialObject(
 async function uploadFilesToTarget(
   store: StoreContextModel,
   files: ReadonlyArray<File>,
-  desktopPx: Vector,
   target: UploadTarget,
 ): Promise<void> {
   if (files.length > 0) {
@@ -747,19 +846,11 @@ async function uploadFilesToTarget(
       let requestStarted = performance.now();
       try {
         const placement = placementForUploadTarget(store, target, i);
-        const posPx = placement.pageParentMaybe != null
-          ? uploadPositionForPage(store, desktopPx, placement.pageParentMaybe, placement.useDropPosition)
-          : { x: 0.0, y: 0.0 };
         const itemType = uploadItemTypeForFile(file);
         const isImageUpload = itemType == ItemType.Image;
         const defaultWidthGr = isImageUpload ? 4.0 * GRID_SIZE : 8.0 * GRID_SIZE;
-        const spatialWidthGr = spatialWidthGrForUpload(
-          placement.pageParentMaybe,
-          placement.useDropPosition,
-          posPx,
-          defaultWidthGr,
-        );
-        const partialObject = makeUploadPartialObject(file, placement, posPx, spatialWidthGr, itemType);
+        const spatialWidthGr = spatialWidthGrForUpload(placement.spatialPageParentMaybe, placement.posGr, defaultWidthGr);
+        const partialObject = makeUploadPartialObject(file, placement, spatialWidthGr, itemType);
         preparationMs = Math.round(performance.now() - uploadStarted);
         requestStarted = performance.now();
 
@@ -800,21 +891,26 @@ export function updateExternalUploadHover(
   dataTransfer: DataTransfer,
   desktopPx: Vector,
 ): boolean {
-  if (!dataTransferContainsFiles(dataTransfer) || externalUploadInProgress) {
+  if (!dataTransferContainsFiles(dataTransfer)) {
     clearExternalUploadHover(store);
+    return false;
+  }
+  if (externalUploadInProgress) {
+    clearExternalUploadHover(store);
+    showRefusedFileDragHintMaybe(store, "Wait for the current upload to finish");
     return false;
   }
 
   const target = resolveExternalUploadTarget(store, desktopPx, true);
   // The number of files is known while dragging, though not the files. Zero means it isn't (see the drop handler).
   const dragFileCount = Array.from(dataTransfer.items).filter(item => item.kind == "file").length;
-  const accepted = target != null &&
-    uploadTargetAcceptsManualChildAdd(target) &&
-    !(isAttachmentTarget(target) && dragFileCount > 1);
+  const refusalMessage = uploadTargetRefusalMessage(store, target, dragFileCount, "Files can't be dropped here");
+  const accepted = refusalMessage == null;
   externalUploadDropTarget = accepted ? target : null;
-  if (target != null && !accepted) {
+  if (!accepted) {
     clearExternalUploadHover(store);
   }
+  showRefusedFileDragHintMaybe(store, refusalMessage);
   return accepted;
 }
 
@@ -852,10 +948,7 @@ export async function handleExternalUploadDrop(
       return;
     }
 
-    await checkAndUploadFiles(store, files, containsDirectory, desktopPx, target, () =>
-      HitInfoFns.hitForDrop(store, desktopPx, [], false).hitboxType != HitboxFlags.None
-        ? "Must upload on background"
-        : "Must upload on page");
+    await checkAndUploadFiles(store, files, containsDirectory, target, "Files can't be dropped here");
   } finally {
     externalUploadInProgress = false;
     clearExternalUploadHover(store);
@@ -870,9 +963,8 @@ async function checkAndUploadFiles(
   store: StoreContextModel,
   files: ReadonlyArray<File>,
   containsDirectory: boolean,
-  desktopPx: Vector,
   target: UploadTarget | null,
-  noTargetMessage: () => string,
+  noTargetMessage: string,
 ): Promise<void> {
   const fileCount = files.length;
   if (fileCount > MAX_EXTERNAL_UPLOAD_FILES) {
@@ -891,18 +983,9 @@ async function checkAndUploadFiles(
     return;
   }
 
-  if (target == null) {
-    showTransientMessage(store, noTargetMessage());
-    return;
-  }
-
-  if (!uploadTargetAcceptsManualChildAdd(target)) {
-    showTransientMessage(store, "Can't add items to this page");
-    return;
-  }
-
-  if (isAttachmentTarget(target) && fileCount != 1) {
-    showTransientMessage(store, "Attachment drops only support a single file");
+  const refusalMessage = uploadTargetRefusalMessage(store, target, fileCount, noTargetMessage);
+  if (refusalMessage != null || target == null) {
+    showTransientMessage(store, refusalMessage ?? noTargetMessage);
     return;
   }
 
@@ -910,7 +993,7 @@ async function checkAndUploadFiles(
     return;
   }
 
-  await uploadFilesToTarget(store, files, desktopPx, target);
+  await uploadFilesToTarget(store, files, target);
 }
 
 /**
@@ -937,8 +1020,7 @@ export function pasteFilesMaybe(store: StoreContextModel, ev: ClipboardEvent): b
   const target = resolveExternalUploadTarget(store, desktopPx, false);
   void (async () => {
     try {
-      await checkAndUploadFiles(store, files, containsDirectory, desktopPx, target, () =>
-        "Point at an empty part of a page to paste there");
+      await checkAndUploadFiles(store, files, containsDirectory, target, "Files can't be pasted here");
     } finally {
       externalUploadInProgress = false;
     }
