@@ -128,8 +128,15 @@
   __weak InfumapMenuBar *weakSelf = self;
   self.interruptSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGINT, 0, dispatch_get_main_queue());
   self.terminateSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGTERM, 0, dispatch_get_main_queue());
-  dispatch_source_set_event_handler(self.interruptSource, ^{ [weakSelf quit:nil]; });
-  dispatch_source_set_event_handler(self.terminateSource, ^{ [weakSelf quit:nil]; });
+  // AppKit's deferred termination runs a nested event loop. Calling Quit inside
+  // a main-queue callback prevents that queue from delivering the server-exit
+  // callback, so schedule Quit on the run loop and let this callback return.
+  dispatch_source_set_event_handler(self.interruptSource, ^{
+    [weakSelf performSelectorOnMainThread:@selector(quit:) withObject:nil waitUntilDone:NO];
+  });
+  dispatch_source_set_event_handler(self.terminateSource, ^{
+    [weakSelf performSelectorOnMainThread:@selector(quit:) withObject:nil waitUntilDone:NO];
+  });
   dispatch_resume(self.interruptSource);
   dispatch_resume(self.terminateSource);
   [self startServer:nil];
@@ -291,6 +298,7 @@
 
 - (void)quit:(id)sender {
   (void)sender;
+  if (self.terminating) return;
   [NSApp terminate:nil];
 }
 
