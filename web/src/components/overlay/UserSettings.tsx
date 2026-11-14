@@ -220,8 +220,7 @@ export const EditUserSettings: Component = () => {
     errorSignal.set(r.err);
   }
 
-  const handleAddTotp = async (ev: MouseEvent) => {
-    ev.preventDefault();
+  const addTotp = async () => {
     const r: UpdateTotpResponse = await post(null, '/account/update-totp', {
       userId: store.user.getUser().userId,
       totpSecret: totpSignal.get()?.secret,
@@ -233,6 +232,7 @@ export const EditUserSettings: Component = () => {
     addTotpVisibleSignal.set(false);
     errorSignal.set(r.err);
   }
+  const handleAddTotp = (ev: MouseEvent) => { ev.preventDefault(); addTotp(); };
 
   const handleCancelAddTotp = (ev: MouseEvent) => {
     ev.preventDefault();
@@ -334,7 +334,7 @@ export const EditUserSettings: Component = () => {
                 </Show>
               </div>
               <Show when={passwordChangeVisibleSignal.get()}>
-                <div class={`ml-[128px] mb-2 flex flex-col gap-2 ${cardClass}`}>
+                <div class={`mb-2 flex flex-col gap-2 ${cardClass}`}>
                   <label class="flex items-center gap-2">
                     <span class={`w-[64px] shrink-0 ${DIALOG_LABEL_CLASS}`}>Current</span>
                     <InfuTextInput compact fullWidth type="password" autocomplete="current-password"
@@ -396,23 +396,32 @@ export const EditUserSettings: Component = () => {
                 </Show>
               </div>
               <Show when={addTotpVisibleSignal.get()}>
-                <div class={`ml-[128px] mb-2 flex flex-col gap-2 ${cardClass}`}>
-                  <div class={DIALOG_NOTE_CLASS}>Scan the code with an authenticator app, then enter the 6-digit code it shows.</div>
-                  <Show when={totpSignal.get() != null}>
-                    <img class="self-center" style="width: 180px;" src={`data:image/png;base64, ${totpSignal.get()!.qr}`} />
-                    <div class="flex items-center justify-center font-mono text-[12px] text-neutral-600">
-                      {totpSignal.get()!.secret}
-                      <button type="button" class={copyButtonClass} title="Copy secret" aria-label="Copy secret"
-                        onClick={() => { navigator.clipboard.writeText(totpSignal.get()!.secret); }}><i class="bi-copy" /></button>
-                    </div>
+                {/* The QR code sits beside the steps rather than above them, so the card is about the height of the
+                    code and opening it doesn't push the rest of the tab out of the dialog. 140px scans easily from a
+                    screen. The card is the dialog's full width (not indented to the values) to fit the secret. */}
+                <div class={`mb-2 flex gap-3 ${cardClass}`}>
+                  <Show when={totpSignal.get() != null} fallback={<div class="h-[140px] w-[140px] shrink-0" />}>
+                    <img class="h-[140px] w-[140px] shrink-0" src={`data:image/png;base64, ${totpSignal.get()!.qr}`}
+                      alt="Authenticator QR code" />
                   </Show>
-                  <label class="flex items-center gap-2">
-                    <span class={`w-[64px] shrink-0 ${DIALOG_LABEL_CLASS}`}>Code</span>
-                    <InfuTextInput compact fullWidth inputMode="numeric" autocomplete="one-time-code" onInput={(v) => { totpToken = v; }} />
-                  </label>
-                  <div class="flex justify-end gap-2">
-                    <button type="button" class={dialogButtonClass()} onClick={handleCancelAddTotp}>Cancel</button>
-                    <button type="button" class={dialogButtonClass()} onClick={handleAddTotp}>Turn on</button>
+                  <div class="flex min-w-0 flex-1 flex-col gap-2">
+                    <div class={DIALOG_NOTE_CLASS}>Scan the code with an authenticator app, or enter the key, then type the 6-digit code it shows.</div>
+                    <Show when={totpSignal.get() != null}>
+                      <div class="flex items-center font-mono text-[12px] text-neutral-600">
+                        <span class="break-all">{totpSignal.get()!.secret}</span>
+                        <button type="button" class={copyButtonClass} title="Copy key" aria-label="Copy key"
+                          onClick={() => { navigator.clipboard.writeText(totpSignal.get()!.secret); }}><i class="bi-copy" /></button>
+                      </div>
+                    </Show>
+                    <label class="flex items-center gap-2">
+                      <span class={`w-[36px] shrink-0 ${DIALOG_LABEL_CLASS}`}>Code</span>
+                      <InfuTextInput compact fullWidth inputMode="numeric" autocomplete="one-time-code"
+                        onInput={(v) => { totpToken = v; }} onEnterKeyDown={addTotp} />
+                    </label>
+                    <div class="mt-auto flex justify-end gap-2">
+                      <button type="button" class={dialogButtonClass()} onClick={handleCancelAddTotp}>Cancel</button>
+                      <button type="button" class={dialogButtonClass()} onClick={handleAddTotp}>Turn on</button>
+                    </div>
                   </div>
                 </div>
               </Show>
