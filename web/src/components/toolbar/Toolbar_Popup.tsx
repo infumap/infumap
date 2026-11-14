@@ -164,7 +164,7 @@ const EMOJI_CATEGORIES = [
       "🔑", "🔒", "🔓", "🗝️", "💰", "💳", "💎", "⚖️", "🪪",
       "📱", "💻", "⌨️", "🖥️", "🖨️", "📷", "🎥", "📞", "☎️",
       "📚", "📖", "📝", "📌", "📍", "✂️", "📎", "🔗", "🏷️",
-      "📁", "🗂️",
+      "📁", "🗂️", "🧹", "🧼", "🧽", "🫧",
     ],
   },
   {
@@ -233,6 +233,7 @@ const EMOJI_SEARCH_GROUPS = [
   { emojis: "🔑🔒🔓🗝️💰💳💎⚖️🪪", terms: "key lock unlock money card diamond balance justice id security" },
   { emojis: "📱💻⌨️🖥️🖨️📷🎥📞☎️", terms: "phone mobile laptop computer keyboard monitor printer camera video telephone technology" },
   { emojis: "📚📖📝📌📍✂️📎🔗🏷️📁🗂️", terms: "books read write memo pin location scissors paperclip link tag folder files" },
+  { emojis: "🧹🧼🧽🫧", terms: "clean cleaning tidy broom sweep soap sponge wash bubbles chore" },
   { emojis: "❤️🧡💛💚💙💜🖤🤍💔", terms: "heart love red orange yellow green blue purple black white broken" },
   { emojis: "✅☑️✔️❌❎➕➖➗✖️", terms: "check done success yes cross cancel no add plus minus divide multiply symbol" },
   { emojis: "❗❓‼️⁉️⚠️🚫🔔🔕♻️", terms: "important exclamation question warning stop prohibited bell mute recycle symbol" },
@@ -473,6 +474,7 @@ export const Toolbar_Popup: Component = () => {
   const store = useStore();
 
   let emojiInputElement: HTMLInputElement | undefined;
+  let emojiSearchInputElement: HTMLInputElement | undefined;
   let conversionButton: HTMLButtonElement | undefined;
   let printButton: HTMLButtonElement | undefined;
   let sortOrderMenu: HTMLDivElement | undefined;
@@ -756,7 +758,8 @@ export const Toolbar_Popup: Component = () => {
   const handleCustomEmojiKeyUp = (ev: KeyboardEvent): void => { ev.stopPropagation(); };
   const handleCustomEmojiKeyPress = (ev: KeyboardEvent): void => { ev.stopPropagation(); };
   const handleEmojiSearchKeyDown = (ev: KeyboardEvent): void => {
-    if (ev.code == "Escape" && emojiSearchQuery() != "") {
+    if (ev.code == "Escape") {
+      if (emojiSearchQuery() == "") { return; } // The global handler closes the popup and refocuses any text edit.
       setEmojiSearchQuery("");
       ev.preventDefault();
     }
@@ -1119,6 +1122,10 @@ export const Toolbar_Popup: Component = () => {
       sortOrderMenu?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')?.focus();
       return;
     }
+    if (overlayTypeConst == ToolbarPopupType.ItemIcon) {
+      emojiSearchInputElement?.focus();
+      return;
+    }
   });
 
   return (
@@ -1400,9 +1407,11 @@ export const Toolbar_Popup: Component = () => {
             </div>
             <div class="relative px-[8px] py-[6px] border-b border-chrome-line bg-white">
               <i class="bi-search absolute left-[17px] top-1/2 -translate-y-1/2 text-[11px] text-neutral-400 pointer-events-none" />
-              <input
+              {/* type="text" with our own clear button: the native search cancel button sits inside the padding, not at
+                  the right edge, and keeps an arrow cursor. */}
+              <input ref={emojiSearchInputElement}
                 class="w-full h-[30px] pl-[27px] pr-[27px] border border-control-border rounded-control bg-white text-[12px] text-neutral-700 placeholder:text-neutral-400 focus:outline-none focus:border-focus"
-                type="search"
+                type="text"
                 aria-label="Search emoji"
                 placeholder="Search emoji"
                 autocomplete="off"
@@ -1411,6 +1420,14 @@ export const Toolbar_Popup: Component = () => {
                 onKeyDown={handleEmojiSearchKeyDown}
                 onKeyUp={ev => ev.stopPropagation()}
                 onKeyPress={ev => ev.stopPropagation()} />
+              <Show when={emojiSearchQuery() != ""}>
+                <button type="button" tabIndex={-1} aria-label="Clear search" title="Clear search"
+                  class="absolute right-[13px] top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-[18px] h-[18px] rounded text-[11px] text-neutral-400 hover:text-neutral-700 hover:bg-control-hover cursor-pointer"
+                  onMouseDown={ev => ev.preventDefault()}
+                  onClick={() => { setEmojiSearchQuery(""); emojiSearchInputElement?.focus(); }}>
+                  <i class="bi-x-lg" />
+                </button>
+              </Show>
             </div>
             <div class="overflow-y-auto pb-[8px]"
               style={`height: ${boxBoundsPx().h - 92}px;`}>
