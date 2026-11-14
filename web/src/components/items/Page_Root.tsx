@@ -45,7 +45,7 @@ import {
   isCurrentDay,
 } from "../../util/calendar-layout";
 import { requestArrange } from "../../layout/arrange";
-import { desktopStackRootStyle, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement } from "./helper";
+import { desktopStackRootStyle, isInsideTranslucentPage as veIsInsideTranslucentPage, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement } from "./helper";
 import { DocumentPageTitle } from "./DocumentPageTitle";
 import { getFocusedSearchWorkspaceChromeSpec } from "../../util/search-focus-chrome";
 import { MouseAction, MouseActionState } from "../../input/state";
@@ -138,8 +138,10 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     const pagePath = pageFns().vePath();
     return itemPath == pagePath || VeFns.parentPath(itemPath) == pagePath;
   };
+  // Not in a translucent page (e.g. a text item shown in a translucent list page's panel): its contents must not react
+  // to the mouse, and the editable container and gap covers would show a text cursor over it.
   const readOnlyDocumentTextSelectionIsActive = () =>
-    pageFns().isDocumentPage() && !canEditPage();
+    pageFns().isDocumentPage() && !canEditPage() && !veIsInsideTranslucentPage(props.visualElement);
   const documentTextSelectionContainerIsActive = () =>
     documentTextEditIsActive() || readOnlyDocumentTextSelectionIsActive();
 

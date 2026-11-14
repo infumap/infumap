@@ -32,6 +32,7 @@ import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { ArrangeAlgorithm } from "../../items/page-item";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { VesCache } from "../../layout/ves-cache";
+import { VisualElementSignal } from "../../util/signals";
 import { PageVisualElementProps } from "./Page";
 import {
   CALENDAR_LAYOUT_CONSTANTS,
@@ -322,14 +323,36 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
         <div
           class={`absolute`}
           style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px;`}>
-          <VisualElement_DesktopShadowLayer visualElementSignals={pageFns().desktopChildren()} />
-          <For each={pageFns().desktopChildren()}>{childVe =>
+          <VisualElement_DesktopShadowLayer visualElementSignals={nonMovingListDesktopChildren()} />
+          <For each={nonMovingListDesktopChildren()}>{childVe =>
             <VisualElement_Desktop visualElement={childVe.get()} suppressLocalShadow={true} />
           }</For>
         </div>
       </div>
     );
   };
+
+  // Items being moved into a translucent list page are drawn by the page itself (MovingItemsOverlay yields to it). They
+  // are kept out of the list's container: its z-index: 1 makes it a stacking context, which would cap their moving
+  // z-index below the selected item's panel. A panel shown as a page (a selected page or text item) has an opaque
+  // background and would then hide them. This layer must not set a z-index, for the same reason.
+  const isMovingListDesktopChild = (childVe: VisualElementSignal) =>
+    !!(childVe.get().flags & VisualElementFlags.Moving);
+  const nonMovingListDesktopChildren = () =>
+    pageFns().desktopChildren().filter((childVe: VisualElementSignal) => !isMovingListDesktopChild(childVe));
+  const movingListDesktopChildren = () =>
+    pageFns().desktopChildren().filter(isMovingListDesktopChild);
+
+  const renderMovingListDesktopChildrenMaybe = () =>
+    <Show when={movingListDesktopChildren().length > 0}>
+      <div class="absolute"
+        style={`left: 0px; top: 0px; width: ${pageFns().boundsPx().w}px; height: ${pageFns().boundsPx().h}px;`}>
+        <VisualElement_DesktopShadowLayer visualElementSignals={movingListDesktopChildren()} />
+        <For each={movingListDesktopChildren()}>{childVe =>
+          <VisualElement_Desktop visualElement={childVe.get()} suppressLocalShadow={true} />
+        }</For>
+      </div>
+    </Show>;
 
   const renderPage = () =>
   (
@@ -630,6 +653,10 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
           </Match>
         </Switch>
         {renderSelectedRootMaybe()}
+        <Show when={props.visualElement.tableBodyViewportBoundsPx == null &&
+          pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.List}>
+          {renderMovingListDesktopChildrenMaybe()}
+        </Show>
       </div>
       {renderPopupRootMaybe()}
       <div class="absolute pointer-events-none"
