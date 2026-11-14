@@ -23,7 +23,7 @@ import { defaultTextIconClass } from "./text-icon";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { itemCanAcceptManualChildren } from "../../items/base/flags-item";
 import { ATTACH_AREA_SIZE_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, FONT_SIZE_PX, GRID_SIZE, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
-import { FOCUS_RING_BOX_SHADOW } from "../../style";
+import { FOCUS_RING_BOX_SHADOW, outlineColorForItem } from "../../style";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { VesCache } from "../../layout/ves-cache";
 import { BoundingBox } from "../../util/geometry";
@@ -434,7 +434,8 @@ export const Text: Component<VisualElementProps> = (props: VisualElementProps) =
         `${desktopStackRootStyle(props.visualElement)}`}>
       {renderShadowMaybe()}
       <div class={`absolute ${outerClass()}`}
-        style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; z-index: 1;`}>
+        style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; z-index: 1; ` +
+          `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? `background-color: ${outlineColorForItem(props.visualElement.displayItem)}; ` : ''}`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
           {renderDetailed()}
         </Show>

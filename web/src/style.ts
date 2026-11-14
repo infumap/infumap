@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Item } from "./items/base/item";
+import { Item, ItemType } from "./items/base/item";
 import { asPageItem, isPage } from "./items/page-item";
 import { StoreContextModel } from "./store/StoreProvider";
 import { hexToRGBA, rgbArrayToRgbaFunc, rgbHexToArray } from "./util/color";
@@ -34,6 +34,18 @@ export let Colors = [
   "#6F3976", // purple
   "#767676"  // gray
 ];
+
+// Fill of items drawn as outlines (without text) because they are too small for it to be legible. Types with a
+// characteristic text color (file and text titles) are tinted towards it, so they can be told apart from notes.
+export const OUTLINE_COLOR = "#ddd";
+const FILE_OUTLINE_COLOR = "#d8e4d7";
+const TEXT_OUTLINE_COLOR = "#e2d8e4";
+
+export function outlineColorForItem(item: Item): string {
+  if (item.itemType == ItemType.File) { return FILE_OUTLINE_COLOR; }
+  if (item.itemType == ItemType.Text) { return TEXT_OUTLINE_COLOR; }
+  return OUTLINE_COLOR;
+}
 
 export function linearGradient(colIndex: number, lightenByAlpha: number): string {
   assert(lightenByAlpha < 0.986, "invalid lightenByAlpha: " + lightenByAlpha);

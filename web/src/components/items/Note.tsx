@@ -22,7 +22,7 @@ import { ItemIconRenderContext } from "../../items/base/icon-item";
 import { NoteFns, asNoteItem } from "../../items/note-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { ATTACH_AREA_SIZE_PX, CONTAINER_IN_COMPOSITE_PADDING_PX, COMPOSITE_MOVE_OUT_AREA_ADDITIONAL_RIGHT_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_MARGIN_PX, COMPOSITE_MOVE_OUT_AREA_SIZE_PX, FONT_SIZE_PX, GRID_SIZE, ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
-import { FOCUS_RING_BOX_SHADOW } from "../../style";
+import { FOCUS_RING_BOX_SHADOW, OUTLINE_COLOR } from "../../style";
 import { VisualElement_Desktop, VisualElementProps } from "../VisualElement";
 import { BoundingBox } from "../../util/geometry";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -563,7 +563,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
       {renderShadowMaybe()}
       <div class={`absolute ${outerClass()}`}
         style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; z-index: 1; ` +
-          `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? 'background-color: #ddd; ' : ''}`}>
+          `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? `background-color: ${OUTLINE_COLOR}; ` : ''}`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
           {renderDetailed()}
         </Show>

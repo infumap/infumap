@@ -42,14 +42,14 @@ import { Page_Umbrella } from "./Page_Umbrella";
 import { Page_Dock } from "./Page_Dock";
 import { Page_Popup } from "./Page_Popup";
 import { pageAttachInsertBarBoundsPx } from "./PageAttachments";
-import { OUTLINE_COLOR, outlineTextWidthPx } from "./LineItemOutline";
+import { outlineTextWidthPx } from "./LineItemOutline";
 import { calculateCalendarDimensionsForVisualElement, calculateCalendarWindowForPage, decodeCalendarCombinedIndex, getCalendarDayMetrics, getCalendarMonthLeftPx, getCalendarMonthWidthPx } from "../../util/calendar-layout";
 import { stackedInsertionLineBoundsPx } from "../../layout/stacked-insertion";
 import { calcCatalogLayout, CATALOG_DETAIL_COLUMN_PADDING_PX } from "../../layout/catalog";
 import { ItemType } from "../../items/base/item";
 import { catalogPageDisplayContext, type CatalogRowFragmentDisplay } from "../../layout/catalog-display";
 import { documentPageMoveOutBoxPxMaybe } from "./helper";
-import { SELECTED_LIGHT } from "../../style";
+import { OUTLINE_COLOR, SELECTED_LIGHT } from "../../style";
 import { calcJustifiedBoxSpacingPx, calcJustifiedPagePaddingPx } from "../../layout/arrange/justified_metrics";
 import { justifiedInsertionLineBoundsPx } from "../../layout/justified-insertion";
 

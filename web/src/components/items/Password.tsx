@@ -30,7 +30,7 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { linkHasTriangle } from "../../layout/link-triangle";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
-import { FOCUS_RING_BOX_SHADOW } from "../../style";
+import { FOCUS_RING_BOX_SHADOW, OUTLINE_COLOR } from "../../style";
 import { isComposite } from "../../items/composite-item";
 import { itemState } from "../../store/ItemState";
 import { appendNewlineIfEmpty } from "../../util/string";
@@ -406,7 +406,8 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
         `${desktopStackRootStyle(props.visualElement)}`}>
       {renderShadowMaybe()}
       <div class={outerClass()}
-        style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; z-index: 1;`}>
+        style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; z-index: 1; ` +
+          `${!(props.visualElement.flags & VisualElementFlags.Detailed) ? `background-color: ${OUTLINE_COLOR}; ` : ''}`}>
         <Show when={props.visualElement.flags & VisualElementFlags.Detailed}>
           {renderDetailed()}
         </Show>

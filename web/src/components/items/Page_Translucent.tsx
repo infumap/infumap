@@ -23,13 +23,13 @@ import { VeFns, VisualElementFlags, type VisualElement } from "../../layout/visu
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { VisualElement_DesktopShadowLayer } from "../VisualElementShadow";
 import { useStore } from "../../store/StoreProvider";
-import { CALENDAR_DAY_NUMBER_LEFT_PX, CALENDAR_DAY_NUMBER_WIDTH_PX, LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_SHADOW } from "../../constants";
-import { BORDER_COLOR, Colors, FOCUS_RING_BOX_SHADOW, PAGE_TITLE_TEXT_SHADOW } from "../../style";
+import { CALENDAR_DAY_NUMBER_LEFT_PX, CALENDAR_DAY_NUMBER_WIDTH_PX, LINE_HEIGHT_PX, NATURAL_BLOCK_SIZE_PX, PAGE_DOCUMENT_LEFT_MARGIN_BL, PAGE_DOCUMENT_RIGHT_MARGIN_BL, PAGE_DOCUMENT_TOP_MARGIN_PX, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_LOCAL_SHADOW } from "../../constants";
+import { BORDER_COLOR, Colors, FOCUS_RING_BOX_SHADOW, OUTLINE_COLOR, PAGE_TITLE_TEXT_SHADOW } from "../../style";
 import { hexToRGBA } from "../../util/color";
 import { linearGradient } from "../../style";
 import { linkHasTriangle } from "../../layout/link-triangle";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
-import { ArrangeAlgorithm } from "../../items/page-item";
+import { ArrangeAlgorithm, PageFns } from "../../items/page-item";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { VesCache } from "../../layout/ves-cache";
 import { VisualElementSignal } from "../../util/signals";
@@ -354,6 +354,20 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
       </div>
     </Show>;
 
+  // The title of a document page, in the space reserved for it by arrange_document_page. Always drawn as a block,
+  // since the box title already shows the text, larger, over the page. Children of a translucent document page are
+  // previews, so the margins are centered (as for leftMarginBl in arrange_document_page). The exception, chat
+  // transcripts in queries, hide the document title.
+  const renderDocumentTitleBlockMaybe = () =>
+    <Show when={PageFns.showDocumentTitleInDocument(pageFns().pageItem())}>
+      <div class="absolute rounded-item"
+        style={`left: ${(PAGE_DOCUMENT_LEFT_MARGIN_BL + PAGE_DOCUMENT_RIGHT_MARGIN_BL) / 2 * NATURAL_BLOCK_SIZE_PX.w * pageFns().documentScale()}px; ` +
+          `top: ${PAGE_DOCUMENT_TOP_MARGIN_PX * pageFns().documentScale()}px; ` +
+          `width: ${pageFns().pageItem().docWidthBl * NATURAL_BLOCK_SIZE_PX.w * pageFns().documentScale()}px; ` +
+          `height: ${PageFns.calcDocumentTitleHeightBl(pageFns().pageItem()) * NATURAL_BLOCK_SIZE_PX.h * pageFns().documentScale()}px; ` +
+          `background-color: ${OUTLINE_COLOR};`} />
+    </Show>;
+
   const renderPage = () =>
   (
     pageFns().pageItem().arrangeAlgorithm == ArrangeAlgorithm.Calendar
@@ -374,6 +388,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
           style={`left: ${pageFns().isDocumentPage() ? pageFns().documentContentLeftPx() - borderWidthPx() : 0}px; top: ${0}px; ` +
             `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px; ` +
             `${miniatureChildItemRadiusStyle(store, pageFns().boundsPx().w)}`}>
+          {renderDocumentTitleBlockMaybe()}
           <PageGroupBoxes childVes={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()} childAreaBoundsPx={pageFns().childAreaBoundsPx()} pageItemId={props.visualElement.displayItem.id} />
           <VisualElement_DesktopShadowLayer visualElementSignals={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()} />
           <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes =>

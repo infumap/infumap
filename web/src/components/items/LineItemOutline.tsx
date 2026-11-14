@@ -28,11 +28,9 @@ import { isPassword } from "../../items/password-item";
 import { QueryFns, asQueryItem, isQueryItem } from "../../items/query-item";
 import { VisualElement, VisualElementFlags } from "../../layout/visual-element";
 import { itemState } from "../../store/ItemState";
-import { SELECTED_DARK, SELECTED_LIGHT } from "../../style";
+import { SELECTED_DARK, SELECTED_LIGHT, outlineColorForItem } from "../../style";
 import { VisualElementProps } from "../VisualElement";
 
-
-export const OUTLINE_COLOR = "#ddd";
 
 // Approximate average character width of line item text, relative to the row height.
 const CHAR_WIDTH_PROP = 0.31;
@@ -84,6 +82,7 @@ export const LineItemOutline: Component<VisualElementProps> = (props: VisualElem
   const boundsPx = () => props.visualElement.boundsPx;
   const oneBlockWidthPx = () => props.visualElement.blockSizePx?.w ?? boundsPx().h;
   const hasIconBlock = () => showsIconBlock(props.visualElement);
+  const color = () => outlineColorForItem(props.visualElement.displayItem);
   const iconSizePx = () => boundsPx().h * 0.6;
   const textLeftPx = () => hasIconBlock() ? oneBlockWidthPx() : oneBlockWidthPx() * PADDING_PROP;
   const barHeightPx = () => boundsPx().h * 0.4;
@@ -102,12 +101,12 @@ export const LineItemOutline: Component<VisualElementProps> = (props: VisualElem
       <Show when={hasIconBlock()}>
         <div class="absolute"
           style={`left: ${(oneBlockWidthPx() - iconSizePx()) / 2}px; top: ${(boundsPx().h - iconSizePx()) / 2}px; ` +
-            `width: ${iconSizePx()}px; height: ${iconSizePx()}px; background-color: ${OUTLINE_COLOR};`} />
+            `width: ${iconSizePx()}px; height: ${iconSizePx()}px; background-color: ${color()};`} />
       </Show>
       <Show when={barWidthPx() > 0}>
         <div class="absolute"
           style={`left: ${textLeftPx()}px; top: ${(boundsPx().h - barHeightPx()) / 2}px; ` +
-            `width: ${barWidthPx()}px; height: ${barHeightPx()}px; background-color: ${OUTLINE_COLOR};`} />
+            `width: ${barWidthPx()}px; height: ${barHeightPx()}px; background-color: ${color()};`} />
       </Show>
     </div>
   );
