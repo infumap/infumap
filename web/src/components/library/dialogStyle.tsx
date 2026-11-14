@@ -26,16 +26,17 @@ export const DIALOG_BACKDROP_CLASS = "bg-black/20";
 export const MENU_SURFACE_CLASS = `${DIALOG_SURFACE_CLASS} p-[3px]`;
 
 /**
- * An entry in a menu: a 20px line with 3px padding. The display (block, or flex for an icon and shortcut) is added by
- * the caller. Selected is for the current choice of the menu.
+ * An entry in a menu: a 20px line with 3px padding. The text is 13px, like the toolbar's buttons and the body of a
+ * dialog (at 14px it stood out next to the toolbar button that opens the menu). The display (block, or flex for an icon
+ * and shortcut) is added by the caller. Selected is for the current choice of the menu.
  */
 export const menuItemClass = (selected: boolean = false): string =>
-  "w-full text-left text-sm leading-[20px] p-[3px] rounded-control cursor-pointer text-black " +
+  "w-full text-left text-[13px] leading-[20px] p-[3px] rounded-control cursor-pointer text-black " +
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus " +
   (selected ? "bg-control-selected" : "hover:bg-control-hover focus-visible:bg-control-hover");
 
 /** An entry that can't be chosen. */
-export const MENU_ITEM_DISABLED_CLASS = "w-full text-left text-sm leading-[20px] p-[3px] cursor-default text-neutral-400";
+export const MENU_ITEM_DISABLED_CLASS = "w-full text-left text-[13px] leading-[20px] p-[3px] cursor-default text-neutral-400";
 
 /** A line between groups of menu entries. */
 export const MENU_SEPARATOR_CLASS = "mx-[3px] my-[3px] border-t border-chrome-line";

@@ -250,7 +250,7 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
     <div class="text-xs text-neutral-600 mb-1 flex justify-between items-center">{props.children}</div>;
 
   const WriteProblemRow = (props: { problem: NetworkProblem }): JSX.Element => (
-    <div class="text-sm px-2 py-1 bg-red-50 rounded mb-1">
+    <div class="text-[13px] px-2 py-1 bg-red-50 rounded mb-1">
       <div class="flex justify-between items-start gap-2">
         <ItemTitle itemId={props.problem.itemId} fallback={`${props.problem.description}${hostSuffix(props.problem.host)}`} />
         <span class="flex items-center gap-2 shrink-0">
@@ -270,7 +270,7 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
   );
 
   const ProblemRow = (props: { problem: NetworkProblem }): JSX.Element => (
-    <div class="text-sm px-2 py-1 bg-amber-50 rounded mb-1">
+    <div class="text-[13px] px-2 py-1 bg-amber-50 rounded mb-1">
       <div class="flex justify-between items-start gap-2">
         <span class="font-medium">{requestLabel(props.problem)}</span>
         <span class="flex items-center gap-2 shrink-0">
@@ -304,7 +304,7 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
 
       <div class="flex items-start gap-2 mb-3">
         <div class="shrink-0 mt-[2px] mx-[3px]"><NetworkStatusIcon level={summary().level} sizePx={14} /></div>
-        <div class="flex-1 text-sm font-medium">{summary().sentence}</div>
+        <div class="flex-1 text-[13px] font-medium">{summary().sentence}</div>
       </div>
 
       <Show when={pendingSaves().length > 0 || writeProblems().length > 0}>
@@ -312,7 +312,7 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
           <SectionHeading><span>Not saved ({pendingSaves().length + writeProblems().length})</span></SectionHeading>
           <For each={pendingSaves()}>
             {(save) => (
-              <div class={`text-sm px-2 py-1 rounded mb-1 ${save.failed ? "bg-red-50" : "bg-neutral-50"}`}>
+              <div class={`text-[13px] px-2 py-1 rounded mb-1 ${save.failed ? "bg-red-50" : "bg-neutral-50"}`}>
                 <ItemTitle itemId={save.itemId} fallback="Text" />
                 <div class={`text-xs ${save.failed ? "text-red-700" : "text-neutral-500"}`}>
                   {save.failed ? `Text not saved yet: ${failReasonText(save.reason)}.` : "Text not saved yet: saving…"}

@@ -31,7 +31,7 @@ export const Toolbar_TransientMessage: Component = () => {
   const isError = () => message()?.type === TransientMessageType.Error;
 
   return (
-    <div class={`${TOOLBAR_POPUP_CLASS} px-[12px] py-[6px] text-sm`}
+    <div class={`${TOOLBAR_POPUP_CLASS} px-[12px] py-[6px] text-[13px]`}
          classList={{
            "text-neutral-800": !isError(),
            "text-white font-semibold": isError()

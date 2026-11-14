@@ -134,7 +134,7 @@ export const Toolbar_Link: Component = () => {
           <div class="inline-block ml-[8px]">
             <span class="mr-[6px]">link to item:</span>
             <input ref={el => { linkResourceInput = el; el.placeholder = LINK_INPUT_PLACEHOLDER; el.title = LINK_INPUT_TITLE; }}
-                   class="pl-[7px] pt-[4px] pb-[4px] w-[420px] text-neutral-800 font-mono text-sm placeholder:text-neutral-400"
+                   class="pl-[7px] pt-[4px] pb-[4px] w-[420px] text-neutral-800 font-mono text-[13px] placeholder:text-neutral-400"
                    type="text"
                    spellcheck={false}
                    onInput={inputHandler}

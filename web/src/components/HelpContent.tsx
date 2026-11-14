@@ -138,7 +138,7 @@ export const HelpContent: Component = () => {
   const rows = (section: HelpSection) => section.rows.filter(r => !r.macOnly || IS_MAC);
 
   return (
-    <div class="text-sm text-neutral-800">
+    <div class="text-[13px] text-neutral-800">
       <p class="mb-4 leading-snug text-neutral-700">
         Everything in Infumap is an item. Press <Key>/</Key> to add one, or a letter key (listed below) to add a
         specific type.

@@ -155,14 +155,14 @@ export const TableColumnContextMenu: Component = () => {
                 `z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY};`}
          onMouseDown={mouseDownListener}>
       <div class={MENU_SURFACE_CLASS} style={`width: ${MENU_WIDTH_PX}px;`}>
-        <div class="flex h-[26px] items-center px-[3px] text-sm text-neutral-600">
+        <div class="flex h-[26px] items-center px-[3px] text-[13px] text-neutral-600">
           <span class="mr-auto">Sort</span>
           <InfuIconButton icon="bi-arrow-up" highlighted={columnSort() == "asc"} clickHandler={() => setColumnSort(false)}
             title={columnSort() == "asc" ? "Stop sorting" : "Sort ascending"} />
           <InfuIconButton icon="bi-arrow-down" highlighted={columnSort() == "desc"} clickHandler={() => setColumnSort(true)}
             title={columnSort() == "desc" ? "Stop sorting" : "Sort descending"} />
         </div>
-        <div class="flex h-[26px] items-center px-[3px] text-sm text-neutral-600">
+        <div class="flex h-[26px] items-center px-[3px] text-[13px] text-neutral-600">
           <span class="mr-auto">Align</span>
           <InfuIconButton icon="bi-text-left" highlighted={columnAlign() == null} clickHandler={() => setColumnAlign(null)} title="Align column left" />
           <InfuIconButton icon="bi-text-center" highlighted={columnAlign() == "center"} clickHandler={() => setColumnAlign("center")} title="Align column center" />
