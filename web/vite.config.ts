@@ -76,7 +76,7 @@ export default defineConfig(({ command, mode }) => {
     build: {
       target: 'esnext',
       outDir: './dist',
-      chunkSizeWarningLimit: 1000,
+      chunkSizeWarningLimit: 1500,
       minify: noMinify ? false : 'esbuild',
       sourcemap: noMinify ? true : false,
       rollupOptions: {
