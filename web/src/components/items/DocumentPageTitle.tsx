@@ -28,11 +28,16 @@ import { PageVisualElementProps } from "./Page";
 import { createPageTitleEditHandlers } from "./helper";
 
 
-export const DocumentPageTitle: Component<PageVisualElementProps & { allowEditing?: boolean }> = (props) => {
+/**
+ * preview: the title of a non-interactive (e.g. translucent) document page. Its margins are centered, as for the
+ * page's children (leftMarginBl in arrange_document_page), and it isn't interactive. It also doesn't take the ":title"
+ * id, which belongs to the box title drawn over the page.
+ */
+export const DocumentPageTitle: Component<PageVisualElementProps & { allowEditing?: boolean, preview?: boolean }> = (props) => {
   const store = useStore();
 
   const pageFns = () => props.pageFns;
-  const allowEditing = () => !!props.allowEditing && itemCanEdit(pageFns().pageItem());
+  const allowEditing = () => !props.preview && !!props.allowEditing && itemCanEdit(pageFns().pageItem());
   const titleEditHandlers = createPageTitleEditHandlers(store, () => props.visualElement);
   const vePath = () => VeFns.veToPath(props.visualElement);
   // While the title in the header above an embedded interactive page is being edited, it has the ":title" id.
@@ -45,7 +50,8 @@ export const DocumentPageTitle: Component<PageVisualElementProps & { allowEditin
   };
 
   const documentTextColumnLeftPx = () =>
-    PAGE_DOCUMENT_LEFT_MARGIN_BL * LINE_HEIGHT_PX * documentScale();
+    (props.preview ? (PAGE_DOCUMENT_LEFT_MARGIN_BL + PAGE_DOCUMENT_RIGHT_MARGIN_BL) / 2 : PAGE_DOCUMENT_LEFT_MARGIN_BL) *
+    LINE_HEIGHT_PX * documentScale();
 
   const documentBlockWidthPx = () =>
     Math.max(
@@ -86,8 +92,8 @@ export const DocumentPageTitle: Component<PageVisualElementProps & { allowEditin
       style={`left: ${documentTextColumnLeftPx()}px; ` +
         `top: ${PAGE_DOCUMENT_TOP_MARGIN_PX * documentScale()}px; ` +
         `width: ${documentBlockWidthPx()}px; height: ${titleHeightPx()}px;`}>
-      <span id={headerTitleIsBeingEdited() ? undefined : vePath() + ":title"}
-        class={`absolute block font-bold cursor-text select-text ${titleStyle().alignClass}`}
+      <span id={props.preview || headerTitleIsBeingEdited() ? undefined : vePath() + ":title"}
+        class={`absolute block font-bold ${props.preview ? "pointer-events-none" : "cursor-text select-text"} ${titleStyle().alignClass}`}
         style={`left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
           `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +
           `width: ${naturalTextWidthPx()}px; ` +

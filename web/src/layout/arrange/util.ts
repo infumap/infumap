@@ -42,10 +42,18 @@ import { getTextStyleForNote } from "../text";
  * detail (with text) rather than as an outline. Larger text (e.g. headings) remains detailed at smaller scales.
  */
 export function previewChildIsDetailed(displayItem: Item, scale: number): boolean {
-  const textSizeMultiplier = isNote(displayItem)
-    ? getTextStyleForNote(asNoteItem(displayItem).flags).fontSize / getTextStyleForNote(NoteFlags.None).fontSize
-    : 1.0;
-  return scale * textSizeMultiplier >= MIN_DETAILED_CHILD_SCALE;
+  return isNote(displayItem)
+    ? previewTextIsDetailed(getTextStyleForNote(asNoteItem(displayItem).flags).fontSize, scale)
+    : scale >= MIN_DETAILED_CHILD_SCALE;
+}
+
+/**
+ * Whether text of the given (natural) font size, in a non-interactive page drawn at the given scale, is large enough
+ * to be drawn rather than outlined. The same cutoff as previewChildIsDetailed, for text that isn't a child item (e.g.
+ * a document page title).
+ */
+export function previewTextIsDetailed(fontSizePx: number, scale: number): boolean {
+  return scale * fontSizePx / getTextStyleForNote(NoteFlags.None).fontSize >= MIN_DETAILED_CHILD_SCALE;
 }
 
 

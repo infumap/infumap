@@ -52,6 +52,8 @@ import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { isQueryItem } from "../../items/query-item";
 import { MouseAction, MouseActionState } from "../../input/state";
 import { PageGroupBoxes } from "./PageGroupBoxes";
+import { DocumentPageTitle } from "./DocumentPageTitle";
+import { previewTextIsDetailed } from "../../layout/arrange/util";
 import { ListPageBand, ListPageBandOverlays } from "./ListPageBand";
 import { CalendarRangeOverlays } from "./CalendarRangeOverlays";
 import { Page_TableContent } from "./Page_TableContent";
@@ -354,18 +356,21 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
       </div>
     </Show>;
 
-  // The title of a document page, in the space reserved for it by arrange_document_page. Always drawn as a block,
-  // since the box title already shows the text, larger, over the page. Children of a translucent document page are
+  // The title of a document page, in the space reserved for it by arrange_document_page. Like the page's children,
+  // drawn as text when large enough to read, otherwise as an outline. Children of a translucent document page are
   // previews, so the margins are centered (as for leftMarginBl in arrange_document_page). The exception, chat
   // transcripts in queries, hide the document title.
-  const renderDocumentTitleBlockMaybe = () =>
+  const renderDocumentTitleMaybe = () =>
     <Show when={PageFns.showDocumentTitleInDocument(pageFns().pageItem())}>
-      <div class="absolute rounded-item"
-        style={`left: ${(PAGE_DOCUMENT_LEFT_MARGIN_BL + PAGE_DOCUMENT_RIGHT_MARGIN_BL) / 2 * NATURAL_BLOCK_SIZE_PX.w * pageFns().documentScale()}px; ` +
-          `top: ${PAGE_DOCUMENT_TOP_MARGIN_PX * pageFns().documentScale()}px; ` +
-          `width: ${pageFns().pageItem().docWidthBl * NATURAL_BLOCK_SIZE_PX.w * pageFns().documentScale()}px; ` +
-          `height: ${PageFns.calcDocumentTitleHeightBl(pageFns().pageItem()) * NATURAL_BLOCK_SIZE_PX.h * pageFns().documentScale()}px; ` +
-          `background-color: ${OUTLINE_COLOR};`} />
+      <Show when={!previewTextIsDetailed(PageFns.documentTitleStyle().fontSize, pageFns().documentScale())}
+        fallback={<DocumentPageTitle visualElement={props.visualElement} pageFns={pageFns()} preview={true} />}>
+        <div class="absolute rounded-item"
+          style={`left: ${(PAGE_DOCUMENT_LEFT_MARGIN_BL + PAGE_DOCUMENT_RIGHT_MARGIN_BL) / 2 * NATURAL_BLOCK_SIZE_PX.w * pageFns().documentScale()}px; ` +
+            `top: ${PAGE_DOCUMENT_TOP_MARGIN_PX * pageFns().documentScale()}px; ` +
+            `width: ${pageFns().pageItem().docWidthBl * NATURAL_BLOCK_SIZE_PX.w * pageFns().documentScale()}px; ` +
+            `height: ${PageFns.calcDocumentTitleHeightBl(pageFns().pageItem()) * NATURAL_BLOCK_SIZE_PX.h * pageFns().documentScale()}px; ` +
+            `background-color: ${OUTLINE_COLOR};`} />
+      </Show>
     </Show>;
 
   const renderPage = () =>
@@ -388,7 +393,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
           style={`left: ${pageFns().isDocumentPage() ? pageFns().documentContentLeftPx() - borderWidthPx() : 0}px; top: ${0}px; ` +
             `width: ${props.visualElement.childAreaBoundsPx!.w}px; height: ${props.visualElement.childAreaBoundsPx!.h}px; ` +
             `${miniatureChildItemRadiusStyle(store, pageFns().boundsPx().w)}`}>
-          {renderDocumentTitleBlockMaybe()}
+          {renderDocumentTitleMaybe()}
           <PageGroupBoxes childVes={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()} childAreaBoundsPx={pageFns().childAreaBoundsPx()} pageItemId={props.visualElement.displayItem.id} />
           <VisualElement_DesktopShadowLayer visualElementSignals={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()} />
           <For each={VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()}>{childVes =>
