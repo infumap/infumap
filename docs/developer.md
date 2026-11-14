@@ -54,7 +54,7 @@ rustup target add aarch64-apple-darwin
 
 The output is one executable with the web client and menu bar icon embedded. It requires macOS 11 or later and does not need a separate `infumap` server executable. Add `--dev` for an unoptimized build; its output is under `target/aarch64-apple-darwin/debug/`.
 
-Running it starts the web server automatically. Its menu offers **Start Web Server**, **Stop Web Server**, **Open Infumap in Browser**, **Show Logs**, **Settings…**, and **Quit Infumap**. The browser action becomes available once startup finishes and uses the configured listening address and port. Wildcard listening addresses use the corresponding loopback address for the browser. Logs append across restarts to `~/Library/Logs/Infumap/server.log`; **Show Logs** opens this file in macOS Console, with Finder as a fallback.
+Logs append across restarts to `~/Library/Logs/Infumap/server.log`; **Show Logs** opens this file in macOS Console, with Finder as a fallback.
 
 Configuration, environment overrides, and data directories work as for `infumap web`. To select a settings file or directory:
 
@@ -62,25 +62,13 @@ Configuration, environment overrides, and data directories work as for `infumap 
 ./infumap/target/aarch64-apple-darwin/release/infumap-macos --settings /path/to/settings.toml
 ```
 
-**Settings…** works even with the server stopped. **Server** edits the listen address and port; port `0` selects an available port on startup. **Chat Providers** adds or removes any number of providers and edits their type, API base URL, API key, model discovery or fixed model ID, and optional reasoning efforts. New providers receive an ID that can be edited before saving. Saved IDs remain fixed because query profiles reference them. Removing a provider can leave those profiles needing another provider selection.
-
-API keys are masked, with a **Show** button for editing. **Check Connection** checks the current draft without saving it. With model discovery enabled it fetches the model list; a successful catalog fetch does not establish that chat requests or credentials work. With discovery disabled it sends a short synthetic chat request to the configured model, which may incur provider charges. No Infumap account data is sent by either check.
-
-**Save** writes settings while stopped. **Save and Restart** gracefully stops the running server and starts it with the saved settings. The window stays open and displays restart status, including startup failures; **Show Logs** opens the server log. **Cancel** discards unsaved edits when the window is reopened, and **Reload** reads the file again. Values overridden by environment variables are read-only. Environment-only configuration makes the entire editor read-only.
-
-Edits preserve unrelated settings and TOML comments, and save through a private temporary file followed by atomic replacement. If the settings file changed while the window was open, saving is rejected; reload it before trying again. The editor uses the same settings file selected by `--settings`, or the default `~/.infumap/settings.toml`.
-
-Only one menu bar instance and one managed server can run per user. Stop an existing command-line server before launching the menu bar version against the same data. Stop and Quit wait for startup maintenance and active HTTP requests to finish; the menu displays **Stopping…** until the child process exits. Closing the launcher's terminal or terminating the launcher also requests server shutdown. Pending search indexing is recovered at the next startup.
-
-After a web build, rebuild just the menu bar executable with `./infumap/build.sh --macos-menu-bar`. The native UI uses AppKit from the macOS SDK. The settings editor uses `toml_edit`, already present in the server's dependency graph, to preserve file formatting.
-
 ## Additional Information
 
 The `build.sh` script generates the various client side artifacts as well as Rust code for route handlers to serve them (using the `web/generate_dist_handlers.py` script) before building the server executable `./infumap/target/release/infumap`. This executable is fully self contained - to deploy Infumap, you simply need to copy this one file.
 
 The `build.sh` script also accepts `--no-minify` for a more debuggable web build, and it accepts an optional Rust target triple argument. See the [Platform Support](https://doc.rust-lang.org/rustc/platform-support.html) page for a discussion of the supported platforms.
 
-### Linux musl builds (without Docker)
+### Linux musl builds
 
 The Linux release targets are `x86_64-unknown-linux-musl` and `aarch64-unknown-linux-musl`. The ARM64 binary covers Raspberry Pi running a 64-bit OS, ARM64 Linux VMs on Apple Silicon, and ARM servers. It does not run on a 32-bit Raspberry Pi OS. The x86-64 binary covers Intel/AMD Linux machines.
 
