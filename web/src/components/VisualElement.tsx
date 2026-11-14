@@ -53,7 +53,7 @@ import { Image_LineItem } from "./items/Image_LineItem";
 import { FileLineItem } from "./items/File_LineItem";
 import { TextLineItem } from "./items/Text_LineItem";
 import { Composite_LineItem } from "./items/Composite_LineItem";
-import { Query_Desktop } from "./items/Query";
+import { deferredQueryComponent } from "./deferred";
 import { Query_LineItem } from "./items/Query_LineItem";
 import { isQueryItem } from "../items/query-item";
 import { Divider_Desktop } from "./items/Divider";
@@ -62,7 +62,7 @@ import { isDivider } from "../items/divider-item";
 import { TrashLink_Desktop, TrashLink_LineItem } from "./items/TrashLink";
 import { isLinkInTrash } from "../items/trash-link";
 import { useStore } from "../store/StoreProvider";
-import { createHighlightBoundsPxFn, highlightStyle } from "./items/helper";
+import { createHighlightBoundsPxFn, desktopStackRootStyle, highlightStyle } from "./items/helper";
 import { Z_INDEX_LOCAL_HIGHLIGHT } from "../constants";
 
 
@@ -70,6 +70,15 @@ export interface VisualElementProps {
   visualElement: VisualElement,
   suppressLocalShadow?: boolean,
 }
+
+const Query_Desktop = deferredQueryComponent((status, props) => (
+  <div class="absolute overflow-hidden"
+    style={`left: ${props.visualElement.boundsPx.x}px; top: ${props.visualElement.boundsPx.y}px; ` +
+      `width: ${props.visualElement.boundsPx.w}px; height: ${props.visualElement.boundsPx.h}px; ` +
+      desktopStackRootStyle(props.visualElement)}>
+    {status}
+  </div>
+));
 
 export const VisualElement_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
