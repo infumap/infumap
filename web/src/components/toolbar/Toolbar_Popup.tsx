@@ -257,21 +257,22 @@ type NoteTextStyleOption = {
   selectedTextStyle?: NoteTextStyle | null,
 };
 
-const NOTE_TEXT_STYLE_OPTIONS: Array<NoteTextStyleOption> = [
-  { textStyle: NoteTextStyle.Normal, label: "Text", icon: "fa fa-font", selectedTextStyle: NoteTextStyle.Normal },
-  { textStyle: NoteTextStyle.Heading1, label: "H1", icon: "bi-type-h1", hideInTable: true, selectedTextStyle: NoteTextStyle.Heading1 },
-  { textStyle: NoteTextStyle.Heading2, label: "H2", icon: "bi-type-h2", hideInTable: true, selectedTextStyle: NoteTextStyle.Heading2 },
-  { textStyle: NoteTextStyle.Heading3, label: "H3", icon: "bi-type-h3", selectedTextStyle: NoteTextStyle.Heading3 },
-  { textStyle: NoteTextStyle.Heading4, label: "H4", icon: "bi-type-h4", selectedTextStyle: NoteTextStyle.Heading4 },
-  { textStyle: NoteTextStyle.Bullet, label: "Bullet", icon: "fa fa-list", hideInTable: true, selectedTextStyle: NoteTextStyle.Bullet },
-  { textStyle: NoteTextStyle.Numbered, label: "Numbered", icon: "fa fa-list-ol", hideInTable: true, selectedTextStyle: NoteTextStyle.Numbered },
-  { textStyle: NoteTextStyle.Code, label: "Code", icon: "fa fa-code", selectedTextStyle: NoteTextStyle.Code },
-];
-
 function visibleNoteTextStyleOptions(store: StoreContextModel): Array<NoteTextStyleOption> {
+  // The note model and toolbar import each other through layout/input code. Deferring Queries changes
+  // their initialization order, so read NoteTextStyle when opening the menu rather than at module load.
+  const options: Array<NoteTextStyleOption> = [
+    { textStyle: NoteTextStyle.Normal, label: "Text", icon: "fa fa-font", selectedTextStyle: NoteTextStyle.Normal },
+    { textStyle: NoteTextStyle.Heading1, label: "H1", icon: "bi-type-h1", hideInTable: true, selectedTextStyle: NoteTextStyle.Heading1 },
+    { textStyle: NoteTextStyle.Heading2, label: "H2", icon: "bi-type-h2", hideInTable: true, selectedTextStyle: NoteTextStyle.Heading2 },
+    { textStyle: NoteTextStyle.Heading3, label: "H3", icon: "bi-type-h3", selectedTextStyle: NoteTextStyle.Heading3 },
+    { textStyle: NoteTextStyle.Heading4, label: "H4", icon: "bi-type-h4", selectedTextStyle: NoteTextStyle.Heading4 },
+    { textStyle: NoteTextStyle.Bullet, label: "Bullet", icon: "fa fa-list", hideInTable: true, selectedTextStyle: NoteTextStyle.Bullet },
+    { textStyle: NoteTextStyle.Numbered, label: "Numbered", icon: "fa fa-list-ol", hideInTable: true, selectedTextStyle: NoteTextStyle.Numbered },
+    { textStyle: NoteTextStyle.Code, label: "Code", icon: "fa fa-code", selectedTextStyle: NoteTextStyle.Code },
+  ];
   const focusItem = getToolbarFocusItem(store);
   const inTable = isNote(focusItem) && toolbarFocusIsInTableView(store);
-  return NOTE_TEXT_STYLE_OPTIONS.filter(option => !option.hideInTable || !inTable);
+  return options.filter(option => !option.hideInTable || !inTable);
 }
 
 
