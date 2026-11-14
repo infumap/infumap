@@ -16,6 +16,7 @@
 
 import os
 import datetime
+import gzip
 
 directory = "./dist/assets"
 
@@ -24,7 +25,7 @@ css_files = []
 ico_files = []
 png_files = []
 
-for filename in os.listdir(directory):
+for filename in sorted(os.listdir(directory)):
     if not os.path.isfile(os.path.join(directory, filename)):
         continue
     if filename.endswith(".css"):
@@ -37,6 +38,9 @@ for filename in os.listdir(directory):
         ico_files.append(filename)
     elif filename.endswith(".map"):
         # Skip source map files
+        continue
+    elif filename.endswith(".js.gz"):
+        # Allow regenerating handlers after a previous compression pass.
         continue
     else:
         raise Exception("unknown filetype: " + filename)
@@ -63,6 +67,7 @@ use bytes::Bytes;
 use http_body_util::combinators::BoxBody;
 use hyper::{Request, Response, Method};
 use super::serve::full_body;
+use super::static_assets::serve_javascript;
 
 pub fn serve_dist_routes(req: &Request<hyper::body::Incoming>) -> Option<Response<BoxBody<Bytes, hyper::Error>>> {
   match (req.method(), req.uri().path()) {
@@ -74,7 +79,13 @@ pub fn serve_dist_routes(req: &Request<hyper::body::Incoming>) -> Option<Respons
 """
 
 for f in js_files:
-    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CACHE_CONTROL, \"max-age=31536000\").header(hyper::header::CONTENT_TYPE, \"text/javascript\").body(full_body(include_str!(\"../../dist/assets/" + f + "\"))).unwrap()),\n"
+    with open(os.path.join(directory, f), "rb") as js_file:
+        # Compress once at build time; a fixed timestamp avoids changing the
+        # embedded gzip bytes when the JavaScript has not changed.
+        compressed = gzip.compress(js_file.read(), compresslevel=9, mtime=0)
+    with open(os.path.join(directory, f + ".gz"), "wb") as gzip_file:
+        gzip_file.write(compressed)
+    output += "    (&Method::GET, \"/assets/" + f + "\") => Some(serve_javascript(req.headers(), include_bytes!(\"../../dist/assets/" + f + "\"), include_bytes!(\"../../dist/assets/" + f + ".gz\"))),\n"
 
 for f in css_files:
     output += "    (&Method::GET, \"/assets/" + f + "\") => Some(Response::builder().header(hyper::header::CACHE_CONTROL, \"max-age=31536000\").header(hyper::header::CONTENT_TYPE, \"text/css\").body(full_body(include_str!(\"../../dist/assets/" + f + "\"))).unwrap()),\n"

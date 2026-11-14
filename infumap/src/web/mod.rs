@@ -17,6 +17,7 @@
 mod dist_handlers;
 mod prometheus;
 mod serve;
+mod static_assets;
 
 pub mod cookie;
 pub mod routes;

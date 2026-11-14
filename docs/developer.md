@@ -66,6 +66,8 @@ Configuration, environment overrides, and data directories work as for `infumap 
 
 The `build.sh` script generates the various client side artifacts as well as Rust code for route handlers to serve them (using the `web/generate_dist_handlers.py` script) before building the server executable `./infumap/target/release/infumap`. This executable is fully self contained - to deploy Infumap, you simply need to copy this one file.
 
+The web build precompresses JavaScript assets with gzip and embeds both compressed and uncompressed copies in the executable. The server chooses a copy using the client's `Accept-Encoding` header; no proxy configuration or compression at request time is needed.
+
 The `build.sh` script also accepts `--no-minify` for a more debuggable web build, and it accepts an optional Rust target triple argument. See the [Platform Support](https://doc.rust-lang.org/rustc/platform-support.html) page for a discussion of the supported platforms.
 
 ### Linux musl builds
