@@ -92,7 +92,7 @@ export function QueryToolsPicker(props: ToolsPickerProps) {
       </Show></>}
     onOpen={() => { void store.general.queryProfiles.refresh(); void store.general.refreshChatBackends(); }}>
     {close => <>
-      <DialogHeader title="Tools" closeLabel="Close tools picker" onClose={close}>
+      <DialogHeader title="Tools">
         <Show when={props.note?.()}><div class={`mt-1 ${DIALOG_NOTE_CLASS}`}>{props.note?.()}</div></Show>
         <Show when={lockedReason()}><div class={`mt-1 ${DIALOG_NOTE_CLASS}`}>{lockedReason()}</div></Show>
         <For each={issues()}>{issue => <div role="status" class="mt-1 text-[11px] text-amber-700">{issue.message}</div>}</For>

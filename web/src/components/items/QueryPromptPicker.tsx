@@ -104,7 +104,7 @@ export function QueryPromptPicker(props: QueryPromptPickerProps) {
         queueMicrotask(() => props.onChoose(text));
       };
       return <>
-        <DialogHeader title="Prompts" onClose={close}>
+        <DialogHeader title="Prompts">
           <input type="text" class={`mt-1.5 w-full ${DIALOG_INPUT_CLASS}`}
             placeholder="Filter prompts" aria-label="Filter prompts" role="combobox" data-picker-autofocus aria-expanded="true" aria-controls={listId}
             aria-activedescendant={prompts().length > 0 ? `${listId}-${Math.min(active(), prompts().length - 1)}` : undefined}

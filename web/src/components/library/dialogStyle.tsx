@@ -6,10 +6,18 @@ import { Component, JSX, Show } from "solid-js";
 // The look shared by dialogs, popovers and pickers: the toolbar layout dialogs, the chat configuration pickers, and
 // modal dialogs. Use these in place of writing the classes out, so they don't drift apart again. The colors, corner
 // radius and focus indicator are the chrome tokens in index.css, which are shared with items and the toolbar, and the
-// shadow is that of an item popup: a dialog should look like part of the same application, not like a web form.
+// shadows are those of a popped-up page: a dialog should look like part of the same application, not like a web form.
 
-/** The panel: position, size and layout (e.g. flex flex-col overflow-hidden) are added by the caller. */
-export const DIALOG_SURFACE_CLASS = "rounded-control border border-control-border bg-white text-black shadow-xl";
+const SURFACE_BASE_CLASS = "rounded-control border border-control-border bg-white text-black";
+
+/**
+ * The panel of a dialog, menu or picker anchored to the toolbar or a control. Position, size and layout (e.g. flex
+ * flex-col overflow-hidden) are added by the caller.
+ */
+export const DIALOG_SURFACE_CLASS = `${SURFACE_BASE_CLASS} shadow-popover`;
+
+/** The panel of a dialog that floats free over the page, which has the stronger shadow of a popped-up page. */
+export const FLOATING_DIALOG_SURFACE_CLASS = `${SURFACE_BASE_CLASS} shadow-popup`;
 
 /** The shade over the rest of the window behind a modal dialog. */
 export const DIALOG_BACKDROP_CLASS = "bg-black/20";
@@ -71,20 +79,25 @@ const DIALOG_CLOSE_BUTTON_CLASS =
   "hover:bg-control-hover hover:text-neutral-800";
 
 /**
- * The title, close button and description at the top of a dialog. Anything else that belongs above the dialog's
- * scrolling content (a search field, warnings) goes in children.
+ * The title, description and, for a modal dialog, close button at the top of a dialog. Anything else that belongs
+ * above the dialog's scrolling content (a search field, warnings) goes in children.
+ *
+ * Only a modal dialog (one with a backdrop, which blocks the rest of the app) gets a close button: pass onClose. A
+ * dialog that closes on a press outside it or Escape doesn't need one, and it is clutter in a small panel.
  */
 export const DialogHeader: Component<{
   title: string,
   description?: JSX.Element,
-  onClose: () => void,
+  onClose?: () => void,
   closeLabel?: string,
   children?: JSX.Element,
 }> = (props) => (
   <div class="shrink-0 border-b border-chrome-line px-3 py-2">
     <div class="flex items-center gap-2 text-[13px] font-medium text-neutral-800">{props.title}
-      <button type="button" class={DIALOG_CLOSE_BUTTON_CLASS} aria-label={props.closeLabel ?? `Close ${props.title.toLowerCase()}`}
-        onClick={() => props.onClose()}><i class="bi-x-lg" /></button>
+      <Show when={props.onClose}>{onClose =>
+        <button type="button" class={DIALOG_CLOSE_BUTTON_CLASS} aria-label={props.closeLabel ?? `Close ${props.title.toLowerCase()}`}
+          onClick={() => onClose()()}><i class="bi-x-lg" /></button>
+      }</Show>
     </div>
     <Show when={props.description}><div class={`mt-[2px] ${DIALOG_NOTE_CLASS}`}>{props.description}</div></Show>
     {props.children}

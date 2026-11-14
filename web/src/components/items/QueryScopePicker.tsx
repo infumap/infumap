@@ -126,7 +126,7 @@ export function QueryScopePicker(props: QueryScopePickerProps) {
       void describeQueryScopeItems(scopeItems(), true);
     }}>
     {close => <>
-      <DialogHeader title="Scope" closeLabel="Close scope picker" onClose={close}
+      <DialogHeader title="Scope"
         description="Limits what Infumap search can find. Web tools and attachments are not affected.">
         <Show when={props.note?.()}><div class={`mt-1 ${DIALOG_NOTE_CLASS}`}>{props.note!()}</div></Show>
       </DialogHeader>

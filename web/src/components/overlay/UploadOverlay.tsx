@@ -19,7 +19,7 @@
 import { Component, Show } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../../constants";
-import { DIALOG_BACKDROP_CLASS, DIALOG_NOTE_CLASS, DIALOG_SURFACE_CLASS } from "../library/dialogStyle";
+import { DIALOG_BACKDROP_CLASS, DIALOG_NOTE_CLASS, FLOATING_DIALOG_SURFACE_CLASS } from "../library/dialogStyle";
 
 export const UploadOverlay: Component = () => {
   const store = useStore();
@@ -58,7 +58,7 @@ export const UploadOverlay: Component = () => {
            onTouchEnd={eatTouchEvent}
            onTouchMove={eatTouchEvent}
            onTouchCancel={eatTouchEvent}>
-        <div class={DIALOG_SURFACE_CLASS} style={`width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px;`}>
+        <div class={FLOATING_DIALOG_SURFACE_CLASS} style={`width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px;`}>
           <div class="px-4 py-3 h-full flex flex-col justify-center">
             <div class="flex items-center mb-3">
               <span class="text-[13px] font-medium text-neutral-800">Uploading files…</span>

@@ -8,7 +8,7 @@ import { queryConfigurationSummary } from "../../items/query-configuration-label
 import { useStore } from "../../store/StoreProvider";
 import type { Uid } from "../../util/uid";
 import { stopQueryPickerEvent } from "./QueryPickerPopover";
-import { DIALOG_INPUT_CLASS, DIALOG_SURFACE_CLASS, DialogHeader, dialogButtonClass } from "../library/dialogStyle";
+import { DIALOG_INPUT_CLASS, FLOATING_DIALOG_SURFACE_CLASS, DialogHeader, dialogButtonClass } from "../library/dialogStyle";
 
 const nameEncoder = new TextEncoder();
 
@@ -156,7 +156,7 @@ export function QueryProfileManager(props: { onClose: () => void }) {
     <div class="fixed inset-0 bg-black/20" style={`z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY + 2};`}
       onMouseDown={ev => { ev.stopPropagation(); props.onClose(); }} onClick={stopQueryPickerEvent} />
     <div ref={panel} tabindex={-1} role="dialog" aria-modal="true" aria-label="Manage query profiles"
-      class={`fixed left-1/2 top-[10vh] flex max-h-[80vh] w-[calc(100vw-32px)] max-w-[560px] -translate-x-1/2 flex-col overflow-hidden outline-hidden ${DIALOG_SURFACE_CLASS}`}
+      class={`fixed left-1/2 top-[10vh] flex max-h-[80vh] w-[calc(100vw-32px)] max-w-[560px] -translate-x-1/2 flex-col overflow-hidden outline-hidden ${FLOATING_DIALOG_SURFACE_CLASS}`}
       style={`z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY + 3};`}
       onMouseDown={stopQueryPickerEvent} onMouseUp={stopQueryPickerEvent} onClick={stopQueryPickerEvent}
       onKeyDown={panelKeyDown} onKeyUp={stopQueryPickerEvent}>

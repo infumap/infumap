@@ -27,7 +27,7 @@ import { post } from "../../server";
 import { ChangePasswordResponse, Totp, UpdateTotpResponse } from "../../util/accountTypes";
 import { RemoteSessions, RemoteSession } from "../../store/RemoteSessions";
 import { PasswordStrength } from "../PasswordStrength";
-import { DIALOG_LABEL_CLASS, DIALOG_NOTE_CLASS, DIALOG_SURFACE_CLASS, DialogHeader, dialogButtonClass } from "../library/dialogStyle";
+import { DIALOG_LABEL_CLASS, DIALOG_NOTE_CLASS, FLOATING_DIALOG_SURFACE_CLASS, DialogHeader, dialogButtonClass } from "../library/dialogStyle";
 
 
 interface IngestSessionInfo {
@@ -302,9 +302,9 @@ export const EditUserSettings: Component = () => {
     // The dialog's bounds are those of editUserSettingsInfo, which mouse_down uses to decide whether a press is in the
     // dialog (and starts moving it) or outside (and closes it). The panel is inset from them, as it always has been.
     <div ref={editUserSettingsDiv}
-         class={`fixed z-20 flex flex-col overflow-hidden ${DIALOG_SURFACE_CLASS}`}
+         class={`fixed z-20 flex flex-col overflow-hidden ${FLOATING_DIALOG_SURFACE_CLASS}`}
          style={`left: ${posPx().x+10.0}px; top: ${posPx().y+10}px; width: ${sizePx().w-20.0}px; height: ${sizePx().h-20.0}px;`}>
-      <DialogHeader title="User settings" onClose={() => store.overlay.editUserSettingsInfo.set(null)} />
+      <DialogHeader title="User settings" />
 
       <div class="flex shrink-0 border-b border-chrome-line px-3" role="tablist">
         <button type="button" role="tab" aria-selected={activeTab() === "local"} class={tabClass("local")}

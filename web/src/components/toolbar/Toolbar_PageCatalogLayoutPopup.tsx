@@ -91,7 +91,7 @@ export const Toolbar_PageCatalogLayoutPopup: Component = () => {
 
   return (
     <div ref={el => toolbarDialogContentRef(el)} class="flex flex-col" onKeyDown={ev => { if (ev.key == "Escape") { ev.stopPropagation(); close(); } }}>
-      <DialogHeader title="Catalog layout" onClose={close}
+      <DialogHeader title="Catalog layout"
         description="One item per row: a preview, with its details beside it. The preview shape sets how tall the rows are." />
 
       <div class="px-3 py-3">

@@ -147,7 +147,7 @@ export const Toolbar_PageJustifiedLayoutPopup: Component = () => {
 
   return (
     <div ref={el => toolbarDialogContentRef(el)} class="flex flex-col" onKeyDown={ev => { if (ev.key == "Escape") { ev.stopPropagation(); close(); } }}>
-      <DialogHeader title="Justified layout" onClose={close}
+      <DialogHeader title="Justified layout"
         description="Items keep their shape and fill rows the width of the page, which scrolls down. Row height sets how big they are." />
 
       <div class="px-3 py-3">

@@ -79,7 +79,7 @@ export const Toolbar_PageGridLayoutPopup: Component = () => {
 
   return (
     <div ref={el => toolbarDialogContentRef(el)} class="flex flex-col" onKeyDown={ev => { if (ev.key == "Escape") { ev.stopPropagation(); close(); } }}>
-      <DialogHeader title="Grid layout" onClose={close}
+      <DialogHeader title="Grid layout"
         description="The grid fills the width of the page and scrolls down. Columns and cell shape set how big the cells are." />
 
       <div class="px-3 py-3">

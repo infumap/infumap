@@ -145,7 +145,7 @@ export function QueryModelPicker(props: QueryPickerProps) {
       <Show when={ready() && selectionIssues().length > 0}><i class="bi-exclamation-triangle shrink-0 text-[11px] text-amber-600" /></Show></>}
     onOpen={() => { setFilter(""); setFavoriteError(null); void store.general.queryProfiles.refresh(); void store.general.refreshChatBackends(); }}>
     {close => <>
-      <DialogHeader title="Model and provider" closeLabel="Close model picker" onClose={close}>
+      <DialogHeader title="Model and provider">
         <Show when={props.note?.()}><div class={`mt-1 ${DIALOG_NOTE_CLASS}`}>{props.note?.()}</div></Show>
         <For each={selectionIssues()}>{issue => <div role="status" class="mt-1 text-[11px] text-amber-700">{issue.message}</div>}</For>
         <input data-picker-autofocus type="search" aria-label="Search models and providers" placeholder="Search models or providers…"

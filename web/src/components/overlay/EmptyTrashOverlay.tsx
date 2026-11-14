@@ -19,7 +19,7 @@
 import { Component, Show } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../../constants";
-import { DIALOG_BACKDROP_CLASS, DIALOG_SURFACE_CLASS } from "../library/dialogStyle";
+import { DIALOG_BACKDROP_CLASS, FLOATING_DIALOG_SURFACE_CLASS } from "../library/dialogStyle";
 
 export const EmptyTrashOverlay: Component = () => {
     const store = useStore();
@@ -38,7 +38,7 @@ export const EmptyTrashOverlay: Component = () => {
                 onTouchEnd={eatTouchEvent}
                 onTouchMove={eatTouchEvent}
                 onTouchCancel={eatTouchEvent}>
-                <div class={DIALOG_SURFACE_CLASS} style="width: 280px; height: 80px;">
+                <div class={FLOATING_DIALOG_SURFACE_CLASS} style="width: 280px; height: 80px;">
                     <div class="px-4 py-3 h-full flex flex-col justify-center items-center">
                         <div class="flex items-center">
                             <i class="bi-arrow-repeat inline-block animate-spin mr-3 text-neutral-500" />

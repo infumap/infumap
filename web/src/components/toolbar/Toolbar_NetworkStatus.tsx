@@ -246,10 +246,6 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
     void logout!();
   };
 
-  const handleClose = () => {
-    store.overlay.networkOverlayVisible.set(false);
-  };
-
   const SectionHeading = (props: { children: JSX.Element }): JSX.Element =>
     <div class="text-xs text-neutral-600 mb-1 flex justify-between items-center">{props.children}</div>;
 
@@ -309,8 +305,6 @@ export const Toolbar_NetworkStatus_Overlay: Component = () => {
       <div class="flex items-start gap-2 mb-3">
         <div class="shrink-0 mt-[2px] mx-[3px]"><NetworkStatusIcon level={summary().level} sizePx={14} /></div>
         <div class="flex-1 text-sm font-medium">{summary().sentence}</div>
-        <button onClick={handleClose} title="Close (Esc)"
-          class="text-neutral-500 hover:text-neutral-700 text-lg leading-none cursor-pointer -mt-1">&times;</button>
       </div>
 
       <Show when={pendingSaves().length > 0 || writeProblems().length > 0}>

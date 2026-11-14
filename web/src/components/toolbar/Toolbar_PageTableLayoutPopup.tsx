@@ -27,7 +27,7 @@ export const Toolbar_PageTableLayoutPopup: Component = () => {
 
   return (
     <div ref={el => toolbarDialogContentRef(el)} class="flex flex-col" onKeyDown={ev => { if (ev.key == "Escape") { ev.stopPropagation(); close(); } }}>
-      <DialogHeader title="Table layout" onClose={close}
+      <DialogHeader title="Table layout"
         description="Each item is a row: its title, then its attachments. Drag a column's edge on the table to resize it." />
 
       <div class="px-3 py-3">

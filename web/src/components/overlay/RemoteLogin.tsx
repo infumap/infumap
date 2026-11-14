@@ -28,7 +28,7 @@ import { CursorEventState } from "../../input/state";
 import { isInside } from "../../util/geometry";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
 import { requestArrange } from "../../layout/arrange";
-import { DIALOG_BACKDROP_CLASS, DIALOG_LABEL_CLASS, DIALOG_SURFACE_CLASS, DialogHeader, dialogButtonClass } from "../library/dialogStyle";
+import { DIALOG_BACKDROP_CLASS, DIALOG_LABEL_CLASS, FLOATING_DIALOG_SURFACE_CLASS, DialogHeader, dialogButtonClass } from "../library/dialogStyle";
 
 
 export const RemoteLoginOverlay: Component = () => {
@@ -150,7 +150,7 @@ export const RemoteLoginOverlay: Component = () => {
            onmousedown={mouseDownListener}
            onmousemove={mouseMoveListener}
            onmouseup={mouseUpListener}>
-        <div class={`flex flex-col overflow-hidden ${DIALOG_SURFACE_CLASS}`}
+        <div class={`flex flex-col overflow-hidden ${FLOATING_DIALOG_SURFACE_CLASS}`}
              style={`width: ${boxBoundsPx().w}px;`}
              onmousedown={(ev) => ev.stopPropagation()}>
           <DialogHeader title="Log in to remote host" onClose={closeOverlay}

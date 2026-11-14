@@ -33,6 +33,13 @@
     page and its dock or popup title. Blue-grey, with the blue hover tint and selection color (BORDER_COLOR).
   */
   --color-item-line: #c9d5e2;
+  /*
+    Free-floating dialogs (user settings, help, logins, progress) have the halo of a popped-up page (Page_Popup
+    renderShadow: a #606060e8 box 10px larger than the page, blurred by 12px), so they sit over the page the same way.
+  */
+  --shadow-popup: 0 0 24px 10px rgb(96 96 96 / 0.91);
+  /* Dialogs, menus and pickers anchored to the toolbar or a control: the same glow, lighter, as they are smaller. */
+  --shadow-popover: 0 0 14px 3px rgb(96 96 96 / 0.4);
   /* Fixed, unlike --radius-item, which scales down inside translucent pages. Matches an item at full size. */
   --radius-control: 4px;
 }

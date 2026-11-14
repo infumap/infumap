@@ -706,6 +706,13 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
 
   // Ahead of the text edit and native keyboard checks below, because the focus is usually in the editor or the popup.
   // Only the popup closes: the text edit and its selection stay, and a further Escape ends the edit.
+  // User settings has no close button: it closes with Escape (even from one of its inputs) or a press outside it.
+  if (ev.code == "Escape" && store.overlay.editUserSettingsInfo.get() != null) {
+    ev.preventDefault();
+    store.overlay.editUserSettingsInfo.set(null);
+    return;
+  }
+
   if (ev.code == "Escape" && store.overlay.toolbarPopupInfoMaybe.get()) {
     ev.preventDefault();
     closeToolbarDialog(store);

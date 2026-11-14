@@ -22,7 +22,7 @@ export const Toolbar_PageShapePopup: Component = () => {
 
   return (
     <div ref={el => toolbarDialogContentRef(el)} class="flex flex-col" onKeyDown={ev => { if (ev.key == "Escape") { ev.stopPropagation(); close(); } }}>
-      <DialogHeader title="Page shape" onClose={close}
+      <DialogHeader title="Page shape"
         description={`The shape of this page in popups and where it is embedded.${arrangement == null ? "" : ` The ${arrangement} itself fills the width of where it is shown.`}`} />
       <div class="px-3 py-3">
         <ToolbarDialogPageShapeControls page={pageItem} />

@@ -20,7 +20,7 @@ import { Component } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { Z_INDEX_GLOBAL_TOOLBAR_OVERLAY } from "../../constants";
 import { HelpContent } from "../HelpContent";
-import { DIALOG_BACKDROP_CLASS, DIALOG_SURFACE_CLASS, DialogHeader } from "../library/dialogStyle";
+import { DIALOG_BACKDROP_CLASS, FLOATING_DIALOG_SURFACE_CLASS, DialogHeader } from "../library/dialogStyle";
 
 
 /**
@@ -49,8 +49,8 @@ export const HelpOverlay: Component = () => {
       onTouchEnd={eatTouchEvent}
       onTouchMove={eatTouchEvent}
       onTouchCancel={eatTouchEvent}>
-      <div class={`flex flex-col overflow-hidden select-text ${DIALOG_SURFACE_CLASS}`}
-        style="width: 560px; max-width: 100%; max-height: 100%;"
+      <div class={`flex flex-col overflow-hidden select-text ${FLOATING_DIALOG_SURFACE_CLASS}`}
+        style="width: 560px; max-width: 100%; max-height: min(600px, 100%);"
         role="dialog" aria-label="Help">
         <DialogHeader title="Help" closeLabel="Close help (Esc)" onClose={close} />
         <div class="px-3 py-3 overflow-y-auto min-h-0">

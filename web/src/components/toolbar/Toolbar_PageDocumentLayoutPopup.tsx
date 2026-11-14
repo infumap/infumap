@@ -58,7 +58,7 @@ export const Toolbar_PageDocumentLayoutPopup: Component = () => {
 
   return (
     <div ref={el => toolbarDialogContentRef(el)} class="flex flex-col" onKeyDown={ev => { if (ev.key == "Escape") { ev.stopPropagation(); close(); } }}>
-      <DialogHeader title="Document layout" onClose={close}
+      <DialogHeader title="Document layout"
         description="Text runs down the page in a column. Its width sets how long the lines are." />
 
       <div class="px-3 py-3">

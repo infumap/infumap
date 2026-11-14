@@ -213,7 +213,7 @@ export const Toolbar_PageSizePopup: Component = () => {
 
   return (
     <div ref={el => toolbarDialogContentRef(el)} class="flex flex-col" onKeyDown={ev => { if (ev.key == "Escape") { ev.stopPropagation(); close(); } }}>
-      <DialogHeader title="Page size" onClose={close}
+      <DialogHeader title="Page size"
         description="In blocks: one block is the height of a line of text. Drag the outline to resize." />
 
       <div class="px-3 py-3">
