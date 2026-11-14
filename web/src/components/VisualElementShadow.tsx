@@ -187,11 +187,16 @@ export const VisualElement_DesktopShadow: Component<VisualElementDesktopShadowPr
 
     if (isTable(props.visualElement.displayItem)) {
       const blockSizePx = tableBlockSizePx(props.visualElement);
+      // Inset so the shadow's inner edge sits under the opaque table body. At the same bounds, this layer and
+      // the table's border can be pixel-snapped in opposite directions (they are in different stacking contexts
+      // with fractional offsets), and since a box-shadow never paints inside its own box, the page background
+      // then shows as a 1-2 device px white line between the border and the shadow at some page sizes.
+      const inset = 2;
       const tableShadowBoundsPx = {
-        x: boundsPx().x,
-        y: boundsPx().y + blockSizePx.h,
-        w: boundsPx().w,
-        h: boundsPx().h - blockSizePx.h,
+        x: boundsPx().x + inset,
+        y: boundsPx().y + blockSizePx.h + inset,
+        w: boundsPx().w - inset * 2,
+        h: boundsPx().h - blockSizePx.h - inset * 2,
       };
       return <div class="absolute pointer-events-none border border-transparent rounded-item shadow-xl"
         style={shadowStyle(tableShadowBoundsPx)} />;
