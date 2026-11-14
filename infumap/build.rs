@@ -1,5 +1,4 @@
 use std::env;
-use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -12,7 +11,6 @@ fn main() {
   println!("cargo:rerun-if-changed=macos/menu_bar.m");
   println!("cargo:rerun-if-changed=macos/settings_window.m");
   println!("cargo:rerun-if-changed=macos/settings_window.h");
-  println!("cargo:rerun-if-changed=../web/src/assets/favicon.ico");
   if env::var_os("CARGO_FEATURE_MACOS_MENUBAR").is_none() {
     return;
   }
@@ -23,9 +21,6 @@ fn main() {
   );
 
   let out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
-  let icon = fs::read("../web/src/assets/favicon.ico").expect("Could not read the Infumap icon");
-  let bytes = icon.iter().map(|byte| byte.to_string()).collect::<Vec<_>>().join(",");
-  fs::write(out.join("icon.h"), format!("static const unsigned char infumap_icon[] = {{{bytes}}};\n")).unwrap();
   for source in ["menu_bar", "settings_window"] {
     run(
       Command::new("xcrun")

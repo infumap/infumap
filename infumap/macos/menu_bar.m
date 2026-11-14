@@ -10,7 +10,6 @@
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include "icon.h"
 
 @interface InfumapMenuBar : NSObject <NSApplicationDelegate, InfumapSettingsDelegate>
 @property(nonatomic, copy) NSString *executable;
@@ -88,13 +87,24 @@
   [main addItem:editItem];
   NSApp.mainMenu = main;
   self.statusItem = [NSStatusBar.systemStatusBar statusItemWithLength:NSVariableStatusItemLength];
-  NSImage *image = [[NSImage alloc] initWithData:[NSData dataWithBytes:infumap_icon length:sizeof(infumap_icon)]];
-  if (image) {
-    image.size = NSMakeSize(18, 18);
-    self.statusItem.button.image = image;
-  } else {
-    self.statusItem.button.title = @"Infumap";
-  }
+  // Template rendering uses alpha, so the favicon's opaque white disc would
+  // hide its lettering. Draw an outline on transparency and let AppKit tint it.
+  NSImage *image = [NSImage imageWithSize:NSMakeSize(18, 18) flipped:YES drawingHandler:^BOOL(NSRect rect) {
+    [NSColor.blackColor setStroke];
+    NSBezierPath *circle = [NSBezierPath bezierPathWithOvalInRect:NSInsetRect(rect, 0.75, 0.75)];
+    circle.lineWidth = 1.25;
+    [circle stroke];
+    NSDictionary<NSAttributedStringKey, id> *attributes = @{
+      NSFontAttributeName: [NSFont systemFontOfSize:9 weight:NSFontWeightMedium],
+      NSForegroundColorAttributeName: NSColor.blackColor,
+    };
+    NSSize size = [@"IM" sizeWithAttributes:attributes];
+    [@"IM" drawAtPoint:NSMakePoint(NSMidX(rect) - size.width / 2, NSMidY(rect) - size.height / 2)
+      withAttributes:attributes];
+    return YES;
+  }];
+  image.template = YES;
+  self.statusItem.button.image = image;
   self.statusItem.button.accessibilityLabel = @"Infumap";
   NSMenu *menu = [[NSMenu alloc] initWithTitle:@"Infumap"];
   menu.autoenablesItems = NO;
