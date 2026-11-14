@@ -127,9 +127,72 @@ Musl builds statically link the C runtime to avoid depending on the host's glibc
 ./build-release.sh aarch64-apple-darwin
 ```
 
-Archives are written under the repository root's `dist/` directory as `<executable>-<version>-<target>.tar.gz`, with a matching `.tar.gz.sha256` file. Each archive contains a directory holding the executable and `LICENSE.txt`. The version comes from `infumap/Cargo.toml`. The macOS release includes only the menu bar executable and targets macOS 11 or later; the command-line macOS executable remains available through the ordinary build script.
+Archives are written under the repository root's `dist/` directory. Linux archives are named `<executable>-<version>-<target>.tar.gz` and contain a directory holding the executable and `LICENSE.txt`. The version comes from `infumap/Cargo.toml`.
+
+The macOS archive contains `Infumap.app`, including the menu bar executable, app icon, metadata and license. It targets macOS 11 or later. Double-click the app to start it, or move it into Applications first. The command-line macOS executable remains available through the ordinary build script.
+
+macOS filenames distinguish distribution states:
+
+| Build options | Filename |
+| --- | --- |
+| No signing options (local ad hoc signature) | `infumap-macos-<version>-aarch64-apple-darwin-unsigned.zip` |
+| `--sign` (Developer ID signature only) | `infumap-macos-<version>-aarch64-apple-darwin-signed.zip` |
+| `--notarize` (Developer ID signature and stapled notarization ticket) | `infumap-macos-<version>-aarch64-apple-darwin.zip` |
+
+Every archive has a matching `.sha256` file, calculated after packaging and any notarization. Public macOS downloads should use `--notarize`; the other modes are useful for local development and signing diagnosis.
 
 To reuse a web build, pass `--skip-web` to each release build. When transferring a web build between CI jobs, transfer **both** `infumap/dist/` and `infumap/src/web/dist_handlers.rs`; the generated Rust routes embed the assets at compile time. Preserve their repository-relative paths. Build the web client from the same revision as the Rust source.
+
+### Signing and notarizing macOS releases
+
+`./build-release.sh --notarize aarch64-apple-darwin` builds the app, signs it with Hardened Runtime and a secure timestamp, submits a ZIP to Apple, checks for an `Accepted` response, staples and validates the ticket, and assesses the app for distribution. It then creates the final ZIP containing the stapled app. A failure stops packaging; signing or notarization never falls back to an unsigned release. This follows [Apple's notarization workflow](https://developer.apple.com/documentation/security/customizing-the-notarization-workflow).
+
+You need a **Developer ID Application** certificate and its private key, plus notarization credentials from your Apple Developer account. The scripts use `codesign`, `security`, `sips`, `iconutil`, `ditto`, `notarytool` and `stapler` from macOS and Apple's developer tools. No Xcode project or installer is required.
+
+For local signing, install the certificate/private key in your keychain. Store notarization credentials with `xcrun notarytool store-credentials infumap`, then run:
+
+```sh
+export MACOS_SIGNING_IDENTITY='Developer ID Application: Your Name (TEAMID)'
+export MACOS_NOTARY_KEYCHAIN_PROFILE=infumap
+./build-release.sh --notarize aarch64-apple-darwin
+```
+
+`MACOS_SIGNING_KEYCHAIN` can select an existing signing keychain. As an alternative to a notarization profile, set `MACOS_NOTARY_KEY_PATH` to an App Store Connect **team** API key's `.p8` file, along with `MACOS_NOTARY_KEY_ID` and `MACOS_NOTARY_ISSUER_ID`. Choose either a profile or API key authentication.
+
+For GitHub Actions, export the Developer ID Application certificate **with its private key** as a password-protected `.p12` file and provide the following environment variables from secrets:
+
+| Variable | Value |
+| --- | --- |
+| `MACOS_CERTIFICATE_BASE64` | Base64-encoded `.p12` file |
+| `MACOS_CERTIFICATE_PASSWORD` | Password used when exporting the `.p12` file |
+| `MACOS_SIGNING_IDENTITY` | Full `Developer ID Application: … (TEAMID)` certificate name |
+| `MACOS_NOTARY_KEY_BASE64` | Base64-encoded App Store Connect team API key `.p8` file |
+| `MACOS_NOTARY_KEY_ID` | API key ID |
+| `MACOS_NOTARY_ISSUER_ID` | API key issuer ID |
+
+On macOS, `base64 -i certificate.p12 | pbcopy` copies a certificate's encoded value for adding to a secret; use the same command with the `.p8` file for the API key. Base64 is encoding, so keep both values in secrets.
+
+After checking out the source and selecting the repo-pinned Node and Rust versions on an Apple Silicon macOS runner, an Actions step can invoke the whole workflow:
+
+```yaml
+- name: Build signed and notarized macOS release
+  env:
+    MACOS_CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE_BASE64 }}
+    MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+    MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+    MACOS_NOTARY_KEY_BASE64: ${{ secrets.MACOS_NOTARY_KEY_BASE64 }}
+    MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+    MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+  run: |
+    rustup target add aarch64-apple-darwin
+    ./build-release.sh --notarize aarch64-apple-darwin
+```
+
+The packaging helper imports the certificate into a temporary unlocked keychain, grants noninteractive access to the signing tool, and deletes the keychain and decoded credential files on exit. It leaves existing keychains intact. Only make these secrets available to trusted release jobs. See [GitHub's signing certificate guidance](https://docs.github.com/en/actions/how-tos/deploy/deploy-to-third-party-platforms/sign-xcode-applications).
+
+Collect `dist/infumap-macos-*-aarch64-apple-darwin.zip` and the matching `.zip.sha256` as release artifacts. Apple's submission response and diagnostic log are retained as `dist/*-notary-submission.json` and `dist/*-notary-log.json`, including on rejection when Apple supplies a log. Collect those diagnostics even if the job fails. `MACOS_NOTARY_LOG_DIR` overrides their directory; `MACOS_NOTARY_TIMEOUT` overrides the default `30m` wait. A timeout fails the build and preserves the submission response so its ID can be used with `notarytool info` or `notarytool log`.
+
+The lower-level `infumap/macos/package.sh` command can also package an already-built executable; run it with `--help` for its arguments and credential options.
 
 
 # Iterative Development
