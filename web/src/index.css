@@ -12,6 +12,9 @@
   --radius-item: var(--item-radius-base);
   /* Outline color of items on the desktop (notes, tables, embedded pages, ...). */
   --color-item-border: #a6a6a6;
+  /* Border and text of the buttons in dialogs and a chat's controls. */
+  --color-control-border: #d6d6d6;
+  --color-control-text: #555555;
 }
 
 /*

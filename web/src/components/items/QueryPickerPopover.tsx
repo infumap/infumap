@@ -3,6 +3,7 @@
 import { Show, createEffect, createSignal, onCleanup, type JSX } from "solid-js";
 import { Portal } from "solid-js/web";
 import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../../constants";
+import { DIALOG_SURFACE_CLASS } from "../library/dialogStyle";
 import type { QueryItem } from "../../items/query-item";
 
 export interface QueryPickerProps {
@@ -114,7 +115,7 @@ export function QueryPickerPopover(props: PopoverProps) {
   return <>
     <button
       ref={el => { button = el; props.buttonRef?.(el); }} type="button" disabled={props.disabled}
-      class={props.buttonAppearance?.class ?? `flex h-[22px] min-w-0 items-center gap-1 overflow-hidden rounded-md border border-[#d6d6d6] bg-white px-2 text-[#555] hover:bg-slate-50 disabled:cursor-default disabled:opacity-50 ${props.buttonClass ?? ""}`}
+      class={props.buttonAppearance?.class ?? `flex h-[22px] min-w-0 items-center gap-1 overflow-hidden rounded-md border border-control-border bg-white px-2 text-control-text hover:bg-slate-50 disabled:cursor-default disabled:opacity-50 ${props.buttonClass ?? ""}`}
       style={props.buttonAppearance?.style ?? "font-size: 12px; line-height: 18px;"} title={props.title}
       aria-label={props.ariaLabel} aria-haspopup="dialog" aria-expanded={open()}
       onMouseDown={stopQueryPickerEvent} onMouseUp={stopQueryPickerEvent}
@@ -131,7 +132,7 @@ export function QueryPickerPopover(props: PopoverProps) {
         <div class="fixed inset-0" style={`z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY};`}
           onMouseDown={ev => { ev.stopPropagation(); close(); }} onClick={stopQueryPickerEvent} />
         <div ref={panel} tabindex={-1} role="dialog" aria-modal="true" aria-label={props.ariaLabel}
-          class="fixed flex flex-col overflow-hidden rounded-md border border-slate-300 bg-white text-black shadow-lg"
+          class={`fixed flex flex-col overflow-hidden ${DIALOG_SURFACE_CLASS}`}
           style={panelStyle()} onMouseDown={stopQueryPickerEvent} onMouseUp={stopQueryPickerEvent}
           onClick={stopQueryPickerEvent} onKeyDown={panelKeyDown} onKeyUp={stopQueryPickerEvent}>
           {props.children(close)}

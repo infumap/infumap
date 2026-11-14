@@ -10,9 +10,10 @@ import { createJustifyOptions } from "../../layout/arrange/page_justified";
 import { calcJustifiedBoxSpacingPx, calcJustifiedPagePaddingPx, calcJustifiedTargetRowHeightPx } from "../../layout/arrange/justified_metrics";
 import { getToolbarFocusItem } from "./toolbarFocus";
 import {
-  TOOLBAR_DIALOG_INPUT_CLASS, ToolbarDialogHeader, ToolbarDialogPageShapeSection, closeToolbarDialog, toolbarDialogButtonClass,
-  toolbarDialogContentRef, toolbarDialogNumberInput, toolbarDialogPageChanged,
+  TOOLBAR_DIALOG_INPUT_CLASS, ToolbarDialogPageShapeSection, closeToolbarDialog, toolbarDialogContentRef,
+  toolbarDialogNumberInput, toolbarDialogItemChanged,
 } from "./toolbarDialog";
+import { DIALOG_LABEL_CLASS, DIALOG_NOTE_CLASS, DialogHeader, dialogButtonClass } from "../library/dialogStyle";
 
 
 export const PAGE_JUSTIFIED_LAYOUT_POPUP_HEIGHT_PX = 420;
@@ -111,11 +112,11 @@ export const Toolbar_PageJustifiedLayoutPopup: Component = () => {
     const value = Math.max(MIN_ROW_ASPECT, Math.min(MAX_ROW_ASPECT, requested));
     setRowAspect(value);
     if (pageItem().justifiedRowAspect == value) {
-      if (save) { toolbarDialogPageChanged(store, pageItem(), "toolbar-justified-row-aspect"); }
+      if (save) { toolbarDialogItemChanged(store, pageItem(), "toolbar-justified-row-aspect"); }
       return;
     }
     pageItem().justifiedRowAspect = value;
-    toolbarDialogPageChanged(store, pageItem(), "toolbar-justified-row-aspect", save);
+    toolbarDialogItemChanged(store, pageItem(), "toolbar-justified-row-aspect", save);
   };
 
   const close = () => closeToolbarDialog(store);
@@ -146,7 +147,7 @@ export const Toolbar_PageJustifiedLayoutPopup: Component = () => {
 
   return (
     <div ref={el => toolbarDialogContentRef(el)} class="flex flex-col" onKeyDown={ev => { if (ev.key == "Escape") { ev.stopPropagation(); close(); } }}>
-      <ToolbarDialogHeader title="Justified layout" onClose={close}
+      <DialogHeader title="Justified layout" onClose={close}
         description="Items keep their shape and fill rows the width of the page, which scrolls down. Row height sets how big they are." />
 
       <div class="px-3 py-3">
@@ -164,10 +165,10 @@ export const Toolbar_PageJustifiedLayoutPopup: Component = () => {
             </Show>
           </div>
         </div>
-        <div class="mt-1 text-[11px] leading-[16px] text-slate-500">{statusText()}</div>
+        <div class={`mt-1 ${DIALOG_NOTE_CLASS}`}>{statusText()}</div>
 
         <div class="mt-3 flex items-center gap-2">
-          <div class="w-[72px] shrink-0 text-[12px] leading-[15px] text-slate-600">Row height
+          <div class={`w-[72px] shrink-0 leading-[15px] ${DIALOG_LABEL_CLASS}`}>Row height
             <div class="text-[11px] text-slate-500">{justifiedRowSizeWord(rowAspect())}</div>
           </div>
           <i class="bi-grid-3x3-gap text-[11px] text-slate-400" title="Smaller" />
@@ -180,12 +181,12 @@ export const Toolbar_PageJustifiedLayoutPopup: Component = () => {
         </div>
 
         <div class="mt-2 flex items-center gap-2">
-          <label class="flex items-center gap-[6px] text-[12px] text-slate-600"
+          <label class={`flex items-center gap-[6px] ${DIALOG_LABEL_CLASS}`}
             title="Page width divided by row height. Larger values give smaller rows.">Aspect
             <input class={TOOLBAR_DIALOG_INPUT_CLASS} type="number" min={MIN_ROW_ASPECT} max={MAX_ROW_ASPECT} step="0.1"
               value={roundRowAspect(rowAspect())} {...toolbarDialogNumberInput(store, rowAspect, apply, 0.1, v => String(roundRowAspect(v)))} />
           </label>
-          <button type="button" class={toolbarDialogButtonClass()} disabled={fitInWindowRowAspect == null}
+          <button type="button" class={dialogButtonClass()} disabled={fitInWindowRowAspect == null}
             title={fitTitle()} onClick={() => apply(fitInWindowRowAspect!)}>Fit in window</button>
         </div>
       </div>

@@ -188,7 +188,7 @@ const QUERY_SCOPE_ITEMS_ROW_GAP_PX = 6;
  * because a "+" in that row already adds items to the scope.
  */
 const QUERY_COMPOSER_ACTION_BUTTON_APPEARANCE = {
-  class: "flex h-[22px] w-[26px] shrink-0 cursor-pointer items-center justify-center rounded-md border border-[#d6d6d6] bg-white text-[#555] hover:bg-slate-50 disabled:cursor-default disabled:opacity-50",
+  class: "flex h-[22px] w-[26px] shrink-0 cursor-pointer items-center justify-center rounded-md border border-control-border bg-white text-control-text hover:bg-slate-50 disabled:cursor-default disabled:opacity-50",
   style: "font-size: 13px; line-height: 18px;",
 };
 
@@ -1326,7 +1326,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   /** The attachments of the message being written, as chips, each of which can be removed or inserted as text. */
   /** Items chosen as the chat's scope, and the input for adding more. Unlike attachments, nothing is sent from them. */
   const renderScopeItemsRow = () => (
-    <div class="flex items-center overflow-x-auto overflow-y-hidden text-[#555]"
+    <div class="flex items-center overflow-x-auto overflow-y-hidden text-control-text"
       classList={{ "opacity-60": !scopeItemsInUse() }}
       style={`height: ${QUERY_SCOPE_ITEMS_ROW_HEIGHT_PX}px; gap: 6px; font-size: 13px; line-height: 20px;`}
       title={scopeItemsInUse()
@@ -1407,7 +1407,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const renderScopeAddButton = () => (
     <Show when={scopeItemsInUse() && (isChatMode() || selectedInputMode() == "chat")}>
       <button ref={el => { queryScopeAddButton = el; }} type="button"
-        class="flex h-[22px] w-[22px] shrink-0 cursor-pointer items-center justify-center rounded-md border border-[#d6d6d6] bg-white text-[#555] hover:bg-slate-50 disabled:cursor-default disabled:opacity-50"
+        class="flex h-[22px] w-[22px] shrink-0 cursor-pointer items-center justify-center rounded-md border border-control-border bg-white text-control-text hover:bg-slate-50 disabled:cursor-default disabled:opacity-50"
         style="font-size: 12px;"
         title="Limit Infumap search to chosen items"
         aria-label="Limit Infumap search to chosen items"
@@ -1443,14 +1443,14 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               class="flex min-w-0 shrink-0 items-center gap-1.5 rounded-xs border border-[#999] bg-white pl-2 text-black"
               style={`height: ${QUERY_DRAFT_ATTACHMENTS_ROW_HEIGHT_PX}px; max-width: 320px; font-size: 13px; line-height: 20px;`}
               title={attachment.text.slice(0, 400)}>
-              <i class="bi-file-earmark-text shrink-0 text-[#555]" />
+              <i class="bi-file-earmark-text shrink-0 text-control-text" />
               <span class="min-w-0 truncate">{attachment.title}</span>
               <span class="shrink-0 tabular-nums text-[#777]" style="font-size: 11px;">
                 {formatBytes(chatAttachmentSizeBytes(attachment.text))} · ~{tokens} tokens
               </span>
               <button
                 type="button"
-                class="flex h-full w-6 shrink-0 cursor-pointer items-center justify-center text-[#555] hover:bg-slate-100 hover:text-black"
+                class="flex h-full w-6 shrink-0 cursor-pointer items-center justify-center text-control-text hover:bg-slate-100 hover:text-black"
                 title="Insert as text"
                 aria-label={`Insert ${attachment.title} as text`}
                 onClick={(ev) => {
@@ -1461,7 +1461,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               </button>
               <button
                 type="button"
-                class="flex h-full w-6 shrink-0 cursor-pointer items-center justify-center text-[#555] hover:bg-slate-100 hover:text-black"
+                class="flex h-full w-6 shrink-0 cursor-pointer items-center justify-center text-control-text hover:bg-slate-100 hover:text-black"
                 title="Remove"
                 aria-label={`Remove ${attachment.title}`}
                 onClick={(ev) => {
@@ -1679,7 +1679,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             </button>
           </div>
           <div
-            class="flex items-center gap-3 text-[#555]"
+            class="flex items-center gap-3 text-control-text"
             style={`height: ${QUERY_CHAT_SETTINGS_HEIGHT_PX}px;`}>
             <div class="flex shrink-0 items-center gap-2">
               {renderAttachFileInput()}
@@ -1733,12 +1733,12 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               </Show>
               {/* The same icons as New Query's mode selector, styled like the configuration pills beside it. */}
               <div role="radiogroup" aria-label="Chat mode"
-                class="flex h-[22px] shrink-0 overflow-hidden rounded-md border border-[#d6d6d6] bg-white text-[12px]"
+                class="flex h-[22px] shrink-0 overflow-hidden rounded-md border border-control-border bg-white text-[12px]"
                 onMouseDown={ev => ev.stopPropagation()} onKeyDown={ev => ev.stopPropagation()}>
                 <For each={QUERY_INPUT_MODE_OPTIONS.filter(option => option.value != "search")}>{option => {
                   const selected = () => (option.value == "deep-research") == deepResearch();
                   return <button type="button" role="radio" aria-checked={selected()} aria-label={option.label} title={option.label}
-                    class="flex w-[26px] cursor-pointer items-center justify-center text-[#555] hover:bg-slate-50 disabled:cursor-default disabled:opacity-50"
+                    class="flex w-[26px] cursor-pointer items-center justify-center text-control-text hover:bg-slate-50 disabled:cursor-default disabled:opacity-50"
                     classList={{ "bg-slate-200 text-slate-900 hover:bg-slate-200": selected() }}
                     disabled={chatSettingsDisabled()} onClick={() => setDeepResearch(option.value == "deep-research")}>
                     <i class={option.icon} />
@@ -1875,7 +1875,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               );
             }}</For>
             <div
-              class="pointer-events-none absolute left-0 w-full text-center text-[#555]"
+              class="pointer-events-none absolute left-0 w-full text-center text-control-text"
               style={`top: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX + 4}px; font-size: 12px; line-height: 16px;`}>
               {QUERY_INPUT_MODE_OPTIONS.find(o => o.value == selectedInputModeOption())!.label}
             </div>
@@ -1983,7 +1983,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       {/* Spans the input, not the mode selector (whose caption sits below it) or the discard button, so the
           controls stay put once a search runs. */}
       <div
-        class="flex w-full items-center justify-end gap-2 text-[#555]"
+        class="flex w-full items-center justify-end gap-2 text-control-text"
         style={`height: ${QUERY_WORKSPACE_SETTINGS_ROW_HEIGHT_PX}px; margin-top: ${QUERY_WORKSPACE_SETTINGS_ROW_GAP_PX}px; ` +
           `padding-left: ${showModeSelector() ? QUERY_WORKSPACE_MODE_SELECTOR_WIDTH_PX + QUERY_WORKSPACE_CONTROLS_GAP_PX : 0}px; ` +
           `padding-right: ${showDiscardButton() ? QUERY_WORKSPACE_DISCARD_BUTTON_WIDTH_PX + QUERY_WORKSPACE_CONTROLS_GAP_PX : 0}px; ` +

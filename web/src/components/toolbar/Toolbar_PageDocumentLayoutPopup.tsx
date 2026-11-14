@@ -11,9 +11,9 @@ import { getTextStyleForNote, measureWidthBl } from "../../layout/text";
 import { serverOrRemote } from "../../server";
 import { getToolbarFocusItem } from "./toolbarFocus";
 import {
-  TOOLBAR_DIALOG_INPUT_CLASS, ToolbarDialogHeader, ToolbarDialogPageShapeSection, closeToolbarDialog, toolbarDialogContentRef,
-  toolbarDialogNumberInput,
+  ToolbarDialogPageShapeSection, ToolbarDialogStepper, closeToolbarDialog, toolbarDialogContentRef,
 } from "./toolbarDialog";
+import { DIALOG_NOTE_CLASS, DialogHeader } from "../library/dialogStyle";
 
 
 const MIN_WIDTH_BL = 10;
@@ -56,26 +56,15 @@ export const Toolbar_PageDocumentLayoutPopup: Component = () => {
   // A document narrower than the window is drawn at its natural size; a wider one is scaled down to fit.
   const scaledDown = () => (widthBl() + PAGE_DOCUMENT_LEFT_MARGIN_BL + PAGE_DOCUMENT_RIGHT_MARGIN_BL) * NATURAL_BLOCK_SIZE_PX.w > windowPx.w;
 
-  const stepperButtonClass = "h-[24px] w-[24px] rounded-md border border-[#d6d6d6] bg-white text-[12px] text-[#555] hover:bg-slate-50 disabled:cursor-default disabled:opacity-50";
-
   return (
     <div ref={el => toolbarDialogContentRef(el)} class="flex flex-col" onKeyDown={ev => { if (ev.key == "Escape") { ev.stopPropagation(); close(); } }}>
-      <ToolbarDialogHeader title="Document layout" onClose={close}
+      <DialogHeader title="Document layout" onClose={close}
         description="Text runs down the page in a column. Its width sets how long the lines are." />
 
       <div class="px-3 py-3">
-        <div class="flex items-center gap-2">
-          <div class="w-[72px] text-[12px] text-slate-600">Width</div>
-          <button type="button" class={stepperButtonClass} aria-label="Narrower" disabled={widthBl() <= MIN_WIDTH_BL}
-            onClick={() => applyWidth(widthBl() - 1)}><i class="bi-dash" /></button>
-          <input class={`${TOOLBAR_DIALOG_INPUT_CLASS} !w-[44px] text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
-            type="number" min={MIN_WIDTH_BL} max={MAX_WIDTH_BL} step="1" aria-label="Width in blocks"
-            value={widthBl()} {...toolbarDialogNumberInput(store, widthBl, applyWidth, 1)} />
-          <button type="button" class={stepperButtonClass} aria-label="Wider" disabled={widthBl() >= MAX_WIDTH_BL}
-            onClick={() => applyWidth(widthBl() + 1)}><i class="bi-plus" /></button>
-          <div class="text-[12px] text-slate-500">blocks</div>
-        </div>
-        <div class="mt-1 text-[11px] leading-[16px] text-slate-500">
+        <ToolbarDialogStepper label="Width" value={widthBl} apply={applyWidth} min={MIN_WIDTH_BL} max={MAX_WIDTH_BL}
+          decreaseLabel="Narrower" increaseLabel="Wider" unit="blocks" />
+        <div class={`mt-1 ${DIALOG_NOTE_CLASS}`}>
           About {charsPerLine()} characters per line.
           <Show when={scaledDown()}> The window is narrower than this, so the document is scaled down to fit.</Show>
         </div>

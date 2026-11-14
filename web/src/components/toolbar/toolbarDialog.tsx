@@ -1,23 +1,25 @@
 /* Copyright (C) The Infumap Authors. SPDX-License-Identifier: AGPL-3.0-or-later */
 
 import { Component, createSignal, onCleanup } from "solid-js";
+import { Item } from "../../items/base/item";
 import { StoreContextModel, useStore } from "../../store/StoreProvider";
 import { arrangeNow, requestArrange } from "../../layout/arrange";
 import { serverOrRemote } from "../../server";
 import { itemCanEdit } from "../../items/base/capabilities-item";
 import { PageItem, autoPageAspect } from "../../items/page-item";
 import { getToolbarFocusItem } from "./toolbarFocus";
+import {
+  DIALOG_INPUT_CLASS, DIALOG_LABEL_CLASS, DIALOG_NOTE_CLASS, DIALOG_STEPPER_INPUT_CLASS, DIALOG_SURFACE_CLASS, dialogButtonClass,
+  dialogIconButtonClass,
+} from "../library/dialogStyle";
 
 
-// Toolbar popups that hold several related settings use the look of the chat configuration dialogs, in place of the
-// plain bordered box used for single values.
-export const TOOLBAR_DIALOG_CLASS = "absolute flex flex-col overflow-hidden rounded-md border border-slate-300 bg-white text-black shadow-lg";
+// Toolbar popups that hold related settings, or a value to edit, use the look shared by dialogs, in place of the
+// plain bordered box used for menus.
+export const TOOLBAR_DIALOG_CLASS = `absolute flex flex-col overflow-hidden ${DIALOG_SURFACE_CLASS}`;
 
-export const toolbarDialogButtonClass = (selected: boolean = false): string =>
-  `h-[24px] rounded-md border px-2 text-[12px] disabled:cursor-default disabled:opacity-50 ` +
-  (selected ? "border-slate-500 bg-slate-100 text-black" : "border-[#d6d6d6] bg-white text-[#555] hover:bg-slate-50");
-
-export const TOOLBAR_DIALOG_INPUT_CLASS = "w-[64px] rounded border border-slate-300 px-[6px] py-[1px] text-[13px] text-black focus:border-blue-500 focus:outline-none";
+/** A number input for a value such as an aspect. */
+export const TOOLBAR_DIALOG_INPUT_CLASS = `${DIALOG_INPUT_CLASS} w-[64px]`;
 
 const MIN_PAGE_ASPECT = 0.1;
 const MAX_PAGE_ASPECT = 10;
@@ -57,13 +59,13 @@ export function closeToolbarDialog(store: StoreContextModel): void {
 }
 
 /**
- * Applies a change to a page's layout settings: redraws it and the toolbar, and saves it unless asked not to (while
- * a slider is being dragged).
+ * Applies a change to an item's settings: redraws it and the toolbar, and saves it unless asked not to (while a
+ * slider is being dragged).
  */
-export function toolbarDialogPageChanged(store: StoreContextModel, page: PageItem, reason: string, save: boolean = true): void {
+export function toolbarDialogItemChanged(store: StoreContextModel, item: Item, reason: string, save: boolean = true): void {
   store.touchToolbar();
   requestArrange(store, reason);
-  if (save) { serverOrRemote.updateItem(page); }
+  if (save) { serverOrRemote.updateItem(item); }
 }
 
 /**
@@ -100,14 +102,34 @@ export function toolbarDialogNumberInput(
   };
 }
 
-export const ToolbarDialogHeader: Component<{ title: string, description: string, onClose: () => void }> = (props) => (
-  <div class="shrink-0 border-b border-slate-200 px-3 py-2">
-    <div class="flex items-center gap-2 text-[12px] font-medium text-slate-600">{props.title}
-      <button type="button" class="ml-auto h-5 w-5 rounded hover:bg-slate-100" aria-label={`Close ${props.title.toLowerCase()}`} onClick={props.onClose}><i class="bi-x-lg" /></button>
+/**
+ * A whole number set with - and + buttons, or typed. The label is in a fixed width column, so the controls of
+ * successive rows line up.
+ */
+export const ToolbarDialogStepper: Component<{
+  label: string,
+  value: () => number,
+  apply: (value: number) => void,
+  min: number,
+  max: number,
+  decreaseLabel: string,
+  increaseLabel: string,
+  unit?: string,
+}> = (props) => {
+  const store = useStore();
+  return (
+    <div class="flex items-center gap-2">
+      <div class={`w-[72px] shrink-0 ${DIALOG_LABEL_CLASS}`}>{props.label}</div>
+      <button type="button" class={dialogIconButtonClass()} aria-label={props.decreaseLabel} disabled={props.value() <= props.min}
+        onClick={() => props.apply(props.value() - 1)}><i class="bi-dash" /></button>
+      <input class={DIALOG_STEPPER_INPUT_CLASS} type="number" min={props.min} max={props.max} step="1" aria-label={props.label}
+        value={props.value()} {...toolbarDialogNumberInput(store, props.value, props.apply, 1)} />
+      <button type="button" class={dialogIconButtonClass()} aria-label={props.increaseLabel} disabled={props.value() >= props.max}
+        onClick={() => props.apply(props.value() + 1)}><i class="bi-plus" /></button>
+      {props.unit != null ? <div class={DIALOG_LABEL_CLASS}>{props.unit}</div> : null}
     </div>
-    <div class="mt-[2px] text-[11px] text-slate-500">{props.description}</div>
-  </div>
-);
+  );
+};
 
 /**
  * The aspect of a page whose own arrangement doesn't use it (it fills the width of where it is shown and scrolls),
@@ -121,15 +143,15 @@ export const ToolbarDialogPageShapeControls: Component<{ page: () => PageItem }>
     setAspect(value);
     if (props.page().naturalAspect == value) { return; }
     props.page().naturalAspect = value;
-    toolbarDialogPageChanged(store, props.page(), "toolbar-page-shape");
+    toolbarDialogItemChanged(store, props.page(), "toolbar-page-shape");
   };
   return (
     <div class="flex items-center gap-2">
-      <label class="flex items-center gap-[6px] text-[12px] text-slate-600">Aspect
+      <label class={`flex items-center gap-[6px] ${DIALOG_LABEL_CLASS}`}>Aspect
         <input class={TOOLBAR_DIALOG_INPUT_CLASS} type="number" min={MIN_PAGE_ASPECT} max={MAX_PAGE_ASPECT} step="0.01"
           value={roundAspect(aspect())} {...toolbarDialogNumberInput(store, aspect, apply, 0.01, v => String(roundAspect(v)))} />
       </label>
-      <button type="button" class={toolbarDialogButtonClass()}
+      <button type="button" class={dialogButtonClass()}
         title="Use the shape of the window" onClick={() => apply(autoPageAspect(store))}>Match window</button>
     </div>
   );
@@ -138,7 +160,7 @@ export const ToolbarDialogPageShapeControls: Component<{ page: () => PageItem }>
 /** The page shape controls as the last section of a layout dialog. */
 export const ToolbarDialogPageShapeSection: Component<{ page: () => PageItem }> = (props) => (
   <div class="shrink-0 border-t border-slate-200 px-3 py-2">
-    <div class="text-[11px] leading-[16px] text-slate-500">Shape of this page in popups and where it is embedded</div>
+    <div class={DIALOG_NOTE_CLASS}>Shape of this page in popups and where it is embedded</div>
     <div class="mt-[6px]"><ToolbarDialogPageShapeControls page={props.page} /></div>
   </div>
 );

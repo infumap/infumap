@@ -8,6 +8,7 @@ import { switchToPage } from "../../layout/navigation";
 import type { PromptSummary } from "../../server";
 import { type StoreContextModel, useStore } from "../../store/StoreProvider";
 import { QueryPickerPopover } from "./QueryPickerPopover";
+import { DIALOG_INPUT_CLASS, DIALOG_LINK_CLASS, DIALOG_SURFACE_CLASS, DialogHeader } from "../library/dialogStyle";
 
 const TOO_LONG_TEXT = "Too long to insert. Shorten it to under 64 KB.";
 
@@ -103,22 +104,19 @@ export function QueryPromptPicker(props: QueryPromptPickerProps) {
         queueMicrotask(() => props.onChoose(text));
       };
       return <>
-        <div class="shrink-0 border-b border-slate-200 px-3 py-2">
-          <div class="flex items-center gap-2 text-[12px] font-medium text-slate-600">Prompts
-            <button type="button" class="ml-auto h-5 w-5 rounded hover:bg-slate-100" aria-label="Close prompts" onClick={close}><i class="bi-x-lg" /></button>
-          </div>
-          <input type="text" class="mt-1.5 w-full rounded border border-slate-300 px-2 py-1 text-[13px] outline-none focus:border-slate-500"
+        <DialogHeader title="Prompts" onClose={close}>
+          <input type="text" class={`mt-1.5 w-full ${DIALOG_INPUT_CLASS}`}
             placeholder="Filter prompts" aria-label="Filter prompts" role="combobox" data-picker-autofocus aria-expanded="true" aria-controls={listId}
             aria-activedescendant={prompts().length > 0 ? `${listId}-${Math.min(active(), prompts().length - 1)}` : undefined}
             value={filter()} onInput={ev => { setFilter(ev.currentTarget.value); setActive(0); }}
             onKeyDown={ev => { queryPromptListKeyDown(ev, prompts(), active(), setActive, choose); }} />
-        </div>
+        </DialogHeader>
         <div class="min-h-0 grow overflow-y-auto">
           <QueryPromptList listId={listId} prompts={prompts} filtered={() => filter().trim() != ""} active={active} setActive={setActive} onChoose={choose} />
         </div>
         <Show when={queryPrompts() != null}>
           <div class="shrink-0 border-t border-slate-200 px-3 py-2">
-            <button type="button" class="block text-[12px] text-blue-700 hover:underline"
+            <button type="button" class={`block ${DIALOG_LINK_CLASS}`}
               title="Each note or composite on the Prompts page is a prompt." onClick={() => {
                 const pageId = queryPrompts()?.promptsPageId;
                 close();
@@ -208,7 +206,7 @@ export function QueryPromptSuggestionList(props: QueryPromptSuggestionListProps)
   };
   return <Show when={props.suggestions.open()}>
     <Portal mount={document.body}>
-      <div class="fixed flex flex-col overflow-hidden rounded-md border border-slate-300 bg-white text-black shadow-lg" style={style()}
+      <div class={`fixed flex flex-col overflow-hidden ${DIALOG_SURFACE_CLASS}`} style={style()}
         onMouseDown={ev => { ev.preventDefault(); ev.stopPropagation(); }} onMouseUp={ev => ev.stopPropagation()} onClick={ev => ev.stopPropagation()}>
         <div class="min-h-0 grow overflow-y-auto">
           <QueryPromptList listId={listId} prompts={props.suggestions.prompts} filtered={() => false}
@@ -216,7 +214,7 @@ export function QueryPromptSuggestionList(props: QueryPromptSuggestionListProps)
         </div>
         <div class="flex shrink-0 items-center gap-2 border-t border-slate-200 px-3 py-1.5 text-[11px] text-slate-500">
           <span class="min-w-0 truncate">↑↓ choose · Enter insert · Esc dismiss</span>
-          <button type="button" class="ml-auto shrink-0 text-[12px] text-blue-700 hover:underline" onClick={() => {
+          <button type="button" class={`ml-auto shrink-0 ${DIALOG_LINK_CLASS}`} onClick={() => {
             const pageId = queryPrompts()?.promptsPageId;
             if (pageId != null) { switchToPage(store, { itemId: pageId, linkIdMaybe: null }, true, false, false); }
           }}>Edit prompts</button>

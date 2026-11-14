@@ -8,6 +8,7 @@ import { queryConfigurationSummary } from "../../items/query-configuration-label
 import { useStore } from "../../store/StoreProvider";
 import type { Uid } from "../../util/uid";
 import { stopQueryPickerEvent } from "./QueryPickerPopover";
+import { DIALOG_INPUT_CLASS, DIALOG_SURFACE_CLASS, DialogHeader, dialogButtonClass } from "../library/dialogStyle";
 
 const nameEncoder = new TextEncoder();
 
@@ -22,7 +23,6 @@ export function profileNameProblem(name: string): string | null {
 
 const iconButtonClass = "flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent";
 const moveButtonClass = "flex h-[14px] w-6 cursor-pointer items-center justify-center rounded text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:cursor-default disabled:opacity-25 disabled:hover:bg-transparent";
-const textButtonClass = "rounded border border-slate-300 px-2 py-1 text-[12px] hover:bg-slate-100 disabled:cursor-default disabled:opacity-40";
 
 /** Account profile management. Queries keep their setups. */
 export function QueryProfileManager(props: { onClose: () => void }) {
@@ -90,7 +90,7 @@ export function QueryProfileManager(props: { onClose: () => void }) {
     else if (!ev.shiftKey && document.activeElement == last) { ev.preventDefault(); first.focus(); }
   };
 
-  const row = (profile: QueryProfile, index: () => number) => <div class="border-b border-slate-100 px-4 py-2 last:border-b-0">
+  const row = (profile: QueryProfile, index: () => number) => <div class="border-b border-slate-100 px-3 py-2 last:border-b-0">
     <Show when={deleting() == profile.id} fallback={
       <div class="flex items-center gap-1">
         <div class="flex shrink-0 flex-col">
@@ -108,10 +108,10 @@ export function QueryProfileManager(props: { onClose: () => void }) {
           }>
             <form class="flex items-center gap-1" onSubmit={ev => submitRename(ev, profile)}>
               <input ref={el => queueMicrotask(() => { el.focus(); el.select(); })} aria-label="Profile name" value={name()}
-                class="min-w-0 grow rounded border border-slate-400 px-1 py-0.5 text-[13px] outline-hidden focus:border-slate-600"
+                class={`min-w-0 grow ${DIALOG_INPUT_CLASS}`}
                 disabled={busy()} onInput={ev => setName(ev.currentTarget.value)} />
-              <button type="submit" class={textButtonClass} disabled={busy()}>Save</button>
-              <button type="button" class={textButtonClass} disabled={busy()} onClick={() => setRenaming(null)}>Cancel</button>
+              <button type="submit" class={dialogButtonClass()} disabled={busy()}>Save</button>
+              <button type="button" class={dialogButtonClass()} disabled={busy()} onClick={() => setRenaming(null)}>Cancel</button>
             </form>
           </Show>
           <div class="truncate px-1 text-[11px] text-slate-500">{queryConfigurationSummary(store, profile.configuration)}</div>
@@ -144,10 +144,10 @@ export function QueryProfileManager(props: { onClose: () => void }) {
           Delete “{profile.name}”?
           <Show when={nextDefault(profile)}>{next => <span class="text-slate-500"> “{next().name}” will become the default.</span>}</Show>
         </span>
-        <button type="button" class={`${textButtonClass} text-red-700`} disabled={busy()}
+        <button type="button" class={`${dialogButtonClass()} !text-red-700`} disabled={busy()}
           ref={el => queueMicrotask(() => el.focus())}
           onClick={() => void run(async () => { await store.general.queryProfiles.delete(profile.id); setDeleting(null); })}>Delete</button>
-        <button type="button" class={textButtonClass} disabled={busy()} onClick={() => setDeleting(null)}>Cancel</button>
+        <button type="button" class={dialogButtonClass()} disabled={busy()} onClick={() => setDeleting(null)}>Cancel</button>
       </div>
     </Show>
   </div>;
@@ -156,22 +156,17 @@ export function QueryProfileManager(props: { onClose: () => void }) {
     <div class="fixed inset-0 bg-black/20" style={`z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY + 2};`}
       onMouseDown={ev => { ev.stopPropagation(); props.onClose(); }} onClick={stopQueryPickerEvent} />
     <div ref={panel} tabindex={-1} role="dialog" aria-modal="true" aria-label="Manage query profiles"
-      class="fixed left-1/2 top-[10vh] flex max-h-[80vh] w-[calc(100vw-32px)] max-w-[560px] -translate-x-1/2 flex-col overflow-hidden rounded-md border border-slate-300 bg-white text-black shadow-xl outline-hidden"
+      class={`fixed left-1/2 top-[10vh] flex max-h-[80vh] w-[calc(100vw-32px)] max-w-[560px] -translate-x-1/2 flex-col overflow-hidden outline-hidden ${DIALOG_SURFACE_CLASS}`}
       style={`z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY + 3};`}
       onMouseDown={stopQueryPickerEvent} onMouseUp={stopQueryPickerEvent} onClick={stopQueryPickerEvent}
       onKeyDown={panelKeyDown} onKeyUp={stopQueryPickerEvent}>
-      <div class="flex shrink-0 items-start gap-2 border-b border-slate-200 px-4 py-3">
-        <div class="min-w-0 grow">
-          <div class="text-[14px] font-medium">Query profiles</div>
-          <div class="text-[12px] text-slate-500">Pinned profiles are shortcuts above the input. New queries start with the default.</div>
-        </div>
-        <button type="button" class={iconButtonClass} aria-label="Close" onClick={props.onClose}><i class="bi-x-lg" /></button>
-      </div>
+      <DialogHeader title="Query profiles" onClose={props.onClose}
+        description="Pinned profiles are shortcuts above the input. New queries start with the default." />
       <Show when={error() ?? store.general.queryProfiles.error()}>{message =>
-        <div role="alert" class="shrink-0 border-b border-slate-200 bg-red-50 px-4 py-2 text-[12px] text-red-700">{message()}</div>
+        <div role="alert" class="shrink-0 border-b border-slate-200 bg-red-50 px-3 py-2 text-[12px] text-red-700">{message()}</div>
       }</Show>
       <div class="min-h-0 grow overflow-y-auto">
-        <Show when={collection() != null} fallback={<div class="px-4 py-3 text-[12px] text-slate-500">Loading profiles…</div>}>
+        <Show when={collection() != null} fallback={<div class="px-3 py-3 text-[12px] text-slate-500">Loading profiles…</div>}>
           <For each={profiles()}>{(profile, index) => row(profile, index)}</For>
         </Show>
       </div>

@@ -13,8 +13,9 @@ import { serverOrRemote } from "../../server";
 import { BoundingBox, Dimensions } from "../../util/geometry";
 import { getToolbarFocusItem } from "./toolbarFocus";
 import {
-  TOOLBAR_DIALOG_INPUT_CLASS, ToolbarDialogHeader, closeToolbarDialog, toolbarDialogButtonClass, toolbarDialogContentRef, toolbarDialogNumberInput,
+  TOOLBAR_DIALOG_INPUT_CLASS, closeToolbarDialog, toolbarDialogContentRef, toolbarDialogNumberInput,
 } from "./toolbarDialog";
+import { DIALOG_LABEL_CLASS, DIALOG_NOTE_CLASS, DialogHeader, dialogButtonClass } from "../library/dialogStyle";
 
 
 const SCHEMATIC_W_PX = 306;
@@ -212,7 +213,7 @@ export const Toolbar_PageSizePopup: Component = () => {
 
   return (
     <div ref={el => toolbarDialogContentRef(el)} class="flex flex-col" onKeyDown={ev => { if (ev.key == "Escape") { ev.stopPropagation(); close(); } }}>
-      <ToolbarDialogHeader title="Page size" onClose={close}
+      <DialogHeader title="Page size" onClose={close}
         description="In blocks: one block is the height of a line of text. Drag the outline to resize." />
 
       <div class="px-3 py-3">
@@ -230,7 +231,7 @@ export const Toolbar_PageSizePopup: Component = () => {
             title="Drag to change the size" {...handleProps("corner")} />
         </div>
 
-        <div class="mt-[10px] flex items-center gap-2 text-[12px] text-slate-600">
+        <div class={`mt-[10px] flex items-center gap-2 ${DIALOG_LABEL_CLASS}`}>
           <label class="flex items-center gap-[6px]">Width
             <input class={TOOLBAR_DIALOG_INPUT_CLASS} type="number" min={MIN_SIZE_BL} max={MAX_SIZE_BL} step="1" value={sizeBl().w}
               {...sizeInput("w")} />
@@ -242,7 +243,7 @@ export const Toolbar_PageSizePopup: Component = () => {
           </label>
         </div>
 
-        <div class="mt-2 text-[11px] leading-[16px] text-slate-500">
+        <div class={`mt-2 ${DIALOG_NOTE_CLASS}`}>
           Aspect {aspectText()}. At full screen it {fullScreenText()}.
         </div>
         <Show when={itemsOutside()}>
@@ -251,9 +252,9 @@ export const Toolbar_PageSizePopup: Component = () => {
       </div>
 
       <div class="flex shrink-0 items-center gap-2 border-t border-slate-200 px-3 py-2">
-        <button type="button" class={toolbarDialogButtonClass()} disabled={childRects.length == 0}
+        <button type="button" class={dialogButtonClass()} disabled={childRects.length == 0}
           title="Size the page to its items, plus a block of margin" onClick={handleFitToItems}>Fit to items</button>
-        <button type="button" class={toolbarDialogButtonClass()}
+        <button type="button" class={dialogButtonClass()}
           title="Keep the width and set the height so the page fills the window without stretching" onClick={handleMatchWindow}>Match window aspect</button>
       </div>
     </div>

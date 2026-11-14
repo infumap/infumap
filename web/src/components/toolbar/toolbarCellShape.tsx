@@ -7,7 +7,8 @@ import { asImageItem, isImage } from "../../items/image-item";
 import { LinkFns, asLinkItem, isLink } from "../../items/link-item";
 import { itemState } from "../../store/ItemState";
 import { Item } from "../../items/base/item";
-import { TOOLBAR_DIALOG_INPUT_CLASS, roundAspect, toolbarDialogButtonClass, toolbarDialogNumberInput } from "./toolbarDialog";
+import { TOOLBAR_DIALOG_INPUT_CLASS, roundAspect, toolbarDialogNumberInput } from "./toolbarDialog";
+import { DIALOG_LABEL_CLASS, dialogButtonClass } from "../library/dialogStyle";
 
 
 const CELL_SHAPES: Array<{ label: string, aspect: number }> = [
@@ -62,20 +63,20 @@ export const ToolbarDialogCellShapeSection: Component<{
     : `Use the typical shape of the ${imageCount} image${imageCount == 1 ? "" : "s"} on this page`;
   return (
     <>
-      <div class="mt-3 text-[12px] text-slate-600">{props.label}</div>
+      <div class={`mt-3 ${DIALOG_LABEL_CLASS}`}>{props.label}</div>
       <div class="mt-[6px] flex gap-[6px]" role="radiogroup" aria-label={props.label}>
         <For each={CELL_SHAPES}>{shape =>
           <button type="button" role="radio" aria-checked={shapeMatches(shape.aspect, props.aspect())}
-            class={toolbarDialogButtonClass(shapeMatches(shape.aspect, props.aspect()))}
+            class={dialogButtonClass(shapeMatches(shape.aspect, props.aspect()))}
             onClick={() => props.apply(shape.aspect)}>{shape.label}</button>
         }</For>
       </div>
       <div class="mt-2 flex items-center gap-2">
-        <label class="flex items-center gap-[6px] text-[12px] text-slate-600">Aspect
+        <label class={`flex items-center gap-[6px] ${DIALOG_LABEL_CLASS}`}>Aspect
           <input class={TOOLBAR_DIALOG_INPUT_CLASS} type="number" min={props.minAspect} max={props.maxAspect} step="0.01"
             value={roundAspect(props.aspect())} {...toolbarDialogNumberInput(store, props.aspect, props.apply, 0.01, v => String(roundAspect(v)))} />
         </label>
-        <button type="button" class={toolbarDialogButtonClass()} disabled={imageCount == 0}
+        <button type="button" class={dialogButtonClass()} disabled={imageCount == 0}
           title={matchImagesTitle} onClick={() => props.apply(roundAspect(median(props.imageAspects)))}>Match images</button>
       </div>
     </>

@@ -28,6 +28,7 @@ import { switchToPage } from "../../layout/navigation";
 import { useStore } from "../../store/StoreProvider";
 import type { Uid } from "../../util/uid";
 import { QueryPickerPopover, type QueryPickerProps } from "./QueryPickerPopover";
+import { DIALOG_LINK_CLASS, DIALOG_NOTE_CLASS, DialogHeader } from "../library/dialogStyle";
 
 interface QueryScopePickerProps extends QueryPickerProps {
   /** Search always uses scope; chat uses it when Infumap tools are enabled. */
@@ -125,13 +126,10 @@ export function QueryScopePicker(props: QueryScopePickerProps) {
       void describeQueryScopeItems(scopeItems(), true);
     }}>
     {close => <>
-      <div class="shrink-0 border-b border-slate-200 px-3 py-2">
-        <div class="flex items-center gap-2 text-[12px] font-medium text-slate-600">Scope
-          <button type="button" class="ml-auto h-5 w-5 rounded hover:bg-slate-100" aria-label="Close scope picker" onClick={close}><i class="bi-x-lg" /></button>
-        </div>
-        <div class="mt-1 text-[11px] text-slate-500">Limits what Infumap search can find. Web tools and attachments are not affected.</div>
-        <Show when={props.note?.()}><div class="mt-1 text-[11px] text-slate-500">{props.note!()}</div></Show>
-      </div>
+      <DialogHeader title="Scope" closeLabel="Close scope picker" onClose={close}
+        description="Limits what Infumap search can find. Web tools and attachments are not affected.">
+        <Show when={props.note?.()}><div class={`mt-1 ${DIALOG_NOTE_CLASS}`}>{props.note!()}</div></Show>
+      </DialogHeader>
       <div class="min-h-0 grow overflow-y-auto">
         <Show when={itemsActive()}>
           <div class="border-b border-slate-200 py-1">
@@ -166,7 +164,7 @@ export function QueryScopePicker(props: QueryScopePickerProps) {
       </div>
       <Show when={queryScopes() != null}>
         <div class="shrink-0 border-t border-slate-200 px-3 py-2">
-          <button type="button" class="block text-[12px] text-blue-700 hover:underline"
+          <button type="button" class={`block ${DIALOG_LINK_CLASS}`}
             title="Links in a scope page include items; links in its Exclude page exclude them." onClick={() => {
             const pageId = queryScopes()?.scopesPageId;
             close();

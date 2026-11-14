@@ -31,7 +31,6 @@ export enum ToolbarPopupType {
   NoteIndent = "noteindent",
   ItemIcon = "itemicon",
   PageColor = "color",
-  PageAspect = "aspect",
   PageSize = "size",
   PageGridLayout = "gridlayout",
   PageTableLayout = "tablelayout",

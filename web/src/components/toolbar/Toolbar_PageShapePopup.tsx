@@ -4,7 +4,8 @@ import { Component } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { ArrangeAlgorithm, asPageItem } from "../../items/page-item";
 import { getToolbarFocusItem } from "./toolbarFocus";
-import { ToolbarDialogHeader, ToolbarDialogPageShapeControls, closeToolbarDialog, toolbarDialogContentRef } from "./toolbarDialog";
+import { ToolbarDialogPageShapeControls, closeToolbarDialog, toolbarDialogContentRef } from "./toolbarDialog";
+import { DialogHeader } from "../library/dialogStyle";
 
 
 /**
@@ -16,12 +17,13 @@ export const Toolbar_PageShapePopup: Component = () => {
   const store = useStore();
   const pageItem = () => asPageItem(getToolbarFocusItem(store));
   const close = () => closeToolbarDialog(store);
-  const arrangement = pageItem().arrangeAlgorithm == ArrangeAlgorithm.Calendar ? "calendar" : "list";
+  const arrangement = pageItem().arrangeAlgorithm == ArrangeAlgorithm.Calendar ? "calendar"
+    : pageItem().arrangeAlgorithm == ArrangeAlgorithm.List ? "list" : null;
 
   return (
     <div ref={el => toolbarDialogContentRef(el)} class="flex flex-col" onKeyDown={ev => { if (ev.key == "Escape") { ev.stopPropagation(); close(); } }}>
-      <ToolbarDialogHeader title="Page shape" onClose={close}
-        description={`The shape of this page in popups and where it is embedded. The ${arrangement} itself fills the width of where it is shown.`} />
+      <DialogHeader title="Page shape" onClose={close}
+        description={`The shape of this page in popups and where it is embedded.${arrangement == null ? "" : ` The ${arrangement} itself fills the width of where it is shown.`}`} />
       <div class="px-3 py-3">
         <ToolbarDialogPageShapeControls page={pageItem} />
       </div>

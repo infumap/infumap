@@ -13,6 +13,7 @@ import { useStore } from "../../store/StoreProvider";
 import { TransientMessageType } from "../../store/StoreProvider_Overlay";
 import { QueryPickerPopover, stopQueryPickerEvent } from "./QueryPickerPopover";
 import { QueryProfileManager, profileNameProblem } from "./QueryProfileManager";
+import { DIALOG_INPUT_CLASS, dialogButtonClass } from "../library/dialogStyle";
 
 interface QueryProfileBarProps {
   queryItem: () => QueryItem,
@@ -194,7 +195,7 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
       class={chipClass}
       classList={{
         "border-slate-500 bg-slate-100 text-slate-900": isActive(profile),
-        "border-[#d6d6d6] bg-white hover:bg-slate-50": !isActive(profile),
+        "border-control-border bg-white hover:bg-slate-50": !isActive(profile),
       }}
       onClick={() => apply(profile)} onKeyDown={keyDown}>
       <span class="min-w-0 truncate">{profile.name}</span>
@@ -233,10 +234,10 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
 
   return <Show when={!props.searchMode()}>
     <div ref={el => { setRow(el); props.barRef?.(el); }} role="group" aria-label="Query profiles"
-      class="relative flex min-w-0 items-center overflow-hidden text-[12px] text-[#555]" style={`height: ${QUERY_PROFILE_ROW_HEIGHT_PX}px; gap: ${CHIP_GAP_PX}px;`}
+      class="relative flex min-w-0 items-center overflow-hidden text-[12px] text-control-text" style={`height: ${QUERY_PROFILE_ROW_HEIGHT_PX}px; gap: ${CHIP_GAP_PX}px;`}
       onMouseDown={stopQueryPickerEvent} onMouseUp={stopQueryPickerEvent} onClick={stopQueryPickerEvent}>
       <div ref={measure} aria-hidden="true" class="invisible absolute left-0 top-0 flex w-max" style={`gap: ${CHIP_GAP_PX}px;`}>
-        <For each={candidates()}>{profile => <span data-measure-chip={profile.id} class={`${chipClass} border-[#d6d6d6]`}>
+        <For each={candidates()}>{profile => <span data-measure-chip={profile.id} class={`${chipClass} border-control-border`}>
           <span class="min-w-0 truncate">{profile.name}</span>
           <span class="h-[6px] w-[6px] shrink-0" />
           <Show when={unavailable(profile).length > 0}><i class="bi-exclamation-triangle shrink-0 text-[10px]" /></Show>
@@ -288,12 +289,12 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
             <form class="shrink-0 space-y-2 border-t border-slate-200 px-3 py-2 text-[12px]" onSubmit={ev => saveAsNew(ev, close)}>
               <div class="flex items-center gap-2">
                 <input ref={el => queueMicrotask(() => el.focus())} aria-label="New profile name" placeholder="Profile name"
-                  class="min-w-0 grow rounded border border-slate-400 px-2 py-1 text-[13px] outline-hidden focus:border-slate-600"
+                  class={`min-w-0 grow ${DIALOG_INPUT_CLASS}`}
                   value={newName()} disabled={busy()} onInput={ev => setNewName(ev.currentTarget.value)}
                   onKeyDown={ev => { if (ev.key == "Escape") { ev.preventDefault(); ev.stopPropagation(); setNaming(false); } }} />
-                <button type="submit" class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100 disabled:opacity-40"
+                <button type="submit" class={dialogButtonClass()}
                   disabled={busy() || profileNameProblem(newName()) != null}>Save</button>
-                <button type="button" class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100" onClick={() => setNaming(false)}>Cancel</button>
+                <button type="button" class={dialogButtonClass()} onClick={() => setNaming(false)}>Cancel</button>
               </div>
             </form>
           </Show>

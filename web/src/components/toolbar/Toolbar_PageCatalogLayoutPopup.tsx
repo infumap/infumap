@@ -5,7 +5,10 @@ import { useStore } from "../../store/StoreProvider";
 import { asPageItem } from "../../items/page-item";
 import { CATALOG_DETAIL_COLUMN_PADDING_PX, calcCatalogLayout } from "../../layout/catalog";
 import { getToolbarFocusItem } from "./toolbarFocus";
-import { ToolbarDialogHeader, ToolbarDialogPageShapeSection, closeToolbarDialog, toolbarDialogContentRef, toolbarDialogPageChanged } from "./toolbarDialog";
+import {
+  ToolbarDialogPageShapeSection, closeToolbarDialog, toolbarDialogContentRef, toolbarDialogItemChanged,
+} from "./toolbarDialog";
+import { DIALOG_NOTE_CLASS, DialogHeader } from "../library/dialogStyle";
 import { ToolbarDialogCellShapeSection, childImageAspects } from "./toolbarCellShape";
 
 
@@ -41,7 +44,7 @@ export const Toolbar_PageCatalogLayoutPopup: Component = () => {
     setCellAspect(value);
     if (pageItem().gridCellAspect == value) { return; }
     pageItem().gridCellAspect = value;
-    toolbarDialogPageChanged(store, pageItem(), "toolbar-catalog-cell-aspect");
+    toolbarDialogItemChanged(store, pageItem(), "toolbar-catalog-cell-aspect");
   };
 
   const close = () => closeToolbarDialog(store);
@@ -88,7 +91,7 @@ export const Toolbar_PageCatalogLayoutPopup: Component = () => {
 
   return (
     <div ref={el => toolbarDialogContentRef(el)} class="flex flex-col" onKeyDown={ev => { if (ev.key == "Escape") { ev.stopPropagation(); close(); } }}>
-      <ToolbarDialogHeader title="Catalog layout" onClose={close}
+      <DialogHeader title="Catalog layout" onClose={close}
         description="One item per row: a preview, with its details beside it. The preview shape sets how tall the rows are." />
 
       <div class="px-3 py-3">
@@ -112,7 +115,7 @@ export const Toolbar_PageCatalogLayoutPopup: Component = () => {
             </Show>
           </div>
         </div>
-        <div class="mt-1 text-[11px] leading-[16px] text-slate-500">{statusText()}</div>
+        <div class={`mt-1 ${DIALOG_NOTE_CLASS}`}>{statusText()}</div>
 
         <ToolbarDialogCellShapeSection label="Preview shape" aspect={cellAspect} apply={applyCellAspect} imageAspects={imageAspects}
           minAspect={MIN_ASPECT} maxAspect={MAX_ASPECT} />

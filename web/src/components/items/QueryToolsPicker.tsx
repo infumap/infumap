@@ -9,6 +9,7 @@ import type { ToolApproval } from "../../items/query-configuration";
 import { queryConfigurationIssues } from "../../items/query-configuration-availability";
 import { useStore } from "../../store/StoreProvider";
 import { QueryPickerPopover, type QueryPickerProps } from "./QueryPickerPopover";
+import { DIALOG_NOTE_CLASS, DialogHeader } from "../library/dialogStyle";
 
 interface ToolsPickerProps extends QueryPickerProps {
   locked: () => boolean,
@@ -91,14 +92,11 @@ export function QueryToolsPicker(props: ToolsPickerProps) {
       </Show></>}
     onOpen={() => { void store.general.queryProfiles.refresh(); void store.general.refreshChatBackends(); }}>
     {close => <>
-      <div class="shrink-0 border-b border-slate-200 px-3 py-2">
-        <div class="flex items-center gap-2 text-[12px] font-medium text-slate-600">Tools
-          <button type="button" class="ml-auto h-5 w-5 rounded hover:bg-slate-100" aria-label="Close tools picker" onClick={close}><i class="bi-x-lg" /></button>
-        </div>
-        <Show when={props.note?.()}><div class="mt-1 text-[11px] text-slate-500">{props.note?.()}</div></Show>
-        <Show when={lockedReason()}><div class="mt-1 text-[11px] text-slate-500">{lockedReason()}</div></Show>
+      <DialogHeader title="Tools" closeLabel="Close tools picker" onClose={close}>
+        <Show when={props.note?.()}><div class={`mt-1 ${DIALOG_NOTE_CLASS}`}>{props.note?.()}</div></Show>
+        <Show when={lockedReason()}><div class={`mt-1 ${DIALOG_NOTE_CLASS}`}>{lockedReason()}</div></Show>
         <For each={issues()}>{issue => <div role="status" class="mt-1 text-[11px] text-amber-700">{issue.message}</div>}</For>
-      </div>
+      </DialogHeader>
       <div class="min-h-0 grow overflow-y-auto py-1">
         <fieldset class="border-b border-slate-200 px-3 py-2" disabled={locked()}>
           <legend class="px-0 pt-2 text-[12px] font-medium text-slate-600">Tool approvals</legend>

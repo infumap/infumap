@@ -24,7 +24,7 @@ import {
 import { deferredComponent } from "../deferred";
 import { Component, For, Match, Show, Switch, createEffect, createMemo, createSignal, on, onMount } from "solid-js";
 import { StoreContextModel, useStore } from "../../store/StoreProvider";
-import { ArrangeAlgorithm, asPageItem, autoPageAspect, isPage, PageItem } from "../../items/page-item";
+import { ArrangeAlgorithm, asPageItem, isPage, PageItem } from "../../items/page-item";
 import { asRatingItem } from "../../items/rating-item";
 import { BoundingBox } from "../../util/geometry";
 import { Z_INDEX_GLOBAL_TOOLBAR_OVERLAY } from "../../constants";
@@ -38,7 +38,7 @@ import { InfuColorButton } from "../library/InfuColorButton";
 import { QrCode } from "../library/QrCode";
 import { Backlink, server, serverOrRemote } from "../../server";
 import { applyEditorFormatCommand } from "../../input/editor_history";
-import { noteFormatTargets, refocusActiveTextEdit } from "../../input/edit";
+import { noteFormatTargets } from "../../input/edit";
 import { panic } from "../../util/lang";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
 import { asTableItem, isTable } from "../../items/table-item";
@@ -63,7 +63,7 @@ import { navigateToContainingPageOfItemAndFocus } from "../../layout/navigation"
 import { searchResultPathSegmentsFromPath } from "../../util/search-result-display";
 import { getToolbarFocusItem, getToolbarFocusPathMaybe, toolbarFocusIsCurrentPage, toolbarFocusIsInTableView } from "./toolbarFocus";
 import { printCurrentPage } from "../../print";
-import { getNoteIndentLevel, getPageCalendarDisplayMode, noteHasListStyle, PageCalendarDisplayMode, setNoteIndentLevel, setPageCalendarDisplayMode } from "../../items/base/flags-item";
+import { getPageCalendarDisplayMode, PageCalendarDisplayMode, setPageCalendarDisplayMode } from "../../items/base/flags-item";
 import { alignCalendarWindowStartMonthIndex, getCalendarMonthsPerPageForDisplayMode } from "../../util/calendar-layout";
 import { VesCache } from "../../layout/ves-cache";
 import { isVirtualTextDocumentPage, sourceTextItemForVirtualTextDocumentPage } from "../../items/text-document";
@@ -72,7 +72,10 @@ import { convertPageCompositeAtPath, pageCompositeConversionEligibility } from "
 import { ContainerConversionRefused } from "../../items/container-conversion";
 import { VisualElementPath } from "../../layout/visual-element";
 import { PAGE_JUSTIFIED_LAYOUT_POPUP_HEIGHT_PX, Toolbar_PageJustifiedLayoutPopup } from "./Toolbar_PageJustifiedLayoutPopup";
-import { TOOLBAR_DIALOG_CLASS, closeToolbarDialog, toolbarDialogHeightPx } from "./toolbarDialog";
+import { TOOLBAR_DIALOG_CLASS, toolbarDialogHeightPx } from "./toolbarDialog";
+import { TABLE_COLUMNS_POPUP_HEIGHT_PX, TABLE_COLUMNS_POPUP_WIDTH_PX, Toolbar_TableColumnsPopup } from "./Toolbar_TableColumnsPopup";
+import { NOTE_INDENT_POPUP_HEIGHT_PX, NOTE_INDENT_POPUP_WIDTH_PX, Toolbar_NoteIndentPopup } from "./Toolbar_NoteIndentPopup";
+import { NOTE_URL_POPUP_HEIGHT_PX, NOTE_URL_POPUP_WIDTH_PX, Toolbar_NoteUrlPopup } from "./Toolbar_NoteUrlPopup";
 
 
 const Toolbar_PageSizePopup = deferredComponent("Toolbar_PageSizePopup");
@@ -370,13 +373,12 @@ function moreActionsRows(store: StoreContextModel): number {
 }
 
 function toolbarPopupHeight(store: StoreContextModel, overlayType: ToolbarPopupType): number {
-  if (overlayType == ToolbarPopupType.NoteUrl) { return 38; }
-  if (overlayType == ToolbarPopupType.NoteIndent) { return 36; }
+  if (overlayType == ToolbarPopupType.NoteUrl) { return toolbarDialogHeightPx(NOTE_URL_POPUP_HEIGHT_PX); }
+  if (overlayType == ToolbarPopupType.NoteIndent) { return toolbarDialogHeightPx(NOTE_INDENT_POPUP_HEIGHT_PX); }
   if (overlayType == ToolbarPopupType.ItemIcon) { return 292; }
   if (overlayType == ToolbarPopupType.PageSize) { return toolbarDialogHeightPx(PAGE_SIZE_POPUP_HEIGHT_PX); }
-  if (overlayType == ToolbarPopupType.PageAspect) { return 92; }
   if (overlayType == ToolbarPopupType.PageGridLayout) { return toolbarDialogHeightPx(PAGE_GRID_LAYOUT_POPUP_HEIGHT_PX); }
-  if (overlayType == ToolbarPopupType.TableNumCols) { return 36; }
+  if (overlayType == ToolbarPopupType.TableNumCols) { return toolbarDialogHeightPx(TABLE_COLUMNS_POPUP_HEIGHT_PX); }
   if (overlayType == ToolbarPopupType.PageTableLayout) { return toolbarDialogHeightPx(PAGE_TABLE_LAYOUT_POPUP_HEIGHT_PX); }
   if (overlayType == ToolbarPopupType.PageDocumentLayout) { return toolbarDialogHeightPx(PAGE_DOCUMENT_LAYOUT_POPUP_HEIGHT_PX); }
   if (overlayType == ToolbarPopupType.PageCatalogLayout) { return toolbarDialogHeightPx(PAGE_CATALOG_LAYOUT_POPUP_HEIGHT_PX); }
@@ -405,7 +407,9 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
     popupType != ToolbarPopupType.PageCalendarDisplayMode &&
     popupType != ToolbarPopupType.RatingType) {
     const popupWidth = popupType == ToolbarPopupType.MoreActions ? 220
-      : popupType == ToolbarPopupType.TableNumCols || popupType == ToolbarPopupType.NoteIndent ? 300
+      : popupType == ToolbarPopupType.TableNumCols ? TABLE_COLUMNS_POPUP_WIDTH_PX
+        : popupType == ToolbarPopupType.NoteIndent ? NOTE_INDENT_POPUP_WIDTH_PX
+          : popupType == ToolbarPopupType.NoteUrl ? NOTE_URL_POPUP_WIDTH_PX
         : popupType == ToolbarPopupType.ItemIcon ? 334
           : popupType == ToolbarPopupType.Info || popupType == ToolbarPopupType.Backlinks ? INFO_POPUP_WIDTH_PX
             : popupType == ToolbarPopupType.Id ? ID_POPUP_WIDTH_PX : 330;
@@ -468,7 +472,6 @@ export function toolbarPopupBoxBoundsPx(store: StoreContextModel): BoundingBox {
 export const Toolbar_Popup: Component = () => {
   const store = useStore();
 
-  let textElement: HTMLInputElement | undefined;
   let emojiInputElement: HTMLInputElement | undefined;
   let conversionButton: HTMLButtonElement | undefined;
   let printButton: HTMLButtonElement | undefined;
@@ -484,17 +487,6 @@ export const Toolbar_Popup: Component = () => {
 
   const overlayTypeConst = store.overlay.toolbarPopupInfoMaybe.get()!.type;
   const overlayType = () => store.overlay.toolbarPopupInfoMaybe.get()?.type ?? overlayTypeConst;
-  // Read now, because using the slider can take the text selection. Indent only means something on a list note.
-  const noteIndentTargets = overlayTypeConst == ToolbarPopupType.NoteIndent
-    ? noteFormatTargets(store, noteItem()).filter(note => noteHasListStyle(note.flags))
-    : [];
-  const [sliderValue, setSliderValue] = createSignal(
-    isTable(getToolbarFocusItem(store))
-      ? asTableItem(getToolbarFocusItem(store)).numberOfVisibleColumns.toString()
-      : isNote(getToolbarFocusItem(store))
-        ? (getNoteIndentLevel(asNoteItem(getToolbarFocusItem(store))) + 1).toString()
-        : "1"
-  );
   const [itemIconVisible, setItemIconVisible] = createSignal(
     overlayTypeConst == ToolbarPopupType.ItemIcon && isNote(getToolbarFocusItem(store))
       ? noteItem().iconMode == ItemIconMode.Symbol || noteItem().iconMode == ItemIconMode.Favicon
@@ -532,102 +524,8 @@ export const Toolbar_Popup: Component = () => {
     })).filter(category => category.emojis.length > 0);
   });
 
-  const noteUrlSelection = () => {
-    const selection = store.overlay.noteTextSelectionInfo.get();
-    if (selection == null || selection.itemPath != getToolbarFocusPathMaybe(store)) { return null; }
-    return selection;
-  };
-
-  const handleKeyDown = (ev: KeyboardEvent) => {
-    if (ev.code == "Enter") {
-      handleTextChange();
-      store.touchToolbar();
-      if (isNote(getToolbarFocusItem(store))) {
-        serverOrRemote.updateItem(getToolbarFocusItem(store));
-        setTimeout(() => {
-          store.overlay.toolbarPopupInfoMaybe.set(null);
-          refocusActiveTextEdit(store);
-        }, 0);
-      }
-    }
-    ev.stopPropagation();
-  }
-  const handleSliderKeyDown = (ev: KeyboardEvent) => {
-    // Escape is left to the global key handler, which closes the popup.
-    if (ev.code == "Escape") { return; }
-    ev.stopPropagation();
-    if (ev.code == "Enter") {
-      // Otherwise the key would go on to act in the editor, which has the focus again.
-      ev.preventDefault();
-      closeToolbarDialog(store);
-      refocusActiveTextEdit(store);
-    }
-  }
-  const handleKeyUp = (ev: KeyboardEvent) => { ev.stopPropagation(); }
-  const handleKeyPress = (ev: KeyboardEvent) => { ev.stopPropagation(); }
-
-  const handleTextChange = () => {
-    if (overlayTypeConst == ToolbarPopupType.PageAspect) {
-      pageItem().naturalAspect = parseFloat(textElement!.value);
-    } else if (overlayTypeConst == ToolbarPopupType.NoteUrl) {
-      const note = noteItem();
-      const selection = noteUrlSelection();
-      const url = textElement!.value;
-      applyEditorFormatCommand(store, [note], "Edit link", () => { NoteFns.setUrlForToolbarEdit(note, selection, url); });
-    } else if (overlayTypeConst == ToolbarPopupType.TableNumCols) {
-      panic("unexpected overlay type in handleTextChange: " + overlayTypeConst);
-    }
-    requestArrange(store, "toolbar-popup-text-change");
-  };
-
-  const handleRemoveNoteUrl = () => {
-    const note = noteItem();
-    const selection = noteUrlSelection();
-    applyEditorFormatCommand(store, [note], "Remove link", () => { NoteFns.setUrlForToolbarEdit(note, selection, ""); });
-    store.overlay.toolbarPopupInfoMaybe.set(null);
-    requestArrange(store, "toolbar-popup-remove-note-url");
-  };
-
-  const inputWidthPx = (): number => {
-    if (overlayType() == ToolbarPopupType.NoteUrl) { return 262; }
-    if (overlayType() == ToolbarPopupType.PageAspect) { return 180; }
-    if (overlayType() == ToolbarPopupType.TableNumCols) { return 190; }
-    if (overlayType() == ToolbarPopupType.NoteIndent) { return 190; }
-    return 200;
-  }
-
   const boxBoundsPx = () => toolbarPopupBoxBoundsPx(store);
 
-  onMount(() => {
-    if (overlayType() == ToolbarPopupType.TableNumCols) {
-      setSliderValue(asTableItem(getToolbarFocusItem(store)).numberOfVisibleColumns.toString());
-    } else if (overlayType() == ToolbarPopupType.NoteIndent) {
-      setSliderValue((getNoteIndentLevel(asNoteItem(getToolbarFocusItem(store))) + 1).toString());
-    }
-
-    if (overlayType() != ToolbarPopupType.PageColor &&
-      overlayType() != ToolbarPopupType.ItemIcon &&
-      overlayType() != ToolbarPopupType.Info &&
-      overlayType() != ToolbarPopupType.Backlinks &&
-      overlayType() != ToolbarPopupType.Id &&
-      overlayType() != ToolbarPopupType.MoreActions &&
-      overlayType() != ToolbarPopupType.NoteTextStyle &&
-      overlayType() != ToolbarPopupType.PageArrangeAlgorithm &&
-      overlayType() != ToolbarPopupType.ChildSortOrder &&
-      overlayType() != ToolbarPopupType.PageCalendarDisplayMode &&
-      overlayType() != ToolbarPopupType.TableNumCols &&
-      overlayType() != ToolbarPopupType.PageTableLayout &&
-      overlayType() != ToolbarPopupType.PageDocumentLayout &&
-      overlayType() != ToolbarPopupType.NoteIndent &&
-      overlayType() != ToolbarPopupType.PageGridLayout &&
-      overlayType() != ToolbarPopupType.PageJustifiedLayout &&
-      overlayType() != ToolbarPopupType.PageCatalogLayout &&
-      overlayType() != ToolbarPopupType.PageShape &&
-      overlayType() != ToolbarPopupType.PageSize &&
-      overlayType() != ToolbarPopupType.RatingType) {
-      textElement!.focus();
-    }
-  });
 
   const handleColorClick = (col: number) => {
     if (!isPage(getToolbarFocusItem(store))) {
@@ -640,27 +538,6 @@ export const Toolbar_Popup: Component = () => {
     store.touchToolbar();
     requestArrange(store, "toolbar-popup-page-color");
   }
-
-  const textEntryValue = (): string | null => {
-    if (overlayType() == ToolbarPopupType.NoteUrl) { return NoteFns.urlForToolbarEdit(noteItem(), noteUrlSelection()); }
-    if (overlayType() == ToolbarPopupType.PageAspect) { return "" + pageItem().naturalAspect; }
-    return "[unknown]";
-  }
-
-  const label = (): string | null => {
-    if (overlayType() == ToolbarPopupType.NoteUrl) { return "Url"; }
-    if (overlayType() == ToolbarPopupType.PageAspect) { return "Page Aspect"; }
-    if (overlayType() == ToolbarPopupType.TableNumCols) { return "Num Visible Cols"; }
-    if (overlayType() == ToolbarPopupType.NoteIndent) { return "Indent"; }
-    return "[unknown]";
-  }
-
-  const tooltip = (): string | null => {
-    if (overlayType() == ToolbarPopupType.PageAspect) { return "The natural aspect ratio (width / height) of the page. The actual displayed aspect ratio may be stretched or quantized as required."; }
-    return null;
-  }
-
-  const showAutoButton = (): boolean => overlayType() == ToolbarPopupType.PageAspect;
 
   const selectedEmoji = () => selectedEmojiValue();
   const itemIconChoiceClass = (selected: boolean): string =>
@@ -1073,16 +950,6 @@ export const Toolbar_Popup: Component = () => {
     }
   };
 
-  const handleAutoClick = (): void => {
-    const aspect = "" + autoPageAspect(store);
-    textElement!.value = aspect;
-    if (!isPage(getToolbarFocusItem(store))) {
-      panic(`unexpected item type ${getToolbarFocusItem(store).itemType} changing aspect (auto).`);
-    }
-    pageItem().naturalAspect = parseFloat(textElement!.value);
-    requestArrange(store, "toolbar-popup-page-aspect-auto");
-  }
-
   const finalizeAAChange = (targetPage: PageItem) => {
     itemState.sortChildren(targetPage.id);
     store.overlay.toolbarPopupInfoMaybe.set(null);
@@ -1237,7 +1104,7 @@ export const Toolbar_Popup: Component = () => {
     if (e.button == MOUSE_RIGHT) { store.overlay.toolbarPopupInfoMaybe.set(null); }
   }
   // The choice applies to the text selection, which a press on the menu must not take from the editor.
-  const handleNoteTextStyleMouseDown = (e: MouseEvent) => {
+  const handleKeepEditorFocusMouseDown = (e: MouseEvent) => {
     e.preventDefault();
     handleMouseDown(e);
   }
@@ -1253,27 +1120,6 @@ export const Toolbar_Popup: Component = () => {
       return;
     }
   });
-
-  const handleSliderInput = (e: Event & { currentTarget: HTMLInputElement }) => {
-    setSliderValue(e.currentTarget.value);
-    let newValue = parseInt(e.currentTarget.value);
-    const maxValue = overlayTypeConst == ToolbarPopupType.NoteIndent ? 4 : 20;
-    if (newValue > maxValue) { newValue = maxValue; }
-    if (newValue < 1) { newValue = 1; }
-    if (overlayTypeConst == ToolbarPopupType.TableNumCols) {
-      tableItem().numberOfVisibleColumns = newValue;
-      remapSortColumn(tableItem(), col => col >= newValue ? null : col);
-      while (tableItem().tableColumns.length < newValue) {
-        tableItem().tableColumns.push({ name: `col ${tableItem().tableColumns.length}`, widthGr: 120 });
-      }
-    } else if (overlayTypeConst == ToolbarPopupType.NoteIndent) {
-      applyEditorFormatCommand(store, noteIndentTargets, "Change indent", () => {
-        for (const note of noteIndentTargets) { setNoteIndentLevel(note, newValue - 1); }
-      }, "indent");
-    }
-    store.touchToolbar();
-    requestArrange(store, "toolbar-popup-slider");
-  };
 
   return (
     <>
@@ -1300,7 +1146,7 @@ export const Toolbar_Popup: Component = () => {
         <Match when={overlayType() == ToolbarPopupType.NoteTextStyle}>
           <div class={TOOLBAR_MENU_CLASS}
             style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
-            onMouseDown={handleNoteTextStyleMouseDown}
+            onMouseDown={handleKeepEditorFocusMouseDown}
             onMouseMove={handleMouseMove}>
             <For each={visibleNoteTextStyleOptions(store)}>{option =>
               <div class={noteTextStyleChoiceClass(option)}
@@ -1652,63 +1498,28 @@ export const Toolbar_Popup: Component = () => {
             <Toolbar_PageDocumentLayoutPopup />
           </div>
         </Match>
-        <Match when={true}>
-          <div class={TOOLBAR_POPUP_CLASS}
+        <Match when={overlayType() == ToolbarPopupType.NoteUrl}>
+          <div class={TOOLBAR_DIALOG_CLASS}
             style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}>
-            <Show when={label() != null}>
-              {overlayType() == ToolbarPopupType.TableNumCols || overlayType() == ToolbarPopupType.NoteIndent
-                ? <div class="flex items-center mt-[7px]">
-                  <div class="text-sm ml-2 mr-2">{label()}</div>
-                  <input ref={textElement}
-                    class="p-[2px] focus:outline-none"
-                    style={`width: ${inputWidthPx() - 50}px`}
-                    type="range"
-                    min="1"
-                    max={overlayType() == ToolbarPopupType.NoteIndent ? "4" : "20"}
-                    value={sliderValue()}
-                    onInput={handleSliderInput}
-                    onKeyDown={handleSliderKeyDown}
-                    onKeyUp={handleKeyUp}
-                    onKeyPress={handleKeyPress} />
-                  <span class="ml-1 text-sm font-mono w-6 text-center">{sliderValue()}</span>
-                </div>
-                : <div class="inline-block">
-                  <div class="text-sm ml-1 mr-2 inline-block">{label()}</div>
-                  <input ref={textElement}
-                    class="border border-slate-300 rounded mt-[3px] p-[2px]"
-                    style={`width: ${inputWidthPx()}px`}
-                    autocomplete="on"
-                    value={textEntryValue()!}
-                    type="text"
-                    onChange={handleTextChange}
-                    onKeyDown={handleKeyDown}
-                    onKeyUp={handleKeyUp}
-                    onKeyPress={handleKeyPress} />
-                </div>
-              }
-            </Show>
-            <Show when={overlayType() == ToolbarPopupType.NoteUrl && textEntryValue() != ""}>
-              <button class="border border-slate-300 rounded mt-[3px] ml-[4px] w-[26px] h-[28px] align-top hover:bg-slate-300"
-                type="button"
-                title="Remove link"
-                onClick={handleRemoveNoteUrl}>
-                <i class="fa fa-unlink" />
-              </button>
-            </Show>
-            <Show when={showAutoButton()}>
-              <button class="border border-slate-300 rounded mt-[3px] p-[2px] ml-[4px] hover:bg-slate-300"
-                type="button"
-                onClick={handleAutoClick}>
-                auto
-              </button>
-            </Show>
-            <Show when={tooltip() != null}>
-              <div class="text-xs p-[4px] pt-[5px]">
-                {tooltip()}
-              </div>
-            </Show>
+            <Toolbar_NoteUrlPopup />
+          </div>
+        </Match>
+        <Match when={overlayType() == ToolbarPopupType.NoteIndent}>
+          <div class={TOOLBAR_DIALOG_CLASS}
+            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
+            onMouseDown={handleKeepEditorFocusMouseDown}
+            onMouseMove={handleMouseMove}>
+            <Toolbar_NoteIndentPopup />
+          </div>
+        </Match>
+        <Match when={overlayType() == ToolbarPopupType.TableNumCols}>
+          <div class={TOOLBAR_DIALOG_CLASS}
+            style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY}; cursor: default;`}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}>
+            <Toolbar_TableColumnsPopup />
           </div>
         </Match>
       </Switch>

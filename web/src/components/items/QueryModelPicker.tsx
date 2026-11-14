@@ -7,6 +7,7 @@ import type { QueryModelFavorite } from "../../items/query-configuration";
 import type { ChatModelInfo } from "../../server";
 import { useStore } from "../../store/StoreProvider";
 import { QueryPickerPopover, type QueryPickerProps } from "./QueryPickerPopover";
+import { DIALOG_INPUT_CLASS, DIALOG_NOTE_CLASS, DialogHeader } from "../library/dialogStyle";
 import { queryConfigurationChangeBlockedReason } from "../../items/query-configuration-state";
 import { queryModelIssues } from "../../items/query-configuration-availability";
 import {
@@ -144,14 +145,11 @@ export function QueryModelPicker(props: QueryPickerProps) {
       <Show when={ready() && selectionIssues().length > 0}><i class="bi-exclamation-triangle shrink-0 text-[11px] text-amber-600" /></Show></>}
     onOpen={() => { setFilter(""); setFavoriteError(null); void store.general.queryProfiles.refresh(); void store.general.refreshChatBackends(); }}>
     {close => <>
-      <div class="shrink-0 border-b border-slate-200 px-3 py-2">
-        <div class="mb-1.5 flex items-center gap-2 text-[12px] font-medium text-slate-600">Model and provider
-          <button type="button" class="ml-auto h-5 w-5 rounded hover:bg-slate-100" aria-label="Close model picker" onClick={close}><i class="bi-x-lg" /></button>
-        </div>
-        <Show when={props.note?.()}><div class="mb-1.5 text-[11px] text-slate-500">{props.note?.()}</div></Show>
-        <For each={selectionIssues()}>{issue => <div role="status" class="mb-1.5 text-[11px] text-amber-700">{issue.message}</div>}</For>
+      <DialogHeader title="Model and provider" closeLabel="Close model picker" onClose={close}>
+        <Show when={props.note?.()}><div class={`mt-1 ${DIALOG_NOTE_CLASS}`}>{props.note?.()}</div></Show>
+        <For each={selectionIssues()}>{issue => <div role="status" class="mt-1 text-[11px] text-amber-700">{issue.message}</div>}</For>
         <input data-picker-autofocus type="search" aria-label="Search models and providers" placeholder="Search models or providers…"
-          class="w-full rounded border border-slate-300 px-2 py-1 text-[12px] outline-hidden focus:border-slate-500"
+          class={`mt-1.5 w-full ${DIALOG_INPUT_CLASS}`}
           value={filter()} onInput={ev => setFilter(ev.currentTarget.value)}
           onKeyDown={ev => {
             if (ev.key == "ArrowDown") {
@@ -159,7 +157,7 @@ export function QueryModelPicker(props: QueryPickerProps) {
               ev.currentTarget.closest("[role='dialog']")?.querySelector<HTMLButtonElement>("button[role='radio']:not([disabled])")?.focus();
             }
           }} />
-      </div>
+      </DialogHeader>
       <div class="min-h-0 grow overflow-y-auto py-1" role="radiogroup" aria-label="Model and provider combinations">
         <Show when={store.general.queryProfiles.error()}><div class="px-3 py-1 text-[12px] text-red-700">{store.general.queryProfiles.error()}</div></Show>
         <Show when={store.general.chatBackendsError()}><div class="px-3 py-1 text-[12px] text-red-700">{store.general.chatBackendsError()}</div></Show>
@@ -175,7 +173,7 @@ export function QueryModelPicker(props: QueryPickerProps) {
       <Show when={efforts().length > 0 || selection()?.reasoningEffort != null}>
         <div class="shrink-0 border-t border-slate-200 px-3 py-2 text-[12px]">
           <label class="flex items-center gap-2">Reasoning effort
-            <select class="ml-auto rounded border border-slate-300 bg-white px-2 py-1" disabled={!canChange()}
+            <select class={`ml-auto ${DIALOG_INPUT_CLASS}`} disabled={!canChange()}
               value={selection()?.reasoningEffort ?? ""}
               onChange={ev => {
                 const chosen = selection();
