@@ -29,6 +29,7 @@ import { ItemType } from "../../../items/base/item";
 import { requestArrange } from "../../../layout/arrange";
 import { serverOrRemote } from "../../../server";
 import { itemCanEdit } from "../../../items/base/capabilities-item";
+import { applyEditorFormatCommand } from "../../../input/editor_history";
 
 
 export const Toolbar_Composite: Component = () => {
@@ -59,12 +60,24 @@ export const Toolbar_Composite: Component = () => {
     store.touchToolbar();
   };
 
+  const borderVisible = () => {
+    store.touchToolbarDependency();
+    return !(compositeItem().flags & CompositeFlags.HideBorder);
+  };
+
+  const handleToggleBorder = () => {
+    const composite = compositeItem();
+    applyEditorFormatCommand(store, [composite], "Toggle border", () => { composite.flags ^= CompositeFlags.HideBorder; });
+    requestArrange(store, "toolbar-composite-border");
+  };
+
   return (
     <div id="toolbarItemOptionsDiv"
       class="grow-0" style="flex-order: 0">
       <div class="inline-block">
         <Show when={canEdit()}>
           <InfuIconButton icon="bi-type" highlighted={showTitle()} clickHandler={handleToggleTitle} title="Show composite title" />
+          <InfuIconButton icon="bi-square" highlighted={borderVisible()} clickHandler={handleToggleBorder} title="Show border" />
         </Show>
         <Toolbar_MoreActions />
         <Toolbar_ItemOrdering />

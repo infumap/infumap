@@ -17,11 +17,11 @@
 */
 
 import { toolbarPopupTopPx } from "../toolbarPopupStyle";
-import { Component, Match, Show, Switch } from "solid-js";
+import { Component, Show } from "solid-js";
 import { InfuIconButton } from "../../library/InfuIconButton";
 import { itemCanEdit } from "../../../items/base/capabilities-item";
 import { NoteFns, NoteInlineMarkFlags, NoteTextStyle, asNoteItem } from "../../../items/note-item";
-import { CompositeFlags, getNoteIndentLevel, NoteFlags } from "../../../items/base/flags-item";
+import { getNoteIndentLevel, NoteFlags } from "../../../items/base/flags-item";
 import { useStore } from "../../../store/StoreProvider";
 import { asCompositeItem, isComposite } from "../../../items/composite-item";
 import { ToolbarPopupType } from "../../../store/StoreProvider_Overlay";
@@ -131,9 +131,6 @@ export const Toolbar_Note: Component = () => {
   };
 
   const borderVisible = (): boolean => {
-    if (compositeItemMaybe() != null) {
-      return (compositeItemMaybe()!.flags & CompositeFlags.HideBorder) ? false : true;
-    }
     return (noteItem().flags & NoteFlags.HideBorder) ? false : true;
   }
 
@@ -144,13 +141,8 @@ export const Toolbar_Note: Component = () => {
   };
 
   const borderButtonHandler = (): void => {
-    const composite = compositeItemMaybe();
-    if (composite != null) {
-      applyEditorFormatCommand(store, [composite], "Toggle border", () => { composite.flags ^= CompositeFlags.HideBorder; });
-    } else {
-      const note = noteItem();
-      applyEditorFormatCommand(store, [note], "Toggle border", () => { note.flags ^= NoteFlags.HideBorder; });
-    }
+    const note = noteItem();
+    applyEditorFormatCommand(store, [note], "Toggle border", () => { note.flags ^= NoteFlags.HideBorder; });
     requestArrange(store, "toolbar-note-border");
   };
 
@@ -272,7 +264,7 @@ export const Toolbar_Note: Component = () => {
       </div>
     </Show>;
 
-  const renderSingleNoteToolbox = () =>
+  const renderNoteToolbox = () =>
     <div class="inline-block">
       <Show when={canEdit() && store.user.getUserMaybe() != null && store.user.getUser().userId == noteItem().ownerId}>
         {renderTextStyleSelector()}
@@ -293,51 +285,20 @@ export const Toolbar_Note: Component = () => {
         <Show when={isInTable()}>
           <InfuIconButton icon="bi-copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} title="Show copy button" />
         </Show>
-        <div ref={popupIconDiv} class="inline-block"
-          onMouseDown={handlePopupIconDown}>
-          <InfuIconButton icon="bi-emoji-smile" highlighted={popupIconVisible()} clickHandler={popupIconButtonHandler} title="Item icon" />
-        </div>
-        <Show when={!isInTable()}>
-          <InfuIconButton icon="bi-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} title="Show border" />
-          <Show when={!isInDocumentPage()}>
-            <InfuIconButton icon="bi-arrows-vertical" highlighted={explicitHeightEnabled()} clickHandler={explicitHeightButtonHandler} title="Fixed height" />
+        {/* a note in a composite has no border of its own (the composite's border is toggled from its toolbar), and no
+            icon or fixed height. */}
+        <Show when={compositeItemMaybe() == null}>
+          <div ref={popupIconDiv} class="inline-block"
+            onMouseDown={handlePopupIconDown}>
+            <InfuIconButton icon="bi-emoji-smile" highlighted={popupIconVisible()} clickHandler={popupIconButtonHandler} title="Item icon" />
+          </div>
+          <Show when={!isInTable()}>
+            <InfuIconButton icon="bi-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} title="Show border" />
+            <Show when={!isInDocumentPage()}>
+              <InfuIconButton icon="bi-arrows-vertical" highlighted={explicitHeightEnabled()} clickHandler={explicitHeightButtonHandler} title="Fixed height" />
+            </Show>
           </Show>
         </Show>
-      </Show>
-
-      <Toolbar_ItemOrdering />
-
-      {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
-      <div class="fixed border-r border-chrome-line" style={`height: 25px; right: ${TOOLBAR_INFO_DIVIDER_RIGHT_PX}px; top: 7px;`}></div>
-
-      <Toolbar_InfoAndId />
-
-    </div>;
-
-  const renderCompositeToolbox = () =>
-    <div class="inline-block">
-      <Show when={canEdit() && store.user.getUserMaybe() != null && store.user.getUser().userId == noteItem().ownerId}>
-        {renderTextStyleSelector()}
-        {renderIndentSelector()}
-        <div class="inline-block ml-[12px]"></div>
-        <InfuIconButton icon="bi-type-bold" highlighted={inlineMarkHighlighted(NoteInlineMarkFlags.Bold)} clickHandler={toggleBold} title="Bold" />
-        <InfuIconButton icon="bi-type-italic" highlighted={inlineMarkHighlighted(NoteInlineMarkFlags.Italic)} clickHandler={toggleItalic} title="Italic" />
-        <div class="inline-block ml-[12px]"></div>
-        <InfuIconButton icon="bi-text-left" highlighted={alignmentHighlighted(NoteFlags.AlignLeft)} clickHandler={selectAlignLeft} title="Align left" />
-        <InfuIconButton icon="bi-text-center" highlighted={alignmentHighlighted(NoteFlags.AlignCenter)} clickHandler={selectAlignCenter} title="Align center" />
-        <InfuIconButton icon="bi-text-right" highlighted={alignmentHighlighted(NoteFlags.AlignRight)} clickHandler={selectAlignRight} title="Align right" />
-        <InfuIconButton icon="bi-justify" highlighted={alignmentHighlighted(NoteFlags.AlignJustify)} clickHandler={selectAlignJustify} title="Justify" />
-        <div ref={beforeUrlElement} class="inline-block ml-[12px]"></div>
-        <div ref={urlDiv} class="inline-block"
-          onMouseDown={handleUrlDown}>
-          <InfuIconButton icon="bi-link-45deg" highlighted={noteUrlHighlighted()} clickHandler={urlButtonHandler} title="Link URL" />
-        </div>
-        <Show when={isInTable()}>
-          <InfuIconButton icon="bi-copy" highlighted={(noteItem().flags & NoteFlags.ShowCopyIcon) ? true : false} clickHandler={copyButtonHandler} title="Show copy button" />
-        </Show>
-        <div class="inline-block">
-          <InfuIconButton icon="bi-square" highlighted={borderVisible()} clickHandler={borderButtonHandler} title="Show border" />
-        </div>
       </Show>
 
       <Toolbar_ItemOrdering />
@@ -352,10 +313,7 @@ export const Toolbar_Note: Component = () => {
   return (
     <div id="toolbarItemOptionsDiv"
       class="grow-0" style="flex-order: 0">
-      <Switch>
-        <Match when={compositeItemMaybe() == null}>{renderSingleNoteToolbox()}</Match>
-        <Match when={compositeItemMaybe() != null}>{renderCompositeToolbox()}</Match>
-      </Switch>
+      {renderNoteToolbox()}
     </div>
   );
 }
