@@ -53,10 +53,10 @@ export const PasswordStrength: Component<{ id: string, password: string, usernam
   return (
     <div id={props.id} aria-live="polite" aria-atomic="true">
       <Show when={props.password.length > 0}>
-        <div class="mt-2 text-xs text-slate-600">
+        <div class="mt-2 text-xs text-neutral-600">
           <div class="flex gap-1 mb-1" aria-hidden="true">
             <For each={STRENGTH_LABELS}>{(_, index) =>
-              <div class={`h-1 flex-1 rounded ${index() <= strength() ? STRENGTH_COLORS[strength()] : "bg-slate-200"}`} />
+              <div class={`h-1 flex-1 rounded ${index() <= strength() ? STRENGTH_COLORS[strength()] : "bg-neutral-200"}`} />
             }</For>
           </div>
           <span title="Rough estimate based on length, character variety, and obvious patterns.">

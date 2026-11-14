@@ -17,6 +17,7 @@
 */
 
 import type { StoreContextModel } from "../../store/StoreProvider";
+import { DIALOG_SURFACE_CLASS, MENU_SURFACE_CLASS, menuItemClass } from "../library/dialogStyle";
 
 // The toolbar needs fallback heights before the optional dialog components are downloaded.
 export const PAGE_SIZE_POPUP_HEIGHT_PX = 362;
@@ -26,17 +27,14 @@ export const PAGE_SHAPE_POPUP_HEIGHT_PX = 136;
 export const PAGE_TABLE_LAYOUT_POPUP_HEIGHT_PX = 180;
 export const PAGE_DOCUMENT_LAYOUT_POPUP_HEIGHT_PX = 200;
 
-// Menus and other small popups from the toolbar: the outline, corner radius and shadow of a dialog (DIALOG_SURFACE_CLASS),
-// which are those of items.
-export const TOOLBAR_POPUP_CLASS = "absolute border border-control-border rounded-control bg-white shadow-xl";
-export const TOOLBAR_MENU_CLASS = `${TOOLBAR_POPUP_CLASS} p-[3px]`;
+// Menus and other small popups from the toolbar look like dialogs (and so like items).
+export const TOOLBAR_POPUP_CLASS = `absolute ${DIALOG_SURFACE_CLASS}`;
+export const TOOLBAR_MENU_CLASS = `absolute ${MENU_SURFACE_CLASS}`;
 
 // A 20px line plus 3px padding on each side; the panel adds padding and a 1px border.
 export const toolbarMenuHeightPx = (rows: number): number => rows * 26 + 8;
 
-export const toolbarMenuItemClass = (selected = false): string =>
-  `block w-full text-left text-sm leading-[20px] p-[3px] rounded-control cursor-pointer text-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus ` +
-  (selected ? "bg-control-selected" : "hover:bg-control-hover focus-visible:bg-control-hover");
+export const toolbarMenuItemClass = (selected = false): string => `block ${menuItemClass(selected)}`;
 
 // Anchor every dropdown and message to the toolbar, regardless of the trigger's baseline.
 export const toolbarPopupTopPx = (store: StoreContextModel): number => store.topToolbarHeightPx() + 5;

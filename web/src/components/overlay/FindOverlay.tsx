@@ -23,6 +23,7 @@ import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../../constants";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
 import { isInside } from "../../util/geometry";
 import { performFind, navigateToNextMatch, navigateToPreviousMatch, closeFindOverlay } from "../../layout/find-on-page";
+import { DIALOG_INPUT_CLASS, DIALOG_SURFACE_CLASS, dialogIconButtonClass } from "../library/dialogStyle";
 
 export const FindOverlay: Component = () => {
   const store = useStore();
@@ -33,7 +34,7 @@ export const FindOverlay: Component = () => {
     x: window.innerWidth - 435,
     y: 5 + store.topToolbarHeightPx(),
     w: 420,
-    h: 56
+    h: 50
   });
 
   const boxBoundsRelativeToDesktopPx = () => {
@@ -132,32 +133,30 @@ export const FindOverlay: Component = () => {
          onmousedown={mouseDownListener}
          onmousemove={mouseMoveListener}
          onmouseup={mouseUpListener}>
-      <div class="absolute border border-gray-400 rounded-lg bg-white shadow-lg"
-           style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);`}>
-        <div class="flex items-center justify-between px-3 py-2 h-full">
+      <div class={`absolute ${DIALOG_SURFACE_CLASS}`}
+           style={`left: ${boxBoundsPx().x}px; top: ${boxBoundsPx().y}px; width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px;`}>
+        <div class="flex items-center gap-2 p-3 h-full">
           <input ref={textElement}
-                 class="border border-gray-300 rounded-md flex-1 px-3 py-1.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                 placeholder="Find in page..."
+                 class={`min-w-0 flex-1 ${DIALOG_INPUT_CLASS}`}
+                 placeholder="Find in page…" aria-label="Find in page"
                  type="text"
                  onKeyDown={handleInputKeyDown}
                  onInput={(e) => {
                    handleFindDebounced(e.currentTarget.value);
                  }} />
-          <div class="flex items-center ml-3 space-x-1">
-            <button class="w-7 h-7 flex items-center justify-center rounded-md hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                    disabled={!canGoPrev()}
-                    onClick={() => navigateToPreviousMatch(store)}>
-              <i class="fa fa-chevron-up text-xs text-gray-600" />
-            </button>
-            <span class="text-xs text-gray-600 min-w-[40px] text-center">
-              {currentMatchDisplay()}
-            </span>
-            <button class="w-7 h-7 flex items-center justify-center rounded-md hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                    disabled={!canGoNext()}
-                    onClick={() => navigateToNextMatch(store)}>
-              <i class="fa fa-chevron-down text-xs text-gray-600" />
-            </button>
-          </div>
+          <span class="min-w-[40px] text-center text-[12px] text-neutral-600">
+            {currentMatchDisplay()}
+          </span>
+          <button type="button" class={dialogIconButtonClass()} aria-label="Previous match"
+                  disabled={!canGoPrev()}
+                  onClick={() => navigateToPreviousMatch(store)}>
+            <i class="bi-chevron-up" />
+          </button>
+          <button type="button" class={dialogIconButtonClass()} aria-label="Next match"
+                  disabled={!canGoNext()}
+                  onClick={() => navigateToNextMatch(store)}>
+            <i class="bi-chevron-down" />
+          </button>
         </div>
       </div>
     </div>

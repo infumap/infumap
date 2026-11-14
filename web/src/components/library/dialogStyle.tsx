@@ -11,6 +11,27 @@ import { Component, JSX, Show } from "solid-js";
 /** The panel: position, size and layout (e.g. flex flex-col overflow-hidden) are added by the caller. */
 export const DIALOG_SURFACE_CLASS = "rounded-control border border-control-border bg-white text-black shadow-xl";
 
+/** The shade over the rest of the window behind a modal dialog. */
+export const DIALOG_BACKDROP_CLASS = "bg-black/20";
+
+/** A menu: a dialog panel with a little padding around its entries. */
+export const MENU_SURFACE_CLASS = `${DIALOG_SURFACE_CLASS} p-[3px]`;
+
+/**
+ * An entry in a menu: a 20px line with 3px padding. The display (block, or flex for an icon and shortcut) is added by
+ * the caller. Selected is for the current choice of the menu.
+ */
+export const menuItemClass = (selected: boolean = false): string =>
+  "w-full text-left text-sm leading-[20px] p-[3px] rounded-control cursor-pointer text-black " +
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus " +
+  (selected ? "bg-control-selected" : "hover:bg-control-hover focus-visible:bg-control-hover");
+
+/** An entry that can't be chosen. */
+export const MENU_ITEM_DISABLED_CLASS = "w-full text-left text-sm leading-[20px] p-[3px] cursor-default text-neutral-400";
+
+/** A line between groups of menu entries. */
+export const MENU_SEPARATOR_CLASS = "mx-[3px] my-[3px] border-t border-chrome-line";
+
 /** A label in front of, or above, a control. */
 export const DIALOG_LABEL_CLASS = "text-[12px] text-neutral-600";
 

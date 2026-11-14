@@ -17,6 +17,7 @@
 */
 
 import { Component, onCleanup, onMount } from "solid-js";
+import { DIALOG_INPUT_CLASS } from "./dialogStyle";
 
 
 export type InfuTextInputProps = {
@@ -31,6 +32,8 @@ export type InfuTextInputProps = {
   focus?: boolean,
   /** Fill the container's width, rather than the fixed default width. */
   fullWidth?: boolean,
+  /** The size of an input in a dialog, rather than the larger one of the login page. */
+  compact?: boolean,
   id?: string,
   autocomplete?: string,
   ariaDescribedBy?: string,
@@ -77,7 +80,9 @@ export const InfuTextInput: Component<InfuTextInputProps> = (props: InfuTextInpu
     <input ref={textElement}
            id={props.id}
            style={props.fullWidth ? "" : "width: 195px"}
-           class={`border border-slate-300 p-2 rounded ${props.fullWidth ? "w-full" : ""}`}
+           class={`${props.compact
+             ? DIALOG_INPUT_CLASS
+             : "rounded-control border border-control-border p-2 focus:border-focus focus:outline-1 focus:outline-focus"} ${props.fullWidth ? "w-full" : ""}`}
            autocomplete={props.autocomplete ?? "on"}
            aria-describedby={props.ariaDescribedBy}
            inputmode={props.inputMode}

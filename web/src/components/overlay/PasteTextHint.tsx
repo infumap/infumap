@@ -21,6 +21,7 @@ import { useStore } from "../../store/StoreProvider";
 import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../../constants";
 import { MOD } from "../../util/platform";
 import { Key } from "../HelpContent";
+import { DIALOG_SURFACE_CLASS } from "../library/dialogStyle";
 
 const HINT_WIDTH_PX = 280;
 const HINT_GAP_PX = 6;
@@ -60,15 +61,15 @@ export const PasteTextHint: Component = () => {
   return (
     <Show when={path()}>{hintPath =>
       <Show when={positionPx(hintPath())}>{pos =>
-        <div class="absolute pointer-events-none border rounded bg-slate-50 shadow-lg text-sm p-[8px] leading-snug"
+        <div class={`absolute pointer-events-none text-[13px] p-[8px] leading-snug ${DIALOG_SURFACE_CLASS}`}
              style={`left: ${pos().x}px; top: ${pos().y}px; width: ${HINT_WIDTH_PX}px; ` +
                     `${pos().above ? "transform: translateY(-100%); " : ""}` +
                     `z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY};`}>
-          <div class="font-semibold mb-[3px]">This is a text file</div>
-          <div class="text-slate-700">
+          <div class="font-medium text-neutral-800 mb-[3px]">This is a text file</div>
+          <div class="text-neutral-700">
             Its content is pasted in, not typed. Paste text (<Key>{MOD}</Key> <Key>V</Key>) to fill it, then give it a title.
           </div>
-          <div class="text-slate-700 mt-[4px]">To write text, use a note (<Key>N</Key>).</div>
+          <div class="text-neutral-700 mt-[4px]">To write text, use a note (<Key>N</Key>).</div>
         </div>
       }</Show>
     }</Show>

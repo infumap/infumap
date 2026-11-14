@@ -27,6 +27,7 @@ import { post } from "../../server";
 import { ChangePasswordResponse, Totp, UpdateTotpResponse } from "../../util/accountTypes";
 import { RemoteSessions, RemoteSession } from "../../store/RemoteSessions";
 import { PasswordStrength } from "../PasswordStrength";
+import { DIALOG_LABEL_CLASS, DIALOG_NOTE_CLASS, DIALOG_SURFACE_CLASS, DialogHeader, dialogButtonClass } from "../library/dialogStyle";
 
 
 interface IngestSessionInfo {
@@ -264,7 +265,7 @@ export const EditUserSettings: Component = () => {
     passwordChangeSuccessSignal.set(null);
 
     if (newPasswordSignal.get() != confirmPasswordSignal.get()) {
-      passwordChangeErrorSignal.set("new passwords do not match");
+      passwordChangeErrorSignal.set("The new passwords don't match.");
       return;
     }
 
@@ -280,306 +281,249 @@ export const EditUserSettings: Component = () => {
         newPasswordSignal.set("");
         confirmPasswordSignal.set("");
         passwordChangeVisibleSignal.set(false);
-        passwordChangeSuccessSignal.set("password updated");
+        passwordChangeSuccessSignal.set("Password updated.");
       } else {
-        passwordChangeErrorSignal.set(response.err ?? "failed changing password");
+        passwordChangeErrorSignal.set(response.err ?? "Failed to change the password.");
       }
     } catch (e: any) {
-      passwordChangeErrorSignal.set(e?.message ?? "failed changing password");
+      passwordChangeErrorSignal.set(e?.message ?? "Failed to change the password.");
     }
   };
 
+  const tabClass = (tab: string) =>
+    "-mb-px h-[30px] cursor-pointer border-b-2 px-3 text-[13px] " +
+    (activeTab() === tab ? "border-neutral-800 font-medium text-neutral-900" : "border-transparent text-neutral-500 hover:text-neutral-800");
+  const rowClass = "flex min-h-[26px] items-center gap-2";
+  const labelClass = `w-[120px] shrink-0 ${DIALOG_LABEL_CLASS}`;
+  const copyButtonClass = "ml-2 cursor-pointer text-neutral-400 hover:text-neutral-700";
+  const cardClass = "rounded-control border border-chrome-line p-2";
+
   return (
-    <>
-      <div class="fixed text-xl font-bold z-10 rounded-md p-8 blur-md"
-           style={`left: ${posPx().x}px; top: ${posPx().y}px; width: ${sizePx().w}px; height: ${sizePx().h}px; background-color: #303030d0;`}>
+    // The dialog's bounds are those of editUserSettingsInfo, which mouse_down uses to decide whether a press is in the
+    // dialog (and starts moving it) or outside (and closes it). The panel is inset from them, as it always has been.
+    <div ref={editUserSettingsDiv}
+         class={`fixed z-20 flex flex-col overflow-hidden ${DIALOG_SURFACE_CLASS}`}
+         style={`left: ${posPx().x+10.0}px; top: ${posPx().y+10}px; width: ${sizePx().w-20.0}px; height: ${sizePx().h-20.0}px;`}>
+      <DialogHeader title="User settings" onClose={() => store.overlay.editUserSettingsInfo.set(null)} />
+
+      <div class="flex shrink-0 border-b border-chrome-line px-3" role="tablist">
+        <button type="button" role="tab" aria-selected={activeTab() === "local"} class={tabClass("local")}
+          onClick={() => setActiveTab("local")}>Local</button>
+        <button type="button" role="tab" aria-selected={activeTab() === "remote"} class={tabClass("remote")}
+          onClick={() => { setActiveTab("remote"); updateRemoteSessionsList(); }}>Remote</button>
+        <button type="button" role="tab" aria-selected={activeTab() === "ingest"} class={tabClass("ingest")}
+          onClick={() => { setActiveTab("ingest"); updateIngestSessionsList(); }}>Ingest</button>
       </div>
-      <div ref={editUserSettingsDiv}
-           class="fixed bg-white z-20 rounded-md border border-slate-700"
-           style={`left: ${posPx().x+10.0}px; top: ${posPx().y+10}px; width: ${sizePx().w-20.0}px; height: ${sizePx().h-20.0}px;`}>
-        <div class="p-3 h-full box-border flex flex-col">
-          <div class="font-bold text-lg" style="margin-bottom: 14px;">User Settings</div>
 
-          <div class="flex border-b border-slate-300 mb-3" style="margin-bottom: 14px;">
-            <button
-              class={`px-4 py-2 font-medium ${
-                activeTab() === "local"
-                  ? "text-blue-600 border-b-2 border-blue-600"
-                  : "text-slate-600 hover:text-slate-800"
-              }`}
-              onClick={() => setActiveTab("local")}
-            >
-              Local
-            </button>
-            <button
-              class={`px-4 py-2 font-medium ${
-                activeTab() === "remote"
-                  ? "text-blue-600 border-b-2 border-blue-600"
-                  : "text-slate-600 hover:text-slate-800"
-              }`}
-              onClick={() => {
-                setActiveTab("remote");
-                updateRemoteSessionsList();
-              }}
-            >
-              Remote
-            </button>
-            <button
-              class={`px-4 py-2 font-medium ${
-                activeTab() === "ingest"
-                  ? "text-blue-600 border-b-2 border-blue-600"
-                  : "text-slate-600 hover:text-slate-800"
-              }`}
-              onClick={() => {
-                setActiveTab("ingest");
-                updateIngestSessionsList();
-              }}
-            >
-              Ingest
-            </button>
-          </div>
+      <div class="min-h-0 flex-1 overflow-y-auto px-3 py-3 text-[13px] text-neutral-800">
+        <Switch>
+          <Match when={activeTab() === "local"}>
+            <div class="flex flex-col gap-1">
+              <div class={rowClass}>
+                <div class={labelClass}>Username</div>
+                <div class="font-medium">{store.user.getUser().username}</div>
+              </div>
 
-          <div class="min-h-0 flex-1">
-          <Switch>
-            <Match when={activeTab() === "local"}>
-              <div>
-                <div>
-                  <div class="inline-block text-right mr-[6px]" style="width: 150px;">username:</div>
-                  <div class="font-bold inline-block">{store.user.getUser().username}</div>
-                </div>
-                <div>
-                  <div class="inline-block text-right mr-[6px]" style="width: 150px;">password:</div>
-                  <div class="inline-block">
-                    <span class="font-mono">......</span>
-                    <Show when={!passwordChangeVisibleSignal.get()}>
-                      <a class="ml-3" style="color: #00a;" href="" onClick={handleShowChangePassword}>change</a>
-                    </Show>
+              <div class={rowClass}>
+                <div class={labelClass}>Password</div>
+                <span class="font-mono text-neutral-500">••••••</span>
+                <Show when={!passwordChangeVisibleSignal.get()}>
+                  <button type="button" class={`ml-auto ${dialogButtonClass()}`} onClick={handleShowChangePassword}>Change</button>
+                </Show>
+              </div>
+              <Show when={passwordChangeVisibleSignal.get()}>
+                <div class={`ml-[128px] mb-2 flex flex-col gap-2 ${cardClass}`}>
+                  <label class="flex items-center gap-2">
+                    <span class={`w-[64px] shrink-0 ${DIALOG_LABEL_CLASS}`}>Current</span>
+                    <InfuTextInput compact fullWidth type="password" autocomplete="current-password"
+                      value={currentPasswordSignal.get()}
+                      onInput={(v) => {
+                        currentPasswordSignal.set(v);
+                        passwordChangeErrorSignal.set(null);
+                        passwordChangeSuccessSignal.set(null);
+                      }} />
+                  </label>
+                  <label class="flex items-center gap-2">
+                    <span class={`w-[64px] shrink-0 ${DIALOG_LABEL_CLASS}`}>New</span>
+                    <InfuTextInput compact fullWidth type="password" autocomplete="new-password"
+                      ariaDescribedBy="settings-password-strength"
+                      value={newPasswordSignal.get()}
+                      onInput={(v) => {
+                        newPasswordSignal.set(v);
+                        passwordChangeErrorSignal.set(null);
+                        passwordChangeSuccessSignal.set(null);
+                      }} />
+                  </label>
+                  <div class="ml-[72px]">
+                    <PasswordStrength id="settings-password-strength" password={newPasswordSignal.get()}
+                      username={store.user.getUser().username} />
+                  </div>
+                  <label class="flex items-center gap-2">
+                    <span class={`w-[64px] shrink-0 ${DIALOG_LABEL_CLASS}`}>Confirm</span>
+                    <InfuTextInput compact fullWidth type="password" autocomplete="new-password"
+                      value={confirmPasswordSignal.get()}
+                      onInput={(v) => {
+                        confirmPasswordSignal.set(v);
+                        passwordChangeErrorSignal.set(null);
+                        passwordChangeSuccessSignal.set(null);
+                      }}
+                      onEnterKeyDown={handleChangePassword} />
+                  </label>
+                  <div class="flex justify-end gap-2">
+                    <button type="button" class={dialogButtonClass()} onClick={handleCancelChangePassword}>Cancel</button>
+                    <button type="button" class={dialogButtonClass()} onClick={handleChangePassword}>Update password</button>
                   </div>
                 </div>
-                <Show when={passwordChangeVisibleSignal.get()}>
-                  <div class="mb-[2px]">
-                    <div class="inline-block text-right mr-[6px] align-top" style="width: 150px;"></div>
-                    <div class="inline-block">
-                      <div class="mb-[6px]">
-                        <div class="inline-block text-sm text-slate-700 mr-[6px]" style="width: 90px;">current:</div>
-                        <InfuTextInput
-                          type="password"
-                          value={currentPasswordSignal.get()}
-                          onInput={(v) => {
-                            currentPasswordSignal.set(v);
-                            passwordChangeErrorSignal.set(null);
-                            passwordChangeSuccessSignal.set(null);
-                          }}
-                        />
-                      </div>
-                      <div class="mb-[6px]">
-                        <div class="inline-block text-sm text-slate-700 mr-[6px]" style="width: 90px;">new:</div>
-                        <InfuTextInput
-                          type="password"
-                          autocomplete="new-password"
-                          ariaDescribedBy="settings-password-strength"
-                          value={newPasswordSignal.get()}
-                          onInput={(v) => {
-                            newPasswordSignal.set(v);
-                            passwordChangeErrorSignal.set(null);
-                            passwordChangeSuccessSignal.set(null);
-                          }}
-                        />
-                        <div class="ml-[96px] w-[195px]">
-                          <PasswordStrength id="settings-password-strength" password={newPasswordSignal.get()}
-                            username={store.user.getUser().username} />
-                        </div>
-                      </div>
-                      <div class="mb-[8px]">
-                        <div class="inline-block text-sm text-slate-700 mr-[6px]" style="width: 90px;">confirm:</div>
-                        <InfuTextInput
-                          type="password"
-                          value={confirmPasswordSignal.get()}
-                          onInput={(v) => {
-                            confirmPasswordSignal.set(v);
-                            passwordChangeErrorSignal.set(null);
-                            passwordChangeSuccessSignal.set(null);
-                          }}
-                          onEnterKeyDown={handleChangePassword}
-                        />
-                      </div>
-                      <div class="mt-[8px] mb-[15px]">
-                        <a class="ml-6" style="color: #00a;" href="" onClick={handleChangePassword}>update</a>
-                        <a class="ml-3" style="color: #00a;" href="" onClick={handleCancelChangePassword}>cancel</a>
-                      </div>
+              </Show>
+              <Show when={passwordChangeErrorSignal.get() != null}>
+                <div role="alert" class="ml-[128px] text-[12px] text-red-700">{passwordChangeErrorSignal.get()!}</div>
+              </Show>
+              <Show when={passwordChangeSuccessSignal.get() != null}>
+                <div role="status" class="ml-[128px] text-[12px] text-green-700">{passwordChangeSuccessSignal.get()!}</div>
+              </Show>
+
+              <div class={rowClass}>
+                <div class={labelClass}>Two-factor auth</div>
+                <span>{store.user.getUser().hasTotp ? "On" : "Off"}</span>
+                <Show when={!addTotpVisibleSignal.get()}>
+                  <Show when={store.user.getUser().hasTotp} fallback={
+                    <button type="button" class={`ml-auto ${dialogButtonClass()}`} onClick={handleShowCreateTotp}>Add</button>
+                  }>
+                    <button type="button" class={`ml-auto ${dialogButtonClass()}`} onClick={handleRemoveTotp}>Remove</button>
+                  </Show>
+                </Show>
+              </div>
+              <Show when={addTotpVisibleSignal.get()}>
+                <div class={`ml-[128px] mb-2 flex flex-col gap-2 ${cardClass}`}>
+                  <div class={DIALOG_NOTE_CLASS}>Scan the code with an authenticator app, then enter the 6-digit code it shows.</div>
+                  <Show when={totpSignal.get() != null}>
+                    <img class="self-center" style="width: 180px;" src={`data:image/png;base64, ${totpSignal.get()!.qr}`} />
+                    <div class="flex items-center justify-center font-mono text-[12px] text-neutral-600">
+                      {totpSignal.get()!.secret}
+                      <button type="button" class={copyButtonClass} title="Copy secret" aria-label="Copy secret"
+                        onClick={() => { navigator.clipboard.writeText(totpSignal.get()!.secret); }}><i class="bi-copy" /></button>
                     </div>
-                  </div>
-                </Show>
-                <Show when={passwordChangeErrorSignal.get() != null}>
-                  <div class="text-red-700 ml-[156px] mt-[2px]">{passwordChangeErrorSignal.get()!}</div>
-                </Show>
-                <Show when={passwordChangeSuccessSignal.get() != null}>
-                  <div class="text-green-700 ml-[156px] mt-[2px]">{passwordChangeSuccessSignal.get()!}</div>
-                </Show>
-                <div>
-                  <div class="inline-block text-right mr-[6px]" style="width: 150px;">id:</div>
-                  <div class="text-slate-800 text-sm inline-block">
-                    <span class="font-mono text-slate-400">{`${store.user.getUser().userId}`}</span>
-                    <i class={`fa fa-copy text-slate-400 cursor-pointer ml-[8px]`} onclick={copyClickHandler} />
+                  </Show>
+                  <label class="flex items-center gap-2">
+                    <span class={`w-[64px] shrink-0 ${DIALOG_LABEL_CLASS}`}>Code</span>
+                    <InfuTextInput compact fullWidth inputMode="numeric" autocomplete="one-time-code" onInput={(v) => { totpToken = v; }} />
+                  </label>
+                  <div class="flex justify-end gap-2">
+                    <button type="button" class={dialogButtonClass()} onClick={handleCancelAddTotp}>Cancel</button>
+                    <button type="button" class={dialogButtonClass()} onClick={handleAddTotp}>Turn on</button>
                   </div>
                 </div>
+              </Show>
+              <Show when={errorSignal.get() != null}>
+                <div role="alert" class="ml-[128px] text-[12px] text-red-700">{"" + errorSignal.get()!}</div>
+              </Show>
 
-                <div>
-                  <div class="inline-block text-right mr-[6px]" style="width: 150px;">last backup:</div>
-                  <div class="inline-block">{humanReadableTime(lastBackupTime.get())}</div>
-                </div>
-                <div>
-                  <div class="inline-block text-right mr-[6px]" style="width: 150px;">last failed backup:</div>
-                  <div class="inline-block">{humanReadableTime(lastFailedBackupTime.get())}</div>
-                </div>
+              <div class={rowClass}>
+                <div class={labelClass}>User id</div>
+                <span class="font-mono text-[12px] text-neutral-500">{store.user.getUser().userId}</span>
+                <button type="button" class={copyButtonClass} title="Copy user id" aria-label="Copy user id" onClick={copyClickHandler}><i class="bi-copy" /></button>
+              </div>
+              <div class={rowClass}>
+                <div class={labelClass}>Last backup</div>
+                <span>{humanReadableTime(lastBackupTime.get())}</span>
+              </div>
+              <div class={rowClass}>
+                <div class={labelClass}>Last failed backup</div>
+                <span>{humanReadableTime(lastFailedBackupTime.get())}</span>
+              </div>
 
-                <Switch>
-                  <Match when={!addTotpVisibleSignal.get()}>
-                    <div>
-                      <div class="inline-block text-right mr-[6px]" style="width: 150px;">2FA:</div>
-                      <div class="inline-block">
-                        {store.user.getUser().hasTotp ? "ON" : "OFF"}
-                        <Show when={store.user.getUser().hasTotp} fallback={
-                          <a class="ml-3" style="color: #00a;" href="" onClick={handleShowCreateTotp}>add</a>
-                        }>
-                          <a class="ml-3" style="color: #00a;" href="" onClick={handleRemoveTotp}>remove</a>
+              <div class="mt-4">
+                <InfuButton compact text="Log out" onClick={logoutHandler} />
+              </div>
+            </div>
+          </Match>
+
+          <Match when={activeTab() === "remote"}>
+            <Show when={remoteSessionsList().length === 0} fallback={
+              <div class="flex flex-col gap-2">
+                <div class={DIALOG_LABEL_CLASS}>Remote sessions</div>
+                <For each={remoteSessionsList()}>
+                  {(session) => (
+                    <div class={`flex items-center justify-between ${cardClass}`}>
+                      <div>
+                        <div class="font-medium">{session.host}</div>
+                        <div class={DIALOG_NOTE_CLASS}>User: {session.username}</div>
+                      </div>
+                      <InfuButton compact text="Log out" onClick={() => handleRemoteLogout(session.host)} />
+                    </div>
+                  )}
+                </For>
+              </div>
+            }>
+              <div class="text-neutral-500">No remote sessions active.</div>
+            </Show>
+          </Match>
+
+          <Match when={activeTab() === "ingest"}>
+            <div class="flex h-full min-h-0 flex-col gap-2">
+              <div class={DIALOG_NOTE_CLASS}>
+                Pair ingest clients with one-time codes. Ingest sessions are isolated from normal login sessions and can be revoked independently.
+              </div>
+
+              <label class="flex items-center gap-2">
+                <span class={labelClass}>Device name</span>
+                <InfuTextInput compact fullWidth
+                  onInput={(v) => {
+                    ingestDeviceName = v;
+                    ingestErrorSignal.set(null);
+                  }} />
+              </label>
+              <div class="ml-[128px]">
+                <InfuButton compact text="Create pairing code" onClick={handleMintIngestPairingCode} />
+              </div>
+
+              <Show when={ingestPairingCodeSignal.get() != null}>
+                <div class={`bg-neutral-50 ${cardClass}`}>
+                  <div class={DIALOG_LABEL_CLASS}>Pairing code (one-time)</div>
+                  <div class="mt-1 flex items-center font-mono text-lg tracking-wider text-neutral-900">
+                    {ingestPairingCodeSignal.get()!}
+                    <button type="button" class={copyButtonClass} title="Copy pairing code" aria-label="Copy pairing code"
+                      onClick={() => { navigator.clipboard.writeText(ingestPairingCodeSignal.get()!); }}><i class="bi-copy text-[13px]" /></button>
+                  </div>
+                  <div class={`mt-1 ${DIALOG_NOTE_CLASS}`}>Expires: {humanReadableTime(ingestPairingCodeExpirySignal.get())}</div>
+                </div>
+              </Show>
+
+              <div class={`mt-2 ${DIALOG_LABEL_CLASS}`}>Ingest sessions</div>
+              <Show when={ingestSessionsList().length === 0} fallback={
+                <div class="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
+                  <For each={ingestSessionsList()}>
+                    {(session) => (
+                      <div class={`flex items-center justify-between ${cardClass}`}>
+                        <div>
+                          <div class="font-medium">{session.deviceName}</div>
+                          <div class={DIALOG_NOTE_CLASS}>Created: {humanReadableTime(session.createdAt)}</div>
+                          <div class={DIALOG_NOTE_CLASS}>
+                            {session.revoked ? "Revoked" : "Last used"}: {humanReadableTime(session.lastUsedAt)}
+                          </div>
+                          <Show when={!session.revoked}>
+                            <div class={DIALOG_NOTE_CLASS}>Refresh expires: {humanReadableTime(session.refreshExpires)}</div>
+                          </Show>
+                        </div>
+                        <Show when={!session.revoked} fallback={<div class="text-[12px] text-red-700">Revoked</div>}>
+                          <InfuButton compact text="Revoke" onClick={() => handleRevokeIngestSession(session.id)} />
                         </Show>
                       </div>
-                    </div>
-                  </Match>
-
-                  <Match when={addTotpVisibleSignal.get()}>
-                    <div>
-                      <div class="inline-block text-right mr-[6px] align-top" style="width: 150px; z-index: 10">Authenticator setup:</div>
-                    </div>
-                    <Show when={totpSignal.get() != null}>
-                    <div class="inline-block">
-                      <img class="inline-block" style="margin-left: 125px; width: 200px;" src={`data:image/png;base64, ${totpSignal.get()!.qr}`} />
-                    </div>
-                      <div class="text-sm w-full text-center" style="margin-top: -10px;">
-                        {totpSignal.get()!.secret}
-                        <i class="ml-[8px] fa fa-copy cursor-pointer" onclick={() => { navigator.clipboard.writeText(totpSignal.get()!.secret); }} />
-                      </div>
-                    </Show>
-                    <div class="ml-[80px] mt-[10px]">6 Digit Token: <InfuTextInput onInput={(v) => { totpToken = v; }} /></div>
-                    <div class="ml-[150px] mt-[8px] mb-[15px]">
-                      <a class="ml-6" style="color: #00a;" href="" onClick={handleAddTotp}>add</a>
-                      <a class="ml-3" style="color: #00a;" href="" onClick={handleCancelAddTotp}>cancel</a>
-                    </div>
-                  </Match>
-                </Switch>
-
-                <Show when={errorSignal.get() != null}>
-                  <div>
-                    {"" + errorSignal.get()!}
-                  </div>
-                </Show>
-
-                <div style="margin-top: 20px;">
-                  <InfuButton text="logout" onClick={logoutHandler} />
+                    )}
+                  </For>
                 </div>
-              </div>
-            </Match>
+              }>
+                <div class="text-neutral-500">No ingest sessions active.</div>
+              </Show>
 
-            <Match when={activeTab() === "remote"}>
-              <div>
-                <Show when={remoteSessionsList().length === 0} fallback={
-                  <div>
-                    <div class="text-sm text-slate-600 mb-3">Remote sessions:</div>
-                    <For each={remoteSessionsList()}>
-                      {(session) => (
-                        <div class="mb-3 p-2 border border-slate-300 rounded">
-                          <div class="flex items-center justify-between">
-                            <div>
-                              <div class="font-medium">{session.host}</div>
-                              <div class="text-sm text-slate-600">User: {session.username}</div>
-                            </div>
-                            <InfuButton text="Logout" onClick={() => handleRemoteLogout(session.host)} />
-                          </div>
-                        </div>
-                      )}
-                    </For>
-                  </div>
-                }>
-                  <div class="text-slate-600">No remote sessions active.</div>
-                </Show>
-              </div>
-            </Match>
-
-            <Match when={activeTab() === "ingest"}>
-              <div class="h-full min-h-0 flex flex-col">
-                <div class="text-sm text-slate-700 mb-3">
-                  Pair ingest clients with one-time codes. Ingest sessions are isolated from normal login sessions and can be revoked independently.
-                </div>
-
-                <div class="mb-2">
-                  <div class="inline-block text-right mr-[6px]" style="width: 150px;">device name:</div>
-                  <InfuTextInput
-                    onInput={(v) => {
-                      ingestDeviceName = v;
-                      ingestErrorSignal.set(null);
-                    }}
-                  />
-                </div>
-                <div class="mb-4 ml-[155px]">
-                  <InfuButton text="mint pairing code" onClick={handleMintIngestPairingCode} />
-                </div>
-
-                <Show when={ingestPairingCodeSignal.get() != null}>
-                  <div class="mb-4 p-3 rounded border border-slate-300 bg-slate-50">
-                    <div class="text-sm text-slate-600">Pairing code (one-time):</div>
-                    <div class="mt-1 font-mono text-lg text-slate-900 tracking-wider">
-                      {ingestPairingCodeSignal.get()!}
-                      <i
-                        class="ml-[8px] fa fa-copy cursor-pointer text-slate-500"
-                        onclick={() => { navigator.clipboard.writeText(ingestPairingCodeSignal.get()!); }}
-                      />
-                    </div>
-                    <div class="mt-1 text-sm text-slate-600">
-                      Expires: {humanReadableTime(ingestPairingCodeExpirySignal.get())}
-                    </div>
-                  </div>
-                </Show>
-
-                <div class="text-sm text-slate-600 mb-2">Ingest sessions:</div>
-                <Show when={ingestSessionsList().length === 0} fallback={
-                  <div class="min-h-0 flex-1 mb-2" style="overflow-y: auto; padding-right: 4px;">
-                    <For each={ingestSessionsList()}>
-                      {(session) => (
-                        <div class="mb-3 last:mb-0 p-2 border border-slate-300 rounded">
-                          <div class="flex items-center justify-between">
-                            <div>
-                              <div class="font-medium">{session.deviceName}</div>
-                              <div class="text-sm text-slate-600">Created: {humanReadableTime(session.createdAt)}</div>
-                              <div class="text-sm text-slate-600">
-                                {session.revoked ? "Revoked" : "Last used"}: {humanReadableTime(session.lastUsedAt)}
-                              </div>
-                              <Show when={!session.revoked}>
-                                <div class="text-sm text-slate-600">Refresh expires: {humanReadableTime(session.refreshExpires)}</div>
-                              </Show>
-                            </div>
-                            <Show when={!session.revoked} fallback={<div class="text-xs text-red-700">Revoked</div>}>
-                              <InfuButton text="Revoke" onClick={() => handleRevokeIngestSession(session.id)} />
-                            </Show>
-                          </div>
-                        </div>
-                      )}
-                    </For>
-                  </div>
-                }>
-                  <div class="text-slate-600">No ingest sessions active.</div>
-                </Show>
-
-                <Show when={ingestErrorSignal.get() != null}>
-                  <div class="mt-2 text-red-700">{ingestErrorSignal.get()!}</div>
-                </Show>
-              </div>
-            </Match>
-          </Switch>
-          </div>
-          <div class="text-right text-xs text-slate-400 font-mono">build: {__INFUMAP_GIT_COMMIT__}</div>
-        </div>
+              <Show when={ingestErrorSignal.get() != null}>
+                <div role="alert" class="text-[12px] text-red-700">{ingestErrorSignal.get()!}</div>
+              </Show>
+            </div>
+          </Match>
+        </Switch>
       </div>
-    </>
+      <div class={`shrink-0 border-t border-chrome-line px-3 py-1 text-right font-mono ${DIALOG_NOTE_CLASS}`}>build: {__INFUMAP_GIT_COMMIT__}</div>
+    </div>
   );
 }

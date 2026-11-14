@@ -20,6 +20,7 @@ import { Component } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { Z_INDEX_GLOBAL_TOOLBAR_OVERLAY } from "../../constants";
 import { HelpContent } from "../HelpContent";
+import { DIALOG_BACKDROP_CLASS, DIALOG_SURFACE_CLASS, DialogHeader } from "../library/dialogStyle";
 
 
 /**
@@ -38,8 +39,8 @@ export const HelpOverlay: Component = () => {
   };
 
   return (
-    <div class="fixed left-0 top-0 bottom-0 right-0 flex items-center justify-center p-[10px]"
-      style={`background-color: #00000030; z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY + 1}; cursor: default;`}
+    <div class={`fixed left-0 top-0 bottom-0 right-0 flex items-center justify-center p-[10px] ${DIALOG_BACKDROP_CLASS}`}
+      style={`z-index: ${Z_INDEX_GLOBAL_TOOLBAR_OVERLAY + 1}; cursor: default;`}
       onMouseDown={backdropMouseDown}
       onMouseUp={eatMouseEvent}
       onMouseMove={eatMouseEvent}
@@ -48,15 +49,11 @@ export const HelpOverlay: Component = () => {
       onTouchEnd={eatTouchEvent}
       onTouchMove={eatTouchEvent}
       onTouchCancel={eatTouchEvent}>
-      <div class="bg-white border border-slate-300 rounded-md shadow-lg flex flex-col select-text"
+      <div class={`flex flex-col overflow-hidden select-text ${DIALOG_SURFACE_CLASS}`}
         style="width: 560px; max-width: 100%; max-height: 100%;"
         role="dialog" aria-label="Help">
-        <div class="flex items-center justify-between px-4 pt-3 pb-2 border-b border-slate-200">
-          <div class="font-bold text-lg">Help</div>
-          <button onClick={close} title="Close (Esc)"
-            class="text-slate-500 hover:text-slate-700 text-xl leading-none cursor-pointer">&times;</button>
-        </div>
-        <div class="px-4 py-3 overflow-y-auto min-h-0">
+        <DialogHeader title="Help" closeLabel="Close help (Esc)" onClose={close} />
+        <div class="px-3 py-3 overflow-y-auto min-h-0">
           <HelpContent />
         </div>
       </div>

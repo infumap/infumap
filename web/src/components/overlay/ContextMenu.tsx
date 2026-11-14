@@ -24,6 +24,7 @@ import { MOUSE_LEFT } from "../../input/mouse_down";
 import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../../constants";
 import { newItemInContext } from "../../input/create";
 import { CREATE_KEYS, Key } from "../HelpContent";
+import { MENU_ITEM_DISABLED_CLASS, MENU_SEPARATOR_CLASS, MENU_SURFACE_CLASS, menuItemClass } from "../library/dialogStyle";
 
 
 type ContextMenuProps = {
@@ -56,14 +57,15 @@ export const AddItem: Component<ContextMenuProps> = (props: ContextMenuProps) =>
   const store = useStore();
 
   return (
-    <div class="border rounded w-[140px] bg-slate-50 mb-1 shadow-lg pt-[3px] pb-[3px]">
+    <div class={`w-[160px] ${MENU_SURFACE_CLASS}`}>
       <For each={MENU_ENTRIES}>{entry => <>
         <Show when={entry.separatorBefore}>
-          <div class="border-t border-slate-300 mx-[3px] my-[3px]" />
+          <div class={MENU_SEPARATOR_CLASS} />
         </Show>
-        <div class={`flex items-center text-sm ml-[3px] mr-[5px] p-[3px] ${entry.type ? "hover:bg-slate-300" : "text-slate-500"}`}
+        <div class={`flex items-center ${entry.type ? menuItemClass() : MENU_ITEM_DISABLED_CLASS}`}
+             title={entry.type ? undefined : "Drop a file onto the page to add it"}
              onClick={() => { if (entry.type) { newItemInContext(store, entry.type, props.hitInfo, props.desktopPosPx); } }}>
-          <div class="inline-block text-center w-[18px] mr-[4px]"><i class={entry.icon} /></div>
+          <div class="inline-block text-center w-[18px] mr-[6px]"><i class={entry.icon} /></div>
           <span class="flex-1">{entry.label}</span>
           <Show when={createKeyFor(entry.type)}>{k => <Key>{k()}</Key>}</Show>
         </div>

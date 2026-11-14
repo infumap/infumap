@@ -19,6 +19,7 @@
 import { Component, Show } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../../constants";
+import { DIALOG_BACKDROP_CLASS, DIALOG_NOTE_CLASS, DIALOG_SURFACE_CLASS } from "../library/dialogStyle";
 
 export const UploadOverlay: Component = () => {
   const store = useStore();
@@ -47,8 +48,8 @@ export const UploadOverlay: Component = () => {
 
   return (
     <Show when={uploadInfo() != null}>
-      <div class="absolute left-0 top-0 bottom-0 right-0 select-none outline-hidden"
-           style={`background-color: #00000040; z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY}; display: flex; align-items: center; justify-content: center;`}
+      <div class={`absolute left-0 top-0 bottom-0 right-0 select-none outline-hidden ${DIALOG_BACKDROP_CLASS}`}
+           style={`z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY}; display: flex; align-items: center; justify-content: center;`}
            onMouseDown={eatMouseEvent}
            onMouseUp={eatMouseEvent}
            onMouseMove={eatMouseEvent}
@@ -57,23 +58,22 @@ export const UploadOverlay: Component = () => {
            onTouchEnd={eatTouchEvent}
            onTouchMove={eatTouchEvent}
            onTouchCancel={eatTouchEvent}>
-        <div class="border border-slate-700 rounded-md bg-white shadow-lg"
-             style={`width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);`}>
+        <div class={DIALOG_SURFACE_CLASS} style={`width: ${boxBoundsPx().w}px; height: ${boxBoundsPx().h}px;`}>
           <div class="px-4 py-3 h-full flex flex-col justify-center">
             <div class="flex items-center mb-3">
-              <span class="font-medium">Uploading files...</span>
+              <span class="text-[13px] font-medium text-neutral-800">Uploading files…</span>
             </div>
             <div class="mb-2">
-              <div class="flex justify-between text-sm text-gray-600 mb-1">
+              <div class="flex justify-between text-[12px] text-neutral-600 mb-1">
                 <span>{uploadInfo()!.currentFile} of {uploadInfo()!.totalFiles}</span>
                 <span>{progressPercentage()}%</span>
               </div>
-              <div class="w-full bg-gray-200 rounded-md h-2">
-                <div class="bg-blue-500 h-2 rounded-md transition-all duration-300"
+              <div class="w-full bg-neutral-200 rounded-control h-2">
+                <div class="bg-focus h-2 rounded-control transition-all duration-300"
                      style={`width: ${progressPercentage()}%;`} />
               </div>
             </div>
-            <div class="text-xs text-gray-500 truncate">
+            <div class={`truncate ${DIALOG_NOTE_CLASS}`}>
               {uploadInfo()!.currentFileName}
             </div>
           </div>

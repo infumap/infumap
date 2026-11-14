@@ -101,7 +101,7 @@ const SECTIONS: Array<HelpSection> = [
 
 
 export const Key: Component<{ children: JSX.Element }> = (props) =>
-  <kbd class="inline-block min-w-[20px] px-[5px] text-center text-[11px] leading-[18px] font-mono text-slate-700 bg-slate-50 border border-slate-300 rounded-sm shadow-[0_1px_0_#cbd5e1] whitespace-nowrap">
+  <kbd class="inline-block min-w-[20px] px-[5px] text-center text-[11px] leading-[18px] font-mono text-neutral-700 bg-neutral-50 border border-neutral-300 rounded-sm shadow-[0_1px_0_#d4d4d4] whitespace-nowrap">
     {props.children}
   </kbd>;
 
@@ -110,10 +110,10 @@ const KeyCombo: Component<{ keys: Array<string> }> = (props) =>
     <For each={props.keys}>{(k, i) =>
       <>
         <Show when={i() > 0}>
-          <span class="text-[10px] text-slate-400">+</span>
+          <span class="text-[10px] text-neutral-400">+</span>
         </Show>
         <Show when={MOUSE_ACTIONS.has(k)} fallback={<Key>{k}</Key>}>
-          <span class="text-[13px] text-slate-600 italic whitespace-nowrap">{k}</span>
+          <span class="text-[13px] text-neutral-600 italic whitespace-nowrap">{k}</span>
         </Show>
       </>
     }</For>
@@ -123,14 +123,14 @@ const Keys: Component<{ alternatives: Array<Array<string>> }> = (props) =>
   <span class="inline-flex flex-wrap items-center gap-x-[5px] gap-y-[3px]">
     <For each={props.alternatives}>{(combo, i) =>
       <>
-        <Show when={i() > 0}><span class="text-[11px] text-slate-400">or</span></Show>
+        <Show when={i() > 0}><span class="text-[11px] text-neutral-400">or</span></Show>
         <KeyCombo keys={combo} />
       </>
     }</For>
   </span>;
 
 const SectionTitle: Component<{ children: JSX.Element }> = (props) =>
-  <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-[6px]">{props.children}</div>;
+  <div class="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 mb-[6px]">{props.children}</div>;
 
 
 /** A short introduction, then the keyboard and mouse shortcuts, grouped by task. */
@@ -138,8 +138,8 @@ export const HelpContent: Component = () => {
   const rows = (section: HelpSection) => section.rows.filter(r => !r.macOnly || IS_MAC);
 
   return (
-    <div class="text-sm text-slate-800">
-      <p class="mb-4 leading-snug text-slate-700">
+    <div class="text-sm text-neutral-800">
+      <p class="mb-4 leading-snug text-neutral-700">
         Everything in Infumap is an item. Press <Key>/</Key> to add one, or a letter key (listed below) to add a
         specific type.
       </p>
@@ -156,7 +156,7 @@ export const HelpContent: Component = () => {
             }</For>
           </div>
           <Show when={section.withCreateKeys}>
-            <div class="mt-[8px] mb-[4px] text-slate-600">Or press a letter to add that type of item:</div>
+            <div class="mt-[8px] mb-[4px] text-neutral-600">Or press a letter to add that type of item:</div>
             <div class="grid grid-cols-4 gap-x-3 gap-y-[5px]">
               <For each={CREATE_KEYS}>{([k, _, label]) =>
                 <span class="inline-flex items-center gap-[6px]"><Key>{k}</Key><span>{label}</span></span>

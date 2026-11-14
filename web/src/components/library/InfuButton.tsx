@@ -17,6 +17,7 @@
 */
 
 import { Component } from "solid-js";
+import { dialogButtonClass } from "./dialogStyle";
 
 
 interface InfuButtonProps {
@@ -24,6 +25,8 @@ interface InfuButtonProps {
   onClick?: (() => void),
   disabled?: boolean,
   fullWidth?: boolean,
+  /** The size of a button in a dialog, rather than the larger one of the login page. */
+  compact?: boolean,
 }
 
 
@@ -38,7 +41,10 @@ export const InfuButton: Component<InfuButtonProps> = (props: InfuButtonProps) =
   }
 
   return (
-    <button class={`border border-slate-600 hover:bg-slate-300 rounded pl-4 pr-4 pt-2 pb-2 ${props.fullWidth ? "w-full" : ""} ${props.disabled ? "opacity-70 cursor-not-allowed" : ""}`}
+    <button class={props.compact
+              ? `${dialogButtonClass()} ${props.fullWidth ? "w-full" : ""}`
+              : `rounded-control border border-control-border bg-white hover:bg-control-hover px-4 py-2 focus-visible:outline-2 ` +
+                `focus-visible:outline-offset-1 focus-visible:outline-focus ${props.fullWidth ? "w-full" : ""} ${props.disabled ? "opacity-70 cursor-not-allowed" : ""}`}
             onclick={handleClick}
             onmousedown={handleMouseDown}
             disabled={props.disabled}>

@@ -33,6 +33,7 @@ import { itemState } from "../../store/ItemState";
 import { serverOrRemote } from "../../server";
 import { TransientMessageType } from "../../store/StoreProvider_Overlay";
 import { InfuIconButton } from "../library/InfuIconButton";
+import { MENU_SEPARATOR_CLASS, MENU_SURFACE_CLASS, menuItemClass } from "../library/dialogStyle";
 
 
 export const TableColumnContextMenu: Component = () => {
@@ -73,9 +74,12 @@ export const TableColumnContextMenu: Component = () => {
       }
     }, 5000);
   };
+  // The menu is MENU_WIDTH_PX wide, and its height is 26px per row, 7px per separator and 8px of padding and border.
+  const MENU_WIDTH_PX = 210;
+  const menuHeightPx = () => 8 + 7 + 26 * (colNum() == 0 ? 4 : 6);
   const menuPosPx = () => ({
-    x: Math.max(0, Math.min(posPx().x + 10, store.desktopBoundsPx().w - 170)),
-    y: Math.max(0, Math.min(posPx().y - 12, store.desktopBoundsPx().h - (colNum() == 0 ? 122 : 182))),
+    x: Math.max(0, Math.min(posPx().x + 10, store.desktopBoundsPx().w - MENU_WIDTH_PX - 10)),
+    y: Math.max(0, Math.min(posPx().y - 12, store.desktopBoundsPx().h - menuHeightPx() - 10)),
   });
 
   const newColToRight = async () => {
@@ -150,32 +154,29 @@ export const TableColumnContextMenu: Component = () => {
          style={`left: ${menuPosPx().x}px; top: ${menuPosPx().y}px; ` +
                 `z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY};`}
          onMouseDown={mouseDownListener}>
-      <div class="border rounded w-[160px] bg-slate-50 mb-1 shadow-lg">
-        <div class="text-xs ml-[3px] mr-[5px] mt-[3px] p-[3px] flex items-center">
+      <div class={MENU_SURFACE_CLASS} style={`width: ${MENU_WIDTH_PX}px;`}>
+        <div class="flex h-[26px] items-center px-[3px] text-sm text-neutral-600">
           <span class="mr-auto">Sort</span>
           <InfuIconButton icon="fa fa-arrow-up" highlighted={columnSort() == "asc"} clickHandler={() => setColumnSort(false)}
             title={columnSort() == "asc" ? "Stop sorting" : "Sort ascending"} />
           <InfuIconButton icon="fa fa-arrow-down" highlighted={columnSort() == "desc"} clickHandler={() => setColumnSort(true)}
             title={columnSort() == "desc" ? "Stop sorting" : "Sort descending"} />
         </div>
-        <div class="text-xs ml-[3px] mr-[5px] mt-[3px] p-[3px] flex items-center">
+        <div class="flex h-[26px] items-center px-[3px] text-sm text-neutral-600">
           <span class="mr-auto">Align</span>
           <InfuIconButton icon="fa fa-align-left" highlighted={columnAlign() == null} clickHandler={() => setColumnAlign(null)} title="Align column left" />
           <InfuIconButton icon="fa fa-align-center" highlighted={columnAlign() == "center"} clickHandler={() => setColumnAlign("center")} title="Align column center" />
           <InfuIconButton icon="fa fa-align-right" highlighted={columnAlign() == "right"} clickHandler={() => setColumnAlign("right")} title="Align column right" />
         </div>
-        <div class="text-xs hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={newColToRight}>
-          Insert 1 Column Right
-        </div>
-        <div class="text-xs hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={newHeaderOnlyToRight}>
-          Insert 1 Column Right (Header Only)
+        <div class={MENU_SEPARATOR_CLASS} />
+        <div class={`block ${menuItemClass()}`} onClick={newColToRight}>Insert column right</div>
+        <div class={`block ${menuItemClass()}`} title="Add a heading without moving any cells" onClick={newHeaderOnlyToRight}>
+          Insert heading right
         </div>
         <Show when={colNum() > 0}>
-          <div class="text-xs hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={deleteColumn}>
-            Delete column
-          </div>
-          <div class="text-xs hover:bg-slate-300 ml-[3px] mr-[5px] mt-[3px] p-[3px]" onClick={deleteColumnHeaderOnly}>
-            Delete column (Header Only)
+          <div class={`block ${menuItemClass()}`} onClick={deleteColumn}>Delete column</div>
+          <div class={`block ${menuItemClass()}`} title="Remove the heading without moving any cells" onClick={deleteColumnHeaderOnly}>
+            Delete heading only
           </div>
         </Show>
       </div>

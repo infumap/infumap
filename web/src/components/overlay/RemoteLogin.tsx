@@ -28,6 +28,7 @@ import { CursorEventState } from "../../input/state";
 import { isInside } from "../../util/geometry";
 import { MOUSE_RIGHT } from "../../input/mouse_down";
 import { requestArrange } from "../../layout/arrange";
+import { DIALOG_BACKDROP_CLASS, DIALOG_LABEL_CLASS, DIALOG_SURFACE_CLASS, DialogHeader, dialogButtonClass } from "../library/dialogStyle";
 
 
 export const RemoteLoginOverlay: Component = () => {
@@ -144,51 +145,53 @@ export const RemoteLoginOverlay: Component = () => {
 
   return (
     <Show when={loginInfo() != null}>
-      <div class="absolute left-0 top-0 bottom-0 right-0 select-none outline-hidden"
-           style={`background-color: #00000040; z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY}; display: flex; align-items: center; justify-content: center;`}
+      <div class={`absolute left-0 top-0 bottom-0 right-0 select-none outline-hidden ${DIALOG_BACKDROP_CLASS}`}
+           style={`z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY}; display: flex; align-items: center; justify-content: center;`}
            onmousedown={mouseDownListener}
            onmousemove={mouseMoveListener}
            onmouseup={mouseUpListener}>
-        <div class="border border-slate-700 rounded-md bg-white shadow-lg"
-             style={`width: ${boxBoundsPx().w}px; min-height: ${boxBoundsPx().h}px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);`}
+        <div class={`flex flex-col overflow-hidden ${DIALOG_SURFACE_CLASS}`}
+             style={`width: ${boxBoundsPx().w}px;`}
              onmousedown={(ev) => ev.stopPropagation()}>
-          <div class="px-4 py-3 flex flex-col">
-            <div class="flex items-center justify-between mb-3">
-              <div class="text-lg font-semibold">Login to remote host</div>
-              <button class="text-sm text-slate-500 hover:text-slate-700" onclick={handleUpdateLink}>Edit link</button>
-            </div>
-            <div class="text-sm text-slate-600 mb-3 break-all">
-              Host: <span class="font-mono">{loginInfo()!.host}</span>
-            </div>
-            <div class="mb-3">
-              <div class="inline-block w-28 text-sm text-slate-700">Username</div>
-              <div ref={usernameInputContainer} class="inline-block">
-                <InfuTextInput onInput={(v) => { username = v; setError(null); }} />
+          <DialogHeader title="Log in to remote host" onClose={closeOverlay}
+            description={<span class="break-all">Host: <span class="font-mono">{loginInfo()!.host}</span></span>} />
+          <div class="flex flex-col gap-2 px-3 py-3">
+            <label class="flex items-center gap-2">
+              <span class={`w-[96px] shrink-0 ${DIALOG_LABEL_CLASS}`}>Username</span>
+              <div ref={usernameInputContainer} class="min-w-0 grow">
+                <InfuTextInput compact fullWidth onInput={(v) => { username = v; setError(null); }} />
               </div>
-            </div>
-            <div class="mb-3">
-              <div class="inline-block w-28 text-sm text-slate-700">Password</div>
-              <form class="inline-block">
-                <InfuTextInput onInput={(v) => { password = v; setError(null); }} onEnterKeyDown={handleLogin} type="password" />
-              </form>
-            </div>
-            <div>
-              <div class="inline-block w-28"></div>
-              <input class="rounded-xs" type="checkbox" id="remote2fa" name="remote2fa" value="remote2fa" checked={store.general.prefer2fa()} onclick={() => { store.general.setPrefer2fa(!store.general.prefer2fa()); setError(null); }} />
-              <div class="ml-2 mb-3 inline-block text-sm text-slate-700"><label for="remote2fa">Use 2FA</label></div>
-            </div>
+            </label>
+            <form class="flex items-center gap-2" onSubmit={(ev) => ev.preventDefault()}>
+              <span class={`w-[96px] shrink-0 ${DIALOG_LABEL_CLASS}`}>Password</span>
+              <div class="min-w-0 grow">
+                <InfuTextInput compact fullWidth onInput={(v) => { password = v; setError(null); }} onEnterKeyDown={handleLogin} type="password" />
+              </div>
+            </form>
+            <label class="flex items-center gap-2">
+              <span class="w-[96px] shrink-0" />
+              <input class="accent-neutral-700" type="checkbox" checked={store.general.prefer2fa()}
+                onclick={() => { store.general.setPrefer2fa(!store.general.prefer2fa()); setError(null); }} />
+              <span class={DIALOG_LABEL_CLASS}>Use two-factor authentication</span>
+            </label>
             <Show when={store.general.prefer2fa()}>
-              <div class="mb-3">
-                <div class="inline-block w-28 text-sm text-slate-700">6 Digit Token</div>
-                <InfuTextInput onInput={(v) => { totpToken = v; setError(null); }} onEnterKeyDown={handleLogin} />
-              </div>
+              <label class="flex items-center gap-2">
+                <span class={`w-[96px] shrink-0 ${DIALOG_LABEL_CLASS}`}>6-digit code</span>
+                <div class="min-w-0 grow">
+                  <InfuTextInput compact fullWidth inputMode="numeric" autocomplete="one-time-code"
+                    onInput={(v) => { totpToken = v; setError(null); }} onEnterKeyDown={handleLogin} />
+                </div>
+              </label>
             </Show>
-            <div class="flex justify-center">
-              <InfuButton text={submitting() ? "Signing in..." : "Login"} onClick={handleLogin} disabled={submitting()} />
-            </div>
             <Show when={error() != null}>
-              <div class="mt-2 text-sm text-red-700 text-center">{error()}</div>
+              <div role="alert" class="text-[12px] text-red-700">{error()}</div>
             </Show>
+          </div>
+          <div class="flex items-center gap-2 border-t border-chrome-line px-3 py-2">
+            <button type="button" class={dialogButtonClass()} title="Edit the link to this host" onclick={handleUpdateLink}>Edit link</button>
+            <div class="ml-auto">
+              <InfuButton compact text={submitting() ? "Logging in…" : "Log in"} onClick={handleLogin} disabled={submitting()} />
+            </div>
           </div>
         </div>
       </div>
