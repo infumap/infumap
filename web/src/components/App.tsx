@@ -17,8 +17,7 @@
 */
 
 import { Component, Match, onCleanup, onMount, Show, Switch } from 'solid-js';
-import { SignUp } from './SignUp';
-import { Login } from './Login';
+import { deferredAuthComponent } from './deferred';
 import { Main } from './Main';
 import { useStore } from '../store/StoreProvider';
 import { navigateBack, switchToItem, switchToNonPage, switchToPage } from '../layout/navigation';
@@ -36,6 +35,9 @@ import { asContainerItem, isContainer } from '../items/base/container-item';
 import { markChildrenLoadAsInitiatedOrComplete } from '../layout/load';
 import { Toolbar_TransientMessage } from './toolbar/Toolbar_TransientMessage';
 
+
+const Login = deferredAuthComponent("Login");
+const SignUp = deferredAuthComponent("SignUp");
 
 const App: Component = () => {
   const store = useStore();

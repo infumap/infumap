@@ -56,7 +56,7 @@ import { keyDownHandler, keyUpHandler } from "../input/key";
 import { requestArrange } from "../layout/arrange";
 import { startImageFetchBlockageWatch } from "../imageFetchWatch";
 import { imageFetchesPending } from "../imageManager";
-import { scheduleQrCodePreload } from "./library/QrCode";
+import { scheduleDeferredFeaturesPreload } from "./deferred";
 import { MouseEventActionFlags } from "../input/enums";
 import { pasteHandler, pasteKeyDownListener } from "../input/paste";
 import { commitActiveTextEdit, edit_compositionEndHandler, edit_compositionKeyGuard, edit_compositionStartHandler, edit_structuralBeforeInputGuard, edit_structuralClipboardGuard, edit_structuralDropGuard, edit_structuralKeyDownGuard, textEditSelectionChangeListener } from "../input/edit";
@@ -129,7 +129,7 @@ export const Main: Component = () => {
   let mainDiv: HTMLDivElement | undefined;
   let disposed = false;
   let stopImageFetchBlockageWatch: (() => void) | null = null;
-  let cancelQrCodePreload: (() => void) | null = null;
+  let cancelDeferredFeaturesPreload: (() => void) | null = null;
   let clearExternalUploadHoverTimeoutId: number | null = null;
   const touchListenerOptions: AddEventListenerOptions = { passive: false };
   const externalFileDragListenerOptions: AddEventListenerOptions = { capture: true, passive: false };
@@ -308,7 +308,7 @@ export const Main: Component = () => {
     window.addEventListener('mouseup', calendarRangeWindowMouseUpListener);
     stopImageFetchBlockageWatch = startImageFetchBlockageWatch(store);
     if (store.history.currentPageVeid() != null) {
-      cancelQrCodePreload = scheduleQrCodePreload(() =>
+      cancelDeferredFeaturesPreload = scheduleDeferredFeaturesPreload(() =>
         store.general.inProgressNetworkRequests().length == 0 && !imageFetchesPending());
     }
   });
@@ -317,7 +317,7 @@ export const Main: Component = () => {
     disposed = true;
     stopContainerSyncLoop();
     stopImageFetchBlockageWatch?.();
-    cancelQrCodePreload?.();
+    cancelDeferredFeaturesPreload?.();
     cancelExternalFileDragLeaveClear();
 
     mainDiv!.removeEventListener('contextmenu', contextMenuListener);

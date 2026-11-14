@@ -18,6 +18,14 @@
 
 import type { StoreContextModel } from "../../store/StoreProvider";
 
+// The toolbar needs fallback heights before the optional dialog components are downloaded.
+export const PAGE_SIZE_POPUP_HEIGHT_PX = 362;
+export const PAGE_GRID_LAYOUT_POPUP_HEIGHT_PX = 436;
+export const PAGE_CATALOG_LAYOUT_POPUP_HEIGHT_PX = 424;
+export const PAGE_SHAPE_POPUP_HEIGHT_PX = 136;
+export const PAGE_TABLE_LAYOUT_POPUP_HEIGHT_PX = 180;
+export const PAGE_DOCUMENT_LAYOUT_POPUP_HEIGHT_PX = 200;
+
 // Use the conversion menu's border throughout the toolbar, with a plain white surface.
 export const TOOLBAR_POPUP_CLASS = "absolute border border-slate-400 rounded bg-white shadow-sm";
 export const TOOLBAR_MENU_CLASS = `${TOOLBAR_POPUP_CLASS} p-[3px]`;

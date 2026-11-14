@@ -39,7 +39,7 @@ import { VesCache } from "../layout/ves-cache";
 import { MouseAction, MouseActionState, CursorEventState, UserSettingsMoveState } from "./state";
 import { arrangeNow } from "../layout/arrange";
 import { catalogResultControlsTopInsetPx, hasCatalogResultContext } from "../layout/catalog-display";
-import { editUserSettingsSizePx } from "../components/overlay/UserSettings";
+import { editUserSettingsSizePx } from "../components/overlay/userSettingsGeometry";
 import { dragModifiers, mouseAction_moving, moving_initiate, moving_initiateQueryChatTurnMarkdown } from "./mouse_move_move";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../layout/arrange/page_list";
 import { asCompositeItem, isComposite } from "../items/composite-item";

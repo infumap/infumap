@@ -17,8 +17,8 @@
 */
 
 import { Component, For, Match, Show, Switch, onMount, createSignal } from "solid-js";
-import { StoreContextModel, useStore } from "../../store/StoreProvider";
-import { boundingBoxFromPosSize, getBoundingBoxTopLeft, getBoundingBoxSize } from "../../util/geometry";
+import { useStore } from "../../store/StoreProvider";
+import { getBoundingBoxTopLeft, getBoundingBoxSize } from "../../util/geometry";
 import { logout } from "../Main";
 import { InfuButton } from "../library/InfuButton";
 import { createInfuSignal, createNumberSignal } from "../../util/signals";
@@ -53,18 +53,6 @@ interface IngestSessionsResponse extends IngestSimpleResponse {
   sessions: IngestSessionInfo[] | null,
 }
 
-
-const DIALOG_WIDTH_PX = 510;
-
-export const editUserSettingsSizePx = { w: DIALOG_WIDTH_PX, h: 662 };
-
-export function initialEditUserSettingsBounds(store: StoreContextModel) {
-  let posPx = {
-    x: (store.desktopBoundsPx().w) / 2.0 - DIALOG_WIDTH_PX / 2.0,
-    y: 120.0
-  };
-  return boundingBoxFromPosSize(posPx, { ...editUserSettingsSizePx }); 
-}
 
 export const EditUserSettings: Component = () => {
   const store = useStore();

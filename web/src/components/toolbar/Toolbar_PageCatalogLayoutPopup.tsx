@@ -9,8 +9,6 @@ import { ToolbarDialogHeader, ToolbarDialogPageShapeSection, closeToolbarDialog,
 import { ToolbarDialogCellShapeSection, childImageAspects } from "./toolbarCellShape";
 
 
-export const PAGE_CATALOG_LAYOUT_POPUP_HEIGHT_PX = 424;
-
 const SCHEMATIC_W_PX = 306;
 const SCHEMATIC_H_PX = 150;
 const SCHEMATIC_PAD_PX = 6;

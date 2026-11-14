@@ -17,8 +17,6 @@ import {
 } from "./toolbarDialog";
 
 
-export const PAGE_SIZE_POPUP_HEIGHT_PX = 362;
-
 const SCHEMATIC_W_PX = 306;
 const SCHEMATIC_H_PX = 150;
 const SCHEMATIC_PAD_PX = 8;

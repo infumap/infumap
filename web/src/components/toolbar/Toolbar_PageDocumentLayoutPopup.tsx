@@ -16,8 +16,6 @@ import {
 } from "./toolbarDialog";
 
 
-export const PAGE_DOCUMENT_LAYOUT_POPUP_HEIGHT_PX = 200;
-
 const MIN_WIDTH_BL = 10;
 const MAX_WIDTH_BL = 200;
 // Used to find the average width of a character of body text, for the characters per line.

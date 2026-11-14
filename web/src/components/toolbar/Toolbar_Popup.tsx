@@ -16,7 +16,12 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { TOOLBAR_MENU_CLASS, TOOLBAR_POPUP_CLASS, toolbarMenuHeightPx, toolbarMenuItemClass } from "./toolbarPopupStyle";
+import {
+  TOOLBAR_MENU_CLASS, TOOLBAR_POPUP_CLASS, toolbarMenuHeightPx, toolbarMenuItemClass,
+  PAGE_SIZE_POPUP_HEIGHT_PX, PAGE_GRID_LAYOUT_POPUP_HEIGHT_PX, PAGE_CATALOG_LAYOUT_POPUP_HEIGHT_PX,
+  PAGE_SHAPE_POPUP_HEIGHT_PX, PAGE_TABLE_LAYOUT_POPUP_HEIGHT_PX, PAGE_DOCUMENT_LAYOUT_POPUP_HEIGHT_PX,
+} from "./toolbarPopupStyle";
+import { deferredComponent } from "../deferred";
 import { Component, For, Match, Show, Switch, createEffect, createMemo, createSignal, on, onMount } from "solid-js";
 import { StoreContextModel, useStore } from "../../store/StoreProvider";
 import { ArrangeAlgorithm, asPageItem, autoPageAspect, isPage, PageItem } from "../../items/page-item";
@@ -66,15 +71,16 @@ import { convertPageTableAtPath, pageTableConversionEligibility } from "../../it
 import { convertPageCompositeAtPath, pageCompositeConversionEligibility } from "../../items/page-composite-conversion";
 import { ContainerConversionRefused } from "../../items/container-conversion";
 import { VisualElementPath } from "../../layout/visual-element";
-import { PAGE_SIZE_POPUP_HEIGHT_PX, Toolbar_PageSizePopup } from "./Toolbar_PageSizePopup";
-import { PAGE_GRID_LAYOUT_POPUP_HEIGHT_PX, Toolbar_PageGridLayoutPopup } from "./Toolbar_PageGridLayoutPopup";
 import { PAGE_JUSTIFIED_LAYOUT_POPUP_HEIGHT_PX, Toolbar_PageJustifiedLayoutPopup } from "./Toolbar_PageJustifiedLayoutPopup";
-import { PAGE_CATALOG_LAYOUT_POPUP_HEIGHT_PX, Toolbar_PageCatalogLayoutPopup } from "./Toolbar_PageCatalogLayoutPopup";
-import { PAGE_SHAPE_POPUP_HEIGHT_PX, Toolbar_PageShapePopup } from "./Toolbar_PageShapePopup";
-import { PAGE_TABLE_LAYOUT_POPUP_HEIGHT_PX, Toolbar_PageTableLayoutPopup } from "./Toolbar_PageTableLayoutPopup";
-import { PAGE_DOCUMENT_LAYOUT_POPUP_HEIGHT_PX, Toolbar_PageDocumentLayoutPopup } from "./Toolbar_PageDocumentLayoutPopup";
 import { TOOLBAR_DIALOG_CLASS, closeToolbarDialog, toolbarDialogHeightPx } from "./toolbarDialog";
 
+
+const Toolbar_PageSizePopup = deferredComponent("Toolbar_PageSizePopup");
+const Toolbar_PageGridLayoutPopup = deferredComponent("Toolbar_PageGridLayoutPopup");
+const Toolbar_PageCatalogLayoutPopup = deferredComponent("Toolbar_PageCatalogLayoutPopup");
+const Toolbar_PageShapePopup = deferredComponent("Toolbar_PageShapePopup");
+const Toolbar_PageTableLayoutPopup = deferredComponent("Toolbar_PageTableLayoutPopup");
+const Toolbar_PageDocumentLayoutPopup = deferredComponent("Toolbar_PageDocumentLayoutPopup");
 
 const EMOJI_CATEGORIES = [
   {

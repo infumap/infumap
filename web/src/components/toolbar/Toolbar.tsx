@@ -25,7 +25,7 @@ import { NONE_VISUAL_ELEMENT, VeFns, VisualElementFlags } from "../../layout/vis
 import { Toolbar_Note } from "./item/Toolbar_Note";
 import { Toolbar_Navigation } from "./Toolbar_Navigation";
 import { Toolbar_NetworkStatus } from "./Toolbar_NetworkStatus";
-import { initialEditUserSettingsBounds } from "../overlay/UserSettings";
+import { initialEditUserSettingsBounds } from "../overlay/userSettingsGeometry";
 import { itemState } from "../../store/ItemState";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";

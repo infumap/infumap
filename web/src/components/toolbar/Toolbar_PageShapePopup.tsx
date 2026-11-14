@@ -7,8 +7,6 @@ import { getToolbarFocusItem } from "./toolbarFocus";
 import { ToolbarDialogHeader, ToolbarDialogPageShapeControls, closeToolbarDialog, toolbarDialogContentRef } from "./toolbarDialog";
 
 
-export const PAGE_SHAPE_POPUP_HEIGHT_PX = 136;
-
 /**
  * Sets the shape of a page where it is shown inside something else, for an arrangement that has nothing else to set
  * here: list and calendar pages fill the width of where they are shown (a list's column is resized by dragging its

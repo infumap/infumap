@@ -11,8 +11,6 @@ import {
 import { ToolbarDialogCellShapeSection, childImageAspects } from "./toolbarCellShape";
 
 
-export const PAGE_GRID_LAYOUT_POPUP_HEIGHT_PX = 436;
-
 const SCHEMATIC_W_PX = 306;
 const SCHEMATIC_H_PX = 112;
 const SCHEMATIC_PAD_PX = 6;

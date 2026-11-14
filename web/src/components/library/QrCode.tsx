@@ -17,53 +17,7 @@
 */
 
 import { Show, createMemo, createResource } from "solid-js";
-
-
-let qrCodePromise: Promise<typeof import("qrcode") | null> | null = null;
-
-function loadQrCode() {
-  return qrCodePromise ??= import("qrcode").then(module => module.default).catch(() => {
-    // A failed preload must not prevent the popup from trying again on demand.
-    qrCodePromise = null;
-    return null;
-  });
-}
-
-/** Call after the initial page is arranged. Returns a function that cancels pending preloading. */
-export function scheduleQrCodePreload(canPreload: () => boolean): () => void {
-  // Preloading is optional; browsers without idle callbacks keep loading QR codes on demand.
-  if (typeof window.requestIdleCallback !== "function" || qrCodePromise != null) { return () => {}; }
-
-  let frameId: number;
-  let idleId: number | null = null;
-  let retryId: number | null = null;
-
-  const scheduleIdle = () => {
-    retryId = null;
-    if (qrCodePromise != null) { return; }
-    idleId = window.requestIdleCallback(() => {
-      idleId = null;
-      if (qrCodePromise != null) { return; }
-      if (document.hidden || !canPreload()) {
-        retryId = window.setTimeout(scheduleIdle, 250);
-        return;
-      }
-      void loadQrCode();
-    });
-  };
-
-  // Allow the initial page a paint before requesting idle time. Do not force an idle timeout:
-  // this optional download should yield to rendering and the page's outstanding requests.
-  frameId = window.requestAnimationFrame(() => {
-    frameId = window.requestAnimationFrame(scheduleIdle);
-  });
-
-  return () => {
-    window.cancelAnimationFrame(frameId);
-    if (idleId != null) { window.cancelIdleCallback(idleId); }
-    if (retryId != null) { window.clearTimeout(retryId); }
-  };
-}
+import { loadDeferredFeatures } from "../deferred";
 
 
 /**
@@ -71,7 +25,7 @@ export function scheduleQrCodePreload(canPreload: () => boolean): () => void {
  * the text. The symbol has no quiet zone of its own, so place it on a light background with padding.
  */
 export function QrCode(props: { text: string, sizePx: number }) {
-  const [qrCode, { refetch }] = createResource(loadQrCode);
+  const [qrCode, { refetch }] = createResource(async () => (await loadDeferredFeatures())?.QRCode ?? null);
 
   const symbol = createMemo(() => {
     const encoder = qrCode();

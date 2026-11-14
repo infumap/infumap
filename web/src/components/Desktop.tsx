@@ -24,13 +24,26 @@ import { clearExternalUploadHover, dataTransferContainsFiles, handleExternalUplo
 import { Page_Desktop } from "./items/Page";
 import { VisualElementProps } from "./VisualElement";
 import { CursorEventState } from "../input/state";
-import { EditUserSettings } from "./overlay/UserSettings";
+import { deferredComponent } from "./deferred";
 import { Panic } from "./overlay/Panic";
 import { TableColumnContextMenu } from "./overlay/TableColumnContextMenu";
 import { SELECTION_MARQUEE_FILL_COLOR, SELECTION_MARQUEE_BORDER_COLOR } from "../style";
 import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../constants";
 import { MovingItemsOverlay } from "./MovingItemsOverlay";
 import { SelectionGroupAction } from "./overlay/SelectionGroupAction";
+
+
+const EditUserSettings = deferredComponent("EditUserSettings", status => {
+  const store = useStore();
+  const bounds = () => store.overlay.editUserSettingsInfo.get()!.desktopBoundsPx;
+  return (
+    <div class="fixed bg-white z-20 rounded-md border border-slate-700 p-3"
+      style={`left: ${bounds().x + 10}px; top: ${bounds().y + 10}px; width: ${bounds().w - 20}px; height: ${bounds().h - 20}px;`}>
+      <div class="font-bold text-lg">User Settings</div>
+      {status}
+    </div>
+  );
+});
 
 
 export const Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {

@@ -11,8 +11,6 @@ import {
 } from "./toolbarDialog";
 
 
-export const PAGE_TABLE_LAYOUT_POPUP_HEIGHT_PX = 180;
-
 const MIN_COLUMNS = 1;
 const MAX_COLUMNS = 20;
 const NEW_COLUMN_WIDTH_GR = 120;
