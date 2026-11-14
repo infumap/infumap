@@ -264,14 +264,14 @@ function visibleNoteTextStyleOptions(store: StoreContextModel): Array<NoteTextSt
   // The note model and toolbar import each other through layout/input code. Deferring Queries changes
   // their initialization order, so read NoteTextStyle when opening the menu rather than at module load.
   const options: Array<NoteTextStyleOption> = [
-    { textStyle: NoteTextStyle.Normal, label: "Text", icon: "fa fa-font", selectedTextStyle: NoteTextStyle.Normal },
+    { textStyle: NoteTextStyle.Normal, label: "Text", icon: "bi-fonts", selectedTextStyle: NoteTextStyle.Normal },
     { textStyle: NoteTextStyle.Heading1, label: "H1", icon: "bi-type-h1", hideInTable: true, selectedTextStyle: NoteTextStyle.Heading1 },
     { textStyle: NoteTextStyle.Heading2, label: "H2", icon: "bi-type-h2", hideInTable: true, selectedTextStyle: NoteTextStyle.Heading2 },
     { textStyle: NoteTextStyle.Heading3, label: "H3", icon: "bi-type-h3", selectedTextStyle: NoteTextStyle.Heading3 },
     { textStyle: NoteTextStyle.Heading4, label: "H4", icon: "bi-type-h4", selectedTextStyle: NoteTextStyle.Heading4 },
-    { textStyle: NoteTextStyle.Bullet, label: "Bullet", icon: "fa fa-list", hideInTable: true, selectedTextStyle: NoteTextStyle.Bullet },
-    { textStyle: NoteTextStyle.Numbered, label: "Numbered", icon: "fa fa-list-ol", hideInTable: true, selectedTextStyle: NoteTextStyle.Numbered },
-    { textStyle: NoteTextStyle.Code, label: "Code", icon: "fa fa-code", selectedTextStyle: NoteTextStyle.Code },
+    { textStyle: NoteTextStyle.Bullet, label: "Bullet", icon: "bi-list-ul", hideInTable: true, selectedTextStyle: NoteTextStyle.Bullet },
+    { textStyle: NoteTextStyle.Numbered, label: "Numbered", icon: "bi-list-ol", hideInTable: true, selectedTextStyle: NoteTextStyle.Numbered },
+    { textStyle: NoteTextStyle.Code, label: "Code", icon: "bi-code", selectedTextStyle: NoteTextStyle.Code },
   ];
   const focusItem = getToolbarFocusItem(store);
   const inTable = isNote(focusItem) && toolbarFocusIsInTableView(store);
@@ -594,10 +594,10 @@ export const Toolbar_Popup: Component = () => {
     return itemIconChoiceClass(noteIconIsFavicon()) + statusClass;
   };
   const noteFaviconButtonIconClass = (): string => {
-    if (!noteIconIsFavicon()) { return "fas fa-globe"; }
-    if (noteFaviconLoadStatus() == NoteFaviconLoadStatus.Loading) { return "fa fa-spinner fa-spin"; }
-    if (noteFaviconLoadStatus() == NoteFaviconLoadStatus.Failed) { return "fas fa-exclamation-triangle"; }
-    return "fas fa-globe";
+    if (!noteIconIsFavicon()) { return "bi-globe"; }
+    if (noteFaviconLoadStatus() == NoteFaviconLoadStatus.Loading) { return "bi-arrow-repeat inline-block animate-spin"; }
+    if (noteFaviconLoadStatus() == NoteFaviconLoadStatus.Failed) { return "bi-exclamation-triangle-fill"; }
+    return "bi-globe";
   };
   const regularIconSelected = (): boolean =>
     itemIconIsSymbol() && selectedEmoji() == null;
@@ -1280,7 +1280,7 @@ export const Toolbar_Popup: Component = () => {
               <QrCode text={itemUrl()} sizePx={QR_CODE_SIZE_PX} />
               <div class="select-all text-neutral-600" style={`margin-top: ${ID_QR_GAP_PX}px;`}>{qrInfoItem().id}</div>
               <div class="whitespace-nowrap" style={`margin-top: ${ID_LINE_GAP_PX}px;`}>
-                <span class="text-neutral-500"><i class="fa fa-check text-green-600 mr-[5px]" />{copied() == "id" ? `${qrInfoItem().itemType} id copied` : "url copied"}</span>
+                <span class="text-neutral-500"><i class="bi-check-lg text-green-600 mr-[5px]" />{copied() == "id" ? `${qrInfoItem().itemType} id copied` : "url copied"}</span>
                 <span class="mx-[6px] text-neutral-300">·</span>
                 <Show when={copied() == "id"} fallback={
                   <span class="text-blue-700 cursor-pointer hover:underline" onclick={copyItemIdClickHandler}>copy id</span>}>
@@ -1313,7 +1313,7 @@ export const Toolbar_Popup: Component = () => {
             onMouseMove={handleMouseMove}>
             <div class="flex items-center px-[8px] py-[6px] border-b border-chrome-line">
               <span class="text-blue-700 cursor-pointer hover:underline" onClick={() => setInfoPopupType(ToolbarPopupType.Info)}>
-                <i class="fa fa-chevron-left mr-1" />back
+                <i class="bi-chevron-left mr-1" />back
               </span>
               <span class="ml-auto font-mono text-neutral-400">Linked from: {backlinks()?.length ?? 0}</span>
             </div>
@@ -1366,7 +1366,7 @@ export const Toolbar_Popup: Component = () => {
                 title="No icon"
                 type="button"
                 onClick={() => chooseItemIcon(null, false, false)}>
-                <i class="fa fa-ban" />
+                <i class="bi-slash-circle" />
               </button>
               <button class={itemIconChoiceClass(regularIconSelected())}
                 title={`Default ${itemIconLabel()} icon`}
@@ -1399,7 +1399,7 @@ export const Toolbar_Popup: Component = () => {
                 onKeyPress={handleCustomEmojiKeyPress} />
             </div>
             <div class="relative px-[8px] py-[6px] border-b border-chrome-line bg-white">
-              <i class="fa fa-search absolute left-[17px] top-1/2 -translate-y-1/2 text-[11px] text-neutral-400 pointer-events-none" />
+              <i class="bi-search absolute left-[17px] top-1/2 -translate-y-1/2 text-[11px] text-neutral-400 pointer-events-none" />
               <input
                 class="w-full h-[30px] pl-[27px] pr-[27px] border border-control-border rounded-control bg-white text-[12px] text-neutral-700 placeholder:text-neutral-400 focus:outline-none focus:border-focus"
                 type="search"
@@ -1435,7 +1435,7 @@ export const Toolbar_Popup: Component = () => {
               }</For>
               <Show when={filteredEmojiCategories().length == 0}>
                 <div class="flex flex-col items-center justify-center h-full px-[16px] text-center text-[12px] text-neutral-400">
-                  <i class="fa fa-search mb-[7px] text-[16px]" />
+                  <i class="bi-search mb-[7px] text-[16px]" />
                   No emoji found
                 </div>
               </Show>

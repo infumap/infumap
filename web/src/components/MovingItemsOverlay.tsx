@@ -203,7 +203,7 @@ export const MovingItemsOverlay: Component = () => {
           </Show>
         }</For>
         <Show when={stackBadge()}>{badge =>
-          <div class="absolute rounded-full border border-slate-300 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 shadow-sm whitespace-nowrap"
+          <div class="absolute rounded-full border border-neutral-300 bg-white px-2 py-0.5 text-[11px] font-medium text-neutral-600 shadow-sm whitespace-nowrap"
             style={`left: ${badge().x}px; top: ${badge().y}px; transform: translate(-50%, -50%);`}>
             +{badge().hiddenCount}
           </div>

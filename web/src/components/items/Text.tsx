@@ -301,7 +301,7 @@ export const Text: Component<VisualElementProps> = (props: VisualElementProps) =
 
   const shadowOuterClass = () => {
     if (isPopup()) {
-      return `absolute border border-item-border rounded-item shadow-xl blur-md bg-slate-700 pointer-events-none`;
+      return `absolute border border-item-border rounded-item shadow-xl blur-md bg-neutral-700 pointer-events-none`;
     }
     return `absolute border border-item-border rounded-item shadow-xl bg-white`;
   };
@@ -371,7 +371,7 @@ export const Text: Component<VisualElementProps> = (props: VisualElementProps) =
               `text-indent: ${popupTextIndentPx()}px; `}>
             <a id={VeFns.veToPath(props.visualElement) + ":title"}
               href={""}
-              class={titleIsPlaceholder() ? `italic text-slate-500` : isInsideTranslucentPage(props.visualElement) ? `text-purple-800` : `text-purple-800 hover:text-purple-700`}
+              class={titleIsPlaceholder() ? `italic text-neutral-500` : isInsideTranslucentPage(props.visualElement) ? `text-purple-800` : `text-purple-800 hover:text-purple-700`}
               style={`-webkit-user-drag: none; -khtml-user-drag: none; -moz-user-drag: none; -o-user-drag: none; user-drag: none;`}
               onClick={aHrefClick}
               onMouseDown={isInsideTranslucentPage(props.visualElement) ? undefined : aHrefMouseDown}
@@ -382,7 +382,7 @@ export const Text: Component<VisualElementProps> = (props: VisualElementProps) =
         </Match>
         <Match when={store.overlay.textEditInfo() != null}>
           <span id={VeFns.veToPath(props.visualElement) + ":title"}
-            class={`text-left ${titleIsPlaceholder() ? "italic text-slate-500" : ""}`}
+            class={`text-left ${titleIsPlaceholder() ? "italic text-neutral-500" : ""}`}
             style={`position: absolute; ` +
               `left: ${NOTE_PADDING_PX * textBlockScale()}px; ` +
               `top: ${(NOTE_PADDING_PX - LINE_HEIGHT_PX / 4) * textBlockScale()}px; ` +

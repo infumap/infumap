@@ -46,7 +46,7 @@ export const Toolbar_Search: Component = () => {
       <div class="inline-block">
         <Show when={canOpenChatFile()}>
           <div ref={openFileDiv} class="inline-block pl-[2px]" onMouseDown={handleOpenFileDown}>
-            <InfuIconButton icon="fa fa-download" highlighted={false} clickHandler={handleOpenFile} title="Open text file" />
+            <InfuIconButton icon="bi-download" highlighted={false} clickHandler={handleOpenFile} title="Open text file" />
           </div>
         </Show>
         <Toolbar_InfoAndId infoClass="inline-block pl-[2px]" />

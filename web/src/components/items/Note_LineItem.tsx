@@ -145,25 +145,25 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
             `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
       </Match>
       <Match when={store.perVe.getMouseIsOverOpenPopup(vePath())}>
-        <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
+        <div class="absolute border border-item-line rounded-xs pointer-events-none"
           style={`left: ${openPopupBoundsPx().x + 2}px; top: ${openPopupBoundsPx().y + 2}px; ` +
             `width: ${openPopupBoundsPx().w - 4}px; height: ${openPopupBoundsPx().h - 4}px;` +
             `z-index: ${Z_INDEX_LOCAL_OVERLAY}; ` +
             `background-color: #0044ff0a;`} />
         <Show when={lineHighlightBoundsPx() != null}>
-          <div class="absolute border border-slate-300 rounded-xs"
+          <div class="absolute border border-item-line rounded-xs"
             style={`left: ${lineHighlightBoundsPx()!.x + 2}px; top: ${lineHighlightBoundsPx()!.y + 2}px; ` +
               `width: ${lineHighlightBoundsPx()!.w - 4}px; height: ${lineHighlightBoundsPx()!.h - 4}px;`} />
         </Show>
       </Match>
       <Match when={!store.perVe.getMouseIsOverOpenPopup(vePath()) && store.perVe.getMouseIsOver(vePath())}>
-        <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
+        <div class="absolute border border-item-line rounded-xs pointer-events-none"
           style={`left: ${highlightBoundsPx().x + 2}px; top: ${highlightBoundsPx().y + 2}px; ` +
             `width: ${highlightBoundsPx().w - 4}px; height: ${highlightBoundsPx().h - 4}px;` +
             `z-index: ${Z_INDEX_LOCAL_OVERLAY}; ` +
             `background-color: #0044ff0a;`} />
         <Show when={lineHighlightBoundsPx() != null}>
-          <div class="absolute border border-slate-300 rounded-xs"
+          <div class="absolute border border-item-line rounded-xs"
             style={`left: ${lineHighlightBoundsPx()!.x + 2}px; top: ${lineHighlightBoundsPx()!.y + 2}px; ` +
               `width: ${lineHighlightBoundsPx()!.w - 4}px; height: ${lineHighlightBoundsPx()!.h - 4}px;`} />
         </Show>
@@ -280,7 +280,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
 
   const renderCopyIconMaybe = () =>
     <Show when={showCopyIcon()}>
-      <div class="absolute text-center text-slate-600"
+      <div class="absolute text-center text-neutral-600"
         style={`left: ${boundsPx().x + boundsPx().w - 1 * oneBlockWidthPx()}px; top: ${boundsPx().y + lineHeightPx() * PADDING_PROP}px; ` +
           `width: ${oneBlockWidthPx() / smallScale()}px; height: ${lineHeightPx() / smallScale()}px; ` +
           `transform: scale(${smallScale()}); transform-origin: top left;`}
@@ -293,7 +293,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
 
   const renderLinkMarkingMaybe = () =>
     <Show when={shouldShowLinkMarking()}>
-      <div class="absolute text-center text-slate-600"
+      <div class="absolute text-center text-neutral-600"
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
           `width: ${oneBlockWidthPx() / scale()}px; height: ${lineHeightPx() / scale()}px; ` +
           `transform: scale(${scale()}); transform-origin: top left;`}>

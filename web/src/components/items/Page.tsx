@@ -423,7 +423,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
           <Match when={pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid}>
             <For each={[...Array(pageFns.pageItem().gridNumberOfColumns).keys()]}>{i =>
               <Show when={i != 0}>
-                <div class="absolute bg-slate-100"
+                <div class="absolute bg-neutral-100"
                   style={`left: ${pageFns.gridPagePaddingPx() + props.visualElement.cellSizePx!.w * i}px; ` +
                     `height: ${props.visualElement.cellSizePx!.h * props.visualElement.numRows!}px; ` +
                     `width: 1px; top: ${pageFns.gridPageTopPaddingPx()}px;`} />
@@ -431,12 +431,12 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
             }</For>
           </Match>
           <Match when={pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog && pageFns.catalogLayout().showDetailColumn}>
-            <div class="absolute bg-slate-100"
+            <div class="absolute bg-neutral-100"
               style={`left: ${pageFns.catalogDividerLeftPx()}px; height: ${pageFns.catalogRowsHeightPx()}px; width: 1px; top: ${pageFns.catalogPageTopPaddingPx()}px;`} />
           </Match>
         </Switch>
         <For each={[...Array(props.visualElement.numRows!).keys()]}>{i =>
-          <div class="absolute bg-slate-100"
+          <div class="absolute bg-neutral-100"
             style={`left: ${pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Catalog ? pageFns.catalogContentLeftPx() : 0}px; ` +
               `${pageFns.pageItem().arrangeAlgorithm == ArrangeAlgorithm.Grid ? `left: ${pageFns.gridPagePaddingPx()}px; ` : ""}` +
               `height: 1px; ` +
@@ -649,7 +649,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                         }</For>
                       </div>
                       <For each={visibleFragmentMatches()}>{match =>
-                        <div class={`min-w-0 w-full ${textClass} text-slate-700`}
+                        <div class={`min-w-0 w-full ${textClass} text-neutral-700`}
                           style={`${textStyle}font-size: ${CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX}px; line-height: ${CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER}; margin-top: ${CATALOG_DETAIL_SECTION_GAP_PX}px;`}
                           onMouseDown={textMouseHandler}
                           onMouseMove={textMouseHandler}
@@ -681,7 +681,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
                         </div>
                       }</For>
                       <Show when={metadataLines().length > 0}>
-                        <div class={`min-w-0 ${textClass} flex items-center gap-[18px] overflow-hidden whitespace-nowrap text-slate-700`}
+                        <div class={`min-w-0 ${textClass} flex items-center gap-[18px] overflow-hidden whitespace-nowrap text-neutral-700`}
                           style={`${textStyle}font-size: ${CATALOG_DETAIL_SUPPORT_FONT_SIZE_PX}px; line-height: ${CATALOG_DETAIL_LINE_HEIGHT_MULTIPLIER}; margin-top: ${CATALOG_DETAIL_SECTION_GAP_PX}px;`}
                           onMouseDown={textMouseHandler}
                           onMouseMove={textMouseHandler}

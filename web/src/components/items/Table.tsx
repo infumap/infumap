@@ -242,7 +242,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   const shadowClass = () => {
     if (isPopup()) {
-      return `absolute border border-transparent rounded-item shadow-xl blur-md bg-slate-700`;
+      return `absolute border border-transparent rounded-item shadow-xl blur-md bg-neutral-700`;
     }
     return `absolute border border-transparent rounded-item shadow-xl`;
   };

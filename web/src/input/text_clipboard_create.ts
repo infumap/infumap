@@ -66,7 +66,7 @@ function clearPlaceholderTitleElement(itemPath: string): void {
   const el = document.getElementById(titleElementId(itemPath));
   if (!(el instanceof HTMLElement)) { return; }
   el.textContent = EMPTY_CONTENT_EDITABLE_PLACEHOLDER;
-  el.classList.remove("italic", "text-slate-500");
+  el.classList.remove("italic", "text-neutral-500");
   setCaretPosition(el, 0);
 }
 

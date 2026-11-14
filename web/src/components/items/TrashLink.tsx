@@ -52,14 +52,14 @@ export const TrashLink_Desktop: Component<VisualElementProps> = (props) => {
 
   return (
     <div
-      class="absolute rounded-xs border border-slate-400 overflow-hidden"
+      class="absolute rounded-xs border border-neutral-400 overflow-hidden"
       title={HELP_TEXT}
       aria-label={`Link to ${trashLinkTitle(props)}. ${HELP_TEXT}`}
       style={`left: ${bounds().x}px; top: ${bounds().y}px; width: ${bounds().w}px; height: ${bounds().h}px; ` +
         `background: ${STRIPES}; background-color: white; ${desktopStackRootStyle(props.visualElement)}`}>
       <InfuLinkTriangle />
       <Show when={showTitle()}>
-        <div class="absolute flex items-center justify-center text-center text-slate-800 font-medium pointer-events-none"
+        <div class="absolute flex items-center justify-center text-center text-neutral-800 font-medium pointer-events-none"
           style={`left: 10px; top: 0px; ` +
             `width: ${Math.max(0, bounds().w - 20)}px; height: ${showExplanation() || showShortLabel() ? Math.max(0, bounds().h - 20) : bounds().h}px; ` +
             `overflow: hidden; font-size: ${Math.min(16, Math.max(11, bounds().h / 3))}px;`}>
@@ -67,7 +67,7 @@ export const TrashLink_Desktop: Component<VisualElementProps> = (props) => {
         </div>
       </Show>
       <Show when={showExplanation() || showShortLabel()}>
-        <div class="absolute left-2 bottom-1 rounded-xs bg-white/85 px-1 text-slate-700 pointer-events-none"
+        <div class="absolute left-2 bottom-1 rounded-xs bg-white/85 px-1 text-neutral-700 pointer-events-none"
           style="font-size: 10px; line-height: 14px;">
           {showExplanation() ? "Only this link is removed" : "Link"}
         </div>
@@ -95,7 +95,7 @@ export const TrashLink_LineItem: Component<VisualElementProps> = (props) => {
   const selected = () => !!(props.visualElement.flags & VisualElementFlags.Selected);
 
   return (
-    <div class="absolute flex items-center rounded-xs border border-slate-300 overflow-hidden pl-3"
+    <div class="absolute flex items-center rounded-xs border border-item-line overflow-hidden pl-3"
       title={HELP_TEXT}
       aria-label={`Link to ${trashLinkTitle(props)}. ${HELP_TEXT}`}
       style={`left: ${bounds().x}px; top: ${bounds().y}px; width: ${bounds().w}px; height: ${bounds().h}px; ` +
@@ -103,10 +103,10 @@ export const TrashLink_LineItem: Component<VisualElementProps> = (props) => {
         `font-size: ${Math.min(16, Math.max(8, bounds().h * 0.7))}px;`}>
       <InfuLinkTriangle />
       <Show when={bounds().w >= 120 && bounds().h >= 16}>
-        <span class="shrink-0 mr-2 rounded-xs bg-white/85 px-1 text-slate-700 pointer-events-none"
+        <span class="shrink-0 mr-2 rounded-xs bg-white/85 px-1 text-neutral-700 pointer-events-none"
           style="font-size: 10px; line-height: 14px;">Link</span>
       </Show>
-      <span class="min-w-0 truncate pr-2 text-slate-800 pointer-events-none">{trashLinkTitle(props)}</span>
+      <span class="min-w-0 truncate pr-2 text-neutral-800 pointer-events-none">{trashLinkTitle(props)}</span>
       <Show when={props.visualElement.flags & (VisualElementFlags.FindHighlighted | VisualElementFlags.SelectionHighlighted)}>
         <div class="absolute inset-0 pointer-events-none"
           style={`background-color: ${props.visualElement.flags & VisualElementFlags.FindHighlighted ? FIND_HIGHLIGHT_COLOR : SELECTION_HIGHLIGHT_COLOR};`} />

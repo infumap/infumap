@@ -16,43 +16,15 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Show } from "solid-js";
-
-
+/** A toolbar icon button. The icon is a Bootstrap icon class (bi-*), the icon set of the toolbar and dialogs. */
 export function InfuIconButton(props: { icon: string; highlighted: boolean; clickHandler: () => void; title?: string }) {
-  const icon = () => {
-    if (props.icon == "fa fa-header-1") { return "fa fa-header"; }
-    if (props.icon == "fa fa-header-2") { return "fa fa-header"; }
-    if (props.icon == "fa fa-header-3") { return "fa fa-header"; }
-    if (props.icon == "fa fa-info-circle-1") { return "fa fa-info-circle"; }
-    if (props.icon == "fa fa-info-circle-2") { return "fa fa-info-circle"; }
-    if (props.icon == "fa fa-info-circle-3") { return "fa fa-info-circle"; }
-    return props.icon;
-  }
-
-  const subscript = () => {
-    if (props.icon == "fa fa-header-1") { return "1"; }
-    if (props.icon == "fa fa-header-2") { return "2"; }
-    if (props.icon == "fa fa-header-3") { return "3"; }
-    if (props.icon == "fa fa-info-circle-1") { return "1"; }
-    if (props.icon == "fa fa-info-circle-2") { return "2"; }
-    if (props.icon == "fa fa-info-circle-3") { return "3"; }
-    return null;
-  }
-
-  const divClass = () => {
-    if (props.highlighted) {
-      return "font-bold rounded-control w-[21px] h-[21px] inline-block text-center cursor-pointer ml-[3px] text-[14px] bg-control-selected relative text-neutral-800";
-    }
-    return "font-bold rounded-control w-[21px] h-[21px] inline-block text-center cursor-pointer ml-[3px] text-[14px] hover:bg-control-hover relative text-neutral-800";
-  }
+  const divClass = () =>
+    "rounded-control w-[21px] h-[21px] inline-block text-center cursor-pointer ml-[3px] text-[14px] relative text-neutral-800 " +
+    (props.highlighted ? "bg-control-selected" : "hover:bg-control-hover");
 
   return (
     <div class={divClass()} title={props.title ?? ""} onClick={props.clickHandler}>
-      <i class={`${icon()}`} />
-      <Show when={subscript() != null}>
-        <div class="absolute text-[9px] left-[18px] top-[9px]">{subscript()}</div>
-      </Show>
+      <i class={props.icon} />
     </div>
   );
 }

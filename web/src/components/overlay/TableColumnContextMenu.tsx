@@ -157,16 +157,16 @@ export const TableColumnContextMenu: Component = () => {
       <div class={MENU_SURFACE_CLASS} style={`width: ${MENU_WIDTH_PX}px;`}>
         <div class="flex h-[26px] items-center px-[3px] text-sm text-neutral-600">
           <span class="mr-auto">Sort</span>
-          <InfuIconButton icon="fa fa-arrow-up" highlighted={columnSort() == "asc"} clickHandler={() => setColumnSort(false)}
+          <InfuIconButton icon="bi-arrow-up" highlighted={columnSort() == "asc"} clickHandler={() => setColumnSort(false)}
             title={columnSort() == "asc" ? "Stop sorting" : "Sort ascending"} />
-          <InfuIconButton icon="fa fa-arrow-down" highlighted={columnSort() == "desc"} clickHandler={() => setColumnSort(true)}
+          <InfuIconButton icon="bi-arrow-down" highlighted={columnSort() == "desc"} clickHandler={() => setColumnSort(true)}
             title={columnSort() == "desc" ? "Stop sorting" : "Sort descending"} />
         </div>
         <div class="flex h-[26px] items-center px-[3px] text-sm text-neutral-600">
           <span class="mr-auto">Align</span>
-          <InfuIconButton icon="fa fa-align-left" highlighted={columnAlign() == null} clickHandler={() => setColumnAlign(null)} title="Align column left" />
-          <InfuIconButton icon="fa fa-align-center" highlighted={columnAlign() == "center"} clickHandler={() => setColumnAlign("center")} title="Align column center" />
-          <InfuIconButton icon="fa fa-align-right" highlighted={columnAlign() == "right"} clickHandler={() => setColumnAlign("right")} title="Align column right" />
+          <InfuIconButton icon="bi-text-left" highlighted={columnAlign() == null} clickHandler={() => setColumnAlign(null)} title="Align column left" />
+          <InfuIconButton icon="bi-text-center" highlighted={columnAlign() == "center"} clickHandler={() => setColumnAlign("center")} title="Align column center" />
+          <InfuIconButton icon="bi-text-right" highlighted={columnAlign() == "right"} clickHandler={() => setColumnAlign("right")} title="Align column right" />
         </div>
         <div class={MENU_SEPARATOR_CLASS} />
         <div class={`block ${menuItemClass()}`} onClick={newColToRight}>Insert column right</div>

@@ -28,6 +28,11 @@
   --color-chrome-line: #e1e3e1;
   /* The keyboard focus indicator (FOCUS_RING_COLOR). */
   --color-focus: rgb(0 82 255 / 0.9);
+  /*
+    Lines drawn by items and pages themselves: the outline of a hovered line item or divider, and the lines between a
+    page and its dock or popup title. Blue-grey, with the blue hover tint and selection color (BORDER_COLOR).
+  */
+  --color-item-line: #c9d5e2;
   /* Fixed, unlike --radius-item, which scales down inside translucent pages. Matches an item at full size. */
   --radius-control: 4px;
 }
@@ -46,7 +51,7 @@
   ::before,
   ::backdrop,
   ::file-selector-button {
-    border-color: var(--color-gray-200, currentcolor);
+    border-color: var(--color-neutral-200, currentcolor);
   }
 }
 

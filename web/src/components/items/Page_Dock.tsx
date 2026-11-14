@@ -194,7 +194,7 @@ export const Page_Dock: Component<PageVisualElementProps> = (props: PageVisualEl
             `top: ${props.pageFns.boundsPx().h - 30}px; ` +
             `z-index: ${Z_INDEX_GLOBAL_TOOLBAR_TRIGGER};`}
           onmousedown={showDock}>
-          <i class={`fa fa-chevron-right hover:bg-slate-300 p-[2px] text-xs ${!store.topToolbarVisible.get() ? 'text-white' : 'text-slate-400'}`} />
+          <i class={`bi-chevron-right hover:bg-control-hover p-[2px] text-xs ${!store.topToolbarVisible.get() ? 'text-white' : 'text-neutral-400'}`} />
         </div>
       </Show>
     </>);

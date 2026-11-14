@@ -30,13 +30,13 @@ interface CompositeMoveOutHandleProps {
 
 export const CompositeMoveOutHandle: Component<CompositeMoveOutHandleProps> = (props: CompositeMoveOutHandleProps) => {
   const geometry = () => compositeMoveOutHandleGeometry(props.boundsPx);
-  const dotClass = () => props.active ? "absolute rounded-full bg-slate-600" : "absolute rounded-full bg-slate-400";
+  const dotClass = () => props.active ? "absolute rounded-full bg-neutral-600" : "absolute rounded-full bg-neutral-400";
 
   return (
     <div class="absolute pointer-events-none"
       data-infumap-composite-move-out-path={props.vePath}
       style={`left: ${props.boundsPx.x}px; top: ${props.boundsPx.y}px; width: ${props.boundsPx.w}px; height: ${props.boundsPx.h}px;`}>
-      <div class="absolute rounded bg-slate-200 transition-opacity duration-100"
+      <div class="absolute rounded bg-neutral-200 transition-opacity duration-100"
         style={`left: ${geometry().backgroundBoundsPx.x}px; top: ${geometry().backgroundBoundsPx.y}px; width: ${geometry().backgroundBoundsPx.w}px; height: ${geometry().backgroundBoundsPx.h}px; opacity: ${props.active ? 1 : 0};`} />
       <For each={geometry().dotPositionsPx}>{dot =>
         <div class={dotClass()}

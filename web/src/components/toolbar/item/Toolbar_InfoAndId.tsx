@@ -62,7 +62,7 @@ export const Toolbar_InfoAndId: Component<{ infoClass?: string }> = (props) => {
       </div>
       <div ref={idDiv} class="inline-block"
         onMouseDown={() => ClickState.setButtonClickBoundsPx(idDiv!.getBoundingClientRect())}>
-        <InfuIconButton icon="fa fa-hashtag" highlighted={false} clickHandler={handleId} title="Copy id" />
+        <InfuIconButton icon="bi-hash" highlighted={false} clickHandler={handleId} title="Copy id" />
       </div>
     </>
   );

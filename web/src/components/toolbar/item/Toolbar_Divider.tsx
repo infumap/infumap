@@ -76,12 +76,12 @@ export const Toolbar_Divider: Component = () => {
         <Show when={showDirection()}>
           <div class="inline-block ml-[10px] mr-[4px] align-middle">
             <InfuIconButton
-              icon="fa fa-arrows-h"
+              icon="bi-arrows"
               highlighted={dividerItem().dividerDirection == "horizontal"}
               title="Horizontal divider"
               clickHandler={() => setDirection("horizontal")} />
             <InfuIconButton
-              icon="fa fa-arrows-v"
+              icon="bi-arrows-vertical"
               highlighted={dividerItem().dividerDirection == "vertical"}
               title="Vertical divider"
               clickHandler={() => setDirection("vertical")} />

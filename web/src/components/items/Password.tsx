@@ -242,7 +242,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
 
   const shadowOuterClass = () => {
     if (isPopup()) {
-      return `absolute border border-item-border rounded-item shadow-xl blur-md bg-slate-700 pointer-events-none`;
+      return `absolute border border-item-border rounded-item shadow-xl blur-md bg-neutral-700 pointer-events-none`;
     }
     return `absolute border border-item-border rounded-item shadow-xl bg-white`;
   };
@@ -353,7 +353,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
           </span>
         </Match>
       </Switch>
-      <div class="absolute text-center text-slate-600 print:hidden"
+      <div class="absolute text-center text-neutral-600 print:hidden"
         style={`left: ${boundsPx().w - oneBlockWidthPx() * 1.05}px; ` +
           `top: ${boundsPx().h * PADDING_PROP}px; ` +
           `width: ${oneBlockWidthPx() / smallScale()}px; ` +
@@ -364,7 +364,7 @@ export const Password: Component<VisualElementProps> = (props: VisualElementProp
         onclick={copyClickHandler}>
         <i class={`fas fa-copy ${iconsAreInert() ? "" : "cursor-pointer"}`} />
       </div>
-      <div class="absolute text-center text-slate-600 print:hidden"
+      <div class="absolute text-center text-neutral-600 print:hidden"
         style={`left: ${boundsPx().w - oneBlockWidthPx() * 1.8}px; top: ${boundsPx().h * PADDING_PROP}px; ` +
           `width: ${oneBlockWidthPx() / smallScale()}px; height: ${boundsPx().h / smallScale()}px; ` +
           `transform: scale(${smallScale()}); transform-origin: top left;`}

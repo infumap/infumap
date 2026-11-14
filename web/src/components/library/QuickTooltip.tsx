@@ -88,7 +88,7 @@ export const QuickTooltip: ParentComponent<QuickTooltipProps> = (props: QuickToo
       <Show when={visible() && anchorRect() != null}>
         <Portal mount={document.body}>
           <div
-            class="pointer-events-none fixed rounded bg-slate-800 px-2 py-1 text-center text-[11px] leading-4 text-white shadow-sm"
+            class="pointer-events-none fixed rounded bg-neutral-800 px-2 py-1 text-center text-[11px] leading-4 text-white shadow-sm"
             style={tooltipStyle()}
             role="tooltip">
             {props.text}

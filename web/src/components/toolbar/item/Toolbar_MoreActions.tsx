@@ -64,7 +64,7 @@ export const Toolbar_MoreActions: Component = () => {
             ? "bg-control-selected" : "hover:bg-control-hover")}
         onMouseDown={handleMouseDown}
         onClick={handleClick}>
-        <i class="fa fa-ellipsis" aria-hidden="true" />
+        <i class="bi-three-dots" aria-hidden="true" />
       </button>
     </Show>
   );

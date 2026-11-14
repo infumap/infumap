@@ -37,11 +37,11 @@ export function QuerySearchStatusLinks(props: { style: string }) {
   };
 
   return (
-    <div class="absolute flex items-center gap-3 text-[12px] text-slate-400" style={props.style}>
+    <div class="absolute flex items-center gap-3 text-[12px] text-neutral-400" style={props.style}>
       <For each={pages()}>{page => {
         const pageTitle = () => title(page.id);
         return (
-          <button type="button" class="flex cursor-pointer items-center gap-1 hover:text-slate-700"
+          <button type="button" class="flex cursor-pointer items-center gap-1 hover:text-neutral-700"
             classList={{ "hidden": pageTitle() == null, "text-amber-600": page.attention && count(pageTitle() ?? "") > 0 }}
             title={pageTitle() ?? ""} aria-label={pageTitle() ?? ""}
             onMouseDown={ev => {

@@ -373,7 +373,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     const childVes = () => pageFns().lineChildrenForListBand(band);
     const bandClass = () =>
       `${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} ` +
-      `${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300 border-r"}`;
+      `${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-item-line border-r"}`;
     const commonStyle = () =>
       `left: 0px; top: ${bandTopPx()}px; ` +
       `width: ${pageFns().listViewportWidthPx()}px; ` +

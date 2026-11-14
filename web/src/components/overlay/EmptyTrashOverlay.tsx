@@ -41,7 +41,7 @@ export const EmptyTrashOverlay: Component = () => {
                 <div class={DIALOG_SURFACE_CLASS} style="width: 280px; height: 80px;">
                     <div class="px-4 py-3 h-full flex flex-col justify-center items-center">
                         <div class="flex items-center">
-                            <i class="fa fa-spinner fa-spin mr-3 text-neutral-500" />
+                            <i class="bi-arrow-repeat inline-block animate-spin mr-3 text-neutral-500" />
                             <span class="text-[13px] font-medium text-neutral-800">Emptying trash…</span>
                         </div>
                     </div>

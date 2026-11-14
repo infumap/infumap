@@ -245,7 +245,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const shadowOuterClass = () => {
     if (isPopup()) {
-      return `absolute border border-item-border rounded-item shadow-xl blur-md bg-slate-700 pointer-events-none`;
+      return `absolute border border-item-border rounded-item shadow-xl blur-md bg-neutral-700 pointer-events-none`;
     }
     if (noteItem().flags & NoteFlags.HideBorder) {
       if (store.perVe.getMouseIsOver(vePath())) {

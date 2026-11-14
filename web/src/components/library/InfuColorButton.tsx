@@ -31,7 +31,7 @@ export const InfuColorButton: Component<{ col: number, onClick: (col: number) =>
          title={props.title ?? ""}
          onMouseEnter={handleMouseEnter}
          onMouseLeave={handleMouseLeave}
-         class="border border-slate-950 rounded w-[19px] h-[19px] inline-block text-center cursor-pointer text-[18px]"
+         class="border border-neutral-950 rounded w-[19px] h-[19px] inline-block text-center cursor-pointer text-[18px]"
          style={`background-image: ${isOver.get() ? linearGradient(props.col, 0.2) : linearGradient(props.col, 0.05)};`}></div>
   );
 }

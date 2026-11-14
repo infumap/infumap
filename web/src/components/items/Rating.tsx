@@ -82,7 +82,7 @@ export const Rating_Desktop: Component<VisualElementProps> = (props: VisualEleme
                     `${highlightStyle(props.visualElement.flags)}`} />
       </Show>
       <Show when={ratingType() == "Star"}>
-        <div class={`fas fa-star text-gray-400 absolute`}
+        <div class={`fas fa-star text-neutral-400 absolute`}
              style={`font-size: ${FONT_SIZE_PX * 1.2 * scale()}px; line-height: ${boundsPx().h}px; ` +
                     `width: ${valueWidthPx()-2}px; height: ${boundsPx().h-2}px; ` +
                     `text-align: center; vertical-align: bottom;`} />
@@ -93,7 +93,7 @@ export const Rating_Desktop: Component<VisualElementProps> = (props: VisualEleme
                     `transform: scale(${starScale()}); transform-origin: ${(valueWidthPx()-2)/2}px ${boundsPx().h/2}px;`} />
       </Show>
       <Show when={ratingType() == "Number"}>
-        <div class="absolute rounded-full bg-slate-300 text-center text-gray-800"
+        <div class="absolute rounded-full bg-neutral-300 text-center text-neutral-800"
              style={`left: ${(valueWidthPx() - valueSizePx()) / 2}px; ` +
                     `top: ${(boundsPx().h - valueSizePx()) / 2}px; ` +
                     `width: ${valueSizePx()}px; ` +
@@ -104,13 +104,13 @@ export const Rating_Desktop: Component<VisualElementProps> = (props: VisualEleme
         </div>
       </Show>
       <Show when={ratingType() == "HorizontalBar"}>
-        <div class="absolute bg-slate-300"
+        <div class="absolute bg-neutral-300"
              style={`left: ${3*scale()}px; top: ${boundsPx().h/2 - 6*scale()}px; width: ${valueWidthPx()-6*scale()}px; height: ${12*scale()}px;`} />
         <div class="absolute bg-blue-700"
              style={`left: ${3*scale()}px; top: ${boundsPx().h/2 - 6*scale()}px; height: ${12*scale()}px; width: ${Math.max(0, Math.min(1, ratingItem().rating/5)) * (valueWidthPx()-6*scale())}px;`} />
       </Show>
       <Show when={ratingType() == "VerticalBar"}>
-        <div class="absolute bg-slate-300"
+        <div class="absolute bg-neutral-300"
              style={`top: ${2*scale()}px; bottom: ${2*scale()}px; left: ${valueWidthPx()/2 - 6*scale()}px; width: ${12*scale()}px;`} />
         <div class="absolute bg-blue-700"
              style={`left: ${valueWidthPx()/2 - 6*scale()}px; bottom: ${2*scale()}px; width: ${12*scale()}px; height: ${Math.max(0, Math.min(1, ratingItem().rating/5)) * (boundsPx().h-4*scale())}px;`} />

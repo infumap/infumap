@@ -49,13 +49,13 @@ export function QrCode(props: { text: string, sizePx: number }) {
       style={`width: ${props.sizePx}px; height: ${props.sizePx}px;`}>
       <Show when={symbol()} fallback={
         <Show when={qrCode.loading} fallback={
-          <div class="text-center text-slate-500">
+          <div class="text-center text-neutral-500">
             <div>QR code unavailable</div>
             <button type="button" class="text-blue-700 cursor-pointer hover:underline"
               onClick={() => { void refetch(); }}>Retry</button>
           </div>
         }>
-          <span role="status" class="text-slate-500">Loading QR code…</span>
+          <span role="status" class="text-neutral-500">Loading QR code…</span>
         </Show>
       }>{generated =>
         <svg width={props.sizePx} height={props.sizePx} viewBox={`0 0 ${generated().size} ${generated().size}`}

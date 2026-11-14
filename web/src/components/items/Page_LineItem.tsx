@@ -116,40 +116,40 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
               `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
         </Match>
         <Match when={isTableChildDropTarget()}>
-          <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
+          <div class="absolute border border-item-line rounded-xs pointer-events-none"
             style={`left: ${tableChildDropHighlightBoundsPx().x + 2}px; top: ${tableChildDropHighlightBoundsPx().y + 2}px; ` +
               `width: ${tableChildDropHighlightBoundsPx().w - 4}px; height: ${tableChildDropHighlightBoundsPx().h - 4}px; ` +
               `z-index: ${Z_INDEX_LOCAL_OVERLAY}; ` +
               `background-color: #0044ff0a;`} />
         </Match>
         <Match when={store.perVe.getMovingItemIsOver(vePath())}>
-          <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
+          <div class="absolute border border-item-line rounded-xs pointer-events-none"
             style={`left: ${openPopupBoundsPx().x + 2}px; top: ${openPopupBoundsPx().y + 2}px; ` +
               `width: ${openPopupBoundsPx().w - 4}px; height: ${openPopupBoundsPx().h - 4}px; ` +
               `z-index: ${Z_INDEX_LOCAL_OVERLAY}; ` +
               `background-color: #0044ff0a;`} />
         </Match>
         <Match when={store.perVe.getMouseIsOverOpenPopup(vePath())}>
-          <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
+          <div class="absolute border border-item-line rounded-xs pointer-events-none"
             style={`left: ${openPopupBoundsPx().x + 2}px; top: ${openPopupBoundsPx().y + 2}px; ` +
               `width: ${openPopupBoundsPx().w - 4}px; height: ${openPopupBoundsPx().h - 4}px; ` +
               `z-index: ${Z_INDEX_LOCAL_OVERLAY}; ` +
               `background-color: #0044ff0a;`} />
           <Show when={lineHighlightBoundsPx() != null}>
-            <div class="absolute border border-slate-300 rounded-xs"
+            <div class="absolute border border-item-line rounded-xs"
               style={`left: ${lineHighlightBoundsPx()!.x + 2}px; top: ${lineHighlightBoundsPx()!.y + 2}px; ` +
                 `width: ${lineHighlightBoundsPx()!.w - 4}px; height: ${lineHighlightBoundsPx()!.h - 4}px; ` +
                 `z-index: ${Z_INDEX_LOCAL_OVERLAY}; `} />
           </Show>
         </Match>
         <Match when={!store.perVe.getMouseIsOverOpenPopup(vePath()) && store.perVe.getMouseIsOver(vePath())}>
-          <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
+          <div class="absolute border border-item-line rounded-xs pointer-events-none"
             style={`left: ${highlightBoundsPx().x + 2}px; top: ${highlightBoundsPx().y + 2}px; ` +
               `width: ${highlightBoundsPx().w - 4}px; height: ${highlightBoundsPx().h - 4}px; ` +
               `z-index: ${Z_INDEX_LOCAL_OVERLAY}; ` +
               `background-color: #0044ff0a;`} />
           <Show when={lineHighlightBoundsPx() != null}>
-            <div class="absolute border border-slate-300 rounded-xs"
+            <div class="absolute border border-item-line rounded-xs"
               style={`left: ${lineHighlightBoundsPx()!.x + 2}px; top: ${lineHighlightBoundsPx()!.y + 2}px; ` +
                 `width: ${lineHighlightBoundsPx()!.w - 4}px; height: ${lineHighlightBoundsPx()!.h - 4}px; ` +
                 `z-index: ${Z_INDEX_LOCAL_OVERLAY}; `} />
@@ -164,7 +164,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
   };
 
   const renderThumbnail = () =>
-    <div class="absolute border border-slate-700 rounded-xs shadow-xs"
+    <div class="absolute border border-neutral-700 rounded-xs shadow-xs"
       style={`left: ${boundsPx().x + thumbBoundsPx().x}px; top: ${thumbBoundsPx().y}px; width: ${thumbBoundsPx().w}px; height: ${thumbBoundsPx().h}px; ` +
         bgOpaqueVal()} />;
 
@@ -173,7 +173,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
       !(props.visualElement.flags & VisualElementFlags.Attachment) &&
       !(props.visualElement.flags & VisualElementFlags.DisableLineItemExpand) &&
       (props.visualElement.flags & VisualElementFlags.LineItem)}>
-      <div class="absolute text-center text-slate-400"
+      <div class="absolute text-center text-neutral-400"
         style={`left: ${boundsPx().x + boundsPx().w - oneBlockWidthPx() * 0.85}px; top: ${boundsPx().y + boundsPx().h * PADDING_PROP}px; ` +
           `width: ${oneBlockWidthPx() / smallScale() * 0.8}px; height: ${boundsPx().h / smallScale() * 0.8}px; ` +
           `transform: scale(${smallScale()}); transform-origin: top left;`}>
@@ -252,7 +252,7 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
 
   const renderLinkMarkingMaybe = () =>
     <Show when={linkHasTriangle(props.visualElement.linkItemMaybe) && showTriangleDetail()}>
-      <div class="absolute text-center text-slate-600"
+      <div class="absolute text-center text-neutral-600"
         style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
           `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h / scale()}px; ` +
           `transform: scale(${scale()}); transform-origin: top left;`}>

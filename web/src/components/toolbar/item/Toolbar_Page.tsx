@@ -713,7 +713,7 @@ export const Toolbar_Page: Component = () => {
 
       <Show when={sourceChatItem() != null}>
         <div ref={continueChatDiv} class="inline-block ml-[5px]" onMouseDown={handleContinueChatDown}>
-          <InfuIconButton icon="fa fa-comments" highlighted={false} clickHandler={handleContinueChat} title="Continue chat" />
+          <InfuIconButton icon="bi-chat-dots" highlighted={false} clickHandler={handleContinueChat} title="Continue chat" />
         </div>
       </Show>
 
@@ -726,7 +726,7 @@ export const Toolbar_Page: Component = () => {
 
       <Show when={showVirtualDocumentButtons()}>
         <div ref={openTextFileDiv} class="inline-block pl-[16px]" onMouseDown={handleOpenTextFileDown}>
-          <InfuIconButton icon="fa fa-download" highlighted={false} clickHandler={handleOpenTextFile} title="Open text file" />
+          <InfuIconButton icon="bi-download" highlighted={false} clickHandler={handleOpenTextFile} title="Open text file" />
         </div>
       </Show>
       <Toolbar_InfoAndId infoClass={showVirtualDocumentButtons() ? "inline-block" : "inline-block pl-[16px]"} />

@@ -419,7 +419,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
           const pageTitleColor = hexToRGBA(Colors[titledPage.pageItem.backgroundColorIndex], 1.0);
 
           return (
-            <div class={`relative font-bold ${!isLast ? 'border-r border-slate-300' : ''}`}
+            <div class={`relative font-bold ${!isLast ? 'border-r border-item-line' : ''}`}
               style={`width: ${titleWidth}px; height: ${titleBarHeight}px; flex-shrink: 0; overflow: hidden;`}>
               <div class="absolute"
                 style={`left: 0px; top: ${titleBarHeight / titleScale() * 0.05}px; ` +
@@ -475,7 +475,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
       if (band == "middle") {
         return (
           <div ref={popupDiv}
-            class="absolute border-r border-slate-300"
+            class="absolute border-r border-item-line"
             style={`${commonStyle()} overflow-y: auto; overflow-x: hidden;`}
             onscroll={popupListScrollHandler}>
             {inner}
@@ -486,7 +486,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
       return (
         <Show when={bandHeightPx() > 0}>
           <ListPageBand pageVisualElement={props.visualElement} band={band}
-            class="absolute border-r border-slate-300"
+            class="absolute border-r border-item-line"
             style={commonStyle()}>
             {inner}
           </ListPageBand>
@@ -522,7 +522,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
 
   const renderPage = () =>
     <div ref={popupDiv}
-      class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} border-t border-slate-300`}
+      class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} border-t border-item-line`}
       style={`left: ${pageFns().viewportBoundsPx().x}px; ` +
         `top: ${pageFns().viewportBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
         `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
@@ -614,7 +614,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
       return `display: grid; grid-template-columns: ${calendarTitleButtonWidthPx}px ${calendarTitleButtonWidthPx}px ${calendarTitleTextWidthPx()}px ${calendarTitleButtonWidthPx}px ${calendarTitleButtonWidthPx}px; ` +
         `column-gap: ${calendarTitleGapPx}px; align-items: center; width: ${calendarTitleTextWidthPx() + 4 * calendarTitleButtonWidthPx + 4 * calendarTitleGapPx}px;`;
     };
-    const calendarTitleButtonClass = "inline-flex items-center justify-center w-[30px] h-[28px] rounded-sm text-[18px] text-slate-300 hover:text-slate-600 hover:bg-gray-100 active:bg-gray-200 cursor-pointer transition-colors";
+    const calendarTitleButtonClass = "inline-flex items-center justify-center w-[30px] h-[28px] rounded-sm text-[18px] text-neutral-300 hover:text-neutral-600 hover:bg-control-hover active:bg-control-selected cursor-pointer transition-colors";
     const isWeekend = (dayOfWeek: number) => dayOfWeek === 0 || dayOfWeek === 6;
     const visibleMonthSet = new Set(calendarWindow.months.map(({ month }) => month));
     const renderMovingDayHighlight = (
@@ -644,7 +644,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
 
     return (
       <div ref={popupDiv}
-        class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} border-t border-slate-300`}
+        class={`${props.visualElement.flags & VisualElementFlags.Fixed ? "fixed" : "absolute"} border-t border-item-line`}
         style={`left: ${pageFns().viewportBoundsPx().x}px; ` +
           `top: ${pageFns().viewportBoundsPx().y + (props.visualElement.flags & VisualElementFlags.Fixed ? store.topToolbarHeightPx() : 0)}px; ` +
           `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
@@ -675,7 +675,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
                   onClick={() => navigateCalendarWindow(-1)}>
                   <i class="fas fa-angle-left" />
                 </div>
-                <span class="text-center text-2xl overflow-hidden whitespace-nowrap text-ellipsis cursor-pointer hover:text-slate-700"
+                <span class="text-center text-2xl overflow-hidden whitespace-nowrap text-ellipsis cursor-pointer hover:text-neutral-700"
                   title="Reset to current window"
                   onMouseDown={(e) => e.stopPropagation()}
                   onClick={resetCalendarWindow}>

@@ -73,8 +73,8 @@ export const Login: Component = () => {
   return (
     <AuthPage title="Log in" below={
       <>
-        <div class="w-full max-w-sm mx-auto px-4 mt-4 text-sm text-slate-600 text-center">
-          Press <kbd class="px-[5px] font-mono text-[11px] border border-slate-300 rounded-sm bg-slate-50">?</kbd> when
+        <div class="w-full max-w-sm mx-auto px-4 mt-4 text-sm text-neutral-600 text-center">
+          Press <kbd class="px-[5px] font-mono text-[11px] border border-neutral-300 rounded-sm bg-neutral-50">?</kbd> when
           logged in at any time to see help.
           <div>
             <span class="text-blue-800 hover:text-blue-400 cursor-pointer" onClick={() => setShowHelp(!showHelp())}>
@@ -83,7 +83,7 @@ export const Login: Component = () => {
           </div>
         </div>
         <Show when={showHelp()}>
-          <div class="w-[calc(100%-32px)] max-w-[560px] mx-auto mt-4 p-4 border border-slate-300 rounded-md">
+          <div class="w-[calc(100%-32px)] max-w-[560px] mx-auto mt-4 p-4 border border-neutral-300 rounded-md">
             <HelpContent />
           </div>
         </Show>

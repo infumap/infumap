@@ -83,13 +83,13 @@ export const Toolbar_Text: Component = () => {
       <div class="inline-block">
         <Show when={canEdit()}>
           <div ref={iconDiv} class="inline-block pl-[2px]" onMouseDown={handleIconDown}>
-            <InfuIconButton icon="fa fa-icons" highlighted={iconVisible()} clickHandler={iconButtonHandler} title="Item icon" />
+            <InfuIconButton icon="bi-emoji-smile" highlighted={iconVisible()} clickHandler={iconButtonHandler} title="Item icon" />
           </div>
         </Show>
 
         <Show when={isChatTextItem(textItem()) && textItem().origin == null}>
           <div ref={continueDiv} class="inline-block pl-[2px]" onMouseDown={handleContinueChatDown}>
-            <InfuIconButton icon="fa fa-comments" highlighted={false} clickHandler={handleContinueChat} title="Continue chat" />
+            <InfuIconButton icon="bi-chat-dots" highlighted={false} clickHandler={handleContinueChat} title="Continue chat" />
           </div>
         </Show>
 
@@ -99,7 +99,7 @@ export const Toolbar_Text: Component = () => {
         <div class="fixed border-r border-chrome-line" style={`height: 25px; right: ${TOOLBAR_INFO_DIVIDER_WITH_EXTRA_BUTTON_RIGHT_PX}px; top: 7px;`}></div>
 
         <div ref={openFileDiv} class="inline-block pl-[18px]" onMouseDown={handleOpenFileDown}>
-          <InfuIconButton icon="fa fa-download" highlighted={false} clickHandler={handleOpenFile} title="Open text file" />
+          <InfuIconButton icon="bi-download" highlighted={false} clickHandler={handleOpenFile} title="Open text file" />
         </div>
         <Toolbar_InfoAndId infoClass="inline-block" />
 

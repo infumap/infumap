@@ -37,7 +37,7 @@ const EditUserSettings = deferredComponent("EditUserSettings", status => {
   const store = useStore();
   const bounds = () => store.overlay.editUserSettingsInfo.get()!.desktopBoundsPx;
   return (
-    <div class="fixed bg-white z-20 rounded-md border border-slate-700 p-3"
+    <div class="fixed bg-white z-20 rounded-md border border-neutral-700 p-3"
       style={`left: ${bounds().x + 10}px; top: ${bounds().y + 10}px; width: ${bounds().w - 20}px; height: ${bounds().h - 20}px;`}>
       <div class="font-bold text-lg">User Settings</div>
       {status}

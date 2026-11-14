@@ -162,7 +162,7 @@ function queryChatToolCallStatusIconClass(status: QueryChatActivityToolCall["sta
   if (status == "awaiting_approval") {
     return "bi-pause-circle mt-[1px] text-amber-600";
   }
-  return "fa fa-circle-notch fa-spin mt-[2px] text-slate-400";
+  return "fa fa-circle-notch fa-spin mt-[2px] text-neutral-400";
 }
 
 function queryChatToolApprovalPrompt(toolCall: QueryChatActivityToolCall): { label: string, value: string } {
@@ -237,12 +237,12 @@ const QueryChatToolApproval: Component<{
   };
   return (
     <>
-      <div class="mt-1 text-[12px] text-slate-600">Tool source: {props.toolCall.source ?? props.toolCall.name}</div>
-      <div class="mt-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
+      <div class="mt-1 text-[12px] text-neutral-600">Tool source: {props.toolCall.source ?? props.toolCall.name}</div>
+      <div class="mt-1 text-[10px] font-medium uppercase tracking-wide text-neutral-400">
         {prompt().label}
       </div>
       <div
-        class="select-text whitespace-pre-wrap text-[12px] leading-[18px] text-slate-700"
+        class="select-text whitespace-pre-wrap text-[12px] leading-[18px] text-neutral-700"
         style="overflow-wrap: anywhere;">
         {prompt().value}
       </div>
@@ -289,17 +289,17 @@ export const QueryChatActivityRounds: Component<{
         <Show when={queryChatRoundHasContent(round())}>
           <div class="mb-3 last:mb-0">
             <Show when={visibleRoundCount() > 1}>
-              <div class="mb-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
+              <div class="mb-1 text-[10px] font-medium uppercase tracking-wide text-neutral-400">
                 Round {round().number}
               </div>
             </Show>
             <Show when={round().reasoning.trim() != ""}>
               <div class="mb-2">
-                <div class="mb-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                <div class="mb-1 text-[10px] font-medium uppercase tracking-wide text-neutral-400">
                   Thinking
                 </div>
                 <div
-                  class="select-text whitespace-pre-wrap text-[12px] leading-[18px] text-slate-500"
+                  class="select-text whitespace-pre-wrap text-[12px] leading-[18px] text-neutral-500"
                   style="overflow-wrap: anywhere;">
                   {round().reasoning.trim()}
                 </div>
@@ -307,11 +307,11 @@ export const QueryChatActivityRounds: Component<{
             </Show>
             <Show when={round().answer.trim() != ""}>
               <div class="mb-2">
-                <div class="mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                <div class="mb-1 text-[11px] font-medium uppercase tracking-wide text-neutral-400">
                   {round().toolCalls.length > 0 || round().complete ? "Answer" : "Answering"}
                 </div>
                 <div
-                  class="select-text whitespace-pre-wrap text-[13px] leading-5 text-slate-700"
+                  class="select-text whitespace-pre-wrap text-[13px] leading-5 text-neutral-700"
                   style="overflow-wrap: anywhere;">
                   {round().answer.trim()}
                 </div>
@@ -320,12 +320,12 @@ export const QueryChatActivityRounds: Component<{
             <Index each={round().toolCalls}>{(toolCall, toolIndex) =>
               <div class={`flex items-start gap-2 py-1.5 ${
                 toolIndex > 0 || round().reasoning.trim() != "" || round().answer.trim() != ""
-                  ? "border-t border-slate-100"
+                  ? "border-t border-neutral-100"
                   : ""
               }`}>
                 <i class={queryChatToolCallStatusIconClass(toolCall().status)} />
                 <div class="min-w-0 grow">
-                  <div class="font-medium text-slate-600">{queryChatToolDisplayName(toolCall().name)}</div>
+                  <div class="font-medium text-neutral-600">{queryChatToolDisplayName(toolCall().name)}</div>
                   <Show when={toolCall().status == "awaiting_approval"}>
                     <QueryChatToolApproval
                       requestId={props.running() && (props.pendingApprovals?.()?.includes(toolCall().callId) ?? true)
@@ -334,26 +334,26 @@ export const QueryChatActivityRounds: Component<{
                   </Show>
                   <Show when={toolCall().status != "awaiting_approval" && queryChatToolCallHeadline(toolCall()) != null}>
                     <div
-                      class="truncate text-[11px] text-slate-400"
+                      class="truncate text-[11px] text-neutral-400"
                       title={queryChatToolCallHeadline(toolCall()) ?? undefined}>
                       {queryChatToolCallHeadline(toolCall())}
                     </div>
                   </Show>
                   <Show when={toolCall().status != "awaiting_approval" && queryChatHasJsonValue(toolCall().arguments)}>
-                    <details class="mt-1 text-[11px] text-slate-500">
-                      <summary class="cursor-pointer select-none text-slate-400">Arguments</summary>
+                    <details class="mt-1 text-[11px] text-neutral-500">
+                      <summary class="cursor-pointer select-none text-neutral-400">Arguments</summary>
                       <pre
-                        class="mt-1 select-text whitespace-pre-wrap text-slate-600"
+                        class="mt-1 select-text whitespace-pre-wrap text-neutral-600"
                         style="overflow-wrap: anywhere;">
                         {queryChatPrettyJson(toolCall().arguments)}
                       </pre>
                     </details>
                   </Show>
                   <Show when={queryChatHasJsonValue(toolCall().resultPreview)}>
-                    <details class="mt-1 text-[11px] text-slate-500">
-                      <summary class="cursor-pointer select-none text-slate-400">Result</summary>
+                    <details class="mt-1 text-[11px] text-neutral-500">
+                      <summary class="cursor-pointer select-none text-neutral-400">Result</summary>
                       <pre
-                        class="mt-1 select-text whitespace-pre-wrap text-slate-600"
+                        class="mt-1 select-text whitespace-pre-wrap text-neutral-600"
                         style="overflow-wrap: anywhere;">
                         {queryChatPrettyJson(toolCall().resultPreview)}
                       </pre>
@@ -371,7 +371,7 @@ export const QueryChatActivityRounds: Component<{
         </div>
       </Show>
       <Show when={visibleRoundCount() == 0 && props.running()}>
-        <div class="py-2 text-[12px] text-slate-400">Waiting for model output…</div>
+        <div class="py-2 text-[12px] text-neutral-400">Waiting for model output…</div>
       </Show>
     </>
   );
@@ -437,7 +437,7 @@ export const QueryChatCompletedActivityTrace: Component<{
       onKeyDown={stopQueryChatActivityEvent}
       onKeyUp={stopQueryChatActivityEvent}>
       <div
-        class="flex h-9 shrink-0 cursor-pointer items-center gap-2 border-b px-3 text-slate-700"
+        class="flex h-9 shrink-0 cursor-pointer items-center gap-2 border-b px-3 text-neutral-700"
         style={`background-color: #fafafa; border-color: ${LIGHT_BORDER_COLOR};`}
         aria-expanded={expanded()}
         onClick={(ev) => {
@@ -450,7 +450,7 @@ export const QueryChatCompletedActivityTrace: Component<{
         <span class="min-w-0 grow truncate text-[13px] font-medium">
           Turn {props.turnNumber}
         </span>
-        <span class="shrink-0 text-[11px] tabular-nums text-slate-500">
+        <span class="shrink-0 text-[11px] tabular-nums text-neutral-500">
           {formatChatActivityElapsed(props.activity.startedAt, props.activity.completedAt)}
         </span>
         <span class="shrink-0" style={`width: ${markdownButtonBoundsPx().w}px;`} />
@@ -460,7 +460,7 @@ export const QueryChatCompletedActivityTrace: Component<{
       </div>
       <div
         ref={markdownButton}
-        class="absolute flex cursor-pointer items-center justify-center rounded text-slate-500 hover:bg-slate-200 hover:text-slate-700"
+        class="absolute flex cursor-pointer items-center justify-center rounded text-neutral-500 hover:bg-control-hover hover:text-neutral-700"
         style={`left: ${markdownButtonBoundsPx().x - 1}px; top: ${markdownButtonBoundsPx().y - 1}px; ` +
           `width: ${markdownButtonBoundsPx().w}px; height: ${markdownButtonBoundsPx().h}px;`}
         role="button"
@@ -470,7 +470,7 @@ export const QueryChatCompletedActivityTrace: Component<{
       </div>
       <Show when={expanded()}>
         <div class="min-h-0 grow overflow-y-auto">
-          <div ref={measureEl} class="px-3 py-2 text-[13px] text-slate-700">
+          <div ref={measureEl} class="px-3 py-2 text-[13px] text-neutral-700">
             <QueryChatActivityRounds
               rounds={() => props.activity.rounds}
               running={() => false} />

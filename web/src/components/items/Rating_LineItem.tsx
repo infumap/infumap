@@ -57,13 +57,13 @@ export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElem
                     `z-index: ${Z_INDEX_LOCAL_HIGHLIGHT};`} />
       </Match>
       <Match when={store.perVe.getMouseIsOver(vePath())}>
-        <div class="absolute border border-slate-300 rounded-xs pointer-events-none"
+        <div class="absolute border border-item-line rounded-xs pointer-events-none"
              style={`left: ${highlightBoundsPx().x+2}px; top: ${highlightBoundsPx().y+2}px; ` +
                     `width: ${highlightBoundsPx().w-4}px; height: ${highlightBoundsPx().h-4}px; ` +
                     `z-index: ${Z_INDEX_LOCAL_OVERLAY}; ` +
                     `background-color: #0044ff0a;`} />
         <Show when={lineHighlightBoundsPx() != null}>
-          <div class="absolute border border-slate-300 rounded-xs"
+          <div class="absolute border border-item-line rounded-xs"
                style={`left: ${lineHighlightBoundsPx()!.x+2}px; top: ${lineHighlightBoundsPx()!.y+2}px; ` +
                       `width: ${lineHighlightBoundsPx()!.w-4}px; height: ${lineHighlightBoundsPx()!.h-4}px;`} />
         </Show>
@@ -79,7 +79,7 @@ export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElem
     <div class={`absolute`}
          style={`left: ${glyphBoundsPx().x}px; top: ${glyphBoundsPx().y}px; width: ${glyphBoundsPx().w}px; height: ${glyphBoundsPx().h}px;`}>
       <Show when={ratingType() == "Star"}>
-        <div class={`fas fa-star text-gray-400 absolute`}
+        <div class={`fas fa-star text-neutral-400 absolute`}
              style={`font-size: ${FONT_SIZE_PX * 1.2 * scale()}px; line-height: ${glyphBoundsPx().h}px; `+
                     `width: ${glyphBoundsPx().w-2}px; height: ${glyphBoundsPx().h-2}px; ` +
                     `text-align: center; vertical-align: bottom;`} />
@@ -91,7 +91,7 @@ export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElem
       </Show>
 
       <Show when={ratingType() == "Number"}>
-        <div class="absolute rounded-full bg-slate-300 text-center text-gray-800"
+        <div class="absolute rounded-full bg-neutral-300 text-center text-neutral-800"
              style={`left: ${(glyphBoundsPx().w - (Math.min(glyphBoundsPx().w, glyphBoundsPx().h) - 2)) / 2}px; ` +
                     `top: ${(glyphBoundsPx().h - (Math.min(glyphBoundsPx().w, glyphBoundsPx().h) - 2)) / 2}px; ` +
                     `width: ${Math.min(glyphBoundsPx().w, glyphBoundsPx().h) - 2}px; ` +
@@ -103,14 +103,14 @@ export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElem
       </Show>
 
       <Show when={ratingType() == "HorizontalBar"}>
-        <div class="absolute bg-slate-300"
+        <div class="absolute bg-neutral-300"
              style={`left: ${3*scale()}px; right: ${3*scale()}px; top: ${glyphBoundsPx().h/2 - 6*scale()}px; height: ${12*scale()}px;`} />
         <div class="absolute bg-blue-700"
              style={`left: ${3*scale()}px; top: ${glyphBoundsPx().h/2 - 6*scale()}px; height: ${12*scale()}px; width: ${Math.max(0, Math.min(1, ratingItem().rating/MAX_RATING)) * (glyphBoundsPx().w-6*scale())}px;`} />
       </Show>
 
       <Show when={ratingType() == "VerticalBar"}>
-        <div class="absolute bg-slate-300"
+        <div class="absolute bg-neutral-300"
              style={`top: ${2*scale()}px; bottom: ${2*scale()}px; left: ${glyphBoundsPx().w/2 - 6*scale()}px; width: ${12*scale()}px;`} />
         <div class="absolute bg-blue-700"
              style={`left: ${glyphBoundsPx().w/2 - 6*scale()}px; bottom: ${2*scale()}px; width: ${12*scale()}px; height: ${Math.max(0, Math.min(1, ratingItem().rating/MAX_RATING)) * (glyphBoundsPx().h-4*scale())}px;`} />
@@ -119,7 +119,7 @@ export const Rating_LineItem: Component<VisualElementProps> = (props: VisualElem
 
   const renderLinkMarkingMaybe = () =>
     <Show when={linkHasTriangle(props.visualElement.linkItemMaybe) && showTriangleDetail()}>
-      <div class="absolute text-center text-slate-600"
+      <div class="absolute text-center text-neutral-600"
            style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
                   `width: ${oneBlockWidthPx() / scale()}px; height: ${boundsPx().h/scale()}px; `+
                   `transform: scale(${scale()}); transform-origin: top left;`}>

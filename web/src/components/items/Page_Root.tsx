@@ -420,7 +420,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
       if (band == "middle") {
         return (
           <div ref={rootDiv}
-            class={`absolute ${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300"}`}
+            class={`absolute ${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-item-line"}`}
             style={`${commonStyle()} overflow-y: auto; overflow-x: hidden;`}
             onscroll={listRootScrollHandler}>
             {inner}
@@ -431,7 +431,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
       return (
         <Show when={bandHeightPx() > 0}>
           <ListPageBand pageVisualElement={props.visualElement} band={band}
-            class={`absolute ${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-slate-300"}`}
+            class={`absolute ${props.visualElement.flags & VisualElementFlags.DockItem ? "" : "border-item-line"}`}
             style={commonStyle()}>
             {inner}
           </ListPageBand>
@@ -668,7 +668,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
       return `display: grid; grid-template-columns: ${calendarTitleButtonWidthPx}px ${calendarTitleButtonWidthPx}px ${calendarTitleTextWidthPx()}px ${calendarTitleButtonWidthPx}px ${calendarTitleButtonWidthPx}px; ` +
         `column-gap: ${calendarTitleGapPx}px; align-items: center; width: ${calendarTitleTextWidthPx() + 4 * calendarTitleButtonWidthPx + 4 * calendarTitleGapPx}px;`;
     };
-    const calendarTitleButtonClass = "inline-flex items-center justify-center w-[30px] h-[28px] rounded-sm text-[18px] text-slate-300 hover:text-slate-600 hover:bg-gray-100 active:bg-gray-200 cursor-pointer transition-colors";
+    const calendarTitleButtonClass = "inline-flex items-center justify-center w-[30px] h-[28px] rounded-sm text-[18px] text-neutral-300 hover:text-neutral-600 hover:bg-control-hover active:bg-control-selected cursor-pointer transition-colors";
     const visibleMonthSet = new Set(calendarWindow.months.map(({ month }) => month));
 
     const isWeekend = (dayOfWeek: number) => dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
@@ -713,7 +713,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
                 onClick={() => navigateCalendarWindow(-1)}>
                 <i class="fas fa-angle-left" />
               </div>
-              <span class="text-center overflow-hidden whitespace-nowrap text-ellipsis cursor-pointer hover:text-slate-700"
+              <span class="text-center overflow-hidden whitespace-nowrap text-ellipsis cursor-pointer hover:text-neutral-700"
                 title="Reset to current window"
                 onClick={resetCalendarWindow}>
                 {formatCalendarWindowTitle(calendarWindow)}
@@ -738,7 +738,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
             const leftPos = getCalendarMonthLeftPx(calendarDimensions, month);
             const monthWidth = getCalendarMonthWidthPx(calendarDimensions, month);
             const monthTitleClasses = calendarWindow.monthsPerPage == 12
-              ? "text-center font-semibold text-base rounded-sm cursor-pointer transition-colors hover:bg-gray-100"
+              ? "text-center font-semibold text-base rounded-sm cursor-pointer transition-colors hover:bg-control-hover"
               : "text-center font-semibold text-base rounded-sm";
 
             return (
@@ -928,7 +928,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
         </Switch>
         <Show when={showEmptyPageHint()}>
           {/* Above centre (spacers 2:3), where the eye lands on an empty page. Keys are styled as in the help. */}
-          <div class="absolute flex flex-col items-center pointer-events-none select-none text-sm text-slate-400"
+          <div class="absolute flex flex-col items-center pointer-events-none select-none text-sm text-neutral-400"
             style={`left: 0px; top: ${pageFns().boundsPx().h - pageFns().viewportBoundsPx().h}px; ` +
               `width: ${pageFns().viewportBoundsPx().w}px; height: ${pageFns().viewportBoundsPx().h}px; ` +
               `z-index: ${Z_INDEX_GLOBAL_ITEMS + 1};`}>
@@ -939,7 +939,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
               <Key>?</Key><span>help</span>
               <Show when={rightClickGoesSomewhere()}>
                 <span class="mx-[6px]">·</span>
-                <span class="text-[13px] italic text-slate-500">Right-click</span><span>go back</span>
+                <span class="text-[13px] italic text-neutral-500">Right-click</span><span>go back</span>
               </Show>
             </div>
             <div class="flex-[3]" />

@@ -81,7 +81,7 @@ export const Divider_Desktop: Component<VisualElementProps> = (props: VisualElem
 
   const renderBoundsHighlightMaybe = () =>
     <Show when={store.perVe.getMouseIsOver(vePath()) || store.history.getFocusPathMaybe() === vePath()}>
-      <div class="absolute border border-slate-300 rounded-item pointer-events-none"
+      <div class="absolute border border-item-line rounded-item pointer-events-none"
         style={`left: 1px; top: 1px; width: ${Math.max(0, boundsPx().w - 2)}px; height: ${Math.max(0, boundsPx().h - 2)}px; ` +
           `z-index: ${Z_INDEX_LOCAL_OVERLAY}; background-color: ${DIVIDER_HOVER_BG};`} />
     </Show>;

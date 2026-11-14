@@ -62,7 +62,7 @@ function componentFromLoader<P extends object>(
     const [feature, { refetch }] = createResource(load);
     return (
       <Show when={feature()} fallback={wrapStatus(
-        <div class="flex items-center justify-center gap-2 p-3 text-sm text-slate-500">
+        <div class="flex items-center justify-center gap-2 p-3 text-sm text-neutral-500">
           <Show when={feature.loading} fallback={
             <>
               <span>Could not load.</span>

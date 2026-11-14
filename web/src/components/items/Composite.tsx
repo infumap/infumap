@@ -175,7 +175,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
 
   const shadowClass = () => {
     if (isPopup()) {
-      return `absolute border border-transparent rounded-item overflow-hidden blur-md bg-slate-700 pointer-events-none`;
+      return `absolute border border-transparent rounded-item overflow-hidden blur-md bg-neutral-700 pointer-events-none`;
     }
     return `absolute border border-transparent rounded-item shadow-xl overflow-hidden`;
   };
@@ -251,7 +251,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
 
   const renderCollapseControlMaybe = () =>
     <Show when={showCollapseControl()}>
-      <div class={`absolute text-center text-slate-400 select-none ${isInsideTranslucentPage(props.visualElement) ? "" : "cursor-pointer"}`}
+      <div class={`absolute text-center text-neutral-400 select-none ${isInsideTranslucentPage(props.visualElement) ? "" : "cursor-pointer"}`}
         contentEditable={false}
         onmousedown={toggleCollapse}
         style={`left: ${-blockSizePx().w}px; top: 0px; ` +

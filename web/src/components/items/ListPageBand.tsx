@@ -115,7 +115,7 @@ export const ListPageBandOverlays: Component<{
   const renderDropStrip = (band: "top" | "bottom") => {
     const heightPx = () => band == "top" ? pageVe().listPagePinnedTopHeightPx : pageVe().listPagePinnedBottomHeightPx;
     return (
-      <div class={`${props.class} flex items-center justify-center text-slate-500`}
+      <div class={`${props.class} flex items-center justify-center text-neutral-500`}
         style={`left: 0px; top: ${band == "top" ? 0 : props.heightPx - heightPx()}px; ` +
           `width: ${props.widthPx}px; height: ${heightPx()}px; pointer-events: none; ` +
           `font-size: ${Math.min(12, Math.round(heightPx() / 2))}px; white-space: nowrap; overflow: hidden; ` +
@@ -129,10 +129,10 @@ export const ListPageBandOverlays: Component<{
       <Show when={isDropStrip("top")}>{renderDropStrip("top")}</Show>
       <Show when={isDropStrip("bottom")}>{renderDropStrip("bottom")}</Show>
       <Show when={pageVe().listPagePinnedTopHeightPx > 0}>
-        <div class={`${props.class} bg-slate-300`} style={lineStyle(topLinePx())} />
+        <div class={`${props.class} bg-neutral-300`} style={lineStyle(topLinePx())} />
       </Show>
       <Show when={pageVe().listPagePinnedBottomHeightPx > 0}>
-        <div class={`${props.class} bg-slate-300`} style={lineStyle(bottomLinePx())} />
+        <div class={`${props.class} bg-neutral-300`} style={lineStyle(bottomLinePx())} />
       </Show>
     </>
   );

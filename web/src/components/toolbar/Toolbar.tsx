@@ -89,7 +89,7 @@ const ToolbarOutlineCorner = (props: {
   const sizePx = () => TOOLBAR_OUTLINE_CORNER_RADIUS_PX + props.verticalBorderWidthPx + 1;
   // A blank title spec border color leaves the border color of the outline elements at the default (index.css), whereas
   // here it would leave the color out of the border shorthand, which then falls back to the text color.
-  const color = (c: string) => c.trim() == "" ? "var(--color-gray-200)" : c;
+  const color = (c: string) => c.trim() == "" ? "var(--color-neutral-200)" : c;
   return (
     <div class="absolute pointer-events-none overflow-hidden"
       style={`top: 0px; ${props.positionStyle} width: ${sizePx()}px; height: ${sizePx()}px; z-index: 1;`}>
@@ -399,14 +399,14 @@ export const Toolbar: Component = () => {
 
       <div class="grow-0 pr-[8px]" style="flex-order: 2;">
         <Show when={!store.user.getUserMaybe()}>
-          <InfuIconButton icon="fa fa-sign-in" highlighted={false} clickHandler={handleLogin} title="Log in" />
+          <InfuIconButton icon="bi-box-arrow-in-right" highlighted={false} clickHandler={handleLogin} title="Log in" />
         </Show>
         <Show when={store.user.getUserMaybe()}>
-          <InfuIconButton icon="fa fa-user" highlighted={false} clickHandler={showUserSettings} title="User settings" />
+          <InfuIconButton icon="bi-person-fill" highlighted={false} clickHandler={showUserSettings} title="User settings" />
         </Show>
-        <InfuIconButton icon="fa fa-question-circle" highlighted={false} clickHandler={showHelp} title="Help (?)" />
+        <InfuIconButton icon="bi-question-circle-fill" highlighted={false} clickHandler={showHelp} title="Help (?)" />
         <Toolbar_NetworkStatus />
-        <InfuIconButton icon="fa fa-chevron-up" highlighted={false} clickHandler={hideToolbar} title={IS_MAC ? "Hide toolbar (⌘+Enter)" : "Hide toolbar"} />
+        <InfuIconButton icon="bi-chevron-up" highlighted={false} clickHandler={hideToolbar} title={IS_MAC ? "Hide toolbar (⌘+Enter)" : "Hide toolbar"} />
       </div>
 
     </div>;
@@ -517,7 +517,7 @@ export const Toolbar: Component = () => {
     <div class="absolute print:hidden"
       style={`z-index: ${Z_INDEX_GLOBAL_TOOLBAR_TRIGGER}; ` +
         `right: 6px; top: -3px;`} onmousedown={showToolbar} title={showToolbarTitle()}>
-      <i class={`fa fa-chevron-down hover:bg-control-hover p-[2px] text-xs ${!store.dockVisible.get() ? 'text-white' : 'text-neutral-400'}`} />
+      <i class={`bi-chevron-down hover:bg-control-hover p-[2px] text-xs ${!store.dockVisible.get() ? 'text-white' : 'text-neutral-400'}`} />
     </div>;
 
   return (

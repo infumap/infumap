@@ -188,7 +188,7 @@ const QUERY_SCOPE_ITEMS_ROW_GAP_PX = 6;
  * because a "+" in that row already adds items to the scope.
  */
 const QUERY_COMPOSER_ACTION_BUTTON_APPEARANCE = {
-  class: "flex h-[22px] w-[26px] shrink-0 cursor-pointer items-center justify-center rounded-md border border-control-border bg-white text-control-text hover:bg-slate-50 disabled:cursor-default disabled:opacity-50",
+  class: "flex h-[22px] w-[26px] shrink-0 cursor-pointer items-center justify-center rounded-md border border-control-border bg-white text-control-text hover:bg-control-hover disabled:cursor-default disabled:opacity-50",
   style: "font-size: 13px; line-height: 18px;",
 };
 
@@ -1341,7 +1341,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       <For each={scopeItems()}>{itemId =>
         <div class="flex min-w-0 shrink-0 items-center rounded-xs border pl-2.5"
           classList={{
-            "border-slate-300 bg-slate-100 text-slate-800": queryScopeItemResolved(itemId),
+            "border-neutral-300 bg-neutral-100 text-neutral-800": queryScopeItemResolved(itemId),
             "border-amber-400 bg-amber-50 text-amber-800": !queryScopeItemResolved(itemId),
           }}
           style="height: 24px; max-width: 240px;"
@@ -1350,7 +1350,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             : `This item no longer exists and will be left out.\n${itemId}`}>
           <span class="min-w-0 truncate">{queryScopeItemTitle(itemId)}</span>
           <button type="button"
-            class="flex h-full w-6 shrink-0 cursor-pointer items-center justify-center rounded-r-xs text-slate-500 hover:text-black disabled:cursor-default disabled:opacity-50"
+            class="flex h-full w-6 shrink-0 cursor-pointer items-center justify-center rounded-r-xs text-neutral-500 hover:text-black disabled:cursor-default disabled:opacity-50"
             title="Remove"
             aria-label={`Remove ${queryScopeItemTitle(itemId)} from the scope`}
             disabled={scopeItemsLocked()}
@@ -1396,7 +1396,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       </Show>
       {/* Above the input: the chat composer is at the bottom of the page. */}
       <ItemCandidatesPopup search={scopeItemCandidates}
-        class="border border-slate-400 rounded bg-white shadow-sm py-[3px] overflow-hidden"
+        class="border border-neutral-400 rounded bg-white shadow-sm py-[3px] overflow-hidden"
         style={`position: fixed; left: ${scopeItemCandidates.anchorBoundsPx()?.x ?? 0}px; ` +
           `bottom: ${window.innerHeight - (scopeItemCandidates.anchorBoundsPx()?.top ?? 0) + 2}px; ` +
           `width: ${Math.max(320, scopeItemCandidates.anchorBoundsPx()?.width ?? 0)}px; z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY + 1};`} />
@@ -1407,7 +1407,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const renderScopeAddButton = () => (
     <Show when={scopeItemsInUse() && (isChatMode() || selectedInputMode() == "chat")}>
       <button ref={el => { queryScopeAddButton = el; }} type="button"
-        class="flex h-[22px] w-[22px] shrink-0 cursor-pointer items-center justify-center rounded-md border border-control-border bg-white text-control-text hover:bg-slate-50 disabled:cursor-default disabled:opacity-50"
+        class="flex h-[22px] w-[22px] shrink-0 cursor-pointer items-center justify-center rounded-md border border-control-border bg-white text-control-text hover:bg-control-hover disabled:cursor-default disabled:opacity-50"
         style="font-size: 12px;"
         title="Limit Infumap search to chosen items"
         aria-label="Limit Infumap search to chosen items"
@@ -1450,7 +1450,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               </span>
               <button
                 type="button"
-                class="flex h-full w-6 shrink-0 cursor-pointer items-center justify-center text-control-text hover:bg-slate-100 hover:text-black"
+                class="flex h-full w-6 shrink-0 cursor-pointer items-center justify-center text-control-text hover:bg-control-hover hover:text-black"
                 title="Insert as text"
                 aria-label={`Insert ${attachment.title} as text`}
                 onClick={(ev) => {
@@ -1461,7 +1461,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               </button>
               <button
                 type="button"
-                class="flex h-full w-6 shrink-0 cursor-pointer items-center justify-center text-control-text hover:bg-slate-100 hover:text-black"
+                class="flex h-full w-6 shrink-0 cursor-pointer items-center justify-center text-control-text hover:bg-control-hover hover:text-black"
                 title="Remove"
                 aria-label={`Remove ${attachment.title}`}
                 onClick={(ev) => {
@@ -1538,7 +1538,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             onKeyDown={stop}
             onKeyUp={stop}>
             <div
-              class="flex h-9 shrink-0 items-center gap-2 border-b px-3 text-slate-700"
+              class="flex h-9 shrink-0 items-center gap-2 border-b px-3 text-neutral-700"
               style={`background-color: #fafafa; border-color: ${LIGHT_BORDER_COLOR};`}
               aria-live="polite">
               <Show
@@ -1552,7 +1552,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               <Show when={chatContextTokens()}>
                 {(display) =>
                   <span
-                    class="shrink-0 text-[11px] tabular-nums text-slate-500"
+                    class="shrink-0 text-[11px] tabular-nums text-neutral-500"
                     title={display().exact
                       ? "Tokens in the last model request"
                       : "Estimated tokens in context"}>
@@ -1560,12 +1560,12 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                   </span>
                 }
               </Show>
-              <span class="shrink-0 text-[11px] tabular-nums text-slate-500">
+              <span class="shrink-0 text-[11px] tabular-nums text-neutral-500">
                 {formatChatActivityElapsed(liveChatActivity()!.startedAt, chatActivityNowMs())}
               </span>
               <button
                 type="button"
-                class="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded text-slate-500 hover:bg-slate-200 hover:text-slate-700"
+                class="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded text-neutral-500 hover:bg-control-hover hover:text-neutral-700"
                 title={chatActivityExpanded() ? "Restore activity panel" : "Expand activity panel"}
                 aria-label={chatActivityExpanded() ? "Restore activity panel" : "Expand activity panel"}
                 aria-pressed={chatActivityExpanded()}
@@ -1578,7 +1578,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             </div>
             <div
               ref={chatActivityBody}
-              class="min-h-0 grow overflow-y-auto px-3 py-2 text-[13px] text-slate-700"
+              class="min-h-0 grow overflow-y-auto px-3 py-2 text-[13px] text-neutral-700"
               style={`padding-bottom: ${chatActivityFollowingLatest() ? 8 : 44}px;`}
               onScroll={chatActivityScrollHandler}>
               <QueryChatActivityRounds
@@ -1592,7 +1592,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             <Show when={!chatActivityFollowingLatest()}>
               <button
                 type="button"
-                class="absolute bottom-2 right-3 flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-600 shadow-sm hover:bg-slate-50"
+                class="absolute bottom-2 right-3 flex cursor-pointer items-center gap-1.5 rounded-full border border-neutral-300 bg-white px-3 py-1.5 text-[11px] font-medium text-neutral-600 shadow-sm hover:bg-control-hover"
                 onClick={(ev) => {
                   ev.stopPropagation();
                   scrollChatActivityToLatest();
@@ -1738,8 +1738,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 <For each={QUERY_INPUT_MODE_OPTIONS.filter(option => option.value != "search")}>{option => {
                   const selected = () => (option.value == "deep-research") == deepResearch();
                   return <button type="button" role="radio" aria-checked={selected()} aria-label={option.label} title={option.label}
-                    class="flex w-[26px] cursor-pointer items-center justify-center text-control-text hover:bg-slate-50 disabled:cursor-default disabled:opacity-50"
-                    classList={{ "bg-slate-200 text-slate-900 hover:bg-slate-200": selected() }}
+                    class="flex w-[26px] cursor-pointer items-center justify-center text-control-text hover:bg-control-hover disabled:cursor-default disabled:opacity-50"
+                    classList={{ "bg-neutral-200 text-neutral-900 hover:bg-control-hover": selected() }}
                     disabled={chatSettingsDisabled()} onClick={() => setDeepResearch(option.value == "deep-research")}>
                     <i class={option.icon} />
                   </button>;
@@ -2057,7 +2057,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         </Show>
         <Show when={!isChatMode()}>
           <div class="absolute bg-white"
-            classList={{ "border-b": isSearchMode(), "border-slate-300": isSearchMode() }}
+            classList={{ "border-b": isSearchMode(), "border-neutral-300": isSearchMode() }}
             style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${isSearchMode() ? lowerTopPx : boundsPx().h}px;`}>
             <div class="absolute"
               style={`left: ${Math.max(0, Math.round((boundsPx().w - controlsWidthPx()) / 2))}px; ` +
@@ -2103,7 +2103,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           <div class="absolute flex items-center gap-[4px]"
             style={`right: ${QUERY_WORKSPACE_ARRANGE_SELECTOR_RIGHT_INSET_PX}px; top: ${arrangeSelectorTopPx}px; height: ${QUERY_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`}>
             <button
-              class="flex items-center justify-center border border-slate-300 rounded-[5px] bg-white text-slate-600 cursor-pointer disabled:cursor-default disabled:opacity-40"
+              class="flex items-center justify-center border border-neutral-300 rounded-[5px] bg-white text-neutral-600 cursor-pointer disabled:cursor-default disabled:opacity-40"
               style={`width: ${QUERY_WORKSPACE_MATERIALIZE_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_ARRANGE_SELECTOR_HEIGHT_PX}px; margin-right: 14px; ` +
                 `box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);`}
               type="button"

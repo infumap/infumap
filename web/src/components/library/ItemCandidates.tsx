@@ -136,16 +136,16 @@ export function ItemCandidatesPopup(props: { search: ItemCandidateSearch, class:
              onMouseUp={ev => ev.stopPropagation()}
              onClick={ev => ev.stopPropagation()}>
           <Show when={props.search.candidates().length > 0}
-                fallback={<div class="px-[7px] py-[3px] text-sm text-slate-500">no matching items</div>}>
+                fallback={<div class="px-[7px] py-[3px] text-sm text-neutral-500">no matching items</div>}>
             <For each={props.search.candidates()}>{(candidate, idx) =>
-              <div class={`px-[7px] py-[3px] cursor-pointer ${idx() == props.search.selectedIdx() ? "bg-slate-300" : ""}`}
+              <div class={`px-[7px] py-[3px] cursor-pointer ${idx() == props.search.selectedIdx() ? "bg-control-selected" : ""}`}
                    onMouseEnter={() => props.search.setSelectedIdx(idx())}
                    onMouseDown={ev => { ev.preventDefault(); ev.stopPropagation(); props.search.pick(candidate); }}>
-                <div class="flex flex-row items-baseline text-sm text-slate-800">
+                <div class="flex flex-row items-baseline text-sm text-neutral-800">
                   <span class="truncate">{candidate.title}</span>
-                  <span class="ml-auto pl-[8px] shrink-0 text-xs text-slate-500">{candidate.itemType}</span>
+                  <span class="ml-auto pl-[8px] shrink-0 text-xs text-neutral-500">{candidate.itemType}</span>
                 </div>
-                <div class="truncate text-xs text-slate-500">
+                <div class="truncate text-xs text-neutral-500">
                   {candidate.path.map(element => element.title ?? "").join(" › ")}
                 </div>
               </div>

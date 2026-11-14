@@ -28,7 +28,7 @@ export const AuthPage: Component<{ title: string, children: JSX.Element, below?:
   <div class="absolute inset-0 overflow-y-auto">
     <div class="w-full max-w-sm mx-auto px-4 pt-10">
       <img src={logoUrl} alt="Infumap" class="block w-10 h-10 mx-auto mb-4" />
-      <div class="border border-slate-300 rounded-md shadow-sm p-5">
+      <div class="border border-neutral-300 rounded-md shadow-sm p-5">
         <h1 class="text-xl font-bold mb-4">{props.title}</h1>
         {props.children}
       </div>
@@ -38,12 +38,12 @@ export const AuthPage: Component<{ title: string, children: JSX.Element, below?:
 
 export const AuthField: Component<{ label: string, for: string, children: JSX.Element }> = (props) =>
   <div class="mb-4">
-    <label for={props.for} class="block text-sm text-slate-700 mb-1">{props.label}</label>
+    <label for={props.for} class="block text-sm text-neutral-700 mb-1">{props.label}</label>
     {props.children}
   </div>;
 
 export const AuthCheckbox: Component<{ id: string, label: string, checked: boolean, onClick: () => void }> = (props) =>
-  <label for={props.id} class="flex items-center gap-2 mb-4 text-sm text-slate-700 cursor-pointer select-none">
+  <label for={props.id} class="flex items-center gap-2 mb-4 text-sm text-neutral-700 cursor-pointer select-none">
     <input type="checkbox" id={props.id} class="rounded-xs" checked={props.checked} onClick={props.onClick} />
     {props.label}
   </label>;

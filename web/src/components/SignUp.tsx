@@ -116,7 +116,7 @@ export const SignUp: Component = () => {
             {/* Scanned before the token below can be entered. */}
             <Show when={totp() != null}>
               <div class="mb-4">
-                <div class="text-sm text-slate-700 mb-1">Scan with your authenticator app</div>
+                <div class="text-sm text-neutral-700 mb-1">Scan with your authenticator app</div>
                 <img class="block mx-auto w-[200px] max-w-full" src={`data:image/png;base64, ${totp()!.qr}`} />
                 <div class="font-mono text-xs text-center break-all">
                   {totp()!.secret}
