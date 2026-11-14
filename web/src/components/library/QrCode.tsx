@@ -16,8 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import QRCode from "qrcode";
-import { createMemo } from "solid-js";
+import { Show, createMemo, createResource } from "solid-js";
 
 
 /**
@@ -25,8 +24,19 @@ import { createMemo } from "solid-js";
  * the text. The symbol has no quiet zone of its own, so place it on a light background with padding.
  */
 export function QrCode(props: { text: string, sizePx: number }) {
+  const [qrCode, { refetch }] = createResource(async () => {
+    try {
+      return (await import("qrcode")).default;
+    } catch {
+      // Keep a failed chunk download inside the QR area so the popup's copy actions still work.
+      return null;
+    }
+  });
+
   const symbol = createMemo(() => {
-    const modules = QRCode.create(props.text).modules;
+    const encoder = qrCode();
+    if (!encoder) { return; }
+    const modules = encoder.create(props.text).modules;
     let path = "";
     for (let row = 0; row < modules.size; ++row) {
       let col = 0;
@@ -41,9 +51,24 @@ export function QrCode(props: { text: string, sizePx: number }) {
   });
 
   return (
-    <svg width={props.sizePx} height={props.sizePx} viewBox={`0 0 ${symbol().size} ${symbol().size}`}
-      shape-rendering="crispEdges" style="display: block;">
-      <path d={symbol().path} fill="#000" />
-    </svg>
+    <div class="flex shrink-0 items-center justify-center"
+      style={`width: ${props.sizePx}px; height: ${props.sizePx}px;`}>
+      <Show when={symbol()} fallback={
+        <Show when={qrCode.loading} fallback={
+          <div class="text-center text-slate-500">
+            <div>QR code unavailable</div>
+            <button type="button" class="text-blue-700 cursor-pointer hover:underline"
+              onClick={() => { void refetch(); }}>Retry</button>
+          </div>
+        }>
+          <span role="status" class="text-slate-500">Loading QR code…</span>
+        </Show>
+      }>{generated =>
+        <svg width={props.sizePx} height={props.sizePx} viewBox={`0 0 ${generated().size} ${generated().size}`}
+          shape-rendering="crispEdges" style="display: block;">
+          <path d={generated().path} fill="#000" />
+        </svg>
+      }</Show>
+    </div>
   );
 }
