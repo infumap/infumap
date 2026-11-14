@@ -22,7 +22,7 @@ import {
   PAGE_SHAPE_POPUP_HEIGHT_PX, PAGE_TABLE_LAYOUT_POPUP_HEIGHT_PX, PAGE_DOCUMENT_LAYOUT_POPUP_HEIGHT_PX,
 } from "./toolbarPopupStyle";
 import { deferredComponent } from "../deferred";
-import { Component, For, Match, Show, Switch, createEffect, createMemo, createSignal, on, onMount } from "solid-js";
+import { Component, For, Match, Show, Switch, createEffect, createMemo, createResource, createSignal, on, onMount } from "solid-js";
 import { StoreContextModel, useStore } from "../../store/StoreProvider";
 import { ArrangeAlgorithm, asPageItem, isPage, PageItem } from "../../items/page-item";
 import { asRatingItem } from "../../items/rating-item";
@@ -85,169 +85,15 @@ const Toolbar_PageShapePopup = deferredComponent("Toolbar_PageShapePopup");
 const Toolbar_PageTableLayoutPopup = deferredComponent("Toolbar_PageTableLayoutPopup");
 const Toolbar_PageDocumentLayoutPopup = deferredComponent("Toolbar_PageDocumentLayoutPopup");
 
-const EMOJI_CATEGORIES = [
-  {
-    name: "Smileys & People",
-    emojis: [
-      "😀", "😃", "😄", "😁", "😆", "🙂", "🙃", "😉", "😊",
-      "😍", "😘", "😗", "😙", "😚", "😋", "😛", "😜", "🤪",
-      "🤔", "🫡", "🤨", "😐", "😑", "😶", "🙄", "😏", "😴",
-      "😮", "😲", "😳", "🥺", "😢", "😭", "😤", "😡", "😎",
-      "🤩", "🥳", "😇", "🤠", "🤓", "🫠", "🙋", "👍", "👏",
-      "🙏", "💪", "👀", "🧠", "👑", "🧑‍💻", "👨‍👩‍👧", "🧘", "🏃",
-    ],
-  },
-  {
-    name: "Animals & Nature",
-    emojis: [
-      "🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨",
-      "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦",
-      "🐤", "🦆", "🦅", "🦉", "🦇", "🐺", "🐴", "🦄", "🐝",
-      "🐛", "🦋", "🐌", "🐞", "🐜", "🕷️", "🐢", "🐍", "🦎",
-      "🦖", "🐙", "🦑", "🦀", "🐠", "🐬", "🐳", "🦈", "🐘",
-      "🌱", "🌿", "🍀", "🌵", "🌲", "🌳", "🌴", "🌸", "🌻",
-      "🌞", "🌙", "⭐", "🌈", "☁️", "⛈️", "❄️", "🔥", "💧",
-    ],
-  },
-  {
-    name: "Food & Drink",
-    emojis: [
-      "🍏", "🍎", "🍐", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓",
-      "🫐", "🍒", "🍑", "🥭", "🍍", "🥥", "🥝", "🍅", "🥑",
-      "🥦", "🥕", "🌽", "🌶️", "🥐", "🥯", "🍞", "🥨", "🧀",
-      "🥚", "🍳", "🥞", "🥓", "🍔", "🍟", "🍕", "🌭", "🥪",
-      "🌮", "🌯", "🥗", "🍝", "🍜", "🍲", "🍣", "🍱", "🥟",
-      "🍦", "🍩", "🍪", "🎂", "🍰", "🍫", "🍿", "☕", "🍵",
-      "🥤", "🧃", "🍺", "🍷", "🍸", "🍹", "🥂", "🍽️", "🥄",
-    ],
-  },
-  {
-    name: "Travel & Places",
-    emojis: [
-      "🚗", "🚕", "🚌", "🚎", "🏎️", "🚓", "🚑", "🚒", "🚚",
-      "🚲", "🛴", "🏍️", "🚂", "🚆", "🚇", "🚊", "✈️", "🚀",
-      "🛸", "🚁", "⛵", "🚢", "⚓", "⛽", "🚧", "🚦", "🗺️",
-      "🗽", "🗼", "🏰", "🏯", "🏟️", "🎡", "🎢", "🏠", "🏡",
-      "🏢", "🏫", "🏥", "🏦", "🏨", "🏪", "🏛️", "⛪", "🕌",
-      "🏖️", "🏝️", "🏜️", "🏔️", "⛰️", "🌋", "🏕️", "🌃", "🌉",
-    ],
-  },
-  {
-    name: "Activities",
-    emojis: [
-      "⚽", "🏀", "🏈", "⚾", "🎾", "🏐", "🏉", "🥏", "🎱",
-      "🏓", "🏸", "🥅", "🏒", "🏑", "🏏", "🥍", "⛳", "🪁",
-      "🏹", "🎣", "🥊", "🥋", "🎽", "🛹", "🛼", "⛸️", "🎿",
-      "⛷️", "🏂", "🏋️", "🤸", "🤾", "🏌️", "🏄", "🚣", "🏊",
-      "🎯", "🎮", "🕹️", "🎲", "🧩", "♟️", "🎭", "🎨", "🎬",
-      "🎤", "🎧", "🎼", "🎹", "🥁", "🎷", "🎺", "🎸", "🎻",
-    ],
-  },
-  {
-    name: "Events & Planning",
-    emojis: [
-      "🎈", "🎉", "🎊", "🎁", "🎀", "🪅", "🪩", "🎆", "🎇",
-      "🧨", "🎃", "🎄", "🎅", "🤶", "🧑‍🎄", "🎋", "🎍", "🎎",
-      "🎏", "🎐", "🎑", "🧧", "🎟️", "🎫", "🏆", "🥇", "🥈",
-      "🥉", "🏅", "🎖️", "💐", "🌹", "📅", "📆", "🗓️", "⏰",
-      "⏱️", "⏲️", "⌚", "🧭", "🗒️", "📓", "📔", "📕", "📗",
-      "📘", "📙", "🔖", "📋", "📊", "📈", "📉", "🧾", "📤",
-      "📥", "📦", "✉️", "📧", "💼", "🗃️", "🗄️", "🗑️", "🛍️",
-    ],
-  },
-  {
-    name: "Objects",
-    emojis: [
-      "💡", "🔦", "🕯️", "🧯", "🛠️", "🔧", "🔨", "⚙️", "🧰",
-      "🧲", "🧪", "🧫", "🧬", "🔬", "🔭", "📡", "💉", "🩺",
-      "🚪", "🪑", "🛏️", "🛋️", "🚿", "🧴", "🧷", "🧵", "🪡",
-      "🔑", "🔒", "🔓", "🗝️", "💰", "💳", "💎", "⚖️", "🪪",
-      "📱", "💻", "⌨️", "🖥️", "🖨️", "📷", "🎥", "📞", "☎️",
-      "📚", "📖", "📝", "📌", "📍", "✂️", "📎", "🔗", "🏷️",
-      "📁", "🗂️", "🧹", "🧼", "🧽", "🫧",
-    ],
-  },
-  {
-    name: "Symbols",
-    emojis: [
-      "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "💔",
-      "✅", "☑️", "✔️", "❌", "❎", "➕", "➖", "➗", "✖️",
-      "❗", "❓", "‼️", "⁉️", "⚠️", "🚫", "🔔", "🔕", "♻️",
-      "⭐", "🌟", "✨", "💫", "🔥", "💥", "💯", "🔴", "🟠",
-      "🟡", "🟢", "🔵", "🟣", "⚫", "⚪", "⬆️", "⬇️", "➡️",
-      "⬅️", "↗️", "↘️", "↙️", "↖️", "🔙", "🔚", "🔜", "🔝",
-      "🔁", "🔄", "🔎", "💬", "💭",
-    ],
-  },
-  {
-    name: "Flags",
-    emojis: [
-      "🏁", "🚩", "🎌", "🏴", "🏳️", "🏳️‍🌈", "🇺🇸", "🇬🇧", "🇪🇺",
-      "🇮🇹", "🇫🇷", "🇩🇪", "🇪🇸", "🇵🇹", "🇳🇱", "🇨🇭", "🇸🇪", "🇳🇴",
-      "🇩🇰", "🇫🇮", "🇮🇪", "🇬🇷", "🇹🇷", "🇹🇭", "🇯🇵", "🇰🇷", "🇨🇳",
-      "🇮🇳", "🇦🇺", "🇳🇿", "🇨🇦", "🇲🇽", "🇧🇷", "🇦🇷", "🇿🇦", "🇺🇦",
-    ],
-  },
-];
-
-const EMOJI_SEARCH_GROUPS = [
-  { emojis: "😀😃😄😁😆🙂😊", terms: "happy smile smiling grin grinning laugh face" },
-  { emojis: "🙃😉😏", terms: "wink winking playful smirk face" },
-  { emojis: "😍😘😗😙😚", terms: "love heart eyes kiss kissing face" },
-  { emojis: "😋😛😜🤪", terms: "tongue tasty delicious silly goofy face" },
-  { emojis: "🤔🫡🤨😐😑😶🙄", terms: "thinking salute skeptical neutral expressionless silent eye roll face" },
-  { emojis: "😴😮😲😳🥺😢😭😤😡", terms: "sleep tired surprised shocked pleading sad cry crying angry mad face" },
-  { emojis: "😎🤩🥳😇🤠🤓🫠", terms: "cool sunglasses star party angel cowboy nerd melting face" },
-  { emojis: "🙋👍👏🙏💪👀🧠👑", terms: "raise hand yes thumbs up clap applause pray thanks strong muscle eyes look brain crown" },
-  { emojis: "🧑‍💻👨‍👩‍👧🧘🏃", terms: "developer coder computer family meditate yoga run running person people" },
-  { emojis: "🐶🐺🦊", terms: "dog puppy wolf fox canine animal" },
-  { emojis: "🐱🦁🐯", terms: "cat kitten lion tiger feline animal" },
-  { emojis: "🐭🐹🐰", terms: "mouse hamster rabbit bunny animal" },
-  { emojis: "🐻🐼🐨", terms: "bear panda koala animal" },
-  { emojis: "🐮🐷🐸🐵", terms: "cow pig frog monkey animal" },
-  { emojis: "🐔🐧🐦🐤🦆🦅🦉🦇", terms: "chicken penguin bird chick duck eagle owl bat animal" },
-  { emojis: "🐴🦄", terms: "horse pony unicorn animal" },
-  { emojis: "🐝🐛🦋🐌🐞🐜🕷️", terms: "bee bug caterpillar butterfly snail ladybug ant spider insect animal" },
-  { emojis: "🐢🐍🦎🦖", terms: "turtle snake lizard dinosaur reptile animal" },
-  { emojis: "🐙🦑🦀🐠🐬🐳🦈", terms: "octopus squid crab fish dolphin whale shark ocean sea animal" },
-  { emojis: "🌱🌿🍀🌵🌲🌳🌴🌸🌻", terms: "plant leaf clover cactus tree palm flower blossom sunflower nature" },
-  { emojis: "🌞🌙⭐🌈☁️⛈️❄️🔥💧", terms: "sun moon star rainbow cloud storm snow fire flame water drop weather nature" },
-  { emojis: "🍏🍎🍐🍊🍋🍌🍉🍇🍓🫐🍒🍑🥭🍍🥥🥝", terms: "fruit apple pear orange lemon banana watermelon grape strawberry blueberry cherry peach mango pineapple coconut kiwi food" },
-  { emojis: "🍅🥑🥦🥕🌽🌶️", terms: "vegetable tomato avocado broccoli carrot corn pepper food" },
-  { emojis: "🥐🥯🍞🥨🧀🥚🍳🥞🥓", terms: "bread croissant bagel pretzel cheese egg breakfast pancake bacon food" },
-  { emojis: "🍔🍟🍕🌭🥪🌮🌯🥗🍝🍜🍲🍣🍱🥟", terms: "burger fries pizza hot dog sandwich taco burrito salad pasta noodles soup sushi lunch dinner food" },
-  { emojis: "🍦🍩🍪🎂🍰🍫🍿", terms: "ice cream donut cookie cake birthday chocolate popcorn dessert sweet food" },
-  { emojis: "☕🍵🥤🧃🍺🍷🍸🍹🥂", terms: "coffee tea drink juice beer wine cocktail toast beverage" },
-  { emojis: "🚗🚕🚌🚎🏎️🚓🚑🚒🚚", terms: "car taxi bus race police ambulance fire truck vehicle travel" },
-  { emojis: "🚲🛴🏍️🚂🚆🚇🚊✈️🚀🛸🚁⛵🚢", terms: "bike bicycle scooter motorcycle train subway plane airplane rocket helicopter boat ship travel vehicle" },
-  { emojis: "🏠🏡🏢🏫🏥🏦🏨🏪🏛️⛪🕌", terms: "home house office school hospital bank hotel shop building church mosque place" },
-  { emojis: "⚽🏀🏈⚾🎾🏐🏉🏓🏸🏒🏑🏏⛳", terms: "football soccer basketball baseball tennis volleyball sport ball game" },
-  { emojis: "🎯🎮🕹️🎲🧩♟️🎭🎨🎬🎤🎧🎼🎹🥁🎷🎺🎸🎻", terms: "target game controller dice puzzle chess theater art movie music microphone headphones piano drum instrument activity" },
-  { emojis: "🎈🎉🎊🎁🎀🪅🪩🎆🎇🧨🎃🎄", terms: "balloon party celebrate celebration gift present fireworks halloween christmas event" },
-  { emojis: "🏆🥇🥈🥉🏅🎖️", terms: "trophy medal award winner prize achievement" },
-  { emojis: "📅📆🗓️⏰⏱️⏲️⌚", terms: "calendar date schedule planning clock alarm timer time watch" },
-  { emojis: "🗒️📓📔📕📗📘📙🔖📋📊📈📉🧾", terms: "note notebook book bookmark clipboard chart graph receipt document planning" },
-  { emojis: "📤📥📦✉️📧💼🗃️🗄️🗑️🛍️", terms: "send receive box package mail email briefcase archive cabinet trash shopping" },
-  { emojis: "💡🔦🕯️🧯🛠️🔧🔨⚙️🧰", terms: "idea light flashlight candle extinguisher tools wrench hammer gear toolbox object" },
-  { emojis: "🧪🧫🧬🔬🔭📡💉🩺", terms: "science test tube dna microscope telescope antenna medicine injection doctor health" },
-  { emojis: "🔑🔒🔓🗝️💰💳💎⚖️🪪", terms: "key lock unlock money card diamond balance justice id security" },
-  { emojis: "📱💻⌨️🖥️🖨️📷🎥📞☎️", terms: "phone mobile laptop computer keyboard monitor printer camera video telephone technology" },
-  { emojis: "📚📖📝📌📍✂️📎🔗🏷️📁🗂️", terms: "books read write memo pin location scissors paperclip link tag folder files" },
-  { emojis: "🧹🧼🧽🫧", terms: "clean cleaning tidy broom sweep soap sponge wash bubbles chore" },
-  { emojis: "❤️🧡💛💚💙💜🖤🤍💔", terms: "heart love red orange yellow green blue purple black white broken" },
-  { emojis: "✅☑️✔️❌❎➕➖➗✖️", terms: "check done success yes cross cancel no add plus minus divide multiply symbol" },
-  { emojis: "❗❓‼️⁉️⚠️🚫🔔🔕♻️", terms: "important exclamation question warning stop prohibited bell mute recycle symbol" },
-  { emojis: "🔴🟠🟡🟢🔵🟣⚫⚪", terms: "circle dot red orange yellow green blue purple black white color symbol" },
-  { emojis: "⬆️⬇️➡️⬅️↗️↘️↙️↖️🔙🔚🔜🔝🔁🔄", terms: "arrow up down right left back end soon top repeat refresh direction symbol" },
-  { emojis: "🏁🚩🎌🏴🏳️🏳️‍🌈", terms: "flag finish race red black white rainbow pride" },
-];
-
-function emojiSearchTerms(emoji: string): string {
-  return EMOJI_SEARCH_GROUPS
-    .filter(group => group.emojis.includes(emoji))
-    .map(group => group.terms)
-    .join(" ");
+type EmojiPickerModule = typeof import("./emojiPicker");
+let emojiPickerPromise: Promise<EmojiPickerModule | null> | null = null;
+function loadEmojiPicker(): Promise<EmojiPickerModule | null> {
+  return emojiPickerPromise ??= import("./emojiPicker").catch(() => {
+    emojiPickerPromise = null;
+    return null;
+  });
 }
+
 const DEFAULT_NOTE_ICON_TEXT = "\uf249";
 const DEFAULT_FILE_ICON_TEXT = "\uf15b";
 const DEFAULT_TEXT_ICON_TEXT = "\uf031";
@@ -513,18 +359,9 @@ export const Toolbar_Popup: Component = () => {
   );
   const [customEmojiInputFocused, setCustomEmojiInputFocused] = createSignal(false);
   const [emojiSearchQuery, setEmojiSearchQuery] = createSignal("");
-  const filteredEmojiCategories = createMemo(() => {
-    const queryTerms = emojiSearchQuery().trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
-    if (queryTerms.length == 0) { return EMOJI_CATEGORIES; }
-    return EMOJI_CATEGORIES.map(category => ({
-      ...category,
-      emojis: category.emojis.filter(emoji => {
-        const categoryTerms = category.name.toLocaleLowerCase().split(/\s*&\s*|\s+/).filter(Boolean);
-        const aliases = emojiSearchTerms(emoji).toLocaleLowerCase();
-        return queryTerms.every(term => emoji.includes(term) || aliases.includes(term) || categoryTerms.includes(term));
-      }),
-    })).filter(category => category.emojis.length > 0);
-  });
+  const [emojiPicker, { refetch: refetchEmojiPicker }] = createResource(
+    () => overlayType() == ToolbarPopupType.ItemIcon, () => loadEmojiPicker());
+  const filteredEmojiCategories = createMemo(() => emojiPicker()?.filterEmojiCategories(emojiSearchQuery()) ?? []);
 
   const boxBoundsPx = () => toolbarPopupBoxBoundsPx(store);
 
@@ -1450,10 +1287,17 @@ export const Toolbar_Popup: Component = () => {
                   </div>
                 </div>
               }</For>
-              <Show when={filteredEmojiCategories().length == 0}>
+              <Show when={emojiPicker() != null && filteredEmojiCategories().length == 0}>
                 <div class="flex flex-col items-center justify-center h-full px-[16px] text-center text-[12px] text-neutral-400">
                   <i class="bi-search mb-[7px] text-[16px]" />
                   No emoji found
+                </div>
+              </Show>
+              <Show when={!emojiPicker.loading && emojiPicker() == null}>
+                <div class="flex items-center justify-center gap-2 h-full text-[12px] text-neutral-500">
+                  <span>Could not load emoji.</span>
+                  <button type="button" class="text-blue-700 cursor-pointer hover:underline"
+                    onClick={() => { void refetchEmojiPicker(); }}>Retry</button>
                 </div>
               </Show>
             </div>
