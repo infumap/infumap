@@ -255,8 +255,11 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
           <div class={`${shadowClass()}`}
             style={`left: 0px; top: ${titleHeaderHeightPx()}px; width: ${boundsPx().w}px; height: ${boundsPx().h - titleHeaderHeightPx()}px; z-index: 0;`} />
         </Show>
-        <div class="absolute bg-white pointer-events-none"
-          style={`left: 0px; top: ${titleHeaderHeightPx()}px; width: ${boundsPx().w}px; height: ${boundsPx().h - titleHeaderHeightPx()}px; z-index: 0;`} />
+        {/* Inset 1px and rounded so it sits inside the border drawn above: at the same bounds, fractional
+            geometry can snap this fill half a device pixel past the border, and square corners show outside
+            the rounded border. */}
+        <div class="absolute bg-white rounded-item pointer-events-none"
+          style={`left: 1px; top: ${titleHeaderHeightPx() + 1}px; width: ${boundsPx().w - 2}px; height: ${boundsPx().h - titleHeaderHeightPx() - 2}px; z-index: 0;`} />
       </>
     </Show>;
 
