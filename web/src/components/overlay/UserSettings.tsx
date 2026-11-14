@@ -300,10 +300,12 @@ export const EditUserSettings: Component = () => {
 
   return (
     // The dialog's bounds are those of editUserSettingsInfo, which mouse_down uses to decide whether a press is in the
-    // dialog (and starts moving it) or outside (and closes it). The panel is inset from them, as it always has been.
+    // dialog (and starts moving it) or outside (and closes it), so the panel fills them exactly. They are in desktop
+    // coordinates, so the panel is positioned in the desktop (absolute), not the window: as fixed it was drawn a
+    // toolbar height above its bounds, and a press on its title counted as outside and closed it.
     <div ref={editUserSettingsDiv}
-         class={`fixed z-20 flex flex-col overflow-hidden ${FLOATING_DIALOG_SURFACE_CLASS}`}
-         style={`left: ${posPx().x+10.0}px; top: ${posPx().y+10}px; width: ${sizePx().w-20.0}px; height: ${sizePx().h-20.0}px;`}>
+         class={`absolute z-20 flex flex-col overflow-hidden ${FLOATING_DIALOG_SURFACE_CLASS}`}
+         style={`left: ${posPx().x}px; top: ${posPx().y}px; width: ${sizePx().w}px; height: ${sizePx().h}px;`}>
       <DialogHeader title="User settings" />
 
       <div class="flex shrink-0 border-b border-chrome-line px-3" role="tablist">
