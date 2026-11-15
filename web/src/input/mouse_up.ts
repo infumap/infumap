@@ -75,7 +75,7 @@ import { calculateMoveToPagePositionGr, moveGroupToChildParentPreservingOffsets,
 import { isDockListPageIconMoveTargetVe, moveTargetWouldCreateRelationshipCycle, resolveInternalMoveTarget } from "./move_target";
 import { createMaterializedTextDocumentItems } from "../items/text-document";
 import { NativeTextSelectionState } from "./native_text_selection";
-import { isInsideDocumentPageClickContext } from "../items/base/item-common-fns";
+import { isInsideDocumentPageClickContext, isInsideReadOnlyDocumentPage } from "../items/base/item-common-fns";
 import { appendEmptyNoteToDocumentPage } from "./edit";
 
 
@@ -1690,6 +1690,9 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
         } else {
           if (isComposite(activeVisualElement.displayItem) || isPlaceholder(activeVisualElement.displayItem)) {
             // noop.
+
+          } else if (!itemCanEdit(activeVisualElement.displayItem) && isInsideReadOnlyDocumentPage(activeVisualElement)) {
+            // e.g. a cell of a table in a text file shown as a document: the click is for reading, not focusing.
 
           } else {
             store.history.setFocus(MouseActionState.getActiveElementPath()!);

@@ -43,7 +43,7 @@ import { PositionalMixin } from "./base/positional-item";
 import { FlagsMixin, TableFlags } from "./base/flags-item";
 import { VeFns, VisualElement, VisualElementFlags, VisualElementPath, isTableView } from "../layout/visual-element";
 import { StoreContextModel } from "../store/StoreProvider";
-import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe, isInsideDocumentPageClickContext, isInsidePopupHierarchy } from "./base/item-common-fns";
+import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe, isInsideDocumentPageClickContext, isInsidePopupHierarchy, isInsideReadOnlyDocumentPage } from "./base/item-common-fns";
 import { itemState } from "../store/ItemState";
 import { PlaceholderFns } from "./placeholder-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
@@ -403,6 +403,7 @@ export const TableFns = {
   handleClick: (visualElement: VisualElement, hitboxMeta: HitboxMeta | null, store: StoreContextModel, forceEdit: boolean = false): void => {
     const handledByList = handleListPageLineItemClickMaybe(visualElement, store);
     if (!forceEdit && handledByList) { return; }
+    if (!forceEdit && !itemCanEdit(visualElement.displayItem) && isInsideReadOnlyDocumentPage(visualElement)) { return; }
     const itemPath = VeFns.veToPath(visualElement);
     const editTitle = hitboxMeta == null;
     if (editTitle && tableTitleHeaderHeightBl(asTableItem(visualElement.displayItem)) == 0) {

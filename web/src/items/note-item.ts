@@ -33,7 +33,7 @@ import { PositionalMixin } from './base/positional-item';
 import { FlagsItem, FlagsMixin, NOTE_ALIGN_FLAGS, NoteFlags } from './base/flags-item';
 import { VeFns, VisualElement } from '../layout/visual-element';
 import { StoreContextModel } from '../store/StoreProvider';
-import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe, isInsidePopupHierarchy } from './base/item-common-fns';
+import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe, isInsidePopupHierarchy, isInsideReadOnlyDocumentPage } from './base/item-common-fns';
 import { ItemFns } from './base/item-polymorphism';
 import { desktopPopupIconTextIndentPx, getTextStyleForNote, type InlineTextMeasureSegment, measureDocumentNoteHeightBl, measureLineCount, measureLineItemTextHeightBl, noteTextInsetPx } from '../layout/text';
 import { arrangeNow, requestArrange } from '../layout/arrange';
@@ -1082,7 +1082,7 @@ export const NoteFns = {
     if (!forceEdit && handledByList) { return; }
     const itemPath = VeFns.veToPath(visualElement);
     if (!itemCanEdit(visualElement.displayItem)) {
-      if (!handledByList) {
+      if (!handledByList && (forceEdit || !isInsideReadOnlyDocumentPage(visualElement))) {
         store.history.setFocus(itemPath);
         arrangeNow(store, "note-focus-only");
       }

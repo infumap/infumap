@@ -26,6 +26,7 @@ import { VisualElement, VisualElementFlags, VeFns } from "../../layout/visual-el
 import { StoreContextModel } from "../../store/StoreProvider";
 import { BoundingBox, Dimensions } from "../../util/geometry";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../page-item";
+import { itemCanEdit } from "./capabilities-item";
 import { Measurable } from "./item";
 
 
@@ -87,6 +88,27 @@ export function isInsideDocumentPageClickContext(visualElement: VisualElement): 
       return asPageItem(currentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document;
     }
 
+    currentPath = currentVe.parentPath;
+  }
+
+  return false;
+}
+
+/**
+ * Whether the nearest page containing this element is a document page the user can't edit, such as a text file shown
+ * as a document. A plain click on an item there is for reading or selecting text, so it shouldn't put a focus ring on
+ * the item. Long hold and the drag handle still focus it on purpose.
+ */
+export function isInsideReadOnlyDocumentPage(visualElement: VisualElement): boolean {
+  let currentPath = visualElement.parentPath;
+
+  while (currentPath != null) {
+    const currentVe = VesCache.current.readNode(currentPath);
+    if (!currentVe) { return false; }
+    if (isPage(currentVe.displayItem)) {
+      return asPageItem(currentVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document &&
+        !itemCanEdit(currentVe.displayItem);
+    }
     currentPath = currentVe.parentPath;
   }
 

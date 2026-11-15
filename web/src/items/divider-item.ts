@@ -25,8 +25,8 @@ import { BoundingBox, cloneBoundingBox, Dimensions, zeroBoundingBoxTopLeft } fro
 import { currentUnixTimeSeconds, panic } from "../util/lang";
 import { EMPTY_UID, Uid, newUid } from "../util/uid";
 import { calcGeometryOfAttachmentItemImpl } from "./base/attachments-item";
-import { normalizeItemCapabilities } from "./base/capabilities-item";
-import { calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe } from "./base/item-common-fns";
+import { itemCanEdit, normalizeItemCapabilities } from "./base/capabilities-item";
+import { calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe, isInsideReadOnlyDocumentPage } from "./base/item-common-fns";
 import { Item, ItemType, ItemTypeMixin } from "./base/item";
 import { PositionalMixin } from "./base/positional-item";
 import { XSizableMixin } from "./base/x-sizeable-item";
@@ -302,6 +302,7 @@ export const DividerFns = {
   handleClick: (visualElement: VisualElement, store: StoreContextModel, forceFocus: boolean = false): void => {
     const handledByList = handleListPageLineItemClickMaybe(visualElement, store);
     if (!forceFocus && handledByList) { return; }
+    if (!forceFocus && !itemCanEdit(visualElement.displayItem) && isInsideReadOnlyDocumentPage(visualElement)) { return; }
     store.history.setFocus(VeFns.veToPath(visualElement));
   },
 
