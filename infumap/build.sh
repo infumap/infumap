@@ -69,6 +69,21 @@ case "$TARGET" in
       echo "See docs/developer.md for setup instructions."
       exit 1
     fi
+    if [[ "$(uname -s)" == Darwin ]]; then
+      # Zig's parallel linker can exhaust macOS's default 256 file descriptors
+      # while opening our Rust archives and musl objects (ProcessFdQuotaExceeded).
+      # Raise only this build process's soft limit; preserve higher limits and
+      # never lower the hard limit inherited from the calling shell.
+      # https://github.com/rust-cross/cargo-zigbuild/issues/329
+      FILE_LIMIT="$(ulimit -Sn)"
+      if [[ "$FILE_LIMIT" != unlimited ]] && (( FILE_LIMIT < 8192 )); then
+        if ! ulimit -Sn 8192 2>/dev/null; then
+          echo "Error: unable to raise the open-file soft limit from $FILE_LIMIT to 8192 for Zig linking." >&2
+          echo "Inherited hard limit: $(ulimit -Hn). Start the build from a shell with a higher hard limit." >&2
+          exit 1
+        fi
+      fi
+    fi
     CARGO_COMMAND=zigbuild
     ;;
 esac
