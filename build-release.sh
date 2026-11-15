@@ -98,7 +98,12 @@ if [[ $SIGN_MACOS -eq 1 ]]; then
 fi
 
 if [[ $SKIP_WEB -eq 0 ]]; then
-  "$SCRIPT_DIR/web/build.sh" "${WEB_BUILD_ARGS[@]}"
+  # macOS's Bash 3.2 treats an empty array expansion as unset under set -u.
+  if [[ ${#WEB_BUILD_ARGS[@]} -gt 0 ]]; then
+    "$SCRIPT_DIR/web/build.sh" "${WEB_BUILD_ARGS[@]}"
+  else
+    "$SCRIPT_DIR/web/build.sh"
+  fi
 elif [[ ! -f "$SCRIPT_DIR/infumap/dist/index.html" || ! -f "$SCRIPT_DIR/infumap/src/web/dist_handlers.rs" ]]; then
   echo "Error: --skip-web requires infumap/dist/ and infumap/src/web/dist_handlers.rs from a web build." >&2
   exit 1
