@@ -109,7 +109,12 @@ try:
         members = release.getmembers()
         expected = {package, package + "/infumap", package + "/LICENSE.txt"}
         if len(members) != 3 or {entry.name for entry in members} != expected:
-            raise ValueError("unexpected archive contents")
+            found = "\n".join(f"  {entry.name!r} (type {entry.type!r})" for entry in members)
+            raise ValueError(
+                "unexpected archive contents; expected exactly the package directory, infumap and LICENSE.txt."
+                f"\nFound {len(members)} entries:\n{found}"
+                "\nRecreate the archive with build-release.sh."
+            )
         for entry in members:
             if not (entry.isdir() if entry.name == package else entry.isfile()):
                 raise ValueError("archive must contain only a directory, executable and license")

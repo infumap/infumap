@@ -133,7 +133,17 @@ else
   mkdir "$STAGING/$ARTIFACT"
   cp "$TARGET_DIRECTORY/$TARGET/release/$BINARY" "$STAGING/$ARTIFACT/$BINARY"
   cp "$SCRIPT_DIR/LICENSE.txt" "$STAGING/$ARTIFACT/LICENSE.txt"
-  tar -czf "$STAGING/$ARCHIVE" -C "$STAGING" "$ARTIFACT"
+  # macOS tar can add AppleDouble metadata entries that its own listing hides,
+  # but Python and Linux tar see as extra files. Use one writer on every host
+  # so Linux release archives contain only the package directory and its payload.
+  python3 - "$STAGING/$ARTIFACT" "$STAGING/$ARCHIVE" "$ARTIFACT" <<'PY'
+import sys
+import tarfile
+
+with tarfile.open(sys.argv[2], "w:gz") as release:
+    for suffix in ("", "/infumap", "/LICENSE.txt"):
+        release.add(sys.argv[1] + suffix, arcname=sys.argv[3] + suffix, recursive=False)
+PY
 fi
 
 cd "$STAGING"
