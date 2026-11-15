@@ -20,9 +20,18 @@ import { isNote } from "../items/note-item";
 import { VesCache } from "../layout/ves-cache";
 import { VeFns } from "../layout/visual-element";
 import { closestCaretPositionToClientPx, getEditPathInfoForNode, getTextOffsetWithinElement, resolveTextRangePosition } from "../util/caret";
+import { Vector } from "../util/geometry";
 
 
 let readOnlyDocumentTextSelectionActive = false;
+
+/** A press on a link in a read-only document: the link opens on release only if the press didn't become a drag. */
+export interface ReadOnlyDocumentLinkPress {
+  url: string,
+  notePath: string,
+  clientPx: Vector,
+}
+let readOnlyDocumentLinkPress: ReadOnlyDocumentLinkPress | null = null;
 let stopMarginSelectionDrag: (() => void) | null = null;
 
 function startMarginSelectionDrag(element: HTMLElement): void {
@@ -87,12 +96,17 @@ export const NativeTextSelectionState = {
   // Continue from the caret explicitly when the press landed on a gap/guard.
   startMarginSelectionDrag,
 
-  startReadOnlyDocumentTextSelection: (): void => {
+  startReadOnlyDocumentTextSelection: (linkPress: ReadOnlyDocumentLinkPress | null): void => {
     readOnlyDocumentTextSelectionActive = true;
+    readOnlyDocumentLinkPress = linkPress;
   },
+
+  /** The link press of the selection that is ending, if it started on a link. Read it before clear(). */
+  readOnlyDocumentLinkPress: (): ReadOnlyDocumentLinkPress | null => readOnlyDocumentLinkPress,
 
   clear: (): void => {
     readOnlyDocumentTextSelectionActive = false;
+    readOnlyDocumentLinkPress = null;
     stopMarginSelectionDrag?.();
   },
 

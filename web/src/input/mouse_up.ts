@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { GRID_SIZE, NATURAL_BLOCK_SIZE_PX } from "../constants";
+import { GRID_SIZE, MOUSE_MOVE_AMBIGUOUS_PX, NATURAL_BLOCK_SIZE_PX } from "../constants";
 import { AttachmentsItem, asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { itemCanEdit } from "../items/base/capabilities-item";
 import { ContainerItem, asContainerItem, isContainer } from "../items/base/container-item";
@@ -37,7 +37,7 @@ import { chatItemDropTargetAt, updateChatItemDropHover } from "../items/chat-att
 import { openQueryChatTurnMarkdownPopup } from "../items/chat-turn-markdown";
 import { LinkFns, asLinkItem, isLink } from "../items/link-item";
 import { ArrangeAlgorithm, PageFns, asPageItem, documentPageChildClickIsInsideVisibleBounds, editLastDocumentRowFromBelowClickMaybe, handleDocumentRowSideClickMaybe, isPage } from "../items/page-item";
-import { asNoteItem, isNote } from "../items/note-item";
+import { NoteFns, asNoteItem, isNote } from "../items/note-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
 import { NoteFlags } from "../items/base/flags-item";
 import { isPlaceholder, PlaceholderFns } from "../items/placeholder-item";
@@ -74,7 +74,7 @@ import { marqueeSelection, mouseMove_handleNoButtonDown, resolveActiveTreeItemFo
 import { calculateMoveToPagePositionGr, moveGroupToChildParentPreservingOffsets, movingHitIgnoreIds, orderedGroupMoveItems, placeItemsAtChildrenPosition, placeItemsInListPageBand } from "./move_group";
 import { isDockListPageIconMoveTargetVe, moveTargetWouldCreateRelationshipCycle, resolveInternalMoveTarget } from "./move_target";
 import { createMaterializedTextDocumentItems } from "../items/text-document";
-import { NativeTextSelectionState } from "./native_text_selection";
+import { NativeTextSelectionState, ReadOnlyDocumentLinkPress } from "./native_text_selection";
 import { isInsideDocumentPageClickContext, isInsideReadOnlyDocumentPage } from "../items/base/item-common-fns";
 import { appendEmptyNoteToDocumentPage } from "./edit";
 
@@ -1328,9 +1328,32 @@ function moveCalendarSelectionToDate(
 }
 
 
+/**
+ * Opens the link a read-only document text selection started on, unless the press became a drag or selected text.
+ */
+function openReadOnlyDocumentLinkMaybe(store: StoreContextModel, linkPress: ReadOnlyDocumentLinkPress): void {
+  const clientPx = CursorEventState.getLatestClientPx();
+  if (Math.abs(clientPx.x - linkPress.clientPx.x) > MOUSE_MOVE_AMBIGUOUS_PX ||
+      Math.abs(clientPx.y - linkPress.clientPx.y) > MOUSE_MOVE_AMBIGUOUS_PX) {
+    return;
+  }
+  const selection = window.getSelection();
+  if (selection != null && !selection.isCollapsed) { return; }
+  const noteVe = VesCache.current.readNode(linkPress.notePath);
+  if (noteVe == null) { return; }
+  ClickState.setLinkWasClicked(linkPress.url);
+  NoteFns.handleLinkClick(noteVe, store);
+  ClickState.setLinkWasClicked(false);
+}
+
+
 export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags {
   MouseActionState.setMoveBlockedCursor(false);
+  const readOnlyDocumentLinkPress = NativeTextSelectionState.readOnlyDocumentLinkPress();
   NativeTextSelectionState.clear();
+  if (readOnlyDocumentLinkPress != null) {
+    openReadOnlyDocumentLinkMaybe(store, readOnlyDocumentLinkPress);
+  }
 
   if (document.activeElement!.id.includes("toolbarTitleDiv")) {
     let titleBounds = boundingBoxFromDOMRect(document.activeElement!.getBoundingClientRect())!;

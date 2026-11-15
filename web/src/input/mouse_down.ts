@@ -714,9 +714,18 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     return defaultResult;
   }
 
-  if (!ClickState.getLinkWasClicked() && shouldAllowReadOnlyDocumentNoteTextSelection(hitVe, hitInfo)) {
+  // A press on a link in a read-only document starts a text selection like a press on any other text: the page body is
+  // contenteditable, so the browser selects instead of dragging the link. The link opens on release only if the press
+  // didn't become a drag (mouse_up.ts), as browsers do.
+  const readOnlyLinkUrl = ClickState.getLinkWasClicked() ? ClickState.getLinkClickUrl() : null;
+  if ((!ClickState.getLinkWasClicked() || readOnlyLinkUrl != null) &&
+      shouldAllowReadOnlyDocumentNoteTextSelection(hitVe, hitInfo)) {
     ClickState.setLinkWasClicked(false);
-    NativeTextSelectionState.startReadOnlyDocumentTextSelection();
+    NativeTextSelectionState.startReadOnlyDocumentTextSelection(readOnlyLinkUrl == null ? null : {
+      url: readOnlyLinkUrl,
+      notePath: VeFns.veToPath(hitVe),
+      clientPx: CursorEventState.getLatestClientPx(),
+    });
     return startLinearNoteTextSelection(hitVe);
   }
 

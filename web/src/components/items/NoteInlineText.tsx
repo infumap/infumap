@@ -59,6 +59,9 @@ export const NoteInlineText: Component<{
       return;
     }
     if (ev.button == MOUSE_LEFT) { ClickState.setLinkWasClicked(url); }
+    // In a read-only document a press on a link may start a text selection (see mouse_down.ts), which a prevented
+    // mousedown can't do. The page body there is contenteditable, so the browser doesn't drag the link instead.
+    if (ev.target instanceof Element && ev.target.closest("[data-infumap-read-only-document]") != null) { return; }
     ev.preventDefault();
   };
   const eatLinkClick = (ev: MouseEvent) => { ev.preventDefault(); };
