@@ -1,11 +1,11 @@
 # Infumap
 
-Infumap is a durable home for all of your information. Once you’ve stored something, you can be confident it won’t be lost, that you’ll be able to find it again, and that other people won’t have access to it without your permission.
+Infumap is a durable home for all of your information. After adding something, you can be confident it won’t be **lost**, that you’ll be able to **find** it again, and that other people won’t have access to it without your **permission**.
 
-Infumap is more than a store - it's the how I have long imagined a computer desktop should work.
+But Infumap is more than a store - it's how I have long imagined a computer desktop should work.
 
 - **Structure that develops as you work.**
-  Start with a few loose notes and documents with little or no organization. Structure is optional; add it only where it helps - you can always fall back to search. Group related items, arrange a page, or organize details into a table as the work takes shape.
+  Add a document, jot down a thought or bookmark a URL without deciding how everything should be organized upfront. As your understanding develops, group related items, arrange a page, or organize details into a table. Add structure only where it helps - you can always fall back to search.
 
 - **Small details have a place.**
   A note, a link or a rating are items in their own right, alongside a document or an image. You can keep these small pieces of information where they belong without having to create a separate file for each one.
@@ -15,9 +15,6 @@ Infumap is more than a store - it's the how I have long imagined a computer desk
 
 - **Choose the form that fits.**
   Different information calls for different arrangements. You might use a table to compare places to stay, arrange documents and notes together on a page, or leave a few items loosely grouped until you know what to do with them.
-
-- **Organizing without deciding everything upfront.**
-  You don’t need to decide how everything should be organized before you start. Add a document, jot down a thought or rate an option, then arrange and connect those pieces as your understanding develops. The structure can grow with the work.
 
 <kbd>
   <img src="screenshot.png" />
