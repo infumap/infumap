@@ -37,7 +37,7 @@ Install prerequisites:
 
     sudo apt update
     sudo apt upgrade
-    sudo apt install git ufw wireguard
+    sudo apt install ca-certificates curl ufw wireguard
 
 Raspberry Pi OS ships with a default `pi` account and passwordless `sudo`. Replace this with a dedicated admin
 account (`infumap`) and disable SSH access for `pi`.
@@ -195,56 +195,45 @@ Apply this baseline policy now. After WireGuard peer IP assignments are complete
 
 ### Infumap Install
 
-After setting up the firewall, build Infumap from source.
+Build the release on your admin machine, then deploy it to the Raspberry Pi over SSH. The ARM64 Linux release
+includes the web client; the Pi does not need Rust, Node.js or a source checkout.
 
-Before executing any third-party bootstrap script, download it first and inspect it locally. This does not remove supply-chain risk, but it is better than `curl ... | sh` because you get a stable artifact to review and can rerun the exact same file you inspected.
+On your admin machine, add an SSH alias to `~/.ssh/config`:
 
-First install Rust by downloading the official `rustup` bootstrap script, inspecting it, then running it manually:
+    Host infumap-pi
+        HostName YOUR_PI_LAN_IP
+        User infumap
+        IdentityFile ~/.ssh/id_infumap_pi
+        IdentitiesOnly yes
 
-    curl --proto '=https' --tlsv1.2 -fsSLo /tmp/rustup-init.sh https://sh.rustup.rs
-    less /tmp/rustup-init.sh
-    sh /tmp/rustup-init.sh
-    rm /tmp/rustup-init.sh
+Replace `YOUR_PI_LAN_IP` with the address used earlier and verify the connection:
 
-Now clone the Infumap repo:
+    ssh infumap-pi
+    exit
 
-    cd ~
-    mkdir -p git
-    cd git
+Use the LAN address for this initial installation. Once the admin WireGuard client and its SSH firewall rule are
+configured later in this guide, you can change `HostName` to `10.0.0.2` to deploy over the VPN.
+
+On your admin machine, clone the repository if you do not already have it:
+
     git clone https://github.com/infumap/infumap.git
     cd infumap
 
-Cloning downloads the source without executing it. If you want a review point before the build, inspect project scripts such as `build.sh`.
+Install the build prerequisites from the [developer guide](../developer.md#linux-musl-builds), including Zig,
+cargo-zigbuild and the ARM64 Rust target. The deployment script also uses Bash, Python 3, `ssh` and `scp` locally.
+From the repository root on your admin machine:
 
-Find the exact `nvm` release you want to install at https://github.com/nvm-sh/nvm (for example, `v0.40.4`), then download that specific installer, inspect it, and run it:
+    ./build-release.sh aarch64-unknown-linux-musl
+    ./tools/deploy-infumap.sh --host infumap-pi --archive dist/infumap-VERSION-aarch64-unknown-linux-musl.tar.gz --install-only
 
-    curl -fsSLo /tmp/nvm-install.sh https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh
-    less /tmp/nvm-install.sh
-    bash /tmp/nvm-install.sh
-    rm /tmp/nvm-install.sh
+Replace `VERSION` with the version in the filename printed by `build-release.sh`. Keep the matching `.tar.gz.sha256`
+file beside the archive. The script verifies the archive locally and remotely, checks the remote CPU architecture,
+and installs `/opt/infumap/bin/infumap` and `/opt/infumap/LICENSE.txt` as root. It prompts for the remote admin's sudo
+password when needed.
 
-Log out and log back in so your shell picks up the `nvm` initialization added by the installer. Then install and use the repo-pinned Node.js version from `.nvmrc`:
-
-    exit
-    ssh -i ~/.ssh/id_infumap_pi infumap@<ip address>
-    cd ~/git/infumap
-    nvm install
-    nvm use
-
-If you want to check current npm advisories explicitly, do it as a separate step instead of relying on build-time install output:
-
-    cd ~/git/infumap/web
-    npm audit
-    cd ~/git/infumap
-
-Finally build Infumap:
-
-    ./build.sh
-
-Install the release binary to a stable, root-owned path:
-
-    sudo install -d -m 0755 /opt/infumap/bin
-    sudo install -m 0755 ~/git/infumap/infumap/target/release/infumap /opt/infumap/bin/infumap
+`--install-only` installs the executable before settings and the systemd service exist. It does not start Infumap
+and refuses to replace the executable while `infumap-web` is running. Continue configuring the hosts below;
+the settings and service are created in **Configure and Run Infumap**.
 
 
 ### Initial VPS Setup
@@ -595,11 +584,16 @@ On the VPS, clone the Infumap repo into `~/git`:
 
 If `~/git/infumap` already exists on the VPS, reuse that checkout.
 
-On the Raspberry Pi, install `qrencode` and the QR helper from the checked-out Infumap repo:
+From the repository root on your admin machine, copy the QR helper to the Raspberry Pi:
+
+    scp tools/wg-peer-qr.sh infumap-pi:/tmp/wg-peer-qr.sh
+
+On the Raspberry Pi, install `qrencode` and the copied helper:
 
     sudo apt update
     sudo apt install -y qrencode
-    sudo install -o root -g root -m 0755 ~/git/infumap/tools/wg-peer-qr.sh /usr/local/bin/wg-peer-qr.sh
+    sudo install -o root -g root -m 0755 /tmp/wg-peer-qr.sh /usr/local/bin/wg-peer-qr.sh
+    rm /tmp/wg-peer-qr.sh
 
 On the VPS, install the peer-add helper from the checked-out Infumap repo:
 
@@ -639,9 +633,14 @@ SSH remains restricted to the Mac admin client by default; keep it that way unle
 
 With this setup, the Raspberry Pi may occasionally become unreachable over WireGuard, sometimes until manual intervention. As a workaround, use a small watchdog script that monitors reachability to the VPS over `wg0` and restarts WireGuard when needed.
 
-Install `infumap/tools/wg-monitor.sh` as a root-owned executable:
+From the repository root on your admin machine, copy the monitoring script to the Raspberry Pi:
 
-    sudo install -o root -g root -m 0755 ~/git/infumap/tools/wg-monitor.sh /usr/local/bin/wg-monitor.sh
+    scp tools/wg-monitor.sh infumap-pi:/tmp/wg-monitor.sh
+
+On the Raspberry Pi, install it as a root-owned executable:
+
+    sudo install -o root -g root -m 0755 /tmp/wg-monitor.sh /usr/local/bin/wg-monitor.sh
+    rm /tmp/wg-monitor.sh
 
 Create and lock down a log file:
 
@@ -830,24 +829,24 @@ Enable and start the service:
 `RequiresMountsFor=/mnt/enc` is not sufficient on its own here because `/mnt/enc` also exists as a plain directory on the root filesystem.
 `ConditionPathIsMountPoint=/mnt/enc` prevents `infumap-web` from starting before you manually unlock and mount the LUKS volume after reboot.
 
-Create `~/deploy-infumap.sh`:
+For subsequent updates, run these commands from the repository root on your admin machine:
 
-    cat > ~/deploy-infumap.sh <<'EOF'
-    #!/usr/bin/env bash
-    set -euo pipefail
-    cd "$HOME/git/infumap"
-    ./build.sh --no-minify
-    sudo install -m 0755 "$HOME/git/infumap/infumap/target/release/infumap" /opt/infumap/bin/infumap
-    sudo chown root:root /opt/infumap/bin/infumap
-    sudo systemctl restart infumap-web
-    sudo systemctl --no-pager --full status infumap-web
-    EOF
+    ./build-release.sh aarch64-unknown-linux-musl
+    ./tools/deploy-infumap.sh --host infumap-pi --archive dist/infumap-VERSION-aarch64-unknown-linux-musl.tar.gz
 
-    chmod 700 ~/deploy-infumap.sh
+Replace `VERSION` with the version printed by the build. Omit `--install-only` for updates. The encrypted volume must
+already be unlocked and mounted at `/mnt/enc`, with settings at `/mnt/enc/infudata/settings.toml` and the
+`infumap-web.service` unit configured.
 
-Run deploys with:
+The script uploads and verifies the archive, stages a root-owned executable, stops `infumap-web`, atomically replaces
+the executable, and starts the service. It waits up to 300 seconds for the service to be active and serve HTTP at
+`http://127.0.0.1:8000/`, checked from the Pi. Use `--timeout 600` for slower startup maintenance or
+`--health-url http://127.0.0.1:PORT/` if you changed the HTTP port.
 
-    ~/deploy-infumap.sh
+The old binary is discarded. If deployment fails after stopping the service, the script exits with an error and
+prints service status, recent journal entries and the Infumap log. Recovery is manual; startup may migrate data,
+so installing an older binary is not necessarily sufficient to recover. Temporary upload and staging files are
+removed when the script exits normally or reports an error.
 
 Watch live logs:
 
