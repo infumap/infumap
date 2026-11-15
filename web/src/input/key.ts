@@ -99,10 +99,25 @@ function isHelpKey(ev: KeyboardEvent): boolean {
   return ev.key == "?" && !ev.ctrlKey && !ev.metaKey && !ev.altKey;
 }
 
+/**
+ * A read-only document page (e.g. a text file shown as a document) makes its whole body contenteditable so native text
+ * selection works across its rows, and the page blocks all input. A click in its text focuses that body, but it
+ * isn't a text field, so the global shortcuts must keep working. Only Shift+arrow keys (and the like) extend the
+ * selection natively. Keys the global handler doesn't recognize, such as Ctrl/Cmd+C and Ctrl/Cmd+A, reach the browser
+ * either way.
+ */
+function isReadOnlyDocumentSelectionKey(ev: KeyboardEvent): boolean {
+  return ev.shiftKey && (isArrowKey(ev.code) || ev.code == "Home" || ev.code == "End" ||
+    ev.code == "PageUp" || ev.code == "PageDown");
+}
+
 function targetShouldKeepNativeKeyboardBehavior(ev: KeyboardEvent): boolean {
   const target = ev.target;
   if (!(target instanceof HTMLElement)) {
     return false;
+  }
+  if (target.isContentEditable && target.closest("[data-infumap-read-only-document]") != null) {
+    return isReadOnlyDocumentSelectionKey(ev);
   }
   return target instanceof HTMLInputElement ||
     target instanceof HTMLTextAreaElement ||

@@ -455,6 +455,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
           `outline: 0px solid transparent; ` +
           `${miniatureChildItemRadiusStyle(store, pageFns().viewportBoundsPx().w)}`}
         contentEditable={documentTextSelectionContainerIsActive()}
+        data-infumap-read-only-document={readOnlyDocumentTextSelectionIsActive() ? "" : undefined}
         onBeforeInput={beforeInputListener}
         onKeyUp={keyUpHandler}
         onKeyDown={keyDownHandler}

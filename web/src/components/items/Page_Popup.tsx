@@ -540,6 +540,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
           `height: ${pageFns().childAreaBoundsPx().h}px; ` +
           `outline: 0px solid transparent;`}
         contentEditable={documentTextSelectionContainerIsActive()}
+        data-infumap-read-only-document={readOnlyDocumentTextSelectionIsActive() ? "" : undefined}
         onBeforeInput={beforeInputListener}
         onKeyUp={keyUpHandler}
         onKeyDown={keyDownHandler}

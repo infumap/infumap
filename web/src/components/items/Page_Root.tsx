@@ -696,6 +696,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
             `height: ${pageFns().childAreaBoundsPx().h}px;` +
             `outline: 0px solid transparent; `}
           contentEditable={documentTextSelectionContainerIsActive()}
+          data-infumap-read-only-document={readOnlyDocumentTextSelectionIsActive() ? "" : undefined}
           onBeforeInput={beforeInputListener}
           onKeyUp={keyUpHandler}
           onKeyDown={keyDownHandler}
@@ -870,6 +871,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
           `height: ${pageFns().childAreaBoundsPx().h}px;` +
           `outline: 0px solid transparent; `}
         contentEditable={documentTextSelectionContainerIsActive()}
+        data-infumap-read-only-document={readOnlyDocumentTextSelectionIsActive() ? "" : undefined}
         onBeforeInput={beforeInputListener}
         onKeyUp={keyUpHandler}
         onKeyDown={keyDownHandler}
