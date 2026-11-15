@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f6f5ef">
+    <meta name="description" content="Infumap is a durable home for your notes, documents, images and ideas. Organize at your own pace. Run it on your computer or your own server.">
+    <title>Infumap — A home for your information</title>
+    <link rel="icon" href="assets/favicon.ico">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="page-shell">
+      <header class="site-header">
+        <a class="brand" href="./" aria-label="Infumap home"><span class="brand-mark" aria-hidden="true">im</span>infumap</a>
+        <nav aria-label="Main navigation">
+          <a href="#overview">Overview</a>
+          <a href="https://github.com/infumap/infumap/tree/master/docs">Docs</a>
+          <a class="repository-link" href="https://github.com/infumap/infumap">GitHub <span aria-hidden="true">↗</span></a>
+        </nav>
+      </header>
+
+      <main id="main">
+        <section class="hero" aria-labelledby="hero-title">
+          <div class="hero-copy">
+            <p class="eyebrow"><span class="small-star" aria-hidden="true">✳</span> Your personal information space</p>
+            <h1 id="hero-title">A home for your<br>information.<br><em>Room to think.</em></h1>
+            <p class="hero-description">Keep your notes, documents, images and ideas together. Give them a little structure, or a lot. Let it grow with you.</p>
+            <div class="hero-actions">
+              <a class="button button-primary" href="#get-started">Get Infumap <span aria-hidden="true">↓</span></a>
+              <a class="text-link" href="https://github.com/infumap/infumap">Explore on GitHub <span aria-hidden="true">↗</span></a>
+            </div>
+            <p class="hero-note">Free software. Your computer. Your information.</p>
+          </div>
+          <aside class="hero-aside" aria-label="The idea behind Infumap">
+            <span class="aside-index">A place for the whole picture</span>
+            <div class="thought-map" aria-hidden="true">
+              <span class="map-line map-line-one"></span>
+              <span class="map-line map-line-two"></span>
+              <span class="map-line map-line-three"></span>
+              <span class="map-piece map-note"><span class="piece-icon">≡</span>A passing thought</span>
+              <span class="map-piece map-document"><span class="paper-icon"></span>The source material</span>
+              <span class="map-piece map-idea"><span class="piece-icon">✳</span>A new connection</span>
+              <span class="map-piece map-link"><span aria-hidden="true">↗</span> Something worth keeping</span>
+            </div>
+            <p>The material you collect.<br>The thinking you do with it.<br><em>All in the same place.</em></p>
+          </aside>
+        </section>
+
+        <figure class="product-preview" id="overview">
+          <div class="preview-bar"><span><span class="status-dot" aria-hidden="true"></span> A look inside Infumap</span><span class="preview-label">Your space, your arrangement</span></div>
+          <a class="screenshot-link" href="assets/screenshot.png" aria-label="Open the full-size Infumap screenshot">
+            <img src="assets/screenshot.png" width="3440" height="1986" alt="Infumap's Home page with a to-do list, bookmarks, grouped areas for work and life, photos, resources, a scratch space and a comparison table." fetchpriority="high">
+          </a>
+          <figcaption><span>Notes, links, documents and tables, sharing one space.</span><a href="assets/screenshot.png">View full size <span aria-hidden="true">↗</span></a></figcaption>
+        </figure>
+
+        <section class="approach" aria-labelledby="approach-title">
+          <div class="section-heading">
+            <p class="eyebrow">A little less filing. A little more thinking.</p>
+            <h2 id="approach-title">Start anywhere.<br><em>Make room as you go.</em></h2>
+            <p>You don’t need a perfect system before you begin. Put something down, connect a few pieces, and let the structure follow the work.</p>
+          </div>
+          <div class="principles">
+            <article class="principle">
+              <span class="item-number">01 /</span>
+              <div><h3>Small things belong, too.</h3><p>A note, a link or a rating is an item in its own right. Keep the little details next to the documents and images they relate to, without making a file for everything.</p></div>
+            </article>
+            <article class="principle">
+              <span class="item-number">02 /</span>
+              <div><h3>Choose the form that fits.</h3><p>Compare options in a table. Arrange material on a page. Leave a few ideas loosely grouped. Add structure where it helps, and fall back to search when you need it.</p></div>
+            </article>
+            <article class="principle">
+              <span class="item-number">03 /</span>
+              <div><h3>Keep the thinking with the material.</h3><p>Questions, comparisons and decisions deserve a place alongside your sources. Return to what you collected and what you made of it.</p></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="get-started" id="get-started" aria-labelledby="start-title">
+          <div class="start-intro">
+            <p class="eyebrow">Make yourself at home</p>
+            <h2 id="start-title">Your information.<br><em>Your own space.</em></h2>
+            <p>Run Infumap on your computer, or host it on your own server for remote access and sharing.</p>
+            <a class="button button-light" href="https://github.com/infumap/infumap/releases/latest">Download the latest release <span aria-hidden="true">↗</span></a>
+          </div>
+          <div class="platforms">
+            <article class="platform">
+              <div class="platform-heading"><h3>macOS</h3><span>Apple Silicon · macOS 11+</span></div>
+              <p>Unzip the download, move <code>Infumap.app</code> to Applications, and open it. Use the menu bar icon to launch Infumap in your browser.</p>
+            </article>
+            <article class="platform">
+              <div class="platform-heading"><h3>Linux</h3><span>x86-64 · ARM64 · Raspberry Pi</span></div>
+              <p>Extract the download, open a terminal in that directory, and run:</p>
+              <pre aria-label="Terminal command"><code><span aria-hidden="true">$ </span>./infumap web</code></pre>
+              <p>Then open <code>localhost:8000</code> in your browser.</p>
+            </article>
+            <a class="setup-link" href="https://github.com/infumap/infumap/blob/master/docs/readme.md">Read the documentation <span aria-hidden="true">↗</span></a>
+          </div>
+        </section>
+
+        <section class="project-note" aria-labelledby="project-title">
+          <span class="small-star" aria-hidden="true">✳</span>
+          <div><h2 id="project-title">An open project, still growing.</h2><p>Infumap is actively developed, and some rough edges remain. Use a release for everyday work. Bug reports, ideas and contributions are welcome.</p></div>
+          <a class="text-link" href="https://github.com/infumap/infumap/issues">Join the conversation <span aria-hidden="true">↗</span></a>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <a class="brand" href="./"><span class="brand-mark" aria-hidden="true">im</span>infumap</a>
+        <p>A durable home for your information.</p>
+        <div><a href="https://github.com/infumap/infumap/blob/master/LICENSE.txt">AGPL v3</a><a href="https://github.com/infumap/infumap">GitHub <span aria-hidden="true">↗</span></a></div>
+      </footer>
+    </div>
+  </body>
+</html>
