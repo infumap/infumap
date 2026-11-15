@@ -1,18 +1,23 @@
 # Infumap
 
-Infumap is the home for all of your information.
+Infumap is a durable home for all of your information. Once you’ve stored something, you can be confident it won’t be lost, that you’ll be able to find it again, and that other people won’t have access to it without your permission.
 
-Once you put something in it, you know you're not going to loose it. You know you'll be able to find it later. And you know it's safe from other people accessing it.
+Infumap is more than a store:
 
-It also gives you a way to define and persist structure around your information. Doing your taxes means collecting documents of different kinds, doing a bit of research and writing side notes as you go. Planning a trip is the same. Infumap lets you turn that work into a single artifact you can arrange as you like. When you come back to it next year, everything is there, still in context and still making sense.
+- **Structure that develops as you work.**
+  You can start with a few loose notes and documents and find them again without organizing them first. Structure is optional; add it where it helps. Group related items, arrange a page, or organize details into a table as the work takes shape.
 
-Summary:
-- A secure, durable home for all of your information.
-- One unified workspace that holds everything:
-  - Pages (8 arragement types), tables, notes, files, images, ratings and more.
-  - Optimized for rapid navigation.
-  - Progressively add structure as your needs evolve.
-- Tight AI chat integration.
+- **Giving small details a place.**
+  A note, a link or a rating can be an item in its own right, alongside a document or an image. You can keep these small pieces of information where they belong without having to create a separate file for each one.
+
+- **Keeping the thinking with the material.**
+  The documents are only part of the work. There are also questions, comparisons, decisions and things you want to remember. Infumap gives those a place alongside the material they refer to, so you can return to both what you collected and what you made of it.
+
+- **Choosing the form that fits.**
+  Different information calls for different arrangements. You might use a table to compare places to stay, arrange documents and notes together on a page, or leave a few items loosely grouped until you know what to do with them.
+
+- **Organizing without deciding everything upfront.**
+  You don’t need to decide how everything should be organized before you start. Add a document, jot down a thought or rate an option, then arrange and connect those pieces as your understanding develops. The structure can grow with the work.
 
 <kbd>
   <img src="screenshot.png" />
