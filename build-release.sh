@@ -19,7 +19,7 @@ set -euo pipefail
 
 print_usage() {
   cat <<'EOF'
-Usage: ./build-release.sh [--skip-web] [--sign] [--notarize] target-triple
+Usage: ./build-release.sh [--skip-web] [--no-minify] [--sign] [--notarize] target-triple
 
 Build and package one release executable, its license and a SHA-256 checksum.
 Outputs go in the repository root's dist/ directory.
@@ -31,6 +31,7 @@ Targets:
 
 Options:
   --skip-web  Reuse web assets and generated Rust routes from ./web/build.sh.
+  --no-minify  Disable web minification for easier debugging (unless --skip-web).
   --sign      Sign the macOS app with MACOS_SIGNING_IDENTITY.
   --notarize  Sign, notarize and staple the macOS app (implies --sign).
   -h, --help Show this help.
@@ -43,12 +44,14 @@ EOF
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKIP_WEB=0
+WEB_BUILD_ARGS=()
 SIGN_MACOS=0
 NOTARIZE_MACOS=0
 TARGET=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --skip-web) SKIP_WEB=1 ;;
+    --no-minify) WEB_BUILD_ARGS+=(--no-minify) ;;
     --sign) SIGN_MACOS=1 ;;
     --notarize) SIGN_MACOS=1; NOTARIZE_MACOS=1 ;;
     -h|--help) print_usage; exit 0 ;;
@@ -95,7 +98,7 @@ if [[ $SIGN_MACOS -eq 1 ]]; then
 fi
 
 if [[ $SKIP_WEB -eq 0 ]]; then
-  "$SCRIPT_DIR/web/build.sh"
+  "$SCRIPT_DIR/web/build.sh" "${WEB_BUILD_ARGS[@]}"
 elif [[ ! -f "$SCRIPT_DIR/infumap/dist/index.html" || ! -f "$SCRIPT_DIR/infumap/src/web/dist_handlers.rs" ]]; then
   echo "Error: --skip-web requires infumap/dist/ and infumap/src/web/dist_handlers.rs from a web build." >&2
   exit 1

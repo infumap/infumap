@@ -117,6 +117,8 @@ Musl builds statically link the C runtime to avoid depending on the host's glibc
 ./build-release.sh aarch64-apple-darwin
 ```
 
+Add `--no-minify` for a more debuggable web build. With `--skip-web`, existing web assets are reused and `--no-minify` has no effect.
+
 Archives are written under the repository root's `dist/` directory. Linux archives are named `<executable>-<version>-<target>.tar.gz` and contain a directory holding the executable and `LICENSE.txt`. The version comes from `infumap/Cargo.toml`.
 
 The macOS archive contains `Infumap.app`, including the menu bar executable, app icon, metadata and license. It targets macOS 11 or later. Double-click the app to start it, or move it into Applications first. The command-line macOS executable remains available through the ordinary build script.
