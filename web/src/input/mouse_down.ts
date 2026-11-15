@@ -54,7 +54,7 @@ import { closestCaretPositionToClientPx, EditElementType, getCaretPosition, getE
 import { isPassword, PasswordFns } from "../items/password-item";
 import { ImageFns, isImage } from "../items/image-item";
 import { commitActiveToolbarTitleEdit } from "./toolbar_title";
-import { isInsideDocumentPageClickContext } from "../items/base/item-common-fns";
+import { isInsideDocumentPageClickContext, isReadOnlyDocumentPageOrInsideOne } from "../items/base/item-common-fns";
 import { readOnlyDocumentMoveOutVeAtClientPx } from "./document_move_out";
 import { NativeTextSelectionState } from "./native_text_selection";
 import { isQueryItem, isQuerySearchResultsPage } from "../items/query-item";
@@ -736,6 +736,13 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
     }
     NoteFns.handleClick(hitVe, store, true);
     return startLinearNoteTextSelection(hitVe);
+  }
+
+  // In a read-only document, a press that doesn't start a text selection (beside the column, below the last row, on a
+  // divider or table) clears the selection, as a click on empty space does in a browser. The press is prevented, so the
+  // browser won't do it.
+  if (selectionClickFromModifiers() == null && isReadOnlyDocumentPageOrInsideOne(hitVe)) {
+    window.getSelection()?.removeAllRanges();
   }
 
   // If clicking a child inside a composite and that composite is in the current selection,

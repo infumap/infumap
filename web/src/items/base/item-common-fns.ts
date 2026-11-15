@@ -115,6 +115,15 @@ export function isInsideReadOnlyDocumentPage(visualElement: VisualElement): bool
   return false;
 }
 
+/** Whether this element is a read-only document page (see isInsideReadOnlyDocumentPage) or inside one. */
+export function isReadOnlyDocumentPageOrInsideOne(visualElement: VisualElement): boolean {
+  if (isPage(visualElement.displayItem)) {
+    return asPageItem(visualElement.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document &&
+      !itemCanEdit(visualElement.displayItem);
+  }
+  return isInsideReadOnlyDocumentPage(visualElement);
+}
+
 export function calcGeometryOfEmptyItem_ListItem(_empty: Measurable, blockSizePx: Dimensions, row: number, col: number, widthBl: number, padTop: boolean, _expandable: boolean): ItemGeometry {
   const innerBoundsPx = {
     x: 0.0,
