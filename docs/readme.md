@@ -3,6 +3,7 @@
 
 ## Using Infumap
 
+- [macOS usage and trackpad settings](macos.md)
 - [Chats](chats.md)
 - [Scopes](scopes.md)
 - [Backlinks](backlinks.md)

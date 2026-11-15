@@ -2,10 +2,10 @@
 
 Infumap is a durable home for all of your information. Once you’ve stored something, you can be confident it won’t be lost, that you’ll be able to find it again, and that other people won’t have access to it without your permission.
 
-Infumap is more than a store. I's the how I have long imagined a computer desktop should work.
+Infumap is more than a store - it's the how I have long imagined a computer desktop should work.
 
 - **Structure that develops as you work.**
-  Start with a few loose notes and documents with little or no organization. Structure is optional; add it only where it helps - you can always search. Group related items, arrange a page, or organize details into a table as the work takes shape.
+  Start with a few loose notes and documents with little or no organization. Structure is optional; add it only where it helps - you can always fall back to search. Group related items, arrange a page, or organize details into a table as the work takes shape.
 
 - **Small details have a place.**
   A note, a link or a rating are items in their own right, alongside a document or an image. You can keep these small pieces of information where they belong without having to create a separate file for each one.
@@ -23,50 +23,31 @@ Infumap is more than a store. I's the how I have long imagined a computer deskto
   <img src="screenshot.png" />
 </kbd>
 
-## Development Status
+## Get started
 
-> [!IMPORTANT]
-> The `master` branch is the active development branch and often includes work in progress between releases. For regular use, please prefer the latest tagged release.
+[Download the latest release](https://github.com/infumap/infumap/releases/latest) for your platform:
 
-Infumap is the how I have long imagined a computer desktop should work. I spend a significant part of almost every day using it to manage all of my personal information. This daily use has shaped development and steadily refined the product. Product quality has now reached a point where I'm not embarassed to show it to others, though some rough edges remain.
+- **macOS (Apple Silicon, macOS 11 or later):** Unzip the download, move `Infumap.app` to Applications, and open it. Use the Infumap menu bar icon to open Infumap in your browser.
+- **Linux (Intel/AMD x86-64 or ARM64, including 64-bit Raspberry Pi):** Extract the download, open a terminal in the extracted directory, and run:
 
-Feedback, bug reports, and suggestions are welcome.
+  ```sh
+  ./infumap web
+  ```
 
-*If you choose to use Infumap, please review [LICENSE.txt](LICENSE.txt).*
+  Then open [localhost:8000](http://localhost:8000) in your browser.
 
+Configuration and data directories are created automatically. You can run Infumap on your own computer or host it on a server for remote access and sharing.
 
-## Running
+**Navigation:** Right-click to go back. On a Mac trackpad, use a two-finger tap and turn off **Smart zoom** for more responsive navigation. See [macOS trackpad settings](docs/macos.md#trackpad-settings).
 
-For detailed information on deploying Infumap, refer to the [docs](/docs). Currently you need to build Infumap from source. Having done this, everything is provided in a self contained executable. To start Infumap, simple run it from the command line:
+## Documentation
 
-```
-./infumap web
-```
+- [Using and running Infumap](docs/readme.md)
+- [Configuration](docs/configuration.md) and [server deployment](docs/deployment/raspberry-pi.md)
+- [Building from source and development](docs/developer.md)
 
-Then point your web browser at `http://localhost:8000`.
+## Feedback
 
-Default configuration and data directories will be created automatically.
+Infumap is actively developed, and some rough edges remain. [Bug reports and suggestions](https://github.com/infumap/infumap/issues) are welcome. For everyday use, choose a release; `master` includes work in progress.
 
-On an Apple Silicon Mac, you can also build a menu bar version:
-
-```sh
-./build.sh --macos-menu-bar
-./infumap/target/aarch64-apple-darwin/release/infumap-macos
-```
-
-It starts the server automatically and adds an Infumap icon to the menu bar. The menu lets you start or stop the server, open Infumap in your browser, view logs in Console, edit server and chat-provider settings, or quit. It uses the same settings and data as `infumap web`. See [macOS menu bar usage](docs/developer.md#macos-menu-bar-binary) for configuration and build details.
-
-You can use Infumap locally, or install it on a server on the internet in order to:
-- Access your information from anywhere.
-- Integrate with other services.
-- Share content or reference content authored by others.
-
-## MacOS Settings
-
-Infumap is developed on an Apple Mac, and as such probably works best on this platform (hasn't been tested on others). However,
-there are some settings which you should tweak for optimal experience:
-
-In System Preferences / Trackpad:
-
-- Turn off "Smart zoom". If enabled, the system needs to wait to know if a two finger tap was a double tap. Since navigation in Infumap makes frequent use of right clicking (two finger tapping), your experience will be more fluid with this disabled.
-- Consider turning off "Swipe between pages".
+Infumap is free software under the [GNU Affero General Public License v3](LICENSE.txt).
