@@ -1,0 +1,653 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-15T07:03:41+00:00",
+  "title": "Design System: Infumap website",
+  "extensions": {
+    "colorMeta": {
+      "page-blue": {
+        "role": "primary",
+        "displayName": "Page Blue",
+        "canonical": "#395176",
+        "tonalRamp": [
+          "#020b1c",
+          "#162640",
+          "#2f4567",
+          "#516789",
+          "#778aa8",
+          "#a0afc7",
+          "#c6d2e3",
+          "#e7effc"
+        ],
+        "source": "mirrors web/src (style.ts or index.css)"
+      },
+      "page-red": {
+        "role": "secondary",
+        "displayName": "Page Red",
+        "canonical": "#76393a",
+        "tonalRamp": [
+          "#1c0203",
+          "#411618",
+          "#6a3132",
+          "#8c5454",
+          "#ab7b7a",
+          "#caa3a2",
+          "#e6c9c8",
+          "#fee9e8"
+        ],
+        "source": "mirrors web/src (style.ts or index.css)"
+      },
+      "page-orange": {
+        "role": "secondary",
+        "displayName": "Page Orange",
+        "canonical": "#764f39",
+        "tonalRamp": [
+          "#160601",
+          "#381f11",
+          "#5d3c29",
+          "#825c47",
+          "#a2816f",
+          "#c3a899",
+          "#e1ccc1",
+          "#faebe3"
+        ],
+        "source": "mirrors web/src (style.ts or index.css)"
+      },
+      "page-yellow": {
+        "role": "secondary",
+        "displayName": "Page Yellow",
+        "canonical": "#767139",
+        "tonalRamp": [
+          "#0e0c00",
+          "#2a2708",
+          "#4a471d",
+          "#6d6833",
+          "#908c5b",
+          "#b3b088",
+          "#d5d3b3",
+          "#f2f0d7"
+        ],
+        "source": "mirrors web/src (style.ts or index.css)"
+      },
+      "page-green": {
+        "role": "secondary",
+        "displayName": "Page Green",
+        "canonical": "#3b7639",
+        "tonalRamp": [
+          "#001000",
+          "#0b2f0b",
+          "#225121",
+          "#3b7639",
+          "#679864",
+          "#93bb90",
+          "#bcdbb9",
+          "#def6dc"
+        ],
+        "source": "mirrors web/src (style.ts or index.css)"
+      },
+      "page-purple": {
+        "role": "secondary",
+        "displayName": "Page Purple",
+        "canonical": "#6f3976",
+        "tonalRamp": [
+          "#18001b",
+          "#3a143f",
+          "#5f2e66",
+          "#825188",
+          "#a278a7",
+          "#c2a1c6",
+          "#e0c7e3",
+          "#fae8fb"
+        ],
+        "source": "mirrors web/src (style.ts or index.css)"
+      },
+      "page-grey": {
+        "role": "secondary",
+        "displayName": "Page Grey",
+        "canonical": "#767676",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#262626",
+          "#454545",
+          "#666666",
+          "#898989",
+          "#aeaeae",
+          "#d1d1d1",
+          "#eeeeee"
+        ],
+        "source": "mirrors web/src (style.ts or index.css)"
+      },
+      "page-blue-deep": {
+        "role": "primary",
+        "displayName": "Page Blue Deep",
+        "canonical": "#2e4262",
+        "tonalRamp": [
+          "#030b1c",
+          "#17263f",
+          "#324565",
+          "#556783",
+          "#7b8aa1",
+          "#a3afc1",
+          "#c9d2de",
+          "#eaeff7"
+        ],
+        "source": "site-only"
+      },
+      "ground": {
+        "role": "neutral",
+        "displayName": "Ground",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#262626",
+          "#454545",
+          "#666666",
+          "#898989",
+          "#aeaeae",
+          "#d1d1d1",
+          "#eeeeee"
+        ],
+        "source": "site-only"
+      },
+      "chrome": {
+        "role": "neutral",
+        "displayName": "Chrome",
+        "canonical": "#f3f5f8",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#262627",
+          "#454545",
+          "#656667",
+          "#88898a",
+          "#adaeb0",
+          "#cfd1d3",
+          "#edeff1"
+        ],
+        "source": "approximates the app title bar tint (~5% page blue); not an exact web/src token"
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#1d2128",
+        "tonalRamp": [
+          "#080b11",
+          "#23272e",
+          "#42454b",
+          "#63666c",
+          "#87898d",
+          "#acaeb1",
+          "#d0d1d2",
+          "#eeeef0"
+        ],
+        "source": "site-only"
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Text",
+        "canonical": "#333333",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#262626",
+          "#454545",
+          "#666666",
+          "#898989",
+          "#aeaeae",
+          "#d1d1d1",
+          "#eeeeee"
+        ],
+        "source": "mirrors web/src (style.ts or index.css)"
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "canonical": "#586070",
+        "tonalRamp": [
+          "#080b11",
+          "#222630",
+          "#3f4552",
+          "#5e6676",
+          "#828997",
+          "#a8aeb9",
+          "#cdd1da",
+          "#ebeff5"
+        ],
+        "source": "site-only"
+      },
+      "item-border": {
+        "role": "neutral",
+        "displayName": "Item Border",
+        "canonical": "#a6a6a6",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#262626",
+          "#454545",
+          "#666666",
+          "#898989",
+          "#aeaeae",
+          "#d1d1d1",
+          "#eeeeee"
+        ],
+        "source": "mirrors web/src (style.ts or index.css)"
+      },
+      "item-line": {
+        "role": "neutral",
+        "displayName": "Item Line",
+        "canonical": "#c9d5e2",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#252728",
+          "#424549",
+          "#61676c",
+          "#838a92",
+          "#a5afba",
+          "#c7d2df",
+          "#e5f0fc"
+        ],
+        "source": "mirrors web/src (style.ts or index.css)"
+      },
+      "chrome-line": {
+        "role": "neutral",
+        "displayName": "Chrome Line",
+        "canonical": "#e1e3e1",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#262626",
+          "#454545",
+          "#656665",
+          "#888988",
+          "#adaead",
+          "#d0d1d0",
+          "#edefed"
+        ],
+        "source": "mirrors web/src (style.ts or index.css)"
+      },
+      "table-head": {
+        "role": "neutral",
+        "displayName": "Table Head",
+        "canonical": "#e7eaef",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#262627",
+          "#444546",
+          "#656668",
+          "#88898c",
+          "#acaeb1",
+          "#ced1d5",
+          "#eceff3"
+        ],
+        "source": "mirrors web/src (style.ts or index.css)"
+      },
+      "table-line": {
+        "role": "neutral",
+        "displayName": "Table Line",
+        "canonical": "#bac2cf",
+        "tonalRamp": [
+          "#0a0b0c",
+          "#252629",
+          "#42454a",
+          "#62666d",
+          "#848993",
+          "#a7aeba",
+          "#cad1de",
+          "#e8effa"
+        ],
+        "source": "mirrors web/src (style.ts or index.css)"
+      },
+      "row-hover": {
+        "role": "neutral",
+        "displayName": "Row Hover",
+        "canonical": "#f5f7fa",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#262627",
+          "#454545",
+          "#656667",
+          "#88898a",
+          "#adaeb0",
+          "#cfd1d3",
+          "#edeff1"
+        ],
+        "source": "site-only"
+      },
+      "selected": {
+        "role": "neutral",
+        "displayName": "Selected",
+        "canonical": "#d4d9e1",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#262627",
+          "#444547",
+          "#646669",
+          "#86898e",
+          "#aaaeb4",
+          "#ccd1d9",
+          "#eaeff6"
+        ],
+        "source": "mirrors web/src (style.ts or index.css)"
+      },
+      "hover": {
+        "role": "neutral",
+        "displayName": "Hover",
+        "canonical": "#e8e8e8",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#262626",
+          "#454545",
+          "#666666",
+          "#898989",
+          "#aeaeae",
+          "#d1d1d1",
+          "#eeeeee"
+        ],
+        "source": "mirrors web/src (style.ts or index.css)"
+      },
+      "focus": {
+        "role": "neutral",
+        "displayName": "Focus",
+        "canonical": "rgb(0 82 255 / 0.9)",
+        "source": "mirrors web/src (style.ts or index.css)"
+      },
+      "tile-frame": {
+        "role": "neutral",
+        "displayName": "Tile Frame",
+        "canonical": "#2c3442",
+        "tonalRamp": [
+          "#070b14",
+          "#202733",
+          "#3e4553",
+          "#606672",
+          "#848993",
+          "#aaaeb5",
+          "#ced1d5",
+          "#edeef1"
+        ],
+        "source": "site-only"
+      },
+      "command-text": {
+        "role": "neutral",
+        "displayName": "Command Text",
+        "canonical": "#e8ecf2",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#262627",
+          "#444546",
+          "#656668",
+          "#87898c",
+          "#abaeb2",
+          "#ced1d6",
+          "#ebeff5"
+        ],
+        "source": "site-only"
+      },
+      "command-prompt": {
+        "role": "neutral",
+        "displayName": "Command Prompt",
+        "canonical": "#9aa6b8",
+        "tonalRamp": [
+          "#0a0b0e",
+          "#23272c",
+          "#40454e",
+          "#5f6772",
+          "#808a99",
+          "#a3afc0",
+          "#c8d2e1",
+          "#e6effc"
+        ],
+        "source": "site-only"
+      },
+      "copy-ground": {
+        "role": "neutral",
+        "displayName": "Copy Ground",
+        "canonical": "#2a303a",
+        "tonalRamp": [
+          "#080b12",
+          "#212730",
+          "#40454f",
+          "#61666f",
+          "#858990",
+          "#abaeb3",
+          "#cfd1d4",
+          "#edeef0"
+        ],
+        "source": "site-only"
+      },
+      "copy-border": {
+        "role": "neutral",
+        "displayName": "Copy Border",
+        "canonical": "#4a5363",
+        "tonalRamp": [
+          "#070b12",
+          "#212731",
+          "#3d4554",
+          "#5e6675",
+          "#828996",
+          "#a8aeb9",
+          "#cdd1d9",
+          "#ebeff4"
+        ],
+        "source": "site-only"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Hero headline only."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Section heads."
+      },
+      "tile-label": {
+        "displayName": "Tile Label",
+        "purpose": "White labels on solid page tiles."
+      },
+      "brand": {
+        "displayName": "Brand",
+        "purpose": "\"Infumap\" in the title bar and footer."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Item title bars; 22px for an opened panel."
+      },
+      "lede": {
+        "displayName": "Lede",
+        "purpose": "Hero paragraph; section intros 18px, panel copy 17px."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Table cells, steps, banners."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Table column and row heads."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Shell commands and inline code only."
+      }
+    },
+    "shadows": [
+      {
+        "name": "item",
+        "value": "0 2px 6px rgb(40 48 60 / 0.10), 0 10px 24px -12px rgb(40 48 60 / 0.22)",
+        "purpose": "Every item at rest and the tile field; the only elevation."
+      },
+      {
+        "name": "primary-press",
+        "value": "0 3px 8px -2px rgb(30 34 40 / 0.28)",
+        "purpose": "Primary button hover."
+      },
+      {
+        "name": "tile-selected",
+        "value": "inset 0 -5px 0 rgb(255 255 255 / 0.85)",
+        "purpose": "Foot bar on the tile whose page is open."
+      },
+      {
+        "name": "tile-focus",
+        "value": "inset 0 0 0 6px rgb(0 82 255 / 0.9)",
+        "purpose": "Focus ring inside a tile, under a white 3px outline at -6px."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Panel open."
+      },
+      {
+        "name": "panel-open",
+        "value": "380ms; opacity 0 to 1, scale 0.97 to 1, clip-path inset(0 0 60% 0) to inset(0); origin at the opening tile's centre x",
+        "purpose": "The one authored moment: a page opening from its tile."
+      },
+      {
+        "name": "state",
+        "value": "120ms background-color / box-shadow; 160ms filter on tiles",
+        "purpose": "Hover state changes."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "panel animation, smooth scroll and all transitions off",
+        "purpose": "prefers-reduced-motion: reduce."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "stack",
+        "value": "900px",
+        "purpose": "hero, panels, download items to one column"
+      },
+      {
+        "name": "phone",
+        "value": "720px",
+        "purpose": "table stacks with cell labels, tiles 2x2, full-width hero buttons"
+      },
+      {
+        "name": "narrow",
+        "value": "380px",
+        "purpose": "neutral toolbar controls hidden"
+      }
+    ],
+    "focus": {
+      "value": "outline: 2px solid rgb(0 82 255 / 0.9); outline-offset: 2px",
+      "onDark": "outline-color: #8fb0ff"
+    }
+  },
+  "components": [
+    {
+      "name": "Title Bar",
+      "kind": "nav",
+      "refersTo": "titlebar",
+      "description": "Sticky site chrome: brand mark and page-blue title left, toolbar controls right.",
+      "html": "<header class=\"ds-titlebar\"><a class=\"ds-brand\" href=\"#\"><span class=\"ds-mark\">IM</span><span class=\"ds-name\">Infumap</span></a><nav class=\"ds-toolbar\"><a class=\"ds-tool\" href=\"#\">Docs</a><a class=\"ds-tool\" href=\"#\">GitHub</a><a class=\"ds-tool ds-tool-primary\" href=\"#\">Download</a></nav></header>",
+      "css": ":host{--blue:#395176;--ground:#fff;--chrome:#f3f5f8;--ink:#1d2128;--text:#333;--muted:#586070;--item-border:#a6a6a6;--item-line:#c9d5e2;--chrome-line:#e1e3e1;--table-head:#e7eaef;--table-line:#bac2cf;--hover:#e8e8e8;--focus:rgb(0 82 255 / .9);--shadow:0 2px 6px rgb(40 48 60 / .10),0 10px 24px -12px rgb(40 48 60 / .22);--sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;--mono:ui-monospace,'SF Mono',Menlo,Monaco,Consolas,monospace;font-family:var(--sans);color:var(--text)} .ds-titlebar{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:56px;padding:8px 24px;background:var(--chrome);border-bottom:1px solid var(--item-line)}.ds-brand{display:inline-flex;align-items:center;gap:10px;color:var(--blue);text-decoration:none}.ds-mark{display:grid;place-items:center;width:30px;height:30px;border:1.5px solid var(--ink);border-radius:50%;color:var(--ink);font-size:11px;font-weight:600}.ds-name{font-size:24px;font-weight:600;letter-spacing:-.01em}.ds-toolbar{display:flex;gap:8px}.ds-tool{display:inline-flex;align-items:center;min-height:34px;padding:0 12px;border:1px solid var(--item-border);border-radius:4px;background:var(--ground);color:var(--text);font-size:14px;text-decoration:none;transition:background-color 120ms}.ds-tool:hover{background:var(--hover)}.ds-tool-primary{background:var(--blue);border-color:var(--blue);color:#fff}.ds-tool-primary:hover{background:#2e4262} :focus-visible{outline:2px solid var(--focus);outline-offset:2px}"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Download and main actions: page blue, icon left, optional detail line.",
+      "html": "<a class=\"ds-btn\" href=\"#\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><path d=\"M8 2.5v8 M4.5 7 8 10.5 11.5 7 M3 13.5h10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg><span>Download for macOS <small>Apple Silicon, macOS 11+</small></span></a>",
+      "css": ":host{--blue:#395176;--ground:#fff;--chrome:#f3f5f8;--ink:#1d2128;--text:#333;--muted:#586070;--item-border:#a6a6a6;--item-line:#c9d5e2;--chrome-line:#e1e3e1;--table-head:#e7eaef;--table-line:#bac2cf;--hover:#e8e8e8;--focus:rgb(0 82 255 / .9);--shadow:0 2px 6px rgb(40 48 60 / .10),0 10px 24px -12px rgb(40 48 60 / .22);--sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;--mono:ui-monospace,'SF Mono',Menlo,Monaco,Consolas,monospace;font-family:var(--sans);color:var(--text)} .ds-btn{display:inline-flex;align-items:center;gap:10px;min-height:48px;padding:8px 18px 8px 14px;border:1px solid var(--blue);border-radius:4px;background:var(--blue);color:#fff;font-size:16px;font-weight:600;line-height:1.25;text-decoration:none;transition:background-color 120ms,box-shadow 120ms}.ds-btn small{display:block;font-size:13px;font-weight:400;opacity:.85}.ds-btn:hover{background:#2e4262;box-shadow:0 3px 8px -2px rgb(30 34 40 / .28)}.ds-btn:focus-visible{outline:2px solid var(--focus);outline-offset:3px}"
+    },
+    {
+      "name": "Item with Title Bar",
+      "kind": "card",
+      "refersTo": "item",
+      "description": "The base container: outline, 2px corners, soft shadow, resize mark; chrome title bar in page blue.",
+      "html": "<section class=\"ds-item\"><div class=\"ds-itb\"><h3>Two halves, one place</h3><p>A workspace you shape, and a store you keep.</p></div><p class=\"ds-body\">Everything you add is written to a data directory on your own machine.</p></section>",
+      "css": ":host{--blue:#395176;--ground:#fff;--chrome:#f3f5f8;--ink:#1d2128;--text:#333;--muted:#586070;--item-border:#a6a6a6;--item-line:#c9d5e2;--chrome-line:#e1e3e1;--table-head:#e7eaef;--table-line:#bac2cf;--hover:#e8e8e8;--focus:rgb(0 82 255 / .9);--shadow:0 2px 6px rgb(40 48 60 / .10),0 10px 24px -12px rgb(40 48 60 / .22);--sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;--mono:ui-monospace,'SF Mono',Menlo,Monaco,Consolas,monospace;font-family:var(--sans);color:var(--text)} .ds-item{position:relative;background:var(--ground);border:1px solid var(--item-border);border-radius:2px;box-shadow:var(--shadow)}.ds-item::after{content:'';position:absolute;right:2px;bottom:2px;width:9px;height:9px;background:linear-gradient(135deg,transparent 50%,var(--item-border) 50%)}.ds-itb{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 16px;padding:10px 16px;background:var(--chrome);border-bottom:1px solid var(--table-line)}.ds-itb h3{margin:0;color:var(--blue);font-size:20px;font-weight:600;letter-spacing:-.005em}.ds-itb p{margin:0;color:var(--muted);font-size:15px}.ds-body{margin:0;padding:16px 16px 24px;font-size:16px;line-height:1.55}"
+    },
+    {
+      "name": "Table Page",
+      "kind": "custom",
+      "refersTo": "table-head-cell",
+      "description": "Page-tinted headings, page-blue row heads, table-line columns, chrome-line rows.",
+      "html": "<table class=\"ds-table\"><thead><tr><td class=\"ds-corner\"></td><th>Workspace</th><th>Store</th></tr></thead><tbody><tr><th>Add</th><td>Jot down a thought or drop in a document.</td><td>Written to a directory on your machine.</td></tr><tr><th>Find</th><td>Search for it.</td><td>The index lives next to your data.</td></tr></tbody></table>",
+      "css": ":host{--blue:#395176;--ground:#fff;--chrome:#f3f5f8;--ink:#1d2128;--text:#333;--muted:#586070;--item-border:#a6a6a6;--item-line:#c9d5e2;--chrome-line:#e1e3e1;--table-head:#e7eaef;--table-line:#bac2cf;--hover:#e8e8e8;--focus:rgb(0 82 255 / .9);--shadow:0 2px 6px rgb(40 48 60 / .10),0 10px 24px -12px rgb(40 48 60 / .22);--sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;--mono:ui-monospace,'SF Mono',Menlo,Monaco,Consolas,monospace;font-family:var(--sans);color:var(--text)} .ds-table{width:100%;border-collapse:collapse;table-layout:fixed;border:1px solid var(--item-border);box-shadow:var(--shadow)}.ds-table thead th,.ds-corner{background:var(--table-head);border-bottom:1px solid var(--table-line)}.ds-table thead th{padding:8px 16px;text-align:left;color:var(--ink);font-size:15px;font-weight:600}.ds-corner{width:90px}.ds-table th,.ds-table td{border-left:1px solid var(--table-line);vertical-align:top}.ds-table tr>:first-child{border-left:0}.ds-table tbody tr+tr>*{border-top:1px solid var(--chrome-line)}.ds-table tbody th{padding:14px 16px;text-align:left;color:var(--blue);font-size:15px;font-weight:600}.ds-table tbody td{padding:14px 16px;font-size:16px}.ds-table tbody tr{transition:background-color 120ms}.ds-table tbody tr:hover{background:#f5f7fa}"
+    },
+    {
+      "name": "Page Tiles",
+      "kind": "custom",
+      "refersTo": "page-tile-blue",
+      "description": "Solid page-colour tiles with white bold labels; the open one carries a white foot bar.",
+      "html": "<div class=\"ds-tiles\"><button class=\"ds-tile\" style=\"background:#395176\" aria-selected=\"true\">Pages</button><button class=\"ds-tile\" style=\"background:#3b7639\">Lists</button><button class=\"ds-tile\" style=\"background:#767139\">Tables</button><button class=\"ds-tile\" style=\"background:#6f3976\">Loose groups</button></div>",
+      "css": ":host{--blue:#395176;--ground:#fff;--chrome:#f3f5f8;--ink:#1d2128;--text:#333;--muted:#586070;--item-border:#a6a6a6;--item-line:#c9d5e2;--chrome-line:#e1e3e1;--table-head:#e7eaef;--table-line:#bac2cf;--hover:#e8e8e8;--focus:rgb(0 82 255 / .9);--shadow:0 2px 6px rgb(40 48 60 / .10),0 10px 24px -12px rgb(40 48 60 / .22);--sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;--mono:ui-monospace,'SF Mono',Menlo,Monaco,Consolas,monospace;font-family:var(--sans);color:var(--text)} .ds-tiles{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid #2c3442;border-radius:2px;box-shadow:var(--shadow);overflow:hidden}.ds-tile{position:relative;min-height:110px;padding:16px;border:0;border-left:1px solid rgb(0 0 0 / .35);color:#fff;font:700 20px/1.15 var(--sans);letter-spacing:-.01em;cursor:pointer;transition:filter 160ms,box-shadow 160ms}.ds-tile:first-child{border-left:0}.ds-tile::after{content:'';position:absolute;right:4px;bottom:4px;width:10px;height:10px;background:linear-gradient(135deg,transparent 50%,rgb(255 255 255 / .55) 50%)}.ds-tile:hover{filter:brightness(1.12)}.ds-tile[aria-selected=true]{box-shadow:inset 0 -5px 0 rgb(255 255 255 / .85)}.ds-tile:focus-visible{outline:3px solid #fff;outline-offset:-6px;box-shadow:inset 0 0 0 6px var(--focus)}"
+    },
+    {
+      "name": "Opened Page Panel",
+      "kind": "card",
+      "refersTo": "item-titlebar",
+      "description": "An opened page: title bar tinted 9% of the page colour, rule 35%, title darkened 15%.",
+      "html": "<section class=\"ds-item ds-panel\" style=\"--page:#767139\"><div class=\"ds-ptb\"><h3>Tables</h3></div><div class=\"ds-pbody\"><p>Compare options side by side, with a column for each detail.</p><div class=\"ds-ph\"><span>Screenshot coming soon</span><span>A comparison table</span></div></div></section>",
+      "css": ":host{--blue:#395176;--ground:#fff;--chrome:#f3f5f8;--ink:#1d2128;--text:#333;--muted:#586070;--item-border:#a6a6a6;--item-line:#c9d5e2;--chrome-line:#e1e3e1;--table-head:#e7eaef;--table-line:#bac2cf;--hover:#e8e8e8;--focus:rgb(0 82 255 / .9);--shadow:0 2px 6px rgb(40 48 60 / .10),0 10px 24px -12px rgb(40 48 60 / .22);--sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;--mono:ui-monospace,'SF Mono',Menlo,Monaco,Consolas,monospace;font-family:var(--sans);color:var(--text)} .ds-item{position:relative;background:var(--ground);border:1px solid var(--item-border);border-radius:2px;box-shadow:var(--shadow)}.ds-item::after{content:'';position:absolute;right:2px;bottom:2px;width:9px;height:9px;background:linear-gradient(135deg,transparent 50%,var(--item-border) 50%)}.ds-ptb{padding:10px 16px;background:color-mix(in srgb,var(--page) 9%,white);border-bottom:1px solid color-mix(in srgb,var(--page) 35%,white)}.ds-ptb h3{margin:0;color:color-mix(in srgb,var(--page) 85%,black);font-size:22px;font-weight:600}.ds-pbody{display:grid;grid-template-columns:5fr 7fr;gap:24px;padding:24px}.ds-pbody p{margin:0;font-size:17px}.ds-ph{display:grid;place-content:center;gap:4px;min-height:180px;padding:24px;border:1.5px dashed var(--item-border);border-radius:2px;background:var(--chrome);text-align:center;color:var(--muted);font-size:15px}.ds-ph span:first-child{color:var(--ink);font-weight:600}.ds-panel{animation:ds-open 380ms cubic-bezier(.16,1,.3,1)}@keyframes ds-open{from{opacity:0;transform:scale(.97);clip-path:inset(0 0 60% 0 round 2px)}to{opacity:1;transform:none;clip-path:inset(0 round 2px)}}@media (prefers-reduced-motion:reduce){.ds-panel{animation:none}}"
+    },
+    {
+      "name": "Command Block",
+      "kind": "custom",
+      "refersTo": "command",
+      "description": "Dark ink strip: unselectable prompt, mono command, copy button.",
+      "html": "<div class=\"ds-cmd\"><span class=\"ds-prompt\">$</span><code>infumap web</code><button class=\"ds-copy\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><rect x=\"5.5\" y=\"5.5\" width=\"8\" height=\"8\" rx=\"1\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"/><path d=\"M3.5 10.5h-1v-8h8v1\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"/></svg>Copy</button></div>",
+      "css": ":host{--blue:#395176;--ground:#fff;--chrome:#f3f5f8;--ink:#1d2128;--text:#333;--muted:#586070;--item-border:#a6a6a6;--item-line:#c9d5e2;--chrome-line:#e1e3e1;--table-head:#e7eaef;--table-line:#bac2cf;--hover:#e8e8e8;--focus:rgb(0 82 255 / .9);--shadow:0 2px 6px rgb(40 48 60 / .10),0 10px 24px -12px rgb(40 48 60 / .22);--sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;--mono:ui-monospace,'SF Mono',Menlo,Monaco,Consolas,monospace;font-family:var(--sans);color:var(--text)} .ds-cmd{display:flex;align-items:center;gap:10px;padding:6px 6px 6px 14px;background:#1d2128;border-radius:4px;color:#e8ecf2}.ds-cmd code{flex:1;font-family:var(--mono);font-size:15px}.ds-prompt{font-family:var(--mono);color:#9aa6b8;user-select:none}.ds-copy{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border:1px solid #4a5363;border-radius:3px;background:#2a303a;color:#e8ecf2;font:14px var(--sans);cursor:pointer}.ds-copy:hover{background:#353c48}.ds-copy:focus-visible{outline:2px solid #8fb0ff;outline-offset:2px}"
+    },
+    {
+      "name": "Status Banner",
+      "kind": "custom",
+      "refersTo": "page-yellow",
+      "description": "Single-line notice on the yellow page tint.",
+      "html": "<p class=\"ds-banner\">Infumap is still growing. Expect changes between releases.</p>",
+      "css": ":host{--blue:#395176;--ground:#fff;--chrome:#f3f5f8;--ink:#1d2128;--text:#333;--muted:#586070;--item-border:#a6a6a6;--item-line:#c9d5e2;--chrome-line:#e1e3e1;--table-head:#e7eaef;--table-line:#bac2cf;--hover:#e8e8e8;--focus:rgb(0 82 255 / .9);--shadow:0 2px 6px rgb(40 48 60 / .10),0 10px 24px -12px rgb(40 48 60 / .22);--sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;--mono:ui-monospace,'SF Mono',Menlo,Monaco,Consolas,monospace;font-family:var(--sans);color:var(--text)} .ds-banner{margin:0;padding:12px 16px;background:color-mix(in srgb,#767139 9%,white);border:1px solid color-mix(in srgb,#767139 35%,white);border-radius:4px;color:var(--ink);font-size:16px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Page Is an Infumap Page",
+    "overview": "The website does not have a marketing look of its own. It wears the product's UI: white ground, a pale blue-grey title bar, items drawn as thin grey outlines with a soft shadow and a resize mark in the lower right corner, tables with page-tinted headings, and the seven page colours. A visitor who downloads Infumap should recognise what they just read. Every surface on the site is one of the things you can make in Infumap: the hero is a note, the comparison is a table page, the screenshot is an embedded page, the forms are page tiles that open in place, and the download steps are two items side by side.\n\nDensity is that of a working tool, not a brochure. Type is the system UI sans the app uses, set large and tight only for the hero headline and section heads. Colour is either quiet (slate blue for titles and actions) or committed at region scale (solid page-colour tiles). There is no middle register of decorative accent.\n\nThe tokens mirror the web app. Page colours come from the `Colors` array in `web/src/style.ts`; table heading and line tints follow `tableHeaderBackgroundColor` and `tablePageLineColor` there (12% and 35% of the page colour over white); item border, item line, chrome line, control text, hover, selection and focus come from `web/src/index.css`, as does the sans stack. When the app changes one of these, change `website/styles.css` with it.",
+    "keyCharacteristics": [
+      "Product UI as the visual language; no separate brand layer.",
+      "Every block is an item: 1px grey outline, 2px corners, soft shadow, resize mark.",
+      "Slate blue (page blue) carries titles, row heads, links and primary actions.",
+      "Page colours appear as solid fills at region scale, with white bold labels.",
+      "One authored motion: a page opening from its tile."
+    ],
+    "rules": [
+      {
+        "name": "The Mirror Rule",
+        "body": "A colour that exists in the web app is copied from it, not tuned for the site. Site-only values (page-blue-deep, row-hover, the command block greys) are limited to states and the dark command surface the app has no equivalent for.",
+        "section": "colors"
+      },
+      {
+        "name": "The Region Scale Rule",
+        "body": "Page colours other than blue are never used as small accents (text, icons, borders on white). They appear as solid fills large enough to read as a page, or as the light title-bar tint of a page of that colour.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Family Rule",
+        "body": "The app's system sans is the display face as well as the body face. This is the world's native type, not a fallback; do not introduce a webfont for headlines.",
+        "section": "typography"
+      },
+      {
+        "name": "The Commands Only Rule",
+        "body": "Monospace marks something you type. It is not used for labels, numbers or decoration.",
+        "section": "typography"
+      },
+      {
+        "name": "The One Lift Rule",
+        "body": "Every item sits at the same height. Do not raise a block to make it more important; make it bigger or put it first.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do build every new block as an item: 1px item-border outline, 2px corners, the item shadow, the resize mark.",
+      "Do take colour, tint and font values from `web/src/style.ts` and `web/src/index.css`, and keep the site in step when they change.",
+      "Do derive tints from a page colour the way the app does: 9% for an opened page's title bar, 12% for table headings, 35% for lines.",
+      "Do use page colours as solid fills with white bold labels when a colour carries meaning.",
+      "Do keep monospace for commands and file names only.",
+      "Do keep the panel-open animation the only entrance motion on the page."
+    ],
+    "donts": [
+      "Don't add a marketing layer on top of the product UI: no gradients, glass, hero illustrations or a separate brand palette.",
+      "Don't use red, orange, yellow, green or purple as text, icon or border accents on white; they belong at region scale.",
+      "Don't raise one block above another with a heavier shadow.",
+      "Don't introduce a second typeface or a webfont for display.",
+      "Don't animate content in on scroll; nothing but an opening page moves."
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "ai-color-palette",
+        "value": "*",
+        "files": [
+          "index.html"
+        ],
+        "createdAt": "2026-11-15T06:54:24.998Z",
+        "reason": "Flags Infumap's own purple page colour (web/src/style.ts Colors[6]) on the Loose groups panel heading; the site adopts the product palette, the direction the user chose after the critique"
+      }
+    ]
+  }
+}
