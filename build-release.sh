@@ -37,7 +37,7 @@ Options:
 
 Linux outputs are .tar.gz archives. macOS outputs are .zip archives containing
 Infumap.app; unsigned and signed-only archives have -unsigned and -signed suffixes.
-See docs/developer.md for local credentials and GitHub Actions secrets.
+See docs/developer.md for signing and notarization credentials.
 EOF
 }
 
