@@ -818,6 +818,15 @@ function arrangeForSelection(store: StoreContextModel, signature: string) {
 }
 
 /**
+ * Whether the marquee span [selStart, selStart + selLen) overlaps the item span [start, start + len) on one axis. A
+ * zero-length marquee span is a line, and overlaps when it lies within the item span.
+ */
+function overlaps(selStart: number, selLen: number, start: number, len: number): boolean {
+  if (selLen <= 0) { return start <= selStart && selStart < start + len; }
+  return Math.max(selStart, start) < Math.min(selStart + selLen, start + len);
+}
+
+/**
  * The items covered by the marquee, as of the latest cursor position.
  */
 export function marqueeSelection(store: StoreContextModel): Array<{ itemId: string; linkIdMaybe: string | null }> {
@@ -825,7 +834,8 @@ export function marqueeSelection(store: StoreContextModel): Array<{ itemId: stri
   const viewportPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, selectionRootVe);
   // Not clipped to the viewport: the part scrolled out of view was covered by the marquee as the page scrolled.
   const selectionRect = selectionRectFromStartAndCurrent(store, selectionRootVe, viewportPx);
-  if (selectionRect.w <= 0 || selectionRect.h <= 0) { return []; }
+  // A drag straight along one axis gives a marquee with no width or height, which must still select what it crosses.
+  if (selectionRect.w <= 0 && selectionRect.h <= 0) { return []; }
 
   const selected: Array<{ itemId: string; linkIdMaybe: string | null }> = [];
   const selectedSet = new Set<string>();
@@ -846,11 +856,8 @@ export function marqueeSelection(store: StoreContextModel): Array<{ itemId: stri
     if (ve.flags & VisualElementFlags.LineItem) { return false; }
     const veBox = VeFns.veViewportBoundsRelativeToDesktopPx(store, ve);
     if (veBox.w <= 0 || veBox.h <= 0) { return false; }
-    const ix = Math.max(selectionRect.x, veBox.x);
-    const iy = Math.max(selectionRect.y, veBox.y);
-    const ax = Math.min(selectionRect.x + selectionRect.w, veBox.x + veBox.w);
-    const ay = Math.min(selectionRect.y + selectionRect.h, veBox.y + veBox.h);
-    return ix < ax && iy < ay;
+    return overlaps(selectionRect.x, selectionRect.w, veBox.x, veBox.w) &&
+      overlaps(selectionRect.y, selectionRect.h, veBox.y, veBox.h);
   };
   const rootPath = MouseActionState.getSelectionRootPath()!;
   const stack: string[] = [rootPath];
