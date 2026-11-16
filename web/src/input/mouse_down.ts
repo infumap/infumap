@@ -166,9 +166,10 @@ function shouldAllowReadOnlyDocumentNoteTextSelection(hitVe: VisualElement, hitI
  */
 function readOnlyDocumentTableCellPathAtPointer(hitInfo: ReturnType<typeof HitInfoFns.hit>): string | null {
   if (selectionClickFromModifiers() != null) { return null; }
+  // Not HorizontalResize: a column's resize zone is centred on its edge, so it overlaps the start of the next column's
+  // text. A press on the text itself selects; the zone's blank side still resizes the column.
   const controlHitboxes =
     HitboxFlags.Resize |
-    HitboxFlags.HorizontalResize |
     HitboxFlags.OpenPopup |
     HitboxFlags.OpenAttachment |
     HitboxFlags.Expand |

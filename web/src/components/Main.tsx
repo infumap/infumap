@@ -287,6 +287,7 @@ export const Main: Component = () => {
     window.addEventListener('cut', structuralClipboardListener, true);
     window.addEventListener('paste', structuralClipboardListener, true);
     document.addEventListener('copy', readOnlyDocumentCopyListener);
+    document.addEventListener('dragstart', readOnlyDocumentDragStartListener);
     // On document, not #main: with an item focused but nothing being edited, the paste target is <body>, which is
     // above #main, so a listener on #main never sees it.
     document.addEventListener('paste', pasteListener);
@@ -339,6 +340,7 @@ export const Main: Component = () => {
     window.removeEventListener('cut', structuralClipboardListener, true);
     window.removeEventListener('paste', structuralClipboardListener, true);
     document.removeEventListener('copy', readOnlyDocumentCopyListener);
+    document.removeEventListener('dragstart', readOnlyDocumentDragStartListener);
     document.removeEventListener('paste', pasteListener);
     window.removeEventListener('drop', structuralDropListener, true);
     document.removeEventListener('keyup', keyUpListener);
@@ -401,6 +403,16 @@ export const Main: Component = () => {
     if (text == null) { return; }
     ev.clipboardData.setData("text/plain", text);
     ev.preventDefault();
+  };
+  // Dragging selected text out of a read-only document carries the same text as copying it.
+  const readOnlyDocumentDragStartListener = (ev: DragEvent) => {
+    if (ev.dataTransfer == null || !(ev.target instanceof Node)) { return; }
+    const selection = window.getSelection();
+    if (selection == null || selection.rangeCount == 0 || !selection.getRangeAt(0).intersectsNode(ev.target)) { return; }
+    const text = readOnlyDocumentCopyText(selection);
+    if (text == null) { return; }
+    ev.dataTransfer.setData("text/plain", text);
+    ev.dataTransfer.clearData("text/html");
   };
   const structuralDropListener = (ev: DragEvent) => {
     if (!dataTransferContainsFiles(ev.dataTransfer)) { edit_structuralDropGuard(store, ev); }

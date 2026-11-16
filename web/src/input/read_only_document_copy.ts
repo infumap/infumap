@@ -25,6 +25,13 @@ import { VesCache } from "../layout/ves-cache";
 import { VisualElementFlags } from "../layout/visual-element";
 
 
+/**
+ * Ends the text of each row of a read-only document. The rows are absolutely positioned, so to the browser their text
+ * runs together: double-clicking "cell1" in a table selected "bcell1cell2cell3cell4Final". A zero-width space is a word
+ * break that renders as nothing. Copied text leaves it out.
+ */
+export const READ_ONLY_DOCUMENT_ROW_END = "\u200B";
+
 type CopyBlock =
   { kind: "paragraph", text: string, isListItem: boolean } |
   { kind: "row", tablePath: string, cells: Array<string | undefined> };
@@ -127,7 +134,7 @@ function selectedTextWithin(range: Range, element: Element): string {
   part.selectNodeContents(element);
   if (range.compareBoundaryPoints(Range.START_TO_START, part) > 0) { part.setStart(range.startContainer, range.startOffset); }
   if (range.compareBoundaryPoints(Range.END_TO_END, part) < 0) { part.setEnd(range.endContainer, range.endOffset); }
-  return part.toString();
+  return part.toString().replaceAll(READ_ONLY_DOCUMENT_ROW_END, "");
 }
 
 function selectionIncludesStartOf(range: Range, element: Element): boolean {

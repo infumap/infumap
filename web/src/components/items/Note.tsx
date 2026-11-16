@@ -63,6 +63,7 @@ import { asLinkItem, isLink } from "../../items/link-item";
 import { OPAQUE_PAGE_BOX_INSET_PX, autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, isInsideTranslucentPage, parentDocumentPageMaybe, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
 import { NoteIconGlyph } from "./NoteIconGlyph";
 import { NoteInlineText } from "./NoteInlineText";
+import { READ_ONLY_DOCUMENT_ROW_END } from "../../input/read_only_document_copy";
 import { commitActiveTextEdit, edit_beforeInputHandler, edit_inputListener, edit_keyDownHandler, prepareNoteParagraphSplit } from "../../input/edit";
 import { reconcileNoteEditableDom } from "../../input/note_editable_dom";
 import { editNoteInNewComposite, wrapNoteInNewComposite } from "../../input/note_composite";
@@ -413,6 +414,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const renderListMarkerMaybe = () =>
     <Show when={hasListMarker()}>
       <span class={`absolute pointer-events-none${infuTextStyle().isCode ? ' font-mono' : ''}`}
+        data-list-marker={listMarkerText()}
         style={`left: ${textLeftPx() + listMarkerLeftPx() * textBlockScale()}px; ` +
           `top: ${textTopPx()}px; ` +
           `width: ${listMarkerWidthPx()}px; ` +
@@ -421,7 +423,8 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
           `font-size: ${listMarkerFontSizePx()}px; ` +
           `${noteHasNumbered(noteItem().flags) ? 'text-align: right; padding-right: 6px; box-sizing: border-box; ' : ''}` +
           `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
-        {listMarkerText()}
+        {/* Generated content (::before), not text: a selection across list items doesn't highlight or include the
+            marker. user-select: none doesn't do that inside the contenteditable page body of a document. */}
       </span>
     </Show>;
 
@@ -474,6 +477,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
         urls={renderedUrls()}
         linksEnabled={!editing && !isInsideTranslucentPage(props.visualElement)}
         inactiveLinksStyled={editing || isInsideTranslucentPage(props.visualElement)} />}
+      {!editing && isSelectableReadOnlyDocumentText() && READ_ONLY_DOCUMENT_ROW_END}
     </span>;
     if (editing) {
       createRenderEffect(() => {

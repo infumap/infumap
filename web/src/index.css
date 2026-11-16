@@ -165,3 +165,10 @@ body.infumap-blocked-move-cursor * {
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }
+
+/* A note's list marker (Note.tsx, Note_LineItem.tsx) is generated content rather than text, so a text selection across
+   list items doesn't highlight it or include it. user-select: none doesn't do that inside a contenteditable element,
+   which the page body of a document is. */
+[data-list-marker]::before {
+  content: attr(data-list-marker);
+}

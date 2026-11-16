@@ -46,6 +46,7 @@ import { itemState } from "../../store/ItemState";
 import { NoteIconGlyph } from "./NoteIconGlyph";
 import { ItemIconRenderContext } from "../../items/base/icon-item";
 import { NoteInlineText } from "./NoteInlineText";
+import { READ_ONLY_DOCUMENT_ROW_END } from "../../input/read_only_document_copy";
 import { edit_beforeInputHandler, edit_inputListener } from "../../input/edit";
 import { reconcileNoteEditableDom } from "../../input/note_editable_dom";
 
@@ -207,13 +208,14 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const renderListMarkerMaybe = () =>
     <Show when={hasListMarker() && (textWidthPx() > 0 || isTextEditTarget())}>
       <div class={`absolute pointer-events-none${infuTextStyle().isCode ? ' font-mono' : ''}`}
+        data-list-marker={listMarkerText()}
         style={`left: ${leftPx() + listMarkerLeftPx()}px; top: ${boundsPx().y}px; ` +
           `width: ${listMarkerWidthPx()}px; height: ${lineHeightPx() / scale()}px; ` +
           `box-sizing: border-box; transform: scale(${scale()}); transform-origin: top left; ` +
           `font-size: ${listMarkerFontSizePx()}px; line-height: ${LINE_HEIGHT_PX * infuTextStyle().lineHeightMultiplier}px; ` +
           `${noteHasNumbered(noteItem().flags) ? 'text-align: right; padding-right: 6px; ' : ''}` +
           `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; `}>
-        {listMarkerText()}
+        {/* Generated content, so a text selection doesn't include it (see Note.tsx). */}
       </div>
     </Show>;
 
@@ -242,6 +244,7 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
         urls={renderedUrls()}
         linksEnabled={!editing && !isInert()}
         inactiveLinksStyled={editing || isInert()} />}
+      {!editing && isSelectableReadOnlyDocumentText() && READ_ONLY_DOCUMENT_ROW_END}
     </span>;
     if (editing) {
       createRenderEffect(() => {
