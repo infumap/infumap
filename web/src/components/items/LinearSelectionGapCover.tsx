@@ -43,6 +43,9 @@ export function linearSelectionGapAfterBoundsPx(
 export const LinearSelectionGapCover: Component<{
   boundsPx: () => BoundingBox | null,
   enabled: () => boolean,
+  // In a read-only document, not every gap starts a selection: one beside a divider or table doesn't. There the cover
+  // inherits the cursor mouse_move.ts sets from what a press would do.
+  inheritCursor?: () => boolean,
 }> = (props) =>
   <Show when={props.enabled() ? props.boundsPx() : null}>{boundsPx =>
     <div
@@ -51,5 +54,5 @@ export const LinearSelectionGapCover: Component<{
       class="absolute select-none"
       style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; ` +
         `width: ${boundsPx().w}px; height: ${boundsPx().h}px; ` +
-        `z-index: 2; cursor: text; user-select: none; -webkit-user-select: none;`} />
+        `z-index: 2; ${props.inheritCursor?.() ? '' : 'cursor: text; '}user-select: none; -webkit-user-select: none;`} />
   }</Show>;

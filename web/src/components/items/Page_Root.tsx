@@ -892,6 +892,7 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
               <VisualElement_Desktop visualElement={childVes.get()} suppressLocalShadow={true} />
               <LinearSelectionGapCover
                 enabled={documentTextSelectionContainerIsActive}
+                inheritCursor={readOnlyDocumentTextSelectionIsActive}
                 boundsPx={gapAfterBoundsPx} />
             </>
           );

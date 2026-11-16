@@ -477,6 +477,7 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
               <VisualElement_Desktop visualElement={childVes.get()} suppressLocalShadow={true} />
               <LinearSelectionGapCover
                 enabled={documentTextSelectionContainerIsActive}
+                inheritCursor={readOnlyDocumentTextSelectionIsActive}
                 boundsPx={gapAfterBoundsPx} />
             </>
           );

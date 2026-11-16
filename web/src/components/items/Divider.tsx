@@ -26,6 +26,7 @@ import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { linkHasTriangle } from "../../layout/link-triangle";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
+import { isInsideReadOnlyDocumentPage } from "../../items/base/item-common-fns";
 import { useStore } from "../../store/StoreProvider";
 import { FOCUS_RING_BOX_SHADOW } from "../../style";
 import { BoundingBox } from "../../util/geometry";
@@ -79,8 +80,13 @@ export const Divider_Desktop: Component<VisualElementProps> = (props: VisualElem
           `width: ${Math.max(0, boundsPx().w - 4)}px; height: ${DIVIDER_LINE_WIDTH_PX}px; background-color: ${DIVIDER_COLOR};`} />
     </Show>;
 
+  // In a read-only document a click on the divider does nothing, so hovering it shouldn't suggest otherwise. Paragraphs
+  // and tables there show only the drag handle too.
+  const showsHoverHighlight = () =>
+    store.perVe.getMouseIsOver(vePath()) && !(isInsideReadOnlyDocumentPage(props.visualElement) && !canEdit());
+
   const renderBoundsHighlightMaybe = () =>
-    <Show when={store.perVe.getMouseIsOver(vePath()) || store.history.getFocusPathMaybe() === vePath()}>
+    <Show when={showsHoverHighlight() || store.history.getFocusPathMaybe() === vePath()}>
       <div class="absolute border border-item-line rounded-item pointer-events-none"
         style={`left: 1px; top: 1px; width: ${Math.max(0, boundsPx().w - 2)}px; height: ${Math.max(0, boundsPx().h - 2)}px; ` +
           `z-index: ${Z_INDEX_LOCAL_OVERLAY}; background-color: ${DIVIDER_HOVER_BG};`} />

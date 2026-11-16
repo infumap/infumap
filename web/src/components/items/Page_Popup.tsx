@@ -561,6 +561,7 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
               <VisualElement_Desktop visualElement={childVes.get()} suppressLocalShadow={true} />
               <LinearSelectionGapCover
                 enabled={documentTextSelectionContainerIsActive}
+                inheritCursor={readOnlyDocumentTextSelectionIsActive}
                 boundsPx={gapAfterBoundsPx} />
             </>
           );

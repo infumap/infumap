@@ -57,6 +57,7 @@ import { commitActiveToolbarTitleEdit } from "./toolbar_title";
 import { isInsideDocumentPageClickContext, isReadOnlyDocumentPageOrInsideOne } from "../items/base/item-common-fns";
 import { readOnlyDocumentMoveOutVeAtClientPx } from "./document_move_out";
 import { NativeTextSelectionState } from "./native_text_selection";
+import { documentNoteBodyClick, isNoteInsideDocumentArrangedPage, noteBodyClick, readOnlyDocumentNoteBodyClick } from "./document_note_hit";
 import { isQueryItem, isQuerySearchResultsPage } from "../items/query-item";
 
 
@@ -122,42 +123,8 @@ function isChildOfCompositeInDocumentArrangedPage(visualElement: VisualElement):
     isDirectChildOfDocumentArrangedPage(parent);
 }
 
-function isNoteInsideDocumentArrangedPage(visualElement: VisualElement): boolean {
-  if (!isNote(visualElement.displayItem)) {
-    return false;
-  }
-
-  return isInsideDocumentPageClickContext(visualElement);
-}
-
-function noteBodyClick(hitVe: VisualElement, hitInfo: ReturnType<typeof HitInfoFns.hit>): boolean {
-  if (!isNote(hitVe.displayItem)) {
-    return false;
-  }
-  if (hitInfo.overElementMeta?.compositeMoveOut) {
-    return false;
-  }
-
-  const blockedHitboxes =
-    HitboxFlags.Move |
-    HitboxFlags.Resize |
-    HitboxFlags.WidthResize |
-    HitboxFlags.OpenPopup |
-    HitboxFlags.OpenAttachment |
-    HitboxFlags.TriangleLinkSettings;
-
-  return !!(hitInfo.hitboxType & HitboxFlags.Click) &&
-    !(hitInfo.hitboxType & blockedHitboxes);
-}
-
-function documentNoteBodyClick(hitVe: VisualElement, hitInfo: ReturnType<typeof HitInfoFns.hit>): boolean {
-  return isNoteInsideDocumentArrangedPage(hitVe) && noteBodyClick(hitVe, hitInfo);
-}
-
 function shouldAllowReadOnlyDocumentNoteTextSelection(hitVe: VisualElement, hitInfo: ReturnType<typeof HitInfoFns.hit>): boolean {
-  return selectionClickFromModifiers() == null &&
-    !itemCanEdit(VeFns.treeItem(hitVe)) &&
-    documentNoteBodyClick(hitVe, hitInfo);
+  return selectionClickFromModifiers() == null && readOnlyDocumentNoteBodyClick(hitVe, hitInfo);
 }
 
 /**

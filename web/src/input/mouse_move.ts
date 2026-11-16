@@ -60,6 +60,7 @@ import {
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { readOnlyDocumentMoveOutVeAtClientPx } from "./document_move_out";
 import { NativeTextSelectionState } from "./native_text_selection";
+import { readOnlyDocumentNoteBodyClick } from "./document_note_hit";
 
 
 let lastMouseOverPath: VisualElementPath | null = null;
@@ -1776,6 +1777,9 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
       document.body.style.cursor = "ns-resize";
     } else if (readOnlyDocumentMoveOutVe != null && !ev.shiftDown) {
       document.body.style.cursor = "default";
+    } else if (readOnlyDocumentNoteBodyClick(HitInfoFns.getHitVe(hitInfo), hitInfo)) {
+      // Also over the margins and gaps beside the text, where a press starts a text selection as on the text itself.
+      document.body.style.cursor = "text";
     } else if (copyOnlyMoveHover) {
       document.body.style.cursor = "pointer";
     } else if ((hitInfo.hitboxType & HitboxFlags.ShowPointer) && !copyOnlyMoveOutHover) {
