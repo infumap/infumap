@@ -1,17 +1,14 @@
 # Infumap
 
-[Infumap](https://infumap.com) is a durable home for all of your information. When you add something, you can be confident it won’t be **lost**, that you’ll be able to **find** it again, and that other people won’t have access to it without your **permission**.
+[Infumap](https://infumap.com) is a durable home for all of your information. When you add something to Infumap, you can be confident it won’t be lost, that you’ll be able to find it again, and that other people won’t have access to it without your permission.
 
 But Infumap is more than a store - it's how I have long imagined a computer desktop should work.
 
 - **Structure that develops as you work.**
   Add a document, jot down a thought or bookmark a URL without deciding how everything should be organized upfront. As your understanding develops, group related items, arrange a page, or organize details into a table. Add structure only where it helps - you can always fall back to search.
 
-- **Small details have a place.**
-  A note, a link or a rating are items in their own right, alongside a document or an image. You can keep these small pieces of information where they belong without having to create a separate file for each one.
-
 - **Keep the thinking with the material.**
-  The documents are only part of the work. There are also questions, comparisons, decisions and things you want to remember. Infumap gives those a place alongside the material they refer to, so you can return to both what you collected and what you made of it.
+  The documents are only part of the work. Keep notes, questions, comparisons and decisions as lightweight items alongside the material they refer to. You can return to both what you collected and what you made of it.
 
 - **Choose the form that fits.**
   Different information calls for different arrangements. You might use a table to compare places to stay, arrange documents and notes together on a page, or leave a few items loosely grouped until you know what to do with them.
