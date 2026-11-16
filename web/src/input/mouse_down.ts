@@ -324,6 +324,26 @@ function isInsideToolbarControlArea(store: StoreContextModel): boolean {
     isInsideElementClientBounds("toolbarItemOptionsDiv");
 }
 
+/**
+ * A right click while a read-only document (e.g. a text file shown as a document) has the caret or a selection ends
+ * it and focuses the page, or the popup, without going back: the same as a right click while editing a document's text
+ * (setTextEditInfo). Clicking in such a document's text gives its page body the keyboard focus, which shows the caret.
+ */
+function endReadOnlyDocumentCaretMaybe(store: StoreContextModel): boolean {
+  const active = document.activeElement;
+  if (!(active instanceof HTMLElement) || !active.isContentEditable ||
+      active.closest("[data-infumap-read-only-document]") == null) {
+    return false;
+  }
+  window.getSelection()?.removeAllRanges();
+  active.blur();
+  const popupPath = store.history.currentPopupSpec()?.vePath ?? null;
+  const focusPath = popupPath ?? store.history.currentPagePath();
+  if (focusPath != null) { store.history.setFocus(focusPath); }
+  arrangeNow(store, "mouse-right-end-read-only-document-caret");
+  return true;
+}
+
 function clearNativeTextSelectionMaybe(): boolean {
   const selection = window.getSelection();
   if (selection == null || selection.rangeCount == 0 || selection.isCollapsed) {
@@ -340,7 +360,7 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   // Text edit is committed before the desktop handlers run. Move-out handles were hidden, so must not start a drag.
   const wasTextEditing = store.overlay.textEditInfo() != null;
 
-  if (buttonNumber != MOUSE_LEFT && clearNativeTextSelectionMaybe()) {
+  if (buttonNumber != MOUSE_LEFT && (endReadOnlyDocumentCaretMaybe(store) || clearNativeTextSelectionMaybe())) {
     NativeTextSelectionState.clear();
     return defaultResult;
   }
