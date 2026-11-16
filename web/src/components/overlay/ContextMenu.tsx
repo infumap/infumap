@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Show } from "solid-js";
+import { Component, For, Show, createEffect, createSignal, on, onMount } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
 import { Vector } from "../../util/geometry";
 import { HitInfo } from "../../input/hit";
@@ -48,6 +48,8 @@ const MENU_ENTRIES: Array<{ type: string | null, label: string, icon: string, se
   { type: null, label: "Image", icon: "fa fa-image" },
   { type: null, label: "File", icon: "fa fa-file" },
 ];
+
+const EDGE_MARGIN_PX = 4;
 
 const createKeyFor = (type: string | null): string | null =>
   CREATE_KEYS.find(([_, itemType]) => itemType == type)?.[0] ?? null;
@@ -88,9 +90,37 @@ export const ContextMenu: Component = () => {
   const posPx = () => store.overlay.contextMenuInfo.get()!.posPx;
   const hitInfo = () => store.overlay.contextMenuInfo.get()!.hitInfo;
 
+  // Opened near the bottom or right edge, the menu would run off the desktop, so it is kept inside it. The size is
+  // measured once mounted; until then the unclamped position is used.
+  let menuDiv: HTMLDivElement | undefined;
+  const [menuSizePx, setMenuSizePx] = createSignal<{ w: number, h: number } | null>(null);
+  onMount(() => { if (menuDiv) { setMenuSizePx({ w: menuDiv.offsetWidth, h: menuDiv.offsetHeight }); } });
+  const clampedPosPx = (): Vector => {
+    let x = posPx().x - 10;
+    let y = posPx().y - 30;
+    const size = menuSizePx();
+    if (size != null) {
+      const desktopPx = store.desktopBoundsPx();
+      x = Math.max(EDGE_MARGIN_PX, Math.min(x, desktopPx.w - size.w - EDGE_MARGIN_PX));
+      y = Math.max(EDGE_MARGIN_PX, Math.min(y, desktopPx.h - size.h - EDGE_MARGIN_PX));
+    }
+    return { x, y };
+  };
+
+  // Close on navigation (e.g. browser back), since the menu's position and hit info belong to the page it was opened
+  // over. Clicks and keys close it elsewhere; this catches the ways of navigating that don't go through those.
+  const locationKey = () => {
+    const veid = store.history.currentPageVeid();
+    return `${veid?.itemId ?? ""}/${veid?.linkIdMaybe ?? ""}|${store.history.currentPopupSpec()?.vePath ?? ""}`;
+  };
+  createEffect(on(locationKey, (key, prevKey) => {
+    if (prevKey !== undefined && key != prevKey) { store.overlay.contextMenuInfo.set(null); }
+  }));
+
   return (
-    <div class="absolute"
-         style={`left: ${posPx().x-10}px; top: ${posPx().y-30}px; ` +
+    <div ref={menuDiv}
+         class="absolute"
+         style={`left: ${clampedPosPx().x}px; top: ${clampedPosPx().y}px; ` +
                 `z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY};`}
          onMouseDown={mouseDownListener}>
       <AddItem desktopPosPx={posPx()} hitInfo={hitInfo()} />

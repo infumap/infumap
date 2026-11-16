@@ -70,6 +70,7 @@ import type { SearchResult } from "../server";
 import { commitActiveToolbarTitleEdit } from "./toolbar_title";
 import { commitActiveTextEdit, refocusActiveTextEdit } from "./edit";
 import { closeToolbarDialog } from "../components/toolbar/toolbarDialog";
+import { CREATE_KEYS } from "../components/HelpContent";
 
 
 /**
@@ -763,6 +764,27 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     ev.preventDefault();
     store.overlay.networkOverlayVisible.set(false);
     return;
+  }
+
+  // The context menu counts as an overlay, so its keys must be handled before the anOverlayIsVisible return below,
+  // which would otherwise swallow them. Escape closes it, refreshing hover as when right click does. The create keys
+  // shown in the menu create that item where the menu was opened, as clicking the entry does.
+  const contextMenuInfo = store.overlay.contextMenuInfo.get();
+  if (contextMenuInfo != null) {
+    if (ev.code == "Escape") {
+      ev.preventDefault();
+      store.overlay.contextMenuInfo.set(null);
+      mouseMove_handleNoButtonDown(store, store.user.getUserMaybe() != null);
+      return;
+    }
+    if (!ev.ctrlKey && !ev.metaKey && !ev.altKey) {
+      const createType = CREATE_KEYS.find(([key, _]) => ev.code == "Key" + key)?.[1];
+      if (createType != null) {
+        ev.preventDefault();
+        newItemInContext(store, createType, contextMenuInfo.hitInfo, contextMenuInfo.posPx);
+        return;
+      }
+    }
   }
 
   if (isArrowKey(ev.code) && (handleSearchWorkspaceArrowMaybe(store, ev) || handleSearchResultPopupArrowMaybe(store, ev))) {

@@ -443,6 +443,12 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
   // Attachments of the pages whose titles are in the toolbar straddle its bottom edge, and are rendered above it.
   const isOverToolbarAttachment = CursorEventState.getLatestDesktopPx(store).y < 0 &&
     HitInfoFns.isOverTopTitledPageAttachment(store, CursorEventState.getLatestDesktopPx(store));
+  // A press elsewhere on the desktop closes the "/" menu in mouseLeftDownHandler, but toolbar presses return before
+  // that, so it is closed here for them. The press still goes to the toolbar control.
+  if (store.overlay.contextMenuInfo.get() != null &&
+      CursorEventState.getLatestDesktopPx(store).y < 0 && !isOverToolbarAttachment) {
+    store.overlay.contextMenuInfo.set(null);
+  }
   for (let i = 0; i < toolbarTitleDivs.length && !isOverToolbarAttachment; ++i) {
     const toolbarTitleDiv = toolbarTitleDivs[i];
     const canEditToolbarTitle = toolbarTitleDiv.isContentEditable;
