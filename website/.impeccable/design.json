@@ -39,7 +39,7 @@
       "page-orange": {
         "role": "secondary",
         "displayName": "Page Orange",
-        "canonical": "#764f39",
+        "canonical": "#78532f",
         "tonalRamp": [
           "#160601",
           "#381f11",
@@ -55,7 +55,7 @@
       "page-yellow": {
         "role": "secondary",
         "displayName": "Page Yellow",
-        "canonical": "#767139",
+        "canonical": "#75712f",
         "tonalRamp": [
           "#0e0c00",
           "#2a2708",
@@ -71,12 +71,12 @@
       "page-green": {
         "role": "secondary",
         "displayName": "Page Green",
-        "canonical": "#3b7639",
+        "canonical": "#357844",
         "tonalRamp": [
           "#001000",
           "#0b2f0b",
           "#225121",
-          "#3b7639",
+          "#357844",
           "#679864",
           "#93bb90",
           "#bcdbb9",
@@ -87,7 +87,7 @@
       "page-purple": {
         "role": "secondary",
         "displayName": "Page Purple",
-        "canonical": "#6f3976",
+        "canonical": "#763a70",
         "tonalRamp": [
           "#18001b",
           "#3a143f",
@@ -103,7 +103,7 @@
       "page-grey": {
         "role": "secondary",
         "displayName": "Page Grey",
-        "canonical": "#767676",
+        "canonical": "#6e6e6e",
         "tonalRamp": [
           "#0b0b0b",
           "#262626",
@@ -569,7 +569,7 @@
       "kind": "custom",
       "refersTo": "page-tile-blue",
       "description": "Solid page-colour tiles with white bold labels; the open one carries a white foot bar.",
-      "html": "<div class=\"ds-tiles\"><button class=\"ds-tile\" style=\"background:#395176\" aria-selected=\"true\">Pages</button><button class=\"ds-tile\" style=\"background:#3b7639\">Lists</button><button class=\"ds-tile\" style=\"background:#767139\">Tables</button><button class=\"ds-tile\" style=\"background:#6f3976\">Loose groups</button></div>",
+      "html": "<div class=\"ds-tiles\"><button class=\"ds-tile\" style=\"background:#395176\" aria-selected=\"true\">Pages</button><button class=\"ds-tile\" style=\"background:#357844\">Lists</button><button class=\"ds-tile\" style=\"background:#75712f\">Tables</button><button class=\"ds-tile\" style=\"background:#763a70\">Loose groups</button></div>",
       "css": ":host{--blue:#395176;--ground:#fff;--chrome:#f3f5f8;--ink:#1d2128;--text:#333;--muted:#586070;--item-border:#a6a6a6;--item-line:#c9d5e2;--chrome-line:#e1e3e1;--table-head:#e7eaef;--table-line:#bac2cf;--hover:#e8e8e8;--focus:rgb(0 82 255 / .9);--shadow:0 2px 6px rgb(40 48 60 / .10),0 10px 24px -12px rgb(40 48 60 / .22);--sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;--mono:ui-monospace,'SF Mono',Menlo,Monaco,Consolas,monospace;font-family:var(--sans);color:var(--text)} .ds-tiles{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid #2c3442;border-radius:2px;box-shadow:var(--shadow);overflow:hidden}.ds-tile{position:relative;min-height:110px;padding:16px;border:0;border-left:1px solid rgb(0 0 0 / .35);color:#fff;font:700 20px/1.15 var(--sans);letter-spacing:-.01em;cursor:pointer;transition:filter 160ms,box-shadow 160ms}.ds-tile:first-child{border-left:0}.ds-tile::after{content:'';position:absolute;right:4px;bottom:4px;width:10px;height:10px;background:linear-gradient(135deg,transparent 50%,rgb(255 255 255 / .55) 50%)}.ds-tile:hover{filter:brightness(1.12)}.ds-tile[aria-selected=true]{box-shadow:inset 0 -5px 0 rgb(255 255 255 / .85)}.ds-tile:focus-visible{outline:3px solid #fff;outline-offset:-6px;box-shadow:inset 0 0 0 6px var(--focus)}"
     },
     {
@@ -577,7 +577,7 @@
       "kind": "card",
       "refersTo": "item-titlebar",
       "description": "An opened page: title bar tinted 9% of the page colour, rule 35%, title darkened 15%.",
-      "html": "<section class=\"ds-item ds-panel\" style=\"--page:#767139\"><div class=\"ds-ptb\"><h3>Tables</h3></div><div class=\"ds-pbody\"><p>Compare options side by side, with a column for each detail.</p><div class=\"ds-ph\"><span>Screenshot coming soon</span><span>A comparison table</span></div></div></section>",
+      "html": "<section class=\"ds-item ds-panel\" style=\"--page:#75712f\"><div class=\"ds-ptb\"><h3>Tables</h3></div><div class=\"ds-pbody\"><p>Compare options side by side, with a column for each detail.</p><div class=\"ds-ph\"><span>Screenshot coming soon</span><span>A comparison table</span></div></div></section>",
       "css": ":host{--blue:#395176;--ground:#fff;--chrome:#f3f5f8;--ink:#1d2128;--text:#333;--muted:#586070;--item-border:#a6a6a6;--item-line:#c9d5e2;--chrome-line:#e1e3e1;--table-head:#e7eaef;--table-line:#bac2cf;--hover:#e8e8e8;--focus:rgb(0 82 255 / .9);--shadow:0 2px 6px rgb(40 48 60 / .10),0 10px 24px -12px rgb(40 48 60 / .22);--sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;--mono:ui-monospace,'SF Mono',Menlo,Monaco,Consolas,monospace;font-family:var(--sans);color:var(--text)} .ds-item{position:relative;background:var(--ground);border:1px solid var(--item-border);border-radius:2px;box-shadow:var(--shadow)}.ds-item::after{content:'';position:absolute;right:2px;bottom:2px;width:9px;height:9px;background:linear-gradient(135deg,transparent 50%,var(--item-border) 50%)}.ds-ptb{padding:10px 16px;background:color-mix(in srgb,var(--page) 9%,white);border-bottom:1px solid color-mix(in srgb,var(--page) 35%,white)}.ds-ptb h3{margin:0;color:color-mix(in srgb,var(--page) 85%,black);font-size:22px;font-weight:600}.ds-pbody{display:grid;grid-template-columns:5fr 7fr;gap:24px;padding:24px}.ds-pbody p{margin:0;font-size:17px}.ds-ph{display:grid;place-content:center;gap:4px;min-height:180px;padding:24px;border:1.5px dashed var(--item-border);border-radius:2px;background:var(--chrome);text-align:center;color:var(--muted);font-size:15px}.ds-ph span:first-child{color:var(--ink);font-weight:600}.ds-panel{animation:ds-open 380ms cubic-bezier(.16,1,.3,1)}@keyframes ds-open{from{opacity:0;transform:scale(.97);clip-path:inset(0 0 60% 0 round 2px)}to{opacity:1;transform:none;clip-path:inset(0 round 2px)}}@media (prefers-reduced-motion:reduce){.ds-panel{animation:none}}"
     },
     {
@@ -594,7 +594,7 @@
       "refersTo": "page-yellow",
       "description": "Single-line notice on the yellow page tint.",
       "html": "<p class=\"ds-banner\">Infumap is still growing. Expect changes between releases.</p>",
-      "css": ":host{--blue:#395176;--ground:#fff;--chrome:#f3f5f8;--ink:#1d2128;--text:#333;--muted:#586070;--item-border:#a6a6a6;--item-line:#c9d5e2;--chrome-line:#e1e3e1;--table-head:#e7eaef;--table-line:#bac2cf;--hover:#e8e8e8;--focus:rgb(0 82 255 / .9);--shadow:0 2px 6px rgb(40 48 60 / .10),0 10px 24px -12px rgb(40 48 60 / .22);--sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;--mono:ui-monospace,'SF Mono',Menlo,Monaco,Consolas,monospace;font-family:var(--sans);color:var(--text)} .ds-banner{margin:0;padding:12px 16px;background:color-mix(in srgb,#767139 9%,white);border:1px solid color-mix(in srgb,#767139 35%,white);border-radius:4px;color:var(--ink);font-size:16px}"
+      "css": ":host{--blue:#395176;--ground:#fff;--chrome:#f3f5f8;--ink:#1d2128;--text:#333;--muted:#586070;--item-border:#a6a6a6;--item-line:#c9d5e2;--chrome-line:#e1e3e1;--table-head:#e7eaef;--table-line:#bac2cf;--hover:#e8e8e8;--focus:rgb(0 82 255 / .9);--shadow:0 2px 6px rgb(40 48 60 / .10),0 10px 24px -12px rgb(40 48 60 / .22);--sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;--mono:ui-monospace,'SF Mono',Menlo,Monaco,Consolas,monospace;font-family:var(--sans);color:var(--text)} .ds-banner{margin:0;padding:12px 16px;background:color-mix(in srgb,#75712f 9%,white);border:1px solid color-mix(in srgb,#75712f 35%,white);border-radius:4px;color:var(--ink);font-size:16px}"
     }
   ],
   "narrative": {

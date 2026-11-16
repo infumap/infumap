@@ -24,18 +24,23 @@ import { LINE_HEIGHT_PX } from "./constants";
 import { assert } from "./util/lang";
 import { Uid } from "./util/uid";
 
-// Page colours. All but gray share an HSV saturation and value (0.52, 0.46), which is what makes them read as one
-// family. Index 0 is the default. Stored pages refer to these by index, so reordering or removing one needs an item log
-// migration (see migrate_record_v41_to_v42, which added teal in the place of a duplicate blue).
+// Page colours. They started as one HSV saturation and value (0.52, 0.46) at different hues, which is what makes them
+// read as one family, and were then nudged apart in OKLab: the pages draw them at 35% (translucent) and about 7% (title
+// bar), which shrinks the differences between them, so the closest pairs need all the room they can get. Orange moved
+// towards amber, away from red, and yellow took a little more chroma to stay clear of it. Purple leans to magenta and
+// green to blue-green, so blue/purple and yellow/green stay apart with red-green colour blindness. Gray was darkened
+// for white titles on large opaque pages. Blue (the default) and red are as they were. Index 0 is the default. Stored
+// pages refer to these by index, so reordering or removing one needs an item log migration (see
+// migrate_record_v41_to_v42, which added teal in the place of a duplicate blue).
 export let Colors = [
   "#395176", // blue [default]
   "#76393A", // red
-  "#764F39", // orange
-  "#767139", // yellow
-  "#3B7639", // green
-  "#387575", // teal
-  "#6F3976", // purple
-  "#767676"  // gray
+  "#78532F", // orange
+  "#75712F", // yellow
+  "#357844", // green
+  "#2C6E78", // teal
+  "#763A70", // purple
+  "#6E6E6E"  // gray
 ];
 
 // Fill of items drawn as outlines (without text) because they are too small for it to be legible. Types with a
