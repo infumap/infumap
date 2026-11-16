@@ -940,6 +940,12 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     }
 
     const focusPath = store.history.getFocusPath();
+    // Before the focused visual element is required: it may be the source of a popup opened from inside another popup,
+    // which isn't drawn any more.
+    if (!store.overlay.textEditInfo() && focusFirstChildOfPopupMaybe(store, focusPath)) {
+      ev.preventDefault();
+      return;
+    }
     const focusVe = VesCache.current.readNode(focusPath);
     if (focusVe && !store.overlay.textEditInfo()) {
       const focusIsEmbeddedListPage =
@@ -1173,6 +1179,27 @@ function focusFirstChildMaybe(store: StoreContextModel, focusPath: string, focus
   }
 
   return false;
+}
+
+/**
+ * Enter on the source of an open table or composite popup (where focus stays while it is open, see pushPopup) moves
+ * focus to the popup's first child. So Enter, Enter on a table row pops the item up and then goes into it.
+ * The source isn't necessarily drawn: a popup opened from inside another popup replaces it on screen, so this works
+ * from the popup spec rather than the focused visual element.
+ */
+function focusFirstChildOfPopupMaybe(store: StoreContextModel, focusPath: string): boolean {
+  const popupSpec = store.history.currentPopupSpec();
+  if (!popupSpec || popupSpec.vePath != focusPath) { return false; }
+  const popupItem = itemState.get(popupSpec.actualVeid.itemId);
+  if (!popupItem || (!isTable(popupItem) && !isComposite(popupItem))) { return false; }
+
+  // The popup is arranged under a synthetic link, so it can't be looked up by veid. Only the top root page arranges
+  // one, as its popup relationship.
+  const topRootVes = VesCache.render.getChildren(VeFns.veToPath(store.umbrellaVisualElement.get()))()[0];
+  if (!topRootVes) { return false; }
+  const popupVe = VesCache.current.readPopup(VeFns.veToPath(topRootVes.get()));
+  if (!popupVe || popupVe.displayItem.id != popupItem.id) { return false; }
+  return focusFirstChildMaybe(store, VeFns.veToPath(popupVe), popupVe);
 }
 
 function handleFocusedListPageArrowRightMaybe(store: StoreContextModel): boolean {
@@ -1661,9 +1688,11 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
   // After the page's own handling of up/down, so scrolling it takes precedence over leaving it.
   if (focusedPageIsRoot && handleTableRootPageVerticalNavigationMaybe(store, ev)) { return; }
 
-  // Handle arrow keys when an item (including pages) has focus but no popup
+  // Handle arrow keys when an item (including pages) has focus but no popup, or has focus inside the popup (e.g. a
+  // row of a popped up table, after Enter on its source). Otherwise they move the popup between the source's siblings.
   // This enables navigation from a focused (non-editable) item
-  if (!store.history.currentPopupSpec()) {
+  const focusIsInsidePopup = focusPathInPopupForBackMaybe(store) != null;
+  if (!store.history.currentPopupSpec() || focusIsInsidePopup) {
     const focusPath = store.history.getFocusPath();
     const focusVe = VesCache.current.readNode(focusPath);
     if (focusVe) {
@@ -1679,8 +1708,9 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
         arrangeNow(store, "key-arrow-focus-closest");
         return;
       }
-      // If no visible sibling found and focus is on a page, try navigating in parent container
-      if (isPage(focusVe.displayItem)) {
+      // If no visible sibling found and focus is on a page, try navigating in parent container.
+      // Not inside a popup: there the edge of the popup's contents is just the edge.
+      if (isPage(focusVe.displayItem) && !focusIsInsidePopup) {
         const currentPageVeid = store.history.currentPageVeid();
         if (!currentPageVeid) return;
 
