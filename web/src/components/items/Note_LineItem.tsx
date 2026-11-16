@@ -24,6 +24,7 @@ import { itemCanEdit } from "../../items/base/capabilities-item";
 import { NoteFlags } from "../../items/base/flags-item";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { createHighlightBoundsPxFn, createLineHighlightBoundsPxFn, handleLineItemTitleKeyDown, isInsideTranslucentPage, lineItemTextClippedWidthCssPx, shouldShowFocusRingForVisualElement } from "./helper";
+import { isInsideReadOnlyDocumentPage } from "../../items/base/item-common-fns";
 import { LINE_HEIGHT_PX, NOTE_LINE_ITEM_TEXT_PADDING_RIGHT_PX, PADDING_PROP, Z_INDEX_LOCAL_OVERLAY, Z_INDEX_LOCAL_HIGHLIGHT } from "../../constants";
 import { cloneBoundingBox } from "../../util/geometry";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
@@ -123,6 +124,11 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
   const renderedUrls = () => noteItem().urls;
 
   const isInert = () => isInsideTranslucentPage(props.visualElement);
+  // A cell of a table in a read-only document (e.g. a markdown file) is selectable like the document's paragraphs
+  // (Note.tsx). mouse_down.ts lets a press on its text start the browser's selection.
+  const isSelectableReadOnlyDocumentText = () =>
+    !!(props.visualElement.flags & VisualElementFlags.InsideTable) && !canEdit() && !isInert() &&
+    isInsideReadOnlyDocumentPage(props.visualElement);
   const eatMouseEvent = (ev: MouseEvent) => { if (!isInert()) { ev.stopPropagation(); } }
 
   const copyClickHandler = () => {
@@ -220,6 +226,9 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
         // Chrome keeps the caret inside the line, which an empty title has no width for: it would sit just left of
         // the text area, where it is clipped.
         (editing ? `min-width: 2px; ` : '') +
+        (!editing && isSelectableReadOnlyDocumentText()
+          ? `pointer-events: auto; user-select: text; -webkit-user-select: text; cursor: text; `
+          : '') +
         `outline: 0px solid transparent;`}
       contentEditable={canEdit() && editing ? "plaintext-only" : undefined}
       data-note-editor={editing ? "" : undefined}

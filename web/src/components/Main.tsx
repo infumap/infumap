@@ -53,6 +53,7 @@ import { CursorEventState, MouseAction, MouseActionState } from "../input/state"
 import { MOUSE_RIGHT, mouseDownHandler } from "../input/mouse_down";
 import { shouldOpenNativeTextContextMenu } from "../input/native_text_context_menu";
 import { keyDownHandler, keyUpHandler } from "../input/key";
+import { readOnlyDocumentCopyText } from "../input/read_only_document_copy";
 import { requestArrange } from "../layout/arrange";
 import { startImageFetchBlockageWatch } from "../imageFetchWatch";
 import { imageFetchesPending } from "../imageManager";
@@ -285,6 +286,7 @@ export const Main: Component = () => {
     window.addEventListener('beforeinput', structuralBeforeInputListener, true);
     window.addEventListener('cut', structuralClipboardListener, true);
     window.addEventListener('paste', structuralClipboardListener, true);
+    document.addEventListener('copy', readOnlyDocumentCopyListener);
     // On document, not #main: with an item focused but nothing being edited, the paste target is <body>, which is
     // above #main, so a listener on #main never sees it.
     document.addEventListener('paste', pasteListener);
@@ -336,6 +338,7 @@ export const Main: Component = () => {
     window.removeEventListener('beforeinput', structuralBeforeInputListener, true);
     window.removeEventListener('cut', structuralClipboardListener, true);
     window.removeEventListener('paste', structuralClipboardListener, true);
+    document.removeEventListener('copy', readOnlyDocumentCopyListener);
     document.removeEventListener('paste', pasteListener);
     window.removeEventListener('drop', structuralDropListener, true);
     document.removeEventListener('keyup', keyUpListener);
@@ -392,6 +395,13 @@ export const Main: Component = () => {
   const compositionEndListener = (ev: CompositionEvent) => { edit_compositionEndHandler(store, ev); };
   const structuralBeforeInputListener = (ev: InputEvent) => { edit_structuralBeforeInputGuard(store, ev); };
   const structuralClipboardListener = (ev: ClipboardEvent) => { edit_structuralClipboardGuard(store, ev); };
+  const readOnlyDocumentCopyListener = (ev: ClipboardEvent) => {
+    if (ev.clipboardData == null) { return; }
+    const text = readOnlyDocumentCopyText(window.getSelection());
+    if (text == null) { return; }
+    ev.clipboardData.setData("text/plain", text);
+    ev.preventDefault();
+  };
   const structuralDropListener = (ev: DragEvent) => {
     if (!dataTransferContainsFiles(ev.dataTransfer)) { edit_structuralDropGuard(store, ev); }
   };

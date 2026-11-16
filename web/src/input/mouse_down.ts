@@ -160,6 +160,32 @@ function shouldAllowReadOnlyDocumentNoteTextSelection(hitVe: VisualElement, hitI
     documentNoteBodyClick(hitVe, hitInfo);
 }
 
+/**
+ * The path of the read-only document table cell (row or attachment note) whose text is under the pointer, if a press
+ * there should start a text selection.
+ */
+function readOnlyDocumentTableCellPathAtPointer(hitInfo: ReturnType<typeof HitInfoFns.hit>): string | null {
+  if (selectionClickFromModifiers() != null) { return null; }
+  const controlHitboxes =
+    HitboxFlags.Resize |
+    HitboxFlags.HorizontalResize |
+    HitboxFlags.OpenPopup |
+    HitboxFlags.OpenAttachment |
+    HitboxFlags.Expand |
+    HitboxFlags.TableColumnContextMenu;
+  if (hitInfo.hitboxType & controlHitboxes) { return null; }
+  const clientPx = CursorEventState.getLatestClientPx();
+  const title = document.elementFromPoint(clientPx.x, clientPx.y)?.closest('[id$=":title"]');
+  if (!(title instanceof HTMLElement) || title.closest("[data-infumap-read-only-document]") == null) { return null; }
+  const path = title.id.slice(0, -":title".length);
+  const ve = VesCache.current.readNode(path);
+  if (ve == null || !(ve.flags & VisualElementFlags.InsideTable) || !isNote(ve.displayItem) ||
+      itemCanEdit(ve.displayItem)) {
+    return null;
+  }
+  return path;
+}
+
 function shouldEditDocumentNoteOnMouseDown(hitVe: VisualElement, hitInfo: ReturnType<typeof HitInfoFns.hit>): boolean {
   return selectionClickFromModifiers() == null &&
     itemCanEdit(VeFns.treeItem(hitVe)) &&
@@ -717,16 +743,22 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   // A press on a link in a read-only document starts a text selection like a press on any other text: the page body is
   // contenteditable, so the browser selects instead of dragging the link. The link opens on release only if the press
   // didn't become a drag (mouse_up.ts), as browsers do.
+  // Table cells are selectable too, but a press on one hits the table, so they're found from the text under the pointer.
   const readOnlyLinkUrl = ClickState.getLinkWasClicked() ? ClickState.getLinkClickUrl() : null;
-  if ((!ClickState.getLinkWasClicked() || readOnlyLinkUrl != null) &&
-      shouldAllowReadOnlyDocumentNoteTextSelection(hitVe, hitInfo)) {
+  const linkAllowsSelection = !ClickState.getLinkWasClicked() || readOnlyLinkUrl != null;
+  const readOnlyNoteSelection = linkAllowsSelection && shouldAllowReadOnlyDocumentNoteTextSelection(hitVe, hitInfo);
+  const readOnlyCellPath = linkAllowsSelection && !readOnlyNoteSelection
+    ? readOnlyDocumentTableCellPathAtPointer(hitInfo)
+    : null;
+  if (readOnlyNoteSelection || readOnlyCellPath != null) {
     ClickState.setLinkWasClicked(false);
     NativeTextSelectionState.startReadOnlyDocumentTextSelection(readOnlyLinkUrl == null ? null : {
       url: readOnlyLinkUrl,
-      notePath: VeFns.veToPath(hitVe),
+      notePath: readOnlyCellPath ?? VeFns.veToPath(hitVe),
       clientPx: CursorEventState.getLatestClientPx(),
     });
-    return startLinearNoteTextSelection(hitVe);
+    // The pointer is on the cell's text, so the browser's own selection can start there.
+    return readOnlyCellPath != null ? MouseEventActionFlags.None : startLinearNoteTextSelection(hitVe);
   }
 
   if (!ClickState.getLinkWasClicked() && shouldEditDocumentNoteOnMouseDown(hitVe, hitInfo)) {
