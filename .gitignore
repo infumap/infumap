@@ -15,3 +15,6 @@ tools/gpu/text_embedding/models/
 .last-audit-gpu
 .audit-cache/
 run_with_env.sh
+
+# Impeccable design-tool hook cache (per session, local paths)
+**/.impeccable/hook.cache.json
