@@ -198,7 +198,9 @@ export const TableFns = {
       title,
       spatialPositionGr: { x: 0.0, y: 0.0 },
 
-      spatialWidthGr: 8.0 * GRID_SIZE,
+      // Wider than the 8 block Title column, so adding a second column visibly splits the table. When they were
+      // equal, the new last column had no room and nothing appeared to change.
+      spatialWidthGr: 11.0 * GRID_SIZE,
       spatialHeightGr: 6.0 * GRID_SIZE,
 
       tableColumns: [{
