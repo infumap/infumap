@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX, WIDTH_RESIZE_STRIP_PX } from "../../constants";
+import { ITEM_BORDER_WIDTH_PX, NATURAL_BLOCK_SIZE_PX, RESIZE_BOX_SIZE_PX, WIDTH_RESIZE_STRIP_PX } from "../../constants";
 import { PageFlags } from "../../items/base/flags-item";
 import { Item, ItemType } from "../../items/base/item";
 import { ItemFns } from "../../items/base/item-polymorphism";
@@ -119,14 +119,26 @@ export function arrange_spatial_page(
     const nextBoundsPx = cloneBoundingBox(itemGeometry.boundsPx)!;
     const minX = scrollableChildAreaBoundsPx.x;
     const minY = scrollableChildAreaBoundsPx.y;
-    const maxX = scrollableChildAreaBoundsPx.x + Math.max(0, scrollableChildAreaBoundsPx.w - nextBoundsPx.w);
-    const maxY = scrollableChildAreaBoundsPx.y + Math.max(0, scrollableChildAreaBoundsPx.h - nextBoundsPx.h);
+    // Spatial geometry adds a border pixel beyond the item's block dimensions. Exclude it so items touching the
+    // right or bottom edge stay in place without a warning. The epsilon only absorbs floating point roundoff.
+    const widthPx = nextBoundsPx.w - ITEM_BORDER_WIDTH_PX;
+    const heightPx = nextBoundsPx.h - ITEM_BORDER_WIDTH_PX;
+    const epsilonPx = 1e-6;
+    const isOutside = nextBoundsPx.x < minX - epsilonPx || nextBoundsPx.y < minY - epsilonPx ||
+      nextBoundsPx.x + widthPx > minX + scrollableChildAreaBoundsPx.w + epsilonPx ||
+      nextBoundsPx.y + heightPx > minY + scrollableChildAreaBoundsPx.h + epsilonPx;
+    if (!isOutside) {
+      return { geometry: itemGeometry, wasAutoMoved: false };
+    }
+    const maxX = minX + Math.max(0, scrollableChildAreaBoundsPx.w - widthPx);
+    const maxY = minY + Math.max(0, scrollableChildAreaBoundsPx.h - heightPx);
     const clampedX = Math.min(Math.max(nextBoundsPx.x, minX), maxX);
     const clampedY = Math.min(Math.max(nextBoundsPx.y, minY), maxY);
     const dx = clampedX - nextBoundsPx.x;
     const dy = clampedY - nextBoundsPx.y;
     if (dx === 0 && dy === 0) {
-      return { geometry: itemGeometry, wasAutoMoved: false };
+      // An oversized item can already be at the origin and still extend outside the page.
+      return { geometry: itemGeometry, wasAutoMoved: true };
     }
 
     nextBoundsPx.x += dx;

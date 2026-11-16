@@ -77,14 +77,9 @@ export const Toolbar_PageSizePopup: Component = () => {
     w: childRects.reduce((m, r) => Math.max(m, r.x + r.w), 0),
     h: childRects.reduce((m, r) => Math.max(m, r.y + r.h), 0),
   };
-  // The page may be made smaller than its items reach: arrange moves those items into view and draws them with the
-  // moved-into-view warning, and the schematic marks them. An item flush with the right or bottom edge already counts
-  // as outside when arranged (its bounds include a border pixel), so the page must reach past it to contain it.
-  const reachBl = (r: BoundingBox): Dimensions => ({ w: Math.floor(r.x + r.w) + 1, h: Math.floor(r.y + r.h) + 1 });
-  const isOutside = (r: BoundingBox) => {
-    const reach = reachBl(r);
-    return reach.w > sizeBl().w || reach.h > sizeBl().h;
-  };
+  // Match spatial arrangement's block bounds: touching an edge is contained; crossing it triggers the warning.
+  const isOutside = (r: BoundingBox) =>
+    r.x < 0 || r.y < 0 || r.x + r.w > sizeBl().w || r.y + r.h > sizeBl().h;
 
   const restingScale = () => {
     const w = Math.max(sizeBl().w, extentBl.w);
