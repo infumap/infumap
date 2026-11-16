@@ -1083,8 +1083,10 @@ export const VeFns = {
 
     const viewportBoundsPx = VeFns.veViewportBoundsRelativeToDesktopPx(store, pageVe);
     const scrollVeid = VeFns.actualVeidFromVe(pageVe);
-    const scrollXPx = Math.max(0, pageVe.childAreaBoundsPx.w - pageVe.viewportBoundsPx.w) * store.perItem.getPageScrollXProp(scrollVeid);
-    const scrollYPx = Math.max(0, pageVe.childAreaBoundsPx.h - pageVe.viewportBoundsPx.h) * store.perItem.getPageScrollYProp(scrollVeid);
+    // Table pages scroll their rows inside the table content, not the page, and their popups are not scrolled with it.
+    const isTablePage = asPageItem(pageVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Table;
+    const scrollXPx = isTablePage ? 0 : Math.max(0, pageVe.childAreaBoundsPx.w - pageVe.viewportBoundsPx.w) * store.perItem.getPageScrollXProp(scrollVeid);
+    const scrollYPx = isTablePage ? 0 : Math.max(0, pageVe.childAreaBoundsPx.h - pageVe.viewportBoundsPx.h) * store.perItem.getPageScrollYProp(scrollVeid);
     const blockSizePx = PageFns.calcNonSpatialPopupBlockSizePxMaybe(asPageItem(pageVe.displayItem), pageVe.childAreaBoundsPx)!;
 
     return {

@@ -978,7 +978,8 @@ export const PageFns = {
       page.arrangeAlgorithm == ArrangeAlgorithm.Grid ||
       page.arrangeAlgorithm == ArrangeAlgorithm.Justified ||
       page.arrangeAlgorithm == ArrangeAlgorithm.Catalog ||
-      page.arrangeAlgorithm == ArrangeAlgorithm.List;
+      page.arrangeAlgorithm == ArrangeAlgorithm.List ||
+      page.arrangeAlgorithm == ArrangeAlgorithm.Table;
   },
 
   calcNonSpatialPopupBlockSizePxMaybe: (page: PageItem, childAreaBoundsPx: BoundingBox): Dimensions | null => {
@@ -989,6 +990,7 @@ export const PageFns = {
       case ArrangeAlgorithm.Justified:
       case ArrangeAlgorithm.Catalog:
       case ArrangeAlgorithm.List:
+      case ArrangeAlgorithm.Table:
         // Children are scaled to fit their cells (or drawn as list rows), so there is no page block size. Use the natural one.
         return { w: NATURAL_BLOCK_SIZE_PX.w, h: NATURAL_BLOCK_SIZE_PX.h };
       default:

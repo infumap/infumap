@@ -129,9 +129,23 @@ function targetShouldKeepNativeKeyboardBehavior(ev: KeyboardEvent): boolean {
     target.isContentEditable;
 }
 
+/**
+ * Whether a container's children are drawn under its own visual element, so Enter can move focus to one of them.
+ * A container drawn as a line item (a table row, a list page line) or as an attachment (an icon on a spatial item, a
+ * cell in a table row) doesn't draw its children there - even the rows of a container expanded in a table are drawn
+ * as rows of the table, not under the container's row. Moving focus into one of those would focus something that
+ * isn't on screen, so Enter pops it up instead, like a page in a table.
+ * This is decided from flags rather than by looking for the child's visual element, because table rows are only
+ * arranged for the visible scroll window: a child drawn in place can still be missing.
+ */
+function childrenRenderedInPlace(ve: VisualElement): boolean {
+  return !(ve.flags & (VisualElementFlags.LineItem | VisualElementFlags.Attachment));
+}
+
 function pageEmbeddedInteractiveStatusAppliesForEnter(ve: VisualElement): boolean {
   return isPage(ve.displayItem) &&
     !(ve.flags & VisualElementFlags.InsideTable) &&
+    childrenRenderedInPlace(ve) &&
     pageUsesEmbeddedInteractiveMode(asPageItem(ve.displayItem));
 }
 
@@ -1149,7 +1163,7 @@ function focusFirstChildMaybe(store: StoreContextModel, focusPath: string, focus
     return false;
   }
 
-  if (isTable(focusItem) || isComposite(focusItem)) {
+  if ((isTable(focusItem) || isComposite(focusItem)) && childrenRenderedInPlace(focusVe)) {
     const containerItem = asContainerItem(focusItem);
     if (containerItem.computed_children.length > 0) {
       store.history.setFocus(VeFns.addVeidToPath(VeFns.veidFromId(containerItem.computed_children[0]), focusPath));
@@ -1241,7 +1255,11 @@ function handleFocusedListPageArrowRightMaybe(store: StoreContextModel): boolean
   return true;
 }
 
-function openPopupForFocusedItemMaybe(store: StoreContextModel, focusVe: VisualElement, includeTables: boolean): boolean {
+/**
+ * includeContainers: pop up a table or composite even where its children are drawn in place (Space). Enter moves focus
+ * into those instead, and only pops up the ones whose children aren't drawn (see childrenRenderedInPlace).
+ */
+function openPopupForFocusedItemMaybe(store: StoreContextModel, focusVe: VisualElement, includeContainers: boolean): boolean {
   const openUsingPopupHotspot = () => {
     const boundsPx = VeFns.veBoundsRelativeToDesktopPx(store, focusVe);
     const hotspotWidthPx = Math.min(focusVe.blockSizePx?.w ?? focusVe.boundsPx.w, boundsPx.w);
@@ -1272,7 +1290,8 @@ function openPopupForFocusedItemMaybe(store: StoreContextModel, focusVe: VisualE
     openUsingPopupHotspot();
     return true;
   }
-  if (includeTables && isTable(focusVe.displayItem)) {
+  if ((isTable(focusVe.displayItem) || isComposite(focusVe.displayItem)) &&
+    (includeContainers || !childrenRenderedInPlace(focusVe))) {
     openUsingPopupHotspot();
     return true;
   }

@@ -46,7 +46,7 @@ import { asCompositeItem, isComposite } from "../items/composite-item";
 import { toolbarPopupBoxBoundsPx } from "../components/toolbar/Toolbar_Popup";
 import { itemState } from "../store/ItemState";
 import { ImageFns, asImageItem, isImage } from "../items/image-item";
-import { calcSpatialPopupGeometry, popupUsesParentBlockCoordinates, shouldArrangeSourceAnchoredPopup } from "../layout/arrange/popup";
+import { calcSpatialPopupGeometry, popupUsesParentBlockCoordinates, shouldArrangeSourceAnchoredPopup, viewportBoundsRelativeToPagePx } from "../layout/arrange/popup";
 import { calcJustifiedPagePaddingPx } from "../layout/arrange/justified_metrics";
 import { CATALOG_VERTICAL_MARGIN_PX } from "../layout/catalog";
 import {
@@ -784,7 +784,9 @@ function changeMouseActionStateMaybe(
         const isSourceTopLeftAnchored = currentPopupSpec?.sourceTopLeftGr != null && !isPage(popupItem) && !isImage(popupItem);
 
         if (isFromAttachment || isSourceTopLeftAnchored) {
-          const { linkItem, widthGr, heightGr } = calcSpatialPopupGeometry(store, parentPage, currentPopupSpec!.actualVeid, parentVe.childAreaBoundsPx!, parentVe.viewportBoundsPx);
+          const { linkItem, widthGr, heightGr } = calcSpatialPopupGeometry(
+            store, parentPage, currentPopupSpec!.actualVeid, parentVe.childAreaBoundsPx!,
+            parentVe.viewportBoundsPx == null ? null : viewportBoundsRelativeToPagePx(parentVe.boundsPx, parentVe.viewportBoundsPx));
           const centerX = linkItem.spatialPositionGr.x + (widthGr ?? 0) / 2.0;
           const centerY = linkItem.spatialPositionGr.y + (heightGr ?? 0) / 2.0;
           popupPositionGr = { x: centerX, y: centerY };

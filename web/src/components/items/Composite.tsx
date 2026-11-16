@@ -183,8 +183,9 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
   const renderShadowMaybe = () =>
     <Show when={!props.suppressLocalShadow &&
       !(props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) && showBorder()}>
+      {/* The title has no background or border, so the shadow is only for the body (as for tables). */}
       <div class={shadowClass()}
-        style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; z-index: 0;`} />
+        style={`left: 0px; top: ${bodyTopPx()}px; width: ${boundsPx().w}px; height: ${bodyHeightPx()}px; z-index: 0;`} />
     </Show>;
 
   const renderFocusRingMaybe = () =>

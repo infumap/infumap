@@ -30,7 +30,7 @@ import { tabularColumnHitboxes } from "../tabular";
 import { VesCache } from "../ves-cache";
 import { VeFns, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec, isVeTranslucentPage } from "../visual-element";
 import { ArrangeItemFlags, arrangeItem, arrangedItemIsInOverlaySelection, getCommonVisualElementFlags, pageIsPreview } from "./item";
-import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup } from "./popup";
+import { arrangeCellPopupPath, arrangeSourceAnchoredPopupPath, shouldArrangeSourceAnchoredPopup, viewportBoundsRelativeToPagePx } from "./popup";
 import { movingItemCellBoundsInPagePx } from "./moving";
 import { arrangeTabularChildren } from "./table";
 import { getMovingTreeItemInParentMaybe } from "./util";
@@ -146,7 +146,8 @@ export function arrange_table_page(
 
   if (flags & ArrangeItemFlags.IsTopRoot && store.history.currentPopupSpec() != null) {
     relationships.popupPath = shouldArrangeSourceAnchoredPopup(store)
-      ? arrangeSourceAnchoredPopupPath(store, page, pagePath, ArrangeAlgorithm.Table, contentViewportPx)
+      ? arrangeSourceAnchoredPopupPath(store, page, pagePath, ArrangeAlgorithm.Table, contentViewportPx,
+        viewportBoundsRelativeToPagePx(geometry.boundsPx, contentViewportPx))
       : arrangeCellPopupPath(store);
   }
 

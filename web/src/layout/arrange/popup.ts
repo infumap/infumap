@@ -438,16 +438,26 @@ interface PopupContainer {
 }
 
 /**
- * Document, grid, justified, catalog and list pages don't lay their children out on the page's spatial grid, and popups
+ * Document, grid, justified, catalog, list and table pages don't lay their children out on the page's spatial grid, and popups
  * are rendered relative to the (scrollable) page viewport rather than the child area. So the popup container spans
  * the viewport (or the child area, if larger), using the block size from PageFns.calcNonSpatialPopupBlockSizePxMaybe.
  */
 function calcViewportPopupContainer(
   store: StoreContextModel,
+  currentPage: PageItem,
   blockSizePx: Dimensions,
   childAreaBoundsPx: BoundingBox,
   viewportBoundsPx: BoundingBox,
 ): PopupContainer {
+  if (currentPage.arrangeAlgorithm == ArrangeAlgorithm.Table) {
+    // Table pages scroll their rows inside the table content, and render the popup over the page, unscrolled. So the
+    // container is just the viewport, given here relative to the page bounds (where the popup is rendered).
+    return {
+      boundsPx: viewportBoundsPx,
+      innerSizeBl: { w: viewportBoundsPx.w / blockSizePx.w, h: viewportBoundsPx.h / blockSizePx.h },
+      visibleBoundsPx: viewportBoundsPx,
+    };
+  }
   const boundsPx = {
     x: 0, y: 0,
     w: Math.max(viewportBoundsPx.w, childAreaBoundsPx.w),
@@ -463,6 +473,20 @@ function calcViewportPopupContainer(
       w: viewportBoundsPx.w,
       h: viewportBoundsPx.h,
     },
+  };
+}
+
+
+/**
+ * A page's viewport relative to the page's bounds, which is where a page renders its popup. This is what
+ * calcSpatialPopupGeometry expects for viewportBoundsPx (only table pages use its position).
+ */
+export function viewportBoundsRelativeToPagePx(pageBoundsPx: BoundingBox, viewportBoundsPx: BoundingBox): BoundingBox {
+  return {
+    x: viewportBoundsPx.x - pageBoundsPx.x,
+    y: viewportBoundsPx.y - pageBoundsPx.y,
+    w: viewportBoundsPx.w,
+    h: viewportBoundsPx.h,
   };
 }
 
@@ -494,7 +518,7 @@ export function calcSpatialPopupGeometry(
   const useCalendarNaturalSourcePopup = currentPage.arrangeAlgorithm == ArrangeAlgorithm.Calendar && useSourceTopLeftAnchor;
   const nonSpatialBlockSizePx = PageFns.calcNonSpatialPopupBlockSizePxMaybe(currentPage, childAreaBoundsPx);
   const viewportContainer = nonSpatialBlockSizePx != null && viewportBoundsPx != null
-    ? calcViewportPopupContainer(store, nonSpatialBlockSizePx, childAreaBoundsPx, viewportBoundsPx)
+    ? calcViewportPopupContainer(store, currentPage, nonSpatialBlockSizePx, childAreaBoundsPx, viewportBoundsPx)
     : null;
   const parentInnerSizeBl = viewportContainer?.innerSizeBl ?? PageFns.calcInnerSpatialDimensionsBl(currentPage);
   const popupContainerBoundsPx = viewportContainer?.boundsPx ?? zeroBoundingBoxTopLeft(childAreaBoundsPx);
@@ -553,8 +577,8 @@ export function calcSpatialPopupGeometry(
       );
     } else if (viewportContainer) {
       popupCenter = {
-        x: (visibleBoundsPx.x + visibleBoundsPx.w / 2.0) / parentBlockSizePx.w * GRID_SIZE,
-        y: (visibleBoundsPx.y + visibleBoundsPx.h / 2.0) / parentBlockSizePx.h * GRID_SIZE,
+        x: (visibleBoundsPx.x - popupContainerBoundsPx.x + visibleBoundsPx.w / 2.0) / parentBlockSizePx.w * GRID_SIZE,
+        y: (visibleBoundsPx.y - popupContainerBoundsPx.y + visibleBoundsPx.h / 2.0) / parentBlockSizePx.h * GRID_SIZE,
       };
     } else {
       // Fallback to parent page default
