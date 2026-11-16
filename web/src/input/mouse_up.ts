@@ -18,7 +18,8 @@
 
 import { GRID_SIZE, MOUSE_MOVE_AMBIGUOUS_PX, NATURAL_BLOCK_SIZE_PX } from "../constants";
 import { AttachmentsItem, asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
-import { itemCanEdit } from "../items/base/capabilities-item";
+import { itemCanCopy, itemCanEdit, itemCanMove } from "../items/base/capabilities-item";
+import { closestCaretPositionToClientPx, setCaretPosition } from "../util/caret";
 import { ContainerItem, asContainerItem, isContainer } from "../items/base/container-item";
 import { itemCanAcceptManualChildren } from "../items/base/flags-item";
 import { GroupFns } from "../items/base/group-item";
@@ -75,6 +76,7 @@ import { calculateMoveToPagePositionGr, moveGroupToChildParentPreservingOffsets,
 import { isDockListPageIconMoveTargetVe, moveTargetWouldCreateRelationshipCycle, resolveInternalMoveTarget } from "./move_target";
 import { createMaterializedTextDocumentItems } from "../items/text-document";
 import { NativeTextSelectionState, ReadOnlyDocumentLinkPress } from "./native_text_selection";
+import { ReadOnlyDocumentHandlePress } from "./document_move_out";
 import { isInsideDocumentPageClickContext, isInsideReadOnlyDocumentPage } from "../items/base/item-common-fns";
 import { appendEmptyNoteToDocumentPage } from "./edit";
 
@@ -1329,6 +1331,32 @@ function moveCalendarSelectionToDate(
 
 
 /**
+ * A click (not a drag, which copies) on the drag handle of a row in a read-only document. As a click on the handle of
+ * an editable row enters editing, it puts the caret in the row's text, nearest the click, though the text can't be
+ * edited. A row without text (a divider, table or image) is focused, as on an editable page.
+ */
+function clickReadOnlyDocumentHandleMaybe(store: StoreContextModel, activeVisualElement: VisualElement): boolean {
+  if (ReadOnlyDocumentHandlePress.get() != VeFns.veToPath(activeVisualElement)) { return false; }
+  const treeItem = VeFns.treeItem(activeVisualElement);
+  if (!itemCanCopy(treeItem) || itemCanMove(treeItem) || !isInsideReadOnlyDocumentPage(activeVisualElement)) {
+    return false;
+  }
+  const path = VeFns.veToPath(activeVisualElement);
+  const title = isNote(activeVisualElement.displayItem) ? document.getElementById(path + ":title") : null;
+  const container = title?.closest("[data-infumap-read-only-document]");
+  if (title == null || !(container instanceof HTMLElement)) {
+    store.history.setFocus(path);
+    arrangeNow(store, "mouse-up-focus-read-only-document-handle");
+    return true;
+  }
+  const offset = closestCaretPositionToClientPx(title, CursorEventState.getLatestClientPx());
+  container.focus({ preventScroll: true });
+  setCaretPosition(title, offset);
+  return true;
+}
+
+
+/**
  * Opens the link a read-only document text selection started on, unless the press became a drag or selected text.
  */
 function openReadOnlyDocumentLinkMaybe(store: StoreContextModel, linkPress: ReadOnlyDocumentLinkPress): void {
@@ -1369,6 +1397,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
   // Note: There is no right mouse up handler. Program control flow will exit here in right mouse case.
   // Note: right mouse is handled in mouse_down.ts/mouseRightDownHandler.
   if (MouseActionState.empty()) {
+    ReadOnlyDocumentHandlePress.set(null);
     // Allow native controls (sliders, form inputs, etc.) to handle mouseup normally when nothing is being dragged.
     return MouseEventActionFlags.None;
   }
@@ -1532,6 +1561,9 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       } else if (MouseActionState.getHitMeta()?.queryChatTurnMarkdown) {
         DoubleClickState.preventDoubleClick();
         openQueryChatTurnMarkdownPopup(store, activeVisualElement);
+
+      } else if (clickReadOnlyDocumentHandleMaybe(store, activeVisualElement)) {
+        DoubleClickState.preventDoubleClick();
 
       } else if (MouseActionState.hitboxTypeIncludes(HitboxFlags.AnchorChild)) {
         DoubleClickState.preventDoubleClick();
@@ -1734,6 +1766,7 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
   }
 
   ClickState.setLinkWasClicked(false);
+  ReadOnlyDocumentHandlePress.set(null);
   MouseActionState.set(null);
 
   return MouseEventActionFlags.PreventDefault;

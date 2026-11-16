@@ -53,6 +53,7 @@ import { assert, currentUnixTimeSeconds, panic } from "../util/lang";
 import { HitInfoFns } from "./hit";
 import { dockListPageIconMoveTargetMaybe, moveTargetWouldCreateRelationshipCycle, resolveInternalMoveTarget, resolveMoveTargetPageVe } from "./move_target";
 import { CursorEventState, MouseAction, MouseActionState } from "./state";
+import { ReadOnlyDocumentHandlePress } from "./document_move_out";
 import { veIsSelected } from "./click_selection";
 import { dockInsertIndexAndPositionFromDockChildAreaY, getDockScrollYPx } from "../layout/arrange/dock";
 import { asContainerItem, isContainer } from "../items/base/container-item";
@@ -396,7 +397,18 @@ export function dragModifiers(store: StoreContextModel, activeVisualElement: Vis
   if (veIsSelected(store, activeVisualElement)) {
     return { shiftDown: false, ctrlDown: false };
   }
+  // A row of a read-only document can't be moved, so a drag from its handle can only mean copy, as Shift does elsewhere.
+  if (isReadOnlyDocumentHandleDrag(activeVisualElement)) {
+    return { shiftDown: true, ctrlDown: false };
+  }
   return { shiftDown: CursorEventState.get().shiftDown, ctrlDown: CursorEventState.get().ctrlDown };
+}
+
+/** Whether the mouse action under way started on the drag handle of a row in a read-only document. */
+function isReadOnlyDocumentHandleDrag(activeVisualElement: VisualElement): boolean {
+  if (MouseActionState.empty() || ReadOnlyDocumentHandlePress.get() != VeFns.veToPath(activeVisualElement)) { return false; }
+  const treeItem = VeFns.treeItem(activeVisualElement);
+  return itemCanCopy(treeItem) && !itemCanMove(treeItem);
 }
 
 export function moving_initiate(store: StoreContextModel, activeItem: PositionalItem, activeVisualElement: VisualElement, desktopPosPx: Vector) {

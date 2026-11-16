@@ -67,3 +67,16 @@ export function readOnlyDocumentMoveOutVeAtClientPx(clientPosPx: Vector): Visual
 
   return null;
 }
+
+
+let readOnlyDocumentHandlePressPath: VisualElementPath | null = null;
+
+/**
+ * The row whose drag handle in a read-only document the current mouse action started on, if it did. The press is
+ * found from the handle's DOM (above), not a hitbox, so it is recorded here for the drag (a copy, see dragModifiers in
+ * mouse_move_move.ts) and the release (a click places the caret, see mouse_up.ts).
+ */
+export const ReadOnlyDocumentHandlePress = {
+  set: (path: VisualElementPath | null): void => { readOnlyDocumentHandlePressPath = path; },
+  get: (): VisualElementPath | null => readOnlyDocumentHandlePressPath,
+};

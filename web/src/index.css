@@ -69,9 +69,11 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Over an item that a drag would copy rather than move: one that can't be moved, with Shift held, or the drag handle
+   of a row in a read-only document (mouse_move.ts). */
 body.infumap-copy-move-cursor,
 body.infumap-copy-move-cursor * {
-  cursor: pointer !important;
+  cursor: copy !important;
 }
 
 body.infumap-blocked-move-cursor,

@@ -58,7 +58,7 @@ import {
   solveCalendarMonthWidthForDividerOffset,
 } from "../util/calendar-layout";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
-import { readOnlyDocumentMoveOutVeAtClientPx } from "./document_move_out";
+import { ReadOnlyDocumentHandlePress, readOnlyDocumentMoveOutVeAtClientPx } from "./document_move_out";
 import { NativeTextSelectionState } from "./native_text_selection";
 import { readOnlyDocumentNoteBodyClick } from "./document_note_hit";
 
@@ -80,6 +80,15 @@ let selectionAutoScrollRemainderPx: Vector = { x: 0, y: 0 };
 const SELECTION_AUTO_SCROLL_EDGE_PX = 40;
 const SELECTION_AUTO_SCROLL_MAX_PX_PER_S = 1200;
 const COPY_MOVE_CURSOR_CLASS = "infumap-copy-move-cursor";
+
+/**
+ * Whether the mouse action under way copies an item rather than moving it, or will if it becomes a drag: one started on
+ * the drag handle of a row in a read-only document. The copy cursor stays for all of it.
+ */
+function copyDragIsUnderway(): boolean {
+  return !MouseActionState.empty() &&
+    (MouseActionState.getItemCopyMove() != null || ReadOnlyDocumentHandlePress.get() != null);
+}
 
 function setCopyMoveCursorOverride(active: boolean): void {
   document.body.classList.toggle(COPY_MOVE_CURSOR_CLASS, active);
@@ -199,7 +208,7 @@ export function mouseMoveHandler(store: StoreContextModel) {
     mouseMove_handleNoButtonDown(store, hasUser);
     return;
   }
-  setCopyMoveCursorOverride(false);
+  setCopyMoveCursorOverride(copyDragIsUnderway());
 
   let deltaPx = vectorSubtract(currentMouseDesktopPx, MouseActionState.getStartPx()!);
 
@@ -1594,8 +1603,9 @@ function mouseAction_movingPopup(deltaPx: Vector, store: StoreContextModel) {
 
 export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: boolean) {
   if (!MouseActionState.empty()) {
-    setCopyMoveCursorOverride(false);
+    const copyDrag = copyDragIsUnderway();
     clearMouseOverState(store);
+    setCopyMoveCursorOverride(copyDrag);
     return;
   }
 
@@ -1620,7 +1630,9 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
     : null;
   const copyOnlyMoveHover = isCopyOnlyMoveHover(store, hitInfo);
   const copyOnlyMoveOutHover = isCopyOnlyMoveOutHover(hitInfo);
-  setCopyMoveCursorOverride(copyOnlyMoveHover && hasUser && !hasModal && !isInsideToolbarPopup);
+  // Over a read-only document's drag handle, a drag copies without Shift (dragModifiers in mouse_move_move.ts).
+  setCopyMoveCursorOverride((copyOnlyMoveHover || readOnlyDocumentMoveOutVe != null) &&
+    hasUser && !hasModal && !isInsideToolbarPopup);
   // Only column hitboxes carry colNum, and of those only the heading ones are ContentEditable or the menu, so this is the
   // header row, including where a column resize handle crosses it.
   const overTableHeader = hitInfo.overElementMeta?.colNum != null &&

@@ -55,7 +55,7 @@ import { isPassword, PasswordFns } from "../items/password-item";
 import { ImageFns, isImage } from "../items/image-item";
 import { commitActiveToolbarTitleEdit } from "./toolbar_title";
 import { isInsideDocumentPageClickContext, isReadOnlyDocumentPageOrInsideOne } from "../items/base/item-common-fns";
-import { readOnlyDocumentMoveOutVeAtClientPx } from "./document_move_out";
+import { ReadOnlyDocumentHandlePress, readOnlyDocumentMoveOutVeAtClientPx } from "./document_move_out";
 import { NativeTextSelectionState } from "./native_text_selection";
 import { documentNoteBodyClick, isNoteInsideDocumentArrangedPage, noteBodyClick, readOnlyDocumentNoteBodyClick } from "./document_note_hit";
 import { isQueryItem, isQuerySearchResultsPage } from "../items/query-item";
@@ -706,17 +706,14 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   }
 
   const shiftDown = CursorEventState.get().shiftDown;
-  if (!shiftDown) {
-    const readOnlyDocumentMoveOutVe = readOnlyDocumentMoveOutVeAtClientPx(CursorEventState.getLatestClientPx());
-    if (readOnlyDocumentMoveOutVe != null) {
-      ClickState.setLinkWasClicked(false);
-      store.history.setFocus(VeFns.veToPath(readOnlyDocumentMoveOutVe));
-      arrangeNow(store, "mouse-down-focus-readonly-document-drag-bar");
-      return defaultResult;
-    }
-  }
+  // The drag handle of a row in a read-only document: a drag from it copies the row (dragModifiers), so its hitbox is
+  // kept although the row can't be moved, and a click places the caret in the row's text (mouse_up.ts).
+  const readOnlyDocumentHandleVe = shiftDown ? null : readOnlyDocumentMoveOutVeAtClientPx(CursorEventState.getLatestClientPx());
+  const pressedReadOnlyDocumentHandle = readOnlyDocumentHandleVe != null;
+  ReadOnlyDocumentHandlePress.set(readOnlyDocumentHandleVe == null ? null : VeFns.veToPath(readOnlyDocumentHandleVe));
+  if (pressedReadOnlyDocumentHandle) { ClickState.setLinkWasClicked(false); }
 
-  const hitInfo = HitInfoFns.hit(store, desktopPosPx, [], false, true, shiftDown, wasTextEditing);
+  const hitInfo = HitInfoFns.hit(store, desktopPosPx, [], false, true, shiftDown || pressedReadOnlyDocumentHandle, wasTextEditing);
 
   const startPosBl = null;
   const startWidthBl = null;
