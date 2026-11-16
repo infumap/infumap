@@ -62,7 +62,8 @@ import { getFocusedSearchWorkspaceChromeSpec } from '../../util/search-focus-chr
 import { getToolbarFocusItem } from './toolbarFocus';
 import { SOLO_ITEM_HOLDER_PAGE_UID } from '../../util/uid';
 import { TOOLBAR_RIGHT_DIVIDER_RIGHT_PX } from "./toolbarDividers";
-import { IS_MAC } from '../../util/platform';
+import { MOD } from '../../util/platform';
+import { InfuRevealCaret } from '../library/InfuRevealCaret';
 
 
 const TOOLBAR_LOGO_VISIBLE_SIZE_PX = 28 * 419 / 448;
@@ -406,7 +407,7 @@ export const Toolbar: Component = () => {
         </Show>
         <InfuIconButton icon="bi-question-circle-fill" highlighted={false} clickHandler={showHelp} title="Help (?)" />
         <Toolbar_NetworkStatus />
-        <InfuIconButton icon="bi-chevron-up" highlighted={false} clickHandler={hideToolbar} title={IS_MAC ? "Hide toolbar (⌘+Enter)" : "Hide toolbar"} />
+        <InfuIconButton icon="bi-chevron-up" highlighted={false} clickHandler={hideToolbar} title={`Hide toolbar (${MOD}+Enter)`} />
       </div>
 
     </div>;
@@ -509,16 +510,16 @@ export const Toolbar: Component = () => {
       </Show>
     </>;
 
-  // Cmd+Enter (input/key.ts) shows the toolbar only when the dock is hidden too. Otherwise it hides the dock.
+  // Cmd/Ctrl+Enter (input/key.ts) shows the toolbar and dock only when both are hidden. Otherwise it hides both.
   const showToolbarTitle = () =>
-    IS_MAC && !store.dockVisible.get() ? "Show toolbar (⌘+Enter)" : "Show toolbar";
+    !store.dockVisible.get() ? `Show toolbar (${MOD}+Enter)` : "Show toolbar";
 
   const showToolbarButton = () =>
-    <div class="absolute print:hidden"
-      style={`z-index: ${Z_INDEX_GLOBAL_TOOLBAR_TRIGGER}; ` +
-        `right: 6px; top: -3px;`} onmousedown={showToolbar} title={showToolbarTitle()}>
-      <i class={`bi-chevron-down hover:bg-control-hover p-[2px] text-xs ${!store.dockVisible.get() ? 'text-white' : 'text-neutral-400'}`} />
-    </div>;
+    <InfuRevealCaret icon="bi-chevron-down"
+      concealed={!store.dockVisible.get()}
+      style={`z-index: ${Z_INDEX_GLOBAL_TOOLBAR_TRIGGER}; right: 4px; top: 0px;`}
+      onMouseDown={showToolbar}
+      title={showToolbarTitle()} />;
 
   return (
     <>

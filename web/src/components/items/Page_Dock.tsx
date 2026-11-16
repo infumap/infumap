@@ -17,6 +17,8 @@
 */
 
 import { Component, For, Show, createEffect, onMount } from "solid-js";
+import { MOD } from "../../util/platform";
+import { InfuRevealCaret } from "../library/InfuRevealCaret";
 import { useStore } from "../../store/StoreProvider";
 import { requestArrange } from "../../layout/arrange";
 import { VisualElement_Desktop } from "../VisualElement";
@@ -189,13 +191,14 @@ export const Page_Dock: Component<PageVisualElementProps> = (props: PageVisualEl
         </div>
       </Show>
       <Show when={!store.dockVisible.get() && !store.smallScreenMode()}>
-        <div class={`absolute print:hidden`}
-          style={`left: ${5}px; ` +
-            `top: ${props.pageFns.boundsPx().h - 30}px; ` +
+        <InfuRevealCaret icon="bi-chevron-right"
+          concealed={!store.topToolbarVisible.get()}
+          style={`left: 3px; ` +
+            `top: ${props.pageFns.boundsPx().h - 32}px; ` +
             `z-index: ${Z_INDEX_GLOBAL_TOOLBAR_TRIGGER};`}
-          onmousedown={showDock}>
-          <i class={`bi-chevron-right hover:bg-control-hover p-[2px] text-xs ${!store.topToolbarVisible.get() ? 'text-white' : 'text-neutral-400'}`} />
-        </div>
+          onMouseDown={showDock}
+          // Cmd/Ctrl+Enter (input/key.ts) shows the dock only when the toolbar is hidden too. Otherwise it hides both.
+          title={!store.topToolbarVisible.get() ? `Show dock (${MOD}+Enter)` : "Show dock"} />
       </Show>
     </>);
 }

@@ -17,7 +17,7 @@
 */
 
 import { Component, For, JSX, Show } from "solid-js";
-import { IS_MAC, MOD } from "../util/platform";
+import { MOD } from "../util/platform";
 
 
 // Shown in the help overlay and on the login page. Keep in sync with input/key.ts, input/mouse_*.ts and the
@@ -27,7 +27,6 @@ interface HelpRow {
   /** Alternative ways to do the same thing. Each is a list of keys pressed together. */
   keys: Array<Array<string>>,
   text: string,
-  macOnly?: boolean,
 }
 
 interface HelpSection {
@@ -66,7 +65,7 @@ const SECTIONS: Array<HelpSection> = [
       { keys: [["Enter"]], text: "Open or step into the focused item" },
       { keys: [["Space"]], text: "Open the focused item in a popup" },
       { keys: [["Esc"]], text: "Close the popup, or move focus up a level" },
-      { keys: [["⌘", "Enter"]], text: "Hide or show the toolbar and dock", macOnly: true },
+      { keys: [[MOD, "Enter"]], text: "Hide or show the toolbar and dock" },
     ],
   },
   {
@@ -135,8 +134,6 @@ const SectionTitle: Component<{ children: JSX.Element }> = (props) =>
 
 /** A short introduction, then the keyboard and mouse shortcuts, grouped by task. */
 export const HelpContent: Component = () => {
-  const rows = (section: HelpSection) => section.rows.filter(r => !r.macOnly || IS_MAC);
-
   return (
     <div class="text-[13px] text-neutral-800">
       <p class="mb-4 leading-snug text-neutral-700">
@@ -148,7 +145,7 @@ export const HelpContent: Component = () => {
         <div class="mb-4 last:mb-0">
           <SectionTitle>{section.title}</SectionTitle>
           <div class="grid grid-cols-[minmax(0,7.5rem)_1fr] sm:grid-cols-[minmax(0,10rem)_1fr] gap-x-3 gap-y-[5px] items-baseline">
-            <For each={rows(section)}>{row =>
+            <For each={section.rows}>{row =>
               <>
                 <Keys alternatives={row.keys} />
                 <span class="leading-snug">{row.text}</span>

@@ -34,6 +34,7 @@ import { isEmptyVeid, VeFns, Veid, VisualElement, VisualElementFlags, veFlagIsRo
 import { StoreContextModel } from "../store/StoreProvider";
 import { itemState } from "../store/ItemState";
 import { panic } from "../util/lang";
+import { IS_MAC } from "../util/platform";
 import { calculateCalendarWindowForPage } from "../util/calendar-layout";
 import { mouseMove_handleNoButtonDown } from "./mouse_move";
 import { CursorEventState, MouseAction, MouseActionState } from "./state";
@@ -885,7 +886,8 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
   }
 
   else if (ev.code == "Enter") {
-    if (ev.metaKey) {
+    // Ctrl rather than Meta off a Mac: Meta is the Windows/Super key there, which the OS usually takes first.
+    if (IS_MAC ? ev.metaKey : ev.ctrlKey) {
       if (!store.dockVisible.get() && !store.topToolbarVisible.get()) {
         store.dockVisible.set(true);
         store.topToolbarVisible.set(true);
