@@ -95,6 +95,20 @@ export function tableHeaderHeightBl(table: FlagsMixin): number {
   return tableTitleHeaderHeightBl(table) + tableColHeaderHeightBl(table);
 }
 
+/** The smallest height in blocks a table can be resized to: its headers and one row. */
+export function tableMinHeightBl(table: FlagsMixin): number {
+  return tableHeaderHeightBl(table) + 1;
+}
+
+/**
+ * The height in blocks that keeps the number of rows a table heightBl high shows when its flags change from oldFlags to
+ * newFlags, so showing or hiding a header grows or shrinks the table rather than its rows. At least one row is kept.
+ */
+export function tableHeightBlKeepingRows(heightBl: number, oldFlags: number, newFlags: number): number {
+  const rowsBl = Math.max(1, heightBl - tableHeaderHeightBl({ flags: oldFlags }));
+  return tableHeaderHeightBl({ flags: newFlags }) + rowsBl;
+}
+
 
 function tableVisibleRows(store: StoreContextModel, tableVe: VisualElement): Array<TableVisibleRowInfo> {
   const widthBl = tableVe.tableWidthBl ?? tableVisualDimensionsBl(tableVe).w;

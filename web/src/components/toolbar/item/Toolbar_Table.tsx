@@ -16,12 +16,13 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { GRID_SIZE } from "../../../constants";
 import { toolbarPopupTopPx } from "../toolbarPopupStyle";
 import { Component, Show } from "solid-js";
 import { itemCanEdit } from "../../../items/base/capabilities-item";
 import { useStore } from "../../../store/StoreProvider";
 import { InfuIconButton } from "../../library/InfuIconButton";
-import { asTableItem } from "../../../items/table-item";
+import { asTableItem, tableHeightBlKeepingRows } from "../../../items/table-item";
 import { itemState } from "../../../store/ItemState";
 import { serverOrRemote } from "../../../server";
 import { TableFlags } from "../../../items/base/flags-item";
@@ -30,7 +31,7 @@ import { ClickState } from "../../../input/state";
 import { requestArrange } from "../../../layout/arrange";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 import { Toolbar_InfoAndId } from "./Toolbar_InfoAndId";
-import { getToolbarFocusItem } from "../toolbarFocus";
+import { getToolbarFocusItem, getToolbarFocusLinkItemMaybe } from "../toolbarFocus";
 import { ItemType } from "../../../items/base/item";
 import { Toolbar_MoreActions } from "./Toolbar_MoreActions";
 import { Toolbar_SortOrder } from "./Toolbar_SortOrder";
@@ -50,15 +51,28 @@ export const Toolbar_Table: Component = () => {
     return !(!(tableItem().flags & TableFlags.ShowColHeader));
   }
 
-  const handleChangeShowHeader = () => {
-    if (tableItem().flags & TableFlags.ShowColHeader) {
-      tableItem().flags &= ~TableFlags.ShowColHeader;
-    } else {
-      tableItem().flags |= TableFlags.ShowColHeader;
+  /**
+   * Set the table's flags, resizing it to keep the rows it shows when a header is shown or hidden. A link draws the
+   * table at the link's own size, so that is resized too. Other links to the table keep their size until resized.
+   */
+  const setFlagsKeepingRows = (newFlags: number) => {
+    const table = tableItem();
+    const oldFlags = table.flags;
+    table.flags = newFlags;
+    table.spatialHeightGr = tableHeightBlKeepingRows(table.spatialHeightGr / GRID_SIZE, oldFlags, newFlags) * GRID_SIZE;
+    const link = getToolbarFocusLinkItemMaybe(store);
+    if (link != null) {
+      link.spatialHeightGr = tableHeightBlKeepingRows(link.spatialHeightGr / GRID_SIZE, oldFlags, newFlags) * GRID_SIZE;
     }
+    return link;
+  }
+
+  const handleChangeShowHeader = () => {
+    const link = setFlagsKeepingRows(tableItem().flags ^ TableFlags.ShowColHeader);
     itemState.sortChildren(tableItem().id);
     requestArrange(store, "toolbar-table-header-visibility");
     serverOrRemote.updateItem(tableItem());
+    if (link != null) { serverOrRemote.updateItem(link); }
     store.touchToolbar();
   }
 
@@ -74,13 +88,10 @@ export const Toolbar_Table: Component = () => {
       store.overlay.textEditInfo()?.colNum == null) {
       store.overlay.setTextEditInfo(store.history, null, true);
     }
-    if (tableItem().flags & TableFlags.HideTitle) {
-      tableItem().flags &= ~TableFlags.HideTitle;
-    } else {
-      tableItem().flags |= TableFlags.HideTitle;
-    }
+    const link = setFlagsKeepingRows(tableItem().flags ^ TableFlags.HideTitle);
     requestArrange(store, "toolbar-table-title-visibility");
     serverOrRemote.updateItem(tableItem());
+    if (link != null) { serverOrRemote.updateItem(link); }
     store.touchToolbar();
   }
 

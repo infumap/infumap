@@ -23,7 +23,7 @@ import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { itemCanCopy, itemCanEdit, itemCanMove, itemCanResize } from "../items/base/capabilities-item";
 import { RatingFns } from "../items/rating-item";
 import { ArrangeAlgorithm, asPageItem, isPage, PageFns, pageUsesEmbeddedInteractiveMode } from "../items/page-item";
-import { asTableItem, isTable } from "../items/table-item";
+import { asTableItem, isTable, tableMinHeightBl } from "../items/table-item";
 import { asNoteItem, isNote, NoteItem } from "../items/note-item";
 import { NoteFlags } from "../items/base/flags-item";
 import { StoreContextModel } from "../store/StoreProvider";
@@ -1167,7 +1167,8 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
   else if (isYSizableItem(activeItem) || (isLink(activeItem) && (isYSizableItem(activeVisualElement.displayItem) || isNote(activeVisualElement.displayItem)))) {
     let newHeightBl = MouseActionState.getStartHeightBl()! + deltaBl.y;
     newHeightBl = Math.round(newHeightBl);
-    if (newHeightBl < 1) { newHeightBl = 1.0; }
+    const minHeightBl = isTable(activeVisualElement.displayItem) ? tableMinHeightBl(asTableItem(activeVisualElement.displayItem)) : 1.0;
+    if (newHeightBl < minHeightBl) { newHeightBl = minHeightBl; }
 
     const newHeightGr = newHeightBl * GRID_SIZE;
     if (isLink(activeItem) && (isYSizableItem(activeVisualElement.displayItem) || isNote(activeVisualElement.displayItem))) {
@@ -1326,7 +1327,8 @@ function mouseAction_resizingPopup(deltaPx: Vector, store: StoreContextModel) {
       newHeightBl = Math.round(newHeightBl * 2.0) / 2.0;
     }
 
-    if (newHeightBl < 3) { newHeightBl = 3.0; }
+    const minHeightBl = isTable(popupDisplayItem) ? tableMinHeightBl(asTableItem(popupDisplayItem)) : 3.0;
+    if (newHeightBl < minHeightBl) { newHeightBl = minHeightBl; }
     const newHeightGr = newHeightBl * GRID_SIZE;
     if (activeVeid.linkIdMaybe) {
       asLinkItem(itemState.get(activeVeid.linkIdMaybe)!).spatialHeightGr = newHeightGr;
