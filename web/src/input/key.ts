@@ -825,6 +825,10 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
   // reload, Ctrl+L address bar, Ctrl+D bookmark), so leave them alone rather than creating an item.
   if (plainShortcutKeys.find(a => a == ev.code) && (ev.ctrlKey || ev.metaKey || ev.altKey)) { return; }
 
+  // Above the desktop (the toolbar, including the root page titles in it) the hit falls through to the root page and
+  // the item would be created at a negative y, outside the page. As for double click, which does the same check.
+  if (plainShortcutKeys.find(a => a == ev.code) && CursorEventState.getLatestDesktopPx(store).y < 0) { return; }
+
   const hitInfo = HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], false);
 
   if (ev.code == "Slash") {
