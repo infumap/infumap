@@ -235,6 +235,9 @@ fn migration_for(descriptor: LogDescriptor) -> InfuResult<Migration> {
       40 => {
         |output, descriptor, records| migrate_records(output, descriptor, records, item_db::migrate_record_v40_to_v41)
       }
+      41 => {
+        |output, descriptor, records| migrate_records(output, descriptor, records, item_db::migrate_record_v41_to_v42)
+      }
       _ => return Err(format!("Unsupported item log migration from version {}.", descriptor.version).into()),
     },
     LogKind::User => match descriptor.version {

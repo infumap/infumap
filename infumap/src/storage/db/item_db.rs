@@ -42,7 +42,7 @@ use crate::util::mime::{mime_type_from_title_extension, normalized_mime_type};
 
 use super::user::User;
 
-pub const CURRENT_ITEM_LOG_VERSION: i64 = 41;
+pub const CURRENT_ITEM_LOG_VERSION: i64 = 42;
 
 /// Replay a staged log without adding its items to the live database's indexes.
 pub(crate) async fn validate_item_log(path: &str) -> InfuResult<()> {
@@ -2810,6 +2810,43 @@ pub fn migrate_record_v40_to_v41(kvs: &Map<String, Value>) -> InfuResult<Map<Str
   }
 }
 
+/// Page colour index before version 42 -> after. Indices 0 (the default) and 1 were both the same blue, so the picker
+/// showed it twice. They are merged, and the freed slot goes to a new teal at 5, between green and purple, so purple (6)
+/// and gray (7) keep their indices. Indices outside the old range are left alone.
+fn page_color_index_v41_to_v42(index: i64) -> i64 {
+  match index {
+    1 => 0,
+    2..=5 => index - 1,
+    _ => index,
+  }
+}
+
+/// Remaps page colour indices for the teal page colour. A page carries one in backgroundColorIndex, and a table that was
+/// a page carries one in its savedPageSettings.
+pub fn migrate_record_v41_to_v42(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str()
+  {
+    "descriptor" => migrate_descriptor(kvs, 41),
+
+    "entry" | "replace" | "update" => {
+      let mut result = kvs.clone();
+      if let Some(index) = json::get_integer_field(kvs, "backgroundColorIndex")? {
+        result.insert(String::from("backgroundColorIndex"), Value::from(page_color_index_v41_to_v42(index)));
+      }
+      if let Some(Value::Object(settings)) = result.get_mut("savedPageSettings") {
+        if let Some(index) = json::get_integer_field(settings, "backgroundColorIndex")? {
+          settings.insert(String::from("backgroundColorIndex"), Value::from(page_color_index_v41_to_v42(index)));
+        }
+      }
+      Ok(result)
+    }
+
+    "delete" | "containerVersion" => Ok(kvs.clone()),
+
+    unexpected_record_type => Err(format!("Unknown log record type '{}'.", unexpected_record_type).into()),
+  }
+}
+
 fn is_legacy_text_file_entry(kvs: &Map<String, Value>) -> InfuResult<bool> {
   let item_type = json::get_string_field(kvs, "itemType")?.ok_or("Entry record does not have 'itemType' field.")?;
   if item_type != "file" {
@@ -2887,6 +2924,34 @@ mod tests {
     retitled.insert(String::from("__recordType"), Value::String(String::from("update")));
     retitled.insert(String::from("title"), Value::String(String::from("x")));
     assert!(!migrate_record_v40_to_v41(&retitled).unwrap().contains_key("orderChildrenBy"));
+  }
+
+  #[test]
+  fn v41_to_v42_remaps_page_color_indices() {
+    let migrated = |record_type: &str, index: i64| {
+      let mut record = Map::new();
+      record.insert(String::from("__recordType"), Value::String(record_type.to_owned()));
+      record.insert(String::from("backgroundColorIndex"), Value::from(index));
+      migrate_record_v41_to_v42(&record).unwrap().get("backgroundColorIndex").unwrap().as_i64().unwrap()
+    };
+    let expected = [(0, 0), (1, 0), (2, 1), (3, 2), (4, 3), (5, 4), (6, 6), (7, 7), (8, 8)];
+    for (before, after) in expected {
+      assert_eq!(migrated("entry", before), after, "entry {}", before);
+      assert_eq!(migrated("update", before), after, "update {}", before);
+      assert_eq!(migrated("replace", before), after, "replace {}", before);
+    }
+
+    let table = serde_json::json!({
+      "__recordType": "entry", "itemType": "table",
+      "savedPageSettings": { "backgroundColorIndex": 3, "flags": 0 }
+    });
+    let migrated_table = migrate_record_v41_to_v42(table.as_object().unwrap()).unwrap();
+    assert_eq!(migrated_table["savedPageSettings"]["backgroundColorIndex"], serde_json::json!(2));
+    assert_eq!(migrated_table["savedPageSettings"]["flags"], serde_json::json!(0));
+    assert!(!migrated_table.contains_key("backgroundColorIndex"));
+
+    let retitled = serde_json::json!({ "__recordType": "update", "title": "x" });
+    assert_eq!(migrate_record_v41_to_v42(retitled.as_object().unwrap()).unwrap(), *retitled.as_object().unwrap());
   }
   use crate::web::routes::default_home_page;
   use infusdk::item::{NoteFlags, NoteUrl};

@@ -24,13 +24,16 @@ import { LINE_HEIGHT_PX } from "./constants";
 import { assert } from "./util/lang";
 import { Uid } from "./util/uid";
 
+// Page colours. All but gray share an HSV saturation and value (0.52, 0.46), which is what makes them read as one
+// family. Index 0 is the default. Stored pages refer to these by index, so reordering or removing one needs an item log
+// migration (see migrate_record_v41_to_v42, which added teal in the place of a duplicate blue).
 export let Colors = [
   "#395176", // blue [default]
-  "#395176", // blue
   "#76393A", // red
   "#764F39", // orange
   "#767139", // yellow
   "#3B7639", // green
+  "#387575", // teal
   "#6F3976", // purple
   "#767676"  // gray
 ];
