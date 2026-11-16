@@ -1,6 +1,6 @@
 # Infumap
 
-Infumap is a durable home for all of your information. After adding something, you can be confident it won’t be **lost**, that you’ll be able to **find** it again, and that other people won’t have access to it without your **permission**.
+[Infumap](https://infumap.com) is a durable home for all of your information. When you add something, you can be confident it won’t be **lost**, that you’ll be able to **find** it again, and that other people won’t have access to it without your **permission**.
 
 But Infumap is more than a store - it's how I have long imagined a computer desktop should work.
 
