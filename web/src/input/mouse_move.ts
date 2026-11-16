@@ -31,12 +31,12 @@ import { vectorAdd, getBoundingBoxTopLeft, desktopPxFromMouseEvent, isInside, ve
 import { panic } from "../util/lang";
 import { VisualElement, VisualElementFlags, VeFns, veFlagIsRoot, isVeTranslucentPage, pageScrollVeid, type VisualElementPath } from "../layout/visual-element";
 import { HitInfoFns } from "./hit";
-import { asPositionalItem, isPositionalItem } from "../items/base/positional-item";
+import { asPositionalItem, isPositionalItem, PositionalItem } from "../items/base/positional-item";
 import { asLinkItem, isLink } from "../items/link-item";
 import { isText } from "../items/text-item";
 import { isVirtualTextDocumentPage } from "../items/text-document";
 import { VesCache } from "../layout/ves-cache";
-import { MouseAction, MouseActionState, CursorEventState, UserSettingsMoveState } from "./state";
+import { MouseAction, MouseActionState, CursorEventState, UserSettingsMoveState, GroupResizeItem } from "./state";
 import { arrangeNow } from "../layout/arrange";
 import { catalogResultControlsTopInsetPx, hasCatalogResultContext } from "../layout/catalog-display";
 import { editUserSettingsSizePx } from "../components/overlay/userSettingsGeometry";
@@ -169,6 +169,59 @@ function isTableInComposite(activeVisualElement: VisualElement): boolean {
     return false;
   }
   return isComposite(MouseActionState.readVisualElement(activeVisualElement.parentPath!)!.displayItem);
+}
+
+function snapResizedWidthBl(widthBl: number, halfBlockWidth: boolean, maxWidthBl: number | null): number {
+  let result = halfBlockWidth ? Math.round(widthBl * 2.0) / 2.0 : Math.round(widthBl);
+  if (result < 1) { result = 1.0; }
+  if (maxWidthBl != null && result > maxWidthBl) { result = maxWidthBl; }
+  return result;
+}
+
+/**
+ * When the item being resized is part of a selection, the other selected items change width with it. Each changes by
+ * the same amount rather than taking on the active item's width, so differences in width within the selection are kept.
+ */
+function groupResizeItemsFromSelectionMaybe(
+  store: StoreContextModel,
+  activeVisualElement: VisualElement,
+  activeItem: PositionalItem,
+): Array<GroupResizeItem> | undefined {
+  const selected = store.overlay.selectedVeids.get();
+  const activeVeid = VeFns.veidFromVe(activeVisualElement);
+  if (selected.length < 2 || !selected.some(v => VeFns.compareVeids(v, activeVeid) == 0)) { return undefined; }
+
+  const result: Array<GroupResizeItem> = [];
+  const seen = new Set<string>([activeItem.id]);
+  for (const veid of selected) {
+    const item = itemState.get(veid.linkIdMaybe ?? veid.itemId);
+    if (item == null || seen.has(item.id) || !itemCanResize(item)) { continue; }
+    seen.add(item.id);
+
+    let startWidthGr: number;
+    let halfBlockWidth: boolean;
+    if (isLink(item)) {
+      const displayItem = itemState.get(veid.itemId);
+      startWidthGr = asLinkItem(item).spatialWidthGr;
+      halfBlockWidth = displayItem != null && !isLink(displayItem) && isXSizableItem(displayItem) &&
+        allowHalfBlockWidth(asXSizableItem(displayItem));
+    } else if (isXSizableItem(item)) {
+      startWidthGr = asXSizableItem(item).spatialWidthGr;
+      halfBlockWidth = allowHalfBlockWidth(asXSizableItem(item));
+    } else {
+      continue;
+    }
+
+    const ve = VesCache.current.findNodes(veid)[0] ?? null;
+    if (ve != null && isTableInComposite(ve)) { continue; }
+    result.push({
+      itemId: item.id,
+      startWidthGr,
+      halfBlockWidth,
+      maxWidthBl: ve == null ? null : maxInsideCompositeOrDocumentWidthBl(ve),
+    });
+  }
+  return result.length > 0 ? result : undefined;
 }
 
 
@@ -637,6 +690,7 @@ function changeMouseActionStateMaybe(
       } else {
         MouseActionState.setStartHeightBl(null);
       }
+      MouseActionState.setGroupResizeItems(groupResizeItemsFromSelectionMaybe(store, activeVisualElement, activeItem));
       store.anItemIsResizing.set(true);
       MouseActionState.setAction(MouseAction.Resizing);
     }
@@ -1064,22 +1118,10 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
     const maxWidthBl = maxInsideCompositeOrDocumentWidthBl(activeVisualElement);
     const startWidthBl = MouseActionState.getStartWidthBl()!;
     const resizeStartWidthBl = maxWidthBl == null ? startWidthBl : Math.min(startWidthBl, maxWidthBl);
-    let newWidthBl = resizeStartWidthBl + deltaBl.x;
-    if (isLink(activeItem)) {
-      if (isLink(activeVisualElement.displayItem)) {
-        newWidthBl = Math.round(newWidthBl);
-      } else {
-        newWidthBl = allowHalfBlockWidth(asXSizableItem(activeVisualElement.displayItem)) ? Math.round(newWidthBl * 2.0) / 2.0 : Math.round(newWidthBl);
-      }
-    } else {
-      newWidthBl = allowHalfBlockWidth(asXSizableItem(activeItem)) ? Math.round(newWidthBl * 2.0) / 2.0 : Math.round(newWidthBl);
-    }
-    if (newWidthBl < 1) { newWidthBl = 1.0; }
-
-    if (maxWidthBl != null && newWidthBl > maxWidthBl) {
-      newWidthBl = maxWidthBl;
-    }
-
+    const halfBlockWidth = isLink(activeItem)
+      ? !isLink(activeVisualElement.displayItem) && allowHalfBlockWidth(asXSizableItem(activeVisualElement.displayItem))
+      : allowHalfBlockWidth(asXSizableItem(activeItem));
+    const newWidthBl = snapResizedWidthBl(resizeStartWidthBl + deltaBl.x, halfBlockWidth, maxWidthBl);
     const newWidthGr = newWidthBl * GRID_SIZE;
 
     if (isLink(activeItem)) {
@@ -1090,6 +1132,19 @@ function mouseAction_resizing(deltaPx: Vector, store: StoreContextModel) {
     } else {
       if (newWidthGr != asXSizableItem(activeItem).spatialWidthGr) {
         asXSizableItem(activeItem).spatialWidthGr = newWidthGr;
+        requireArrange = true;
+      }
+    }
+
+    for (const groupItem of MouseActionState.getGroupResizeItems() ?? []) {
+      const item = itemState.get(groupItem.itemId);
+      if (item == null) { continue; }
+      const startBl = groupItem.startWidthGr / GRID_SIZE;
+      const groupStartWidthBl = groupItem.maxWidthBl == null ? startBl : Math.min(startBl, groupItem.maxWidthBl);
+      const groupNewWidthGr = snapResizedWidthBl(groupStartWidthBl + deltaBl.x, groupItem.halfBlockWidth, groupItem.maxWidthBl) * GRID_SIZE;
+      const sizable = isLink(item) ? asLinkItem(item) : asXSizableItem(item);
+      if (groupNewWidthGr != sizable.spatialWidthGr) {
+        sizable.spatialWidthGr = groupNewWidthGr;
         requireArrange = true;
       }
     }

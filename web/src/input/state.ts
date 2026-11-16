@@ -54,6 +54,14 @@ export enum MouseAction {
 /** What a click with a selection modifier held does to the selection (see click_selection.ts). */
 export type SelectionClick = "toggle" | "range";
 
+/** A selected item whose width follows the width of the item being resized (see groupResizeItemsFromSelectionMaybe). */
+export interface GroupResizeItem {
+  itemId: string,
+  startWidthGr: number,
+  halfBlockWidth: boolean,
+  maxWidthBl: number | null,
+}
+
 export interface MoveRollbackSnapshotEntry {
   id: string,
   parentId: string,
@@ -132,6 +140,8 @@ export interface MouseActionStateType {
   hitEmbeddedInteractive: boolean,
 
   groupMoveItems?: Array<{ veid: { itemId: string, linkIdMaybe: string | null }, startPosGr: { x: number, y: number }, parentId: string }>,
+
+  groupResizeItems?: Array<GroupResizeItem>,
 
   /** Taken from the modifiers held on mouse down, so letting go of one before mouse up doesn't change the click. */
   selectionClick?: SelectionClick | null,
@@ -567,6 +577,15 @@ export let MouseActionState = {
   setGroupMoveItems: (groupMoveItems: MouseActionStateType["groupMoveItems"] | undefined): void => {
     if (mouseActionState == null) { return; }
     mouseActionState.groupMoveItems = groupMoveItems;
+  },
+
+  getGroupResizeItems: (): Array<GroupResizeItem> | undefined => {
+    return mouseActionState?.groupResizeItems;
+  },
+
+  setGroupResizeItems: (groupResizeItems: Array<GroupResizeItem> | undefined): void => {
+    if (mouseActionState == null) { return; }
+    mouseActionState.groupResizeItems = groupResizeItems;
   },
 
   getSelectionClick: (): SelectionClick | null => {

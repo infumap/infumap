@@ -1459,6 +1459,14 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
       if (xsized || ysized || noteExplicitHeightSized || linkDisplayHeightPersistCase) {
         serverOrRemote.updateItem(itemState.get(resizeActiveItem.id)!);
       }
+      for (const groupItem of MouseActionState.getGroupResizeItems() ?? []) {
+        const item = itemState.get(groupItem.itemId);
+        if (item == null) { continue; }
+        const widthGr = isLink(item) ? asLinkItem(item).spatialWidthGr : asXSizableItem(item).spatialWidthGr;
+        if (widthGr != groupItem.startWidthGr) {
+          serverOrRemote.updateItem(item);
+        }
+      }
       // mouseActionState.activeVisualElement.update(ve => {
       //   ve.resizingFromBoundsPx = null;
       // });
