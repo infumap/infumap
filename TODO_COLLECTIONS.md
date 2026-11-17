@@ -283,7 +283,7 @@ Relevant code:
 Each step is one reviewable change that leaves the app working. Steps 1–4 make collections usable for search and
 chat, curated by linking items into the page by hand; steps 5–8 add collection mode.
 
-### 1. Collection flag and resolver (server only)
+### 1. Collection flag and resolver (server only) — done
 
 - `PAGE_COLLECTION_FLAG = 0x1000` in `infusdk/src/item/mod.rs`, `PageFlags.Collection = 0x1000` in `flags-item.ts`.
   0x004–0x020 are unassigned in TS too; check history before reusing them. 0x1000 is the next unused bit.
@@ -298,8 +298,9 @@ chat, curated by linking items into the page by hand; steps 5–8 add collection
   - `resolve_scope_ref(db, user_id, &ScopeRef) -> ResolvedScope`. New `ScopeSource::Collection { id, name }` and
     `ScopeSource::Except { id, name }`. `Collection` uses `include_roots: Some(targets)`, so an empty collection
     is `Some({})` and covers nothing. `Except` is `All` plus exclude roots (what `for_chat` already does), and
-    `contains` treats it like `All`. Missing and `Unavailable` give `Some({})` plus a new
-    `ScopeProblem::UnavailableCollection`.
+    `contains` treats it like `All`. A missing collection gives `Some({})` and `ScopeSource::Unavailable` with
+    `ScopeProblem::UnavailableCollection` (carrying the title when the page still exists); `ScopeRef::Unavailable`
+    does the same with `ScopeProblem::RetiredScope`.
 - Leave `resolve_scope` (scope pages) in place so nothing breaks yet.
 - `TestDb` tests: empty collection; missing, trashed or unflagged collection; annotations not covered; member that
   is a link to a link; exclusion beats an include through another path; a collection that is a member of another

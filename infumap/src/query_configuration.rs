@@ -26,6 +26,24 @@ pub fn validate_text(text: &str, field: &str, max_len: usize) -> InfuResult<()> 
   Ok(())
 }
 
+/// What retrieval covers, as saved wherever a choice of scope is remembered.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum ScopeRef {
+  /// The default search universe: the home page tree and query chats.
+  Everything,
+  /// A collection's members and their descendants.
+  Collection { id: Uid },
+  /// Everything minus a collection's coverage. The inversion is part of the reference, not a flag on the
+  /// collection, so one collection can limit one chat and be hidden from another, and changing how one reference
+  /// uses it never changes the others.
+  EverythingExcept { id: Uid },
+  /// What a bare scope page id saved before collections becomes. Covers nothing. It is deliberately not read as a
+  /// collection with the same id: flagging an old scope page that had an Exclude container would otherwise silently
+  /// widen everything still pointing at it.
+  Unavailable,
+}
+
 /// An explicit provider ID and model. Chat requires a model ID; null effort uses its default.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

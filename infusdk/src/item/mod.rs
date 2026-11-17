@@ -74,6 +74,9 @@ pub const PAGE_DISABLE_LINE_ITEM_EXPAND_FLAG: i64 = 0x100;
 pub const PAGE_DISABLE_MANUAL_CHILD_ADD_FLAG: i64 = 0x200;
 pub const PAGE_SHOW_TABLE_COL_HEADER_FLAG: i64 = 0x400;
 pub const PAGE_TABLE_WRAP_ROWS_FLAG: i64 = 0x800;
+/// The page is a collection: its direct link children are members. 0x004–0x020 are free in the current code but were
+/// IsDraft and CalendarIndependentRows, and may still be set in stored pages, so they are not reused.
+pub const PAGE_COLLECTION_FLAG: i64 = 0x1000;
 pub const IMAGE_NO_CROP_FLAG: i64 = 0x002;
 
 /// Page and table flags with the same meaning, translated on page/table conversion.

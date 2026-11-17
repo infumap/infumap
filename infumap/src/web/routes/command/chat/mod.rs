@@ -2620,7 +2620,17 @@ fn chat_system_prompt(
   mode: ChatRunMode,
 ) -> String {
   let scope_part = infumap_data.and_then(InfumapData::scope).and_then(|scope| match &scope.source {
-    ScopeSource::All => None,
+    // A run with an unavailable scope does not start, so there is nothing to tell the model.
+    ScopeSource::All | ScopeSource::Unavailable => None,
+    ScopeSource::Collection { name, .. } => Some(format!(
+      "The tools only see the collection {}; an item not found may lie outside it.",
+      serde_json::Value::String(name.clone())
+    )),
+    ScopeSource::Except { name, .. } => Some(format!(
+      "The tools cannot see the items in the collection {} or anything inside them; an item not found may be \
+        one of them.",
+      serde_json::Value::String(name.clone())
+    )),
     ScopeSource::Named { name, .. } => Some(format!(
       "The tools only see the scope {}; an item not found may lie outside it.",
       serde_json::Value::String(name.clone())

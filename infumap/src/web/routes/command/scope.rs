@@ -25,9 +25,17 @@
 //!
 //! A chat can instead be limited to items chosen in it, without a scope page. Each covers itself and its
 //! descendants, as an include link would, and nothing is excluded.
+//!
+//! Collections are replacing scope pages. A collection is a page with the Collection flag; its direct link children
+//! are its members and its other children are annotations. A `ScopeRef` limits retrieval to a collection's members
+//! and their descendants, or to everything except them. A collection that is missing, trashed or no longer flagged
+//! covers nothing, whichever way it is used: a broken reference must never broaden retrieval.
 
 use super::*;
+use crate::ai::search_eligibility::is_in_trash;
+use crate::query_configuration::ScopeRef;
 use crate::web::routes::scopes_page_id;
+use infusdk::item::PAGE_COLLECTION_FLAG;
 
 const EXCLUDE_CONTAINER_TITLE: &str = "exclude";
 /// The most items a chat can be limited to.
@@ -50,6 +58,12 @@ pub(super) enum ScopeProblem {
   /// An item chosen in a chat is missing or unreadable, or is a link to another link.
   #[serde(rename_all = "camelCase")]
   UnresolvedItem { item_id: Uid },
+  /// The referenced collection is missing, in the trash, or not a collection page. The title is the item's, when it
+  /// still exists, so the user can be told which collection it was.
+  #[serde(rename_all = "camelCase")]
+  UnavailableCollection { collection_id: Uid, title: Option<String> },
+  /// The reference was a bare scope page id, saved before collections.
+  RetiredScope,
 }
 
 #[derive(Serialize)]
@@ -79,6 +93,12 @@ pub(super) enum ScopeSource {
   Named { id: Uid, name: String },
   /// Items chosen in a chat: each one that resolved, a link as its target, in the order chosen.
   Items(Vec<Uid>),
+  /// A collection's members, named by the collection page's title.
+  Collection { id: Uid, name: String },
+  /// Default retrieval minus a collection's members, named by the collection page's title.
+  Except { id: Uid, name: String },
+  /// A reference that does not resolve. Covers nothing; `problems` says why.
+  Unavailable,
 }
 
 pub(super) struct ResolvedScope {
@@ -119,7 +139,8 @@ impl ResolvedScope {
   pub fn contains(&self, db: &Db, item: &Item) -> bool {
     // An unscoped run can still directly read any owned item, as before. Its default search roots remain
     // home and query chats; the runtime scope only adds exclusions to those otherwise unrestricted reads.
-    let mut included = matches!(&self.source, ScopeSource::All);
+    // Everything except a collection is the same, with the collection's members as further exclusions.
+    let mut included = matches!(&self.source, ScopeSource::All | ScopeSource::Except { .. });
     let mut seen = HashSet::new();
     let mut current = item;
     loop {
@@ -257,7 +278,11 @@ fn list_scopes_json(db: &Db, user_id: &Uid) -> InfuResult<String> {
           exclude_count: scope.exclude_root_count(),
           problems: &scope.problems,
         }),
-        ScopeSource::Items(_) | ScopeSource::All => None,
+        ScopeSource::Items(_)
+        | ScopeSource::All
+        | ScopeSource::Collection { .. }
+        | ScopeSource::Except { .. }
+        | ScopeSource::Unavailable => None,
       })
       .collect(),
   };
@@ -441,6 +466,90 @@ pub(super) fn resolve_item_scope(db: &Db, user_id: &Uid, item_ids: &[Uid]) -> In
   })
 }
 
+/// The collection page `id` names: the user's own page with the Collection flag, outside the trash.
+fn collection_page<'a>(db: &'a Db, user_id: &Uid, id: &Uid) -> Result<&'a Item, ScopeProblem> {
+  let item = db.item.get(id).ok().filter(|item| &item.owner_id == user_id);
+  match item {
+    Some(page)
+      if page.item_type == ItemType::Page
+        && page.flags.is_some_and(|flags| flags & PAGE_COLLECTION_FLAG != 0)
+        && !is_in_trash(db, page) =>
+    {
+      Ok(page)
+    }
+    _ => Err(ScopeProblem::UnavailableCollection {
+      collection_id: id.clone(),
+      title: item.and_then(|item| item.title.clone()),
+    }),
+  }
+}
+
+/// The targets of a collection's direct link children, each once, in page order. Other children are annotations
+/// and cover nothing. A link with no readable target, or that targets another link, is left out without a problem:
+/// it already renders as broken in the collection page, where it is removed like any other member.
+///
+/// A member that is itself a collection page covers that page's subtree, as any page member does. Its members are
+/// links, and coverage never follows link targets, so membership does not compose.
+pub(super) fn collection_member_targets(db: &Db, user_id: &Uid, collection: &Item) -> InfuResult<Vec<Uid>> {
+  let mut targets = Vec::new();
+  for child in sorted_children(db, &collection.id)? {
+    if child.item_type != ItemType::Link {
+      continue;
+    }
+    if let Some(target) = resolve_content(db, child, user_id)
+      && !targets.contains(&target.id)
+    {
+      targets.push(target.id.clone());
+    }
+  }
+  Ok(targets)
+}
+
+/// The scope a saved reference covers now, from live data.
+// Search, chat and query profiles still pass scope page ids; they switch to this when saved references become
+// `ScopeRef`s, and the dead-code allowance goes then.
+#[cfg_attr(not(test), allow(dead_code))]
+pub(super) fn resolve_scope_ref(db: &Db, user_id: &Uid, scope: &ScopeRef) -> InfuResult<ResolvedScope> {
+  let user = db.user.get(user_id).ok_or(format!("Unknown user '{}'.", user_id))?;
+  let covers_nothing = |problem: ScopeProblem| ResolvedScope {
+    source: ScopeSource::Unavailable,
+    home_page_id: user.home_page_id.clone(),
+    include_roots: Some(HashSet::new()),
+    exclude_roots: HashSet::new(),
+    problems: vec![problem],
+  };
+  let (id, except) = match scope {
+    ScopeRef::Everything => return ResolvedScope::for_chat(db, user_id, None, HashSet::new()),
+    ScopeRef::Collection { id } => (id, false),
+    ScopeRef::EverythingExcept { id } => (id, true),
+    ScopeRef::Unavailable => return Ok(covers_nothing(ScopeProblem::RetiredScope)),
+  };
+  let collection = match collection_page(db, user_id, id) {
+    Ok(collection) => collection,
+    // An unavailable exclusion covers nothing too, not everything: what it should have hidden is unknown.
+    Err(problem) => return Ok(covers_nothing(problem)),
+  };
+  let targets = collection_member_targets(db, user_id, collection)?.into_iter().collect::<HashSet<_>>();
+  let name = collection.title.clone().unwrap_or_default();
+  Ok(match except {
+    // Both empty cases fall out of the sets: an empty collection includes nothing, and excludes nothing.
+    false => ResolvedScope {
+      source: ScopeSource::Collection { id: id.clone(), name },
+      home_page_id: user.home_page_id.clone(),
+      include_roots: Some(targets),
+      exclude_roots: HashSet::new(),
+      problems: Vec::new(),
+    },
+    true => ResolvedScope {
+      source: ScopeSource::Except { id: id.clone(), name },
+      home_page_id: user.home_page_id.clone(),
+      include_roots: None,
+      exclude_roots: targets,
+      problems: Vec::new(),
+    },
+  })
+}
+
 /// A database in a temporary directory, holding one user with the standard pages.
 #[cfg(test)]
 pub(super) mod test_db {
@@ -549,6 +658,18 @@ pub(super) mod test_db {
         1,
       );
       self.add(item).await
+    }
+
+    pub async fn collection(&mut self, parent_id: &Uid, title: &str) -> Uid {
+      let id = self.page(parent_id, title).await;
+      self.set_page_flags(&id, PAGE_COLLECTION_FLAG).await;
+      id
+    }
+
+    pub async fn set_page_flags(&mut self, page_id: &Uid, flags: i64) {
+      let mut page = self.db.item.get(page_id).unwrap().clone();
+      page.flags = Some(flags);
+      self.db.item.update(&page).await.unwrap();
     }
 
     pub async fn note(&mut self, parent_id: &Uid, title: &str, relationship: RelationshipToParent) -> Uid {
@@ -940,5 +1061,218 @@ mod tests {
         ]},
       ]})
     );
+  }
+
+  impl TestDb {
+    fn resolve_ref(&self, scope: &ScopeRef) -> ResolvedScope {
+      resolve_scope_ref(&self.db, &self.user_id, scope).unwrap()
+    }
+
+    fn covers_nothing(&self, scope: &ResolvedScope) -> bool {
+      scope.allowed_item_ids(&self.db, &self.user_id).unwrap().is_empty() && !self.contains(scope, &self.home_id)
+    }
+  }
+
+  fn collection(id: &Uid) -> ScopeRef {
+    ScopeRef::Collection { id: id.clone() }
+  }
+
+  fn except(id: &Uid) -> ScopeRef {
+    ScopeRef::EverythingExcept { id: id.clone() }
+  }
+
+  #[tokio::test]
+  async fn a_collection_covers_its_members_and_their_descendants_not_its_annotations() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let research = t.page(&home, "Research").await;
+    let financials = t.page(&research, "Financials").await;
+    let q1 = t.note(&financials, "Q1", RelationshipToParent::Child).await;
+    let q1_attachment = t.note(&q1, "Q1 detail", RelationshipToParent::Attachment).await;
+    let interviews = t.page(&research, "Interviews").await;
+    let interview = t.note(&interviews, "CEO", RelationshipToParent::Child).await;
+    let elsewhere = t.page(&home, "Elsewhere").await;
+    let report = t.note(&elsewhere, "Industry report", RelationshipToParent::Child).await;
+
+    let key_sources = t.collection(&research, "Key sources").await;
+    t.link(&key_sources, &financials).await;
+    t.link(&key_sources, &report).await;
+    // The same target again, through another link to it, is not another member.
+    let link_to_financials = t.link(&elsewhere, &financials).await;
+    t.link(&key_sources, &financials).await;
+    let annotation = t.note(&key_sources, "why these", RelationshipToParent::Child).await;
+    let annotation_page = t.page(&key_sources, "Maybe later").await;
+    t.link(&annotation_page, &interviews).await;
+
+    assert_eq!(
+      collection_member_targets(&t.db, &t.user_id, t.db.item.get(&key_sources).unwrap()).unwrap(),
+      vec![financials.clone(), report.clone()]
+    );
+    let resolved = t.resolve_ref(&collection(&key_sources));
+    assert_eq!(resolved.source, ScopeSource::Collection { id: key_sources.clone(), name: "Key sources".to_owned() });
+    assert_eq!(resolved.include_root_count(), Some(2));
+    assert!(resolved.problems.is_empty());
+    for inside in [&financials, &q1, &q1_attachment, &report] {
+      assert!(t.contains(&resolved, inside));
+    }
+    for outside in [&home, &research, &interviews, &interview, &elsewhere, &key_sources, &annotation, &annotation_page]
+    {
+      assert!(!t.contains(&resolved, outside));
+    }
+    assert!(!t.contains(&resolved, &link_to_financials), "a link is covered by where it is, not what it targets");
+    t.assert_consistent(&resolved);
+  }
+
+  #[tokio::test]
+  async fn an_empty_collection_covers_nothing_and_excludes_nothing() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let notes = t.page(&home, "Notes").await;
+    let empty = t.collection(&home, "Empty").await;
+    t.note(&empty, "not a member", RelationshipToParent::Child).await;
+    let broken = t.collection(&home, "Broken").await;
+    t.link(&broken, &new_uid()).await;
+    let link_to_notes = t.link(&home, &notes).await;
+    t.link(&broken, &link_to_notes).await;
+
+    for id in [&empty, &broken] {
+      let resolved = t.resolve_ref(&collection(id));
+      assert_eq!(resolved.include_root_count(), Some(0));
+      assert!(resolved.problems.is_empty(), "broken links are shown in the page, not reported");
+      assert!(t.covers_nothing(&resolved));
+
+      let resolved = t.resolve_ref(&except(id));
+      assert_eq!(resolved.exclude_root_count(), 0);
+      assert!(t.contains(&resolved, &home));
+      assert!(t.contains(&resolved, &notes));
+    }
+  }
+
+  #[tokio::test]
+  async fn everything_except_a_collection_hides_its_members_however_they_are_reached() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let private = t.page(&home, "Private").await;
+    let diary = t.note(&private, "diary", RelationshipToParent::Child).await;
+    let notes = t.page(&home, "Notes").await;
+    let link_to_private = t.link(&notes, &private).await;
+    let link_to_diary = t.link(&notes, &diary).await;
+    let hidden = t.collection(&notes, "Hidden").await;
+    t.link(&hidden, &private).await;
+
+    let resolved = t.resolve_ref(&except(&hidden));
+    assert_eq!(resolved.source, ScopeSource::Except { id: hidden.clone(), name: "Hidden".to_owned() });
+    assert_eq!(resolved.include_root_count(), None);
+    assert_eq!(resolved.exclude_root_count(), 1);
+    assert!(t.contains(&resolved, &home));
+    assert!(t.contains(&resolved, &notes));
+    assert!(t.contains(&resolved, &hidden), "the collection page itself is not excluded");
+    assert!(!t.contains(&resolved, &private));
+    assert!(!t.contains(&resolved, &diary));
+    let allowed = resolved.allowed_item_ids(&t.db, &t.user_id).unwrap();
+    assert!(allowed.contains(&notes));
+    for excluded in [&private, &diary, &link_to_private, &link_to_diary] {
+      assert!(!allowed.contains(excluded), "links to excluded items must not surface as hits");
+    }
+    // Like everything, direct reads of items outside the home tree are still allowed; only exclusions apply.
+    let trashed = t.note(&t.trash_id.clone(), "trashed", RelationshipToParent::Child).await;
+    assert!(t.contains(&resolved, &trashed));
+    assert!(!allowed.contains(&trashed));
+  }
+
+  #[tokio::test]
+  async fn an_unavailable_collection_covers_nothing_used_either_way() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let trash = t.trash_id.clone();
+    let notes = t.page(&home, "Notes").await;
+
+    let trashed_parent = t.page(&trash, "Old project").await;
+    let trashed = t.collection(&trashed_parent, "Trashed").await;
+    t.link(&trashed, &notes).await;
+    let unflagged = t.collection(&home, "Unflagged").await;
+    t.link(&unflagged, &notes).await;
+    t.set_page_flags(&unflagged, 0).await;
+    let flagged_note = t.note_with(&home, "Flagged note", |item| item.flags = Some(PAGE_COLLECTION_FLAG)).await;
+    let missing = new_uid();
+
+    let cases = [
+      (trashed.clone(), Some("Trashed")),
+      (unflagged.clone(), Some("Unflagged")),
+      (flagged_note.clone(), Some("Flagged note")),
+      (missing.clone(), None),
+    ];
+    for (id, title) in cases {
+      for scope in [collection(&id), except(&id)] {
+        let resolved = t.resolve_ref(&scope);
+        assert_eq!(resolved.source, ScopeSource::Unavailable);
+        assert_eq!(
+          resolved.problems,
+          vec![ScopeProblem::UnavailableCollection { collection_id: id.clone(), title: title.map(str::to_owned) }]
+        );
+        assert!(t.covers_nothing(&resolved), "{scope:?} must not broaden retrieval");
+        assert!(!t.contains(&resolved, &notes));
+      }
+    }
+
+    let resolved = t.resolve_ref(&ScopeRef::Unavailable);
+    assert_eq!(resolved.problems, vec![ScopeProblem::RetiredScope]);
+    assert!(t.covers_nothing(&resolved));
+
+    // Restoring the page, or flagging it again, makes the same reference work again.
+    t.set_page_flags(&unflagged, PAGE_COLLECTION_FLAG).await;
+    assert!(t.contains(&t.resolve_ref(&collection(&unflagged)), &notes));
+  }
+
+  #[tokio::test]
+  async fn a_collection_that_is_a_member_covers_only_its_own_page() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let financials = t.page(&home, "Financials").await;
+    let inner = t.collection(&home, "Inner").await;
+    let inner_link = t.link(&inner, &financials).await;
+    let inner_note = t.note(&inner, "about inner", RelationshipToParent::Child).await;
+    let outer = t.collection(&home, "Outer").await;
+    t.link(&outer, &inner).await;
+
+    let resolved = t.resolve_ref(&collection(&outer));
+    assert!(t.contains(&resolved, &inner));
+    assert!(t.contains(&resolved, &inner_note));
+    assert!(!t.contains(&resolved, &financials), "membership does not compose");
+    let allowed = resolved.allowed_item_ids(&t.db, &t.user_id).unwrap();
+    assert_eq!(allowed, {
+      let mut ids = vec![inner.clone(), inner_note.clone()];
+      ids.sort();
+      ids
+    });
+    assert!(!allowed.contains(&inner_link));
+  }
+
+  #[tokio::test]
+  async fn everything_resolves_to_default_retrieval() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let notes = t.page(&home, "Notes").await;
+    let resolved = t.resolve_ref(&ScopeRef::Everything);
+    assert_eq!(resolved.source, ScopeSource::All);
+    assert_eq!(resolved.include_root_count(), None);
+    assert_eq!(resolved.exclude_root_count(), 0);
+    assert!(t.contains(&resolved, &notes));
+  }
+
+  #[test]
+  fn scope_refs_serialize_with_a_kind() {
+    let id = new_uid();
+    for (scope, json) in [
+      (ScopeRef::Everything, serde_json::json!({ "kind": "everything" })),
+      (collection(&id), serde_json::json!({ "kind": "collection", "id": id })),
+      (except(&id), serde_json::json!({ "kind": "everythingExcept", "id": id })),
+      (ScopeRef::Unavailable, serde_json::json!({ "kind": "unavailable" })),
+    ] {
+      assert_eq!(serde_json::to_value(&scope).unwrap(), json);
+      assert_eq!(serde_json::from_value::<ScopeRef>(json).unwrap(), scope);
+    }
+    assert!(serde_json::from_value::<ScopeRef>(serde_json::json!({ "kind": "collection" })).is_err());
+    assert!(serde_json::from_value::<ScopeRef>(serde_json::json!(id)).is_err());
   }
 }

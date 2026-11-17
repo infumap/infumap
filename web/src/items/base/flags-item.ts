@@ -124,6 +124,9 @@ export enum PageFlags {
   UnusedDisableManualChildAdd = 0x200,
   ShowTableColHeader = 0x400,
   TableWrapRows = 0x800,
+  // Direct link children are the collection's members. 0x004–0x020 were IsDraft and CalendarIndependentRows and may
+  // still be set in stored pages, so they are not reused.
+  Collection = 0x1000,
 };
 
 export const PageCalendarDisplayMode = {
