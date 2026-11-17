@@ -353,11 +353,16 @@ Relevant existing code:
 5. **Optional source-page filtering.** Reuse resolved coverage across layouts only if reviewing the separate collection
    view proves insufficient. No expression language or general rule builder is needed for the initial delivery.
 
-## Decisions still required
+## Missing collections
 
-- **Deletion lifecycle:** saved references are not items, so nothing stops their collection from being deleted,
-  trashed or unflagged. Decide how affected profiles, chats and the remembered search scope are reported and
-  repaired, and what deleting a parent containing collections should expose. Do not silently detach or broaden.
+A chat, a query profile or search's remembered scope refers to a collection by id. Nothing prevents that collection
+from being deleted, trashed or turned back into an ordinary page, either directly or by deleting a page that
+contains it. Decided:
 
-The interaction above is the proposed first implementation. These decisions do not need to be settled to review the
-workflow, but must be settled explicitly before changing existing behavior.
+- Retrieval covers nothing, never everything (see Retrieval scope).
+- The scope control shows the collection as unavailable, for example **Key sources (unavailable)**, until the user
+  chooses again. Profiles show the same.
+- Restoring the page from the trash, or setting the Collection flag again, makes every reference work again with no
+  repair, since the id is unchanged.
+- No warning when deleting, trashing or unflagging a collection, or a page containing one. Finding the references
+  would mean scanning profiles and chat transcripts, which is not worth it for a rare case in v1.
