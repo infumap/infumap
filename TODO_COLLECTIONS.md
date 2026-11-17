@@ -174,10 +174,15 @@ Show a persistent bar immediately below the main toolbar:
 ```
 
 The destination name and home path remain visible as the user navigates. Clicking the name opens the collection
-page. Purple identifies collection membership
-in this mode, with checkmarks and text so color is not the sole indicator. Reuse the same color for every collection;
-the bar identifies which one is being edited. Membership marks are purely visual (they have no hit target) and must
-stay distinct from the item selection highlight, since both show at once.
+page.
+
+Membership is shown by highlight color alone, with no checkmarks or labels: a green outline (around Tailwind
+green-600, `#16a34a`) on direct members and a lighter green outline on items covered through an ancestor. The marks
+are outlines, never fills, because the item selection is a blue fill and both show at once on the same items; two
+tinted fills would mix. Green is the hue furthest from the blue selection and focus ring. Purple was rejected: Text
+item titles are purple and it is one of the page colors. The saturated green stays distinct from the muted green
+page color, though marks inside green pages should be checked on screen. Reuse the same color for every
+collection; the bar identifies which one is being edited. Marks are purely visual and have no hit target.
 
 The count means explicit member roots, not the number of all covered descendants. Label it accordingly in detailed
 views. If coverage counts are available, show them separately rather than presenting an approximate count as exact.
@@ -224,12 +229,14 @@ layout. Revisit if Add proves slow in practice.
 | State | Appearance | Add | Remove |
 | --- | --- | --- | --- |
 | Not covered | No mark | Becomes a direct member | No effect |
-| Direct member | Purple checkmark and highlight | No effect | Removed |
-| Covered through an ancestor | Lighter highlight, checkmark, "Included via Financials" | Also becomes a direct member, so it stays if the ancestor is removed | No effect; the bar names the ancestor. No exclusion is created |
-| Contains members, but is not itself covered | Mixed indicator | The container becomes a direct member | No effect |
+| Direct member | Green outline | No effect | Removed |
+| Covered through an ancestor | Lighter green outline | Also becomes a direct member, so it stays if the ancestor is removed | No effect; the bar names the ancestor. No exclusion is created |
+
+There is no mixed indicator for a container that holds members without being covered itself. Color alone has no
+clear third state for it, and computing it needs every ancestor of every member sent to the client.
 
 A member table includes its rows, cells and attachments. A member composite includes its members. A member page
-includes its subtree. Unmarked children of such a root remain covered; they do not need individual marks.
+includes its subtree. Its children are covered without being added individually, and show the lighter outline.
 
 To include only part of a subtree that is currently covered, remove the parent and add individual contents.
 Collections have no per-member exceptions.
