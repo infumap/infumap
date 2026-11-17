@@ -160,8 +160,7 @@ switching to another lets outstanding saves finish.
 Show a persistent bar immediately below the main toolbar:
 
 ```
-● Key sources · Research / Northstar   8 members   [Add 3]  [Remove]  [Add this page]   Done
-  Select items, then Add or Remove
+● Key sources · Research / Northstar   8 members   ⌘click an item to add or remove it, …   Done
 ```
 
 The name and home path stay visible as the user navigates; clicking the name opens the collection page. The count
@@ -187,10 +186,10 @@ exactly as outside the mode, so opening a page never competes with adding it.
   pages it toggles the one item, as selection does there.
 - **Marquee** adds every item it covers, unless all are direct members already, when it removes them all; so a
   second sweep undoes the first. A composite is swept whole.
-- **Add this page / Remove this page** toggles the focused page, either the current root page or an open popup,
-  since neither can be clicked or swept.
+- No button for the page the user is on: it is clicked from its parent like any item. (Add this page was dropped:
+  needed only for the root page, which holds everything anyway.)
 - Add skips unsupported, missing or unreadable targets and says which and why.
-- **Undo** in the bar reverses the last change, exactly the items it changed.
+- No Undo: a click is reversed by clicking again, a sweep by sweeping again.
 - Selecting items for anything else (moving, grouping) means leaving the mode first. Keyboard selection (shift +
   up/down) still selects, with no membership effect.
 
@@ -213,7 +212,9 @@ edited, or the user could not find new members.
 Each change saves immediately. Marks change at the click; a failed change reverts its marks and offers Retry.
 
 **Done** exits the mode and leaves the user where they are. **Escape** first clears the item selection if there is
-one; otherwise it exits the mode, after any open modal or editor that owns Escape. Reloading leaves the mode.
+one and closes an open popup; otherwise it exits the mode, after any open modal or editor that owns Escape.
+Reloading leaves the mode. Right click (back) does not exit: it was tried, but navigating up while curating then
+meant entering the mode again.
 
 ## Reviewing a collection
 
@@ -459,7 +460,8 @@ Replaces step 7's Add/Remove buttons, as revised under "Adding and removing" (de
 members, Shift-click repeats the last click, an inherited item becomes a member, a composite's member on click and
 the whole composite on sweep). Marks change at the click (`showUnsavedCollectionMarks`), since a toggle reads the mark
 it shows and a second click before the answer would otherwise repeat the first change; a failed save puts them back.
-Each change offers Undo. The step 8 composite drill-in still applies outside the mode.
+The step 8 composite drill-in still applies outside the mode. Later trimmed: no Undo, no Add this page. Right click
+exiting the mode was tried and reverted.
 
 ## Later
 

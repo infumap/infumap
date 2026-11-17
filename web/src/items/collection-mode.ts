@@ -92,7 +92,8 @@ export function clearCollectionMode(): void {
 //
 // In the mode, the selection gestures change membership instead of selecting (see applyCollectionClick and the
 // marquee's mouse up): having to select, then press Add or Remove, made curating twice the work. Each change saves at
-// once. Marks change at the click and go back if the save fails.
+// once. Marks change at the click and go back if the save fails. There is no Undo: a click is undone by clicking
+// again, and a sweep by sweeping again.
 
 export type MembershipChange = "add" | "remove";
 
@@ -103,19 +104,15 @@ const MAX_IDS_PER_CHANGE = 1000;
 const [savingCount, setSavingCount] = createSignal(0);
 /** The last result worth saying, such as what was skipped and why. Replaced by the next. */
 const [notice, setNotice] = createSignal<string | null>(null);
-/** Reverses the last change, which a sweep can make to many items at once. Replaced by the next. */
-const [undo, setUndo] = createSignal<(() => void) | null>(null);
 /** A failed save, with the means to try it again. */
 const [failure, setFailure] = createSignal<{ message: string, retry: () => void } | null>(null);
 
 export function collectionModeSaving(): boolean { return savingCount() > 0; }
 export function collectionModeNotice(): string | null { return notice(); }
-export function collectionModeUndo(): (() => void) | null { return undo(); }
 export function collectionModeFailure(): { message: string, retry: () => void } | null { return failure(); }
 
 function clearChangeState(): void {
   setNotice(null);
-  setUndo(null);
   setFailure(null);
 }
 
@@ -194,8 +191,6 @@ export function changeCollectionMembers(store: StoreContextModel, change: Member
             response.skipped.map(skip => `${quoted(skip.title)}: ${skip.reason}`).join(" "));
         }
         setNotice(parts.length == 0 ? null : parts.join(" "));
-        const added = response.added;
-        setUndo(() => added.length == 0 ? null : () => changeCollectionMembers(store, "remove", added));
       });
   } else {
     void save(store, collectionId, `Could not remove ${itemsDescription(ids)}`,
@@ -219,8 +214,6 @@ export function changeCollectionMembers(store: StoreContextModel, change: Member
           parts.push(vias.length == 1 ? `${subject} via ${vias[0]}.` : `${subject} through other members.`);
         }
         setNotice(parts.length == 0 ? null : parts.join(" "));
-        const removed = response.removed;
-        setUndo(() => removed.length == 0 ? null : () => changeCollectionMembers(store, "add", removed));
       });
   }
 }

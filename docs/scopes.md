@@ -65,15 +65,16 @@ In collection mode, the gestures that select items change membership instead. Pl
   from that one to the one you click. On a free-form or calendar page it adds or removes the one item.
 - **Drag a rectangle** over items to add them all. If they are all members already, it removes them all instead, so
   dragging over the same items again undoes it. A rectangle over a composite adds or removes the whole composite.
-- **Add this page** in the bar adds the page you are on, or the page open in a popup. If it is a member, the button
-  is **Remove this page**.
+
+To add the page you are on, go up to the page that holds it and Cmd-click it there.
 
 Removing an item covered through a member above it leaves it covered, and the bar says which member covers it. To
 leave out part of a member, remove the member and add the parts you want.
 
-Each change is saved straight away, and the outline changes as you click. The bar says what changed, with **Undo**
-to reverse it. If a change can't be saved, the outline goes back, and the bar says so, with **Retry**. Click
-**Done**, or press Escape when nothing is selected and no popup is open, to leave collection mode. Reloading the page
+Each change is saved straight away, and the outline changes as you click. The bar says what changed. To reverse a
+change, click or drag over the same items again. If a change can't be saved, the outline goes back, and the bar says
+so, with **Retry**. Click **Done**, or press Escape when nothing is selected and no popup is open, to leave collection
+mode. Right-click goes back as usual and leaves you in collection mode. Reloading the page
 leaves it too. To select items for something else, such as moving them, leave collection mode first.
 
 ## Choosing a scope

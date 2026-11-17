@@ -17,14 +17,12 @@
 */
 
 import { Show, createEffect, on, onCleanup } from "solid-js";
-import { collectionMark, refreshCollectionMarks, retainCollectionMark } from "../../items/collection-marks";
+import { refreshCollectionMarks } from "../../items/collection-marks";
 import {
   collectionModeCollectionListed, collectionModeFailure, collectionModeNotice, collectionModeSaving,
-  collectionModeSummary, collectionModeUndo, exitCollectionMode, toggleCollectionMember,
+  collectionModeSummary, exitCollectionMode,
 } from "../../items/collection-mode";
-import { isPage } from "../../items/page-item";
 import { IS_MAC } from "../../util/platform";
-import { Uid } from "../../util/uid";
 import { queryCollectionTitle } from "../../items/query-scope";
 import { initiateLoadItemMaybe } from "../../layout/load";
 import { switchToPage } from "../../layout/navigation";
@@ -64,24 +62,8 @@ export function CollectionModeBar() {
   };
 
   // Membership changes through the selection gestures (see applyCollectionClick), so plain clicking, editing and
-  // navigating behave as outside the mode.
-  const unavailable = () => !collectionModeCollectionListed();
-
-  // The page the user is on, or the page open in a popup: neither can be clicked or swept.
-  const thisPageId = (): Uid | null => {
-    const popupId = store.history.currentPopupSpecVeid()?.itemId;
-    const popupItem = popupId == null ? null : itemState.get(popupId);
-    if (popupItem != null && isPage(popupItem)) { return popupItem.id; }
-    return store.history.currentPageVeid()?.itemId ?? null;
-  };
-  createEffect(() => {
-    const id = thisPageId();
-    if (id == null || summary() == null) { return; }
-    onCleanup(retainCollectionMark(id));
-  });
-  const thisPageIsMember = () => { const id = thisPageId(); return id != null && collectionMark(id)?.kind == "direct"; };
-  const thisPageIsCollection = () => thisPageId() == summary()?.id;
-
+  // navigating behave as outside the mode. There is no button for the page the user is on: it is reached by its
+  // parent, where it can be clicked like any item.
   const status = () => {
     if (collectionModeSaving()) { return "Saving…"; }
     if (collectionModeNotice() != null) { return collectionModeNotice()!; }
@@ -111,26 +93,10 @@ export function CollectionModeBar() {
             No longer a collection
           </span>
         </Show>
-        <div class="ml-2 flex shrink-0 items-center gap-1">
-          <button type="button" class={dialogButtonClass()}
-            disabled={unavailable() || thisPageId() == null || thisPageIsCollection()}
-            title={thisPageIsCollection() ? "This is the collection page."
-              : thisPageIsMember() ? "Stop the page you are on, or the open popup, being a member."
-                : "Make the page you are on, or the open popup, a member."}
-            onClick={() => { const id = thisPageId(); if (id != null) { toggleCollectionMember(store, id); } }}>
-            {thisPageIsMember() ? "Remove this page" : "Add this page"}
-          </button>
-        </div>
         <Show when={collectionModeFailure()} fallback={
-          <span class="flex min-w-0 grow items-center gap-2 text-[12px] text-neutral-600">
-            <span class="min-w-0 truncate" role="status" title={status()}>{status()}</span>
-            <Show when={!collectionModeSaving() && collectionModeUndo()}>{undo =>
-              <button type="button" class={`shrink-0 ${dialogButtonClass()}`} title="Reverse the last change"
-                onClick={() => undo()()}>Undo</button>
-            }</Show>
-          </span>
+          <span class="ml-2 min-w-0 grow truncate text-[12px] text-neutral-600" role="status" title={status()}>{status()}</span>
         }>{failure =>
-          <span class="flex min-w-0 grow items-center gap-2 text-[12px] text-red-700" role="alert">
+          <span class="ml-2 flex min-w-0 grow items-center gap-2 text-[12px] text-red-700" role="alert">
             <span class="min-w-0 truncate" title={failure().message}>{failure().message}</span>
             <button type="button" class={`shrink-0 ${dialogButtonClass()}`} onClick={() => failure().retry()}>Retry</button>
           </span>
