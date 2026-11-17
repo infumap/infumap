@@ -34,9 +34,6 @@
     <main id="main">
       <section class="hero item" aria-labelledby="hero-title">
         <h1 id="hero-title">A durable home for your information</h1>
-        <div class="hero-text">
-        <p class="lede">Start with your information, then add structure as it grows.</p>
-        </div>
         <div class="hero-download">
         <div class="hero-actions">
           <a class="button button-primary" href="https://github.com/infumap/infumap/releases/latest">
@@ -52,81 +49,227 @@
         </div>
       </section>
 
-      <figure class="screenshot item" id="tour">
-        <a class="screenshot-link" href="assets/screenshot.png">
-          <picture>
-          <source media="(max-width: 720px)" srcset="assets/img/home-mobile.webp" width="780" height="994">
-          <img
-            srcset="assets/img/home-800.webp 800w, assets/img/home-1600.webp 1600w, assets/img/home-2400.webp 2400w"
-            sizes="(min-width: 1360px) 1280px, calc(100vw - 32px)"
-            src="assets/img/home-1600.webp"
-            width="1600" height="924"
-            alt="An Infumap Home page with a to-do list and bookmarks among other items.">
-          </picture>
-        </a>
-        <figcaption>
-          <span>A real Infumap page. Lists, coloured pages and a table share one space.<span class="mobile-only"> Shown here: part of the page.</span></span>
-          <a href="assets/screenshot.png">Full size <svg class="icon" aria-hidden="true"><use href="#i-ext"/></svg></a>
-        </figcaption>
-      </figure>
-
       <section class="forms" aria-labelledby="forms-title">
         <div class="section-head">
           <h2 id="forms-title">Choose the form that fits.</h2>
-          <p>Different information calls for different arrangements. Start loose and add structure as your understanding grows. Open a page to see it.</p>
+          <p>Explore the item types. For pages, choose an arrangement to see how the same space can take different forms.</p>
         </div>
-        <div class="tiles" aria-hidden="true">
-          <button class="tile tile-blue" type="button" id="tab-pages" data-panel="panel-pages" tabindex="-1">Pages</button>
-          <button class="tile tile-green" type="button" id="tab-lists" data-panel="panel-lists" tabindex="-1">Lists</button>
-          <button class="tile tile-yellow" type="button" id="tab-tables" data-panel="panel-tables" tabindex="-1">Tables</button>
-          <button class="tile tile-purple" type="button" id="tab-loose" data-panel="panel-loose" tabindex="-1">Loose groups</button>
+        <div class="tiles tab-controls" data-tabs aria-label="Item types" hidden>
+          <button class="tile tile-blue" type="button" id="tab-pages" data-panel="panel-pages">Pages</button>
+          <button class="tile tile-green" type="button" id="tab-notes" data-panel="panel-notes">Notes</button>
+          <button class="tile tile-purple" type="button" id="tab-images" data-panel="panel-images">Images</button>
+          <button class="tile tile-orange" type="button" id="tab-files" data-panel="panel-files">Files</button>
+          <button class="tile tile-blue" type="button" id="tab-text" data-panel="panel-text">Text</button>
+          <button class="tile tile-yellow" type="button" id="tab-tables" data-panel="panel-tables">Tables</button>
+          <button class="tile tile-green" type="button" id="tab-links" data-panel="panel-links">Links</button>
+          <button class="tile tile-orange" type="button" id="tab-ratings" data-panel="panel-ratings">Ratings</button>
+          <button class="tile tile-purple" type="button" id="tab-passwords" data-panel="panel-passwords">Passwords</button>
+          <button class="tile tile-blue" type="button" id="tab-queries" data-panel="panel-queries">Queries</button>
+          <button class="tile tile-green" type="button" id="tab-composites" data-panel="panel-composites">Composites</button>
+          <button class="tile tile-grey" type="button" id="tab-dividers" data-panel="panel-dividers">Dividers</button>
         </div>
 
-        <div class="panel item panel-blue" id="panel-pages">
+        <div class="panel item" id="panel-pages" style="--page: var(--blue)">
           <div class="item-titlebar"><h3>Pages</h3></div>
+          <div class="page-intro">
+            <p>A page holds other items, including other pages. Choose an arrangement for the way you want to work.</p>
+          </div>
+          <div class="arrangements tab-controls" data-tabs aria-label="Page arrangements" hidden>
+            <button class="arrangement-tab" type="button" id="tab-page-spatial" data-panel="panel-page-spatial">Spatial</button>
+            <button class="arrangement-tab" type="button" id="tab-page-grid" data-panel="panel-page-grid">Grid</button>
+            <button class="arrangement-tab" type="button" id="tab-page-catalog" data-panel="panel-page-catalog">Catalog</button>
+            <button class="arrangement-tab" type="button" id="tab-page-justified" data-panel="panel-page-justified">Justified</button>
+            <button class="arrangement-tab" type="button" id="tab-page-list" data-panel="panel-page-list">List</button>
+            <button class="arrangement-tab" type="button" id="tab-page-table" data-panel="panel-page-table">Table</button>
+            <button class="arrangement-tab" type="button" id="tab-page-document" data-panel="panel-page-document">Document</button>
+            <button class="arrangement-tab" type="button" id="tab-page-calendar" data-panel="panel-page-calendar">Calendar</button>
+          </div>
+          <section class="arrangement-panel" id="panel-page-spatial" aria-labelledby="heading-page-spatial">
+            <div class="panel-body panel-body-media">
+              <div class="panel-copy">
+                <h4 id="heading-page-spatial">Spatial</h4>
+                <p class="panel-lead">Place items where they make sense.</p>
+                <p>Move and resize notes, images, documents and nested pages freely. Keep related material close and use space to show how it connects.</p>
+              </div>
+              <img src="assets/img/crop-areas.webp" width="963" height="637" loading="lazy" alt="Coloured pages of different sizes arranged beside one another in Infumap.">
+            </div>
+          </section>
+          <section class="arrangement-panel" id="panel-page-grid" aria-labelledby="heading-page-grid">
+            <div class="panel-body">
+              <div class="panel-copy">
+                <h4 id="heading-page-grid">Grid</h4>
+                <p class="panel-lead">Give every item a place in the grid.</p>
+                <p>Arrange items automatically in evenly sized cells. Adjust the columns and cell proportions to suit what you are browsing.</p>
+              </div>
+            </div>
+          </section>
+          <section class="arrangement-panel" id="panel-page-catalog" aria-labelledby="heading-page-catalog">
+            <div class="panel-body">
+              <div class="panel-copy">
+                <h4 id="heading-page-catalog">Catalog</h4>
+                <p class="panel-lead">Browse previews alongside their details.</p>
+                <p>See each item with its preview and accompanying information. Scan a collection without opening every item.</p>
+              </div>
+            </div>
+          </section>
+          <section class="arrangement-panel" id="panel-page-justified" aria-labelledby="heading-page-justified">
+            <div class="panel-body">
+              <div class="panel-copy">
+                <h4 id="heading-page-justified">Justified</h4>
+                <p class="panel-lead">Let images keep their proportions.</p>
+                <p>Arrange previews in rows that fill the page width while preserving their aspect ratios. Useful for browsing a collection of images.</p>
+              </div>
+            </div>
+          </section>
+          <section class="arrangement-panel" id="panel-page-list" aria-labelledby="heading-page-list">
+            <div class="panel-body panel-body-media">
+              <div class="panel-copy">
+                <h4 id="heading-page-list">List</h4>
+                <p class="panel-lead">Keep items in a simple sequence.</p>
+                <p>Show notes, bookmarks and other items as rows. A list is an arrangement of a page, so its contents are still individual items.</p>
+              </div>
+              <img src="assets/img/crop-lists.webp" width="843" height="1024" loading="lazy" alt="Notes and bookmarks arranged in rows on Infumap pages.">
+            </div>
+          </section>
+          <section class="arrangement-panel" id="panel-page-table" aria-labelledby="heading-page-table">
+            <div class="panel-body">
+              <div class="panel-copy">
+                <h4 id="heading-page-table">Table</h4>
+                <p class="panel-lead">Line up the details.</p>
+                <p>Display the items on a page as rows with columns for their details. Compare options or keep a structured record alongside your other material.</p>
+              </div>
+            </div>
+          </section>
+          <section class="arrangement-panel" id="panel-page-document" aria-labelledby="heading-page-document">
+            <div class="panel-body">
+              <div class="panel-copy">
+                <h4 id="heading-page-document">Document</h4>
+                <p class="panel-lead">Read and write in a continuous flow.</p>
+                <p>Arrange notes and other items vertically as a document. Bring text and supporting material together in reading order.</p>
+              </div>
+            </div>
+          </section>
+          <section class="arrangement-panel" id="panel-page-calendar" aria-labelledby="heading-page-calendar">
+            <div class="panel-body">
+              <div class="panel-copy">
+                <h4 id="heading-page-calendar">Calendar</h4>
+                <p class="panel-lead">See your information by date.</p>
+                <p>Place dated items on a calendar. Switch between month, quarter, half-year and year views to see the time span you need.</p>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="panel item" id="panel-notes" style="--page: var(--green)">
+          <div class="item-titlebar"><h3>Notes</h3></div>
           <div class="panel-body">
             <div class="panel-copy">
-              <p>A page holds other items, arranged however you like. Colour it, put pages inside pages, and open one in place without losing where you were.</p>
+              <p class="panel-lead">A place for a thought, a task or a bookmark.</p>
+              <p>Write directly on a page, add a heading or a checkbox, or keep a web address as a note. Small details can live beside the material they relate to.</p>
             </div>
-            <img src="assets/img/crop-areas.webp" width="963" height="637" loading="lazy" alt="A grid of coloured area pages named Employment, Events, Financial, Health, Ideas, Travel and more, beside larger Investment and Photos pages.">
           </div>
         </div>
 
-        <div class="panel item panel-green" id="panel-lists">
-          <div class="item-titlebar"><h3>Lists</h3></div>
+        <div class="panel item" id="panel-images" style="--page: var(--purple)">
+          <div class="item-titlebar"><h3>Images</h3></div>
           <div class="panel-body">
             <div class="panel-copy">
-              <p>Small things belong too. A list keeps notes and links in order, so a to-do or a bookmark doesn&rsquo;t need a document of its own.</p>
+              <p class="panel-lead">Keep images in the context of your work.</p>
+              <p>Add images as items, place them alongside notes, or gather them on a page. Open an image for a closer look.</p>
             </div>
-            <img src="assets/img/crop-lists.webp" width="843" height="1024" loading="lazy" alt="Two lists: a to-do list of everyday tasks and a list of bookmarked articles.">
           </div>
         </div>
 
-        <div class="panel item panel-yellow" id="panel-tables">
+        <div class="panel item" id="panel-files" style="--page: var(--orange)">
+          <div class="item-titlebar"><h3>Files</h3></div>
+          <div class="panel-body">
+            <div class="panel-copy">
+              <p class="panel-lead">Keep the source material close.</p>
+              <p>Add PDFs and other files to your workspace. Arrange them with the notes, questions and decisions that belong with them.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel item" id="panel-text" style="--page: var(--blue)">
+          <div class="item-titlebar"><h3>Text</h3></div>
+          <div class="panel-body">
+            <div class="panel-copy">
+              <p class="panel-lead">Give longer text a home of its own.</p>
+              <p>Keep text as a document item with its own title and contents. Open it to read and edit alongside the rest of your information.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel item" id="panel-tables" style="--page: var(--yellow)">
           <div class="item-titlebar"><h3>Tables</h3></div>
           <div class="panel-body">
             <div class="panel-copy">
-              <p>Compare options side by side, with a column for each detail: places to stay, things to buy, choices to decide between.</p>
-            </div>
-            <div class="placeholder" role="img" aria-label="Screenshot coming soon: a comparison table in Infumap.">
-              <span>Screenshot coming soon</span>
-              <span>A comparison table</span>
+              <p class="panel-lead">Compare information side by side.</p>
+              <p>Use rows and columns to organize details about the things you are considering. A table is an item you can place on a page; pages also offer a table arrangement.</p>
             </div>
           </div>
         </div>
 
-        <div class="panel item panel-purple" id="panel-loose">
-          <div class="item-titlebar"><h3>Loose groups</h3></div>
+        <div class="panel item" id="panel-links" style="--page: var(--green)">
+          <div class="item-titlebar"><h3>Links</h3></div>
           <div class="panel-body">
             <div class="panel-copy">
-              <p>Leave a few items loosely together until you know what to do with them. You can always give them more structure later.</p>
-            </div>
-            <div class="placeholder" role="img" aria-label="Screenshot coming soon: loosely grouped items on a page.">
-              <span>Screenshot coming soon</span>
-              <span>Items loosely grouped on a page</span>
+              <p class="panel-lead">Use the same item in more than one place.</p>
+              <p>Link to an existing Infumap item from another page. Keep a reference where it is useful while working with the same underlying item.</p>
             </div>
           </div>
         </div>
+
+        <div class="panel item" id="panel-ratings" style="--page: var(--orange)">
+          <div class="item-titlebar"><h3>Ratings</h3></div>
+          <div class="panel-body">
+            <div class="panel-copy">
+              <p class="panel-lead">Make a judgement part of your information.</p>
+              <p>Add a rating beside an option or use one in a table. Display it as stars, a number or a bar.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel item" id="panel-passwords" style="--page: var(--purple)">
+          <div class="item-titlebar"><h3>Passwords</h3></div>
+          <div class="panel-body">
+            <div class="panel-copy">
+              <p class="panel-lead">Keep a hidden value beside its context.</p>
+              <p>Password items mask their contents until you reveal them. Place one alongside the information it belongs with.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel item" id="panel-queries" style="--page: var(--blue)">
+          <div class="item-titlebar"><h3>Queries</h3></div>
+          <div class="panel-body">
+            <div class="panel-copy">
+              <p class="panel-lead">Find and work with your information.</p>
+              <p>Use a query to search your items or start a chat about them. Keep the query in your workspace so you can return to it.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel item" id="panel-composites" style="--page: var(--green)">
+          <div class="item-titlebar"><h3>Composites</h3></div>
+          <div class="panel-body">
+            <div class="panel-copy">
+              <p class="panel-lead">Combine related items into one block.</p>
+              <p>Bring notes, images and other items together in a vertical composition. Keep the parts together while each remains an individual item.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel item" id="panel-dividers" style="--page: var(--grey)">
+          <div class="item-titlebar"><h3>Dividers</h3></div>
+          <div class="panel-body">
+            <div class="panel-copy">
+              <p class="panel-lead">Give a page a little separation.</p>
+              <p>Add a divider between sections to make a change of topic clear. Use it to break up a longer page without adding another container.</p>
+            </div>
+          </div>
+        </div>
+
       </section>
 
       <section class="download" id="download" aria-labelledby="download-title">
@@ -205,53 +348,50 @@
     </footer>
 
     <script>
-      // Forms: tiles open their panel in place, as pages open in Infumap. Without this script the tiles stay hidden
-      // from assistive tech and the keyboard, and every panel shows in turn under its own heading.
+      // Each tab list owns only its own panels, so page arrangements retain their selection when switching item types.
+      // Controls appear after setup; without JavaScript, every section remains readable under its heading.
       (function () {
-        var tablist = document.querySelector('.tiles');
-        var tabs = Array.prototype.slice.call(document.querySelectorAll('.tile[data-panel]'));
-        if (!tablist || !tabs.length) return;
-        document.documentElement.classList.add('js');
-        tablist.removeAttribute('aria-hidden');
-        tablist.setAttribute('role', 'tablist');
-        tablist.setAttribute('aria-label', 'Forms');
-        tabs.forEach(function (t, i) {
-          var panel = document.getElementById(t.getAttribute('data-panel'));
-          t.setAttribute('role', 'tab');
-          t.setAttribute('aria-controls', panel.id);
-          t.setAttribute('aria-selected', i === 0 ? 'true' : 'false');
-          t.tabIndex = i === 0 ? 0 : -1;
-          panel.setAttribute('role', 'tabpanel');
-          panel.setAttribute('aria-labelledby', t.id);
-        });
-        function select(tab, focus) {
-          tabs.forEach(function (t) {
-            var on = t === tab;
-            t.setAttribute('aria-selected', on ? 'true' : 'false');
-            t.tabIndex = on ? 0 : -1;
-            document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+        document.querySelectorAll('[data-tabs]').forEach(function (tablist) {
+          var tabs = Array.prototype.slice.call(tablist.querySelectorAll('[data-panel]'));
+          tablist.setAttribute('role', 'tablist');
+          tabs.forEach(function (tab, i) {
+            var panel = document.getElementById(tab.getAttribute('data-panel'));
+            tab.setAttribute('role', 'tab');
+            tab.setAttribute('aria-controls', panel.id);
+            tab.setAttribute('aria-selected', i === 0 ? 'true' : 'false');
+            tab.tabIndex = i === 0 ? 0 : -1;
+            panel.setAttribute('role', 'tabpanel');
+            panel.setAttribute('aria-labelledby', tab.id);
+            panel.tabIndex = 0;
+            panel.hidden = i !== 0;
           });
-          var panel = document.getElementById(tab.getAttribute('aria-controls'));
-          var r = tab.getBoundingClientRect(), p = panel.getBoundingClientRect();
-          panel.style.setProperty('--from-x', (r.left + r.width / 2 - p.left) + 'px');
-          panel.classList.remove('opening');
-          void panel.offsetWidth;
-          panel.classList.add('opening');
-          if (focus) tab.focus();
-        }
-        tabs.forEach(function (tab, i) {
-          tab.addEventListener('click', function () { select(tab, false); });
-          tab.addEventListener('keydown', function (e) {
-            var next = null;
-            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = tabs[(i + 1) % tabs.length];
-            if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = tabs[(i - 1 + tabs.length) % tabs.length];
-            if (e.key === 'Home') next = tabs[0];
-            if (e.key === 'End') next = tabs[tabs.length - 1];
-            if (next) { e.preventDefault(); select(next, true); }
+          function select(tab, focus) {
+            tabs.forEach(function (other) {
+              var selected = other === tab;
+              other.setAttribute('aria-selected', selected ? 'true' : 'false');
+              other.tabIndex = selected ? 0 : -1;
+              document.getElementById(other.getAttribute('aria-controls')).hidden = !selected;
+            });
+            var panel = document.getElementById(tab.getAttribute('aria-controls'));
+            var r = tab.getBoundingClientRect(), p = panel.getBoundingClientRect();
+            panel.style.setProperty('--from-x', (r.left + r.width / 2 - p.left) + 'px');
+            panel.classList.remove('opening');
+            void panel.offsetWidth;
+            panel.classList.add('opening');
+            if (focus) tab.focus();
+          }
+          tabs.forEach(function (tab, i) {
+            tab.addEventListener('click', function () { select(tab, false); });
+            tab.addEventListener('keydown', function (e) {
+              var next = null;
+              if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = tabs[(i + 1) % tabs.length];
+              if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = tabs[(i - 1 + tabs.length) % tabs.length];
+              if (e.key === 'Home') next = tabs[0];
+              if (e.key === 'End') next = tabs[tabs.length - 1];
+              if (next) { e.preventDefault(); select(next, true); }
+            });
           });
-        });
-        tabs.forEach(function (t) {
-          document.getElementById(t.getAttribute('aria-controls')).hidden = t.getAttribute('aria-selected') !== 'true';
+          tablist.hidden = false;
         });
 
         // Copy the command without the prompt, which a shell would reject.
