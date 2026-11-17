@@ -164,12 +164,15 @@ add and remove. Switching collection means leaving the mode and choosing again. 
 (skipped items and why, still included via an ancestor, a failed save) use the toolbar's passing message; a failed
 save puts its marks back, so clicking again is the retry.
 
-Membership is shown by highlight color alone: a green outline (around Tailwind green-600, `#16a34a`) on direct
-members and a lighter green outline on items covered through an ancestor. The marks are outlines, never fills,
-because the item selection is a blue fill and both show at once on the same items. Green is the hue furthest from
-the blue selection and focus ring. Purple was rejected: Text item titles are purple and it is one of the page
-colors. Check marks inside green pages on screen. Marks are purely visual and have no hit target. An item marked
-through one appearance is marked in its other appearances too.
+Membership is shown by a translucent green fill (Tailwind green-600, `#16a34a`): stronger on direct members, faint
+on items covered through an ancestor. An item covered only through a container that is itself filled on screen is
+not filled again, since translucent fills stack. Page boxes (opaque, dark, white title) are recoloured green
+instead (`mix-blend-mode: color`), which keeps the title readable. Outlines were used first, because in the
+select-then-Add flow the blue selection fill showed on the same items; once clicks toggled membership without
+selecting, the two rarely meet (only during a sweep, or a keyboard selection), and fills read better and need no
+per-shape fitting (switched 2026-11-17, under trial). Green is the hue furthest from the blue selection and focus
+ring. Purple was rejected: Text item titles are purple and it is one of the page colors. Marks are purely visual and
+have no hit target. An item marked through one appearance is marked in its other appearances too.
 
 ### Adding and removing
 
@@ -195,8 +198,8 @@ exactly as outside the mode, so opening a page never competes with adding it.
 | State | Appearance | Add (click or sweep) | Remove (click, or sweep of all members) |
 | --- | --- | --- | --- |
 | Not covered | No mark | Becomes a direct member | No effect |
-| Direct member | Green outline | No effect | Removed |
-| Covered through an ancestor | Lighter green outline | Also becomes a direct member, so it stays if the ancestor is removed | No effect; a message names the ancestor |
+| Direct member | Green fill | No effect | Removed |
+| Covered through an ancestor | Faint green fill (none inside a filled container) | Also becomes a direct member, so it stays if the ancestor is removed | No effect; a message names the ancestor |
 
 A member page, table or composite covers everything below it. To include only part of a covered subtree, remove the
 parent and add individual contents; collections have no per-member exceptions. Adding an ancestor does not delete

@@ -54,8 +54,9 @@ has. Click it to leave collection mode.
 
 In collection mode, items show how the collection covers them:
 
-- A **green outline** marks a member, wherever it appears, including links to it.
-- A **light green outline** marks an item covered because a member above it covers it.
+- A **green** item is a member, wherever it appears, including links to it.
+- A **light green** item is covered because a member above it covers it. Inside a member that is itself shown green,
+  the items it covers aren't tinted again.
 
 In collection mode, the gestures that select items change membership instead. Plain clicks still open and edit items.
 
@@ -73,9 +74,9 @@ To add the page you are on, go up to the page that holds it and Cmd-click it the
 Removing an item covered through a member above it leaves it covered, and a message says which member covers it. To
 leave out part of a member, remove the member and add the parts you want.
 
-Each change is saved straight away, and the outline changes as you click. To reverse a change, click or drag over
+Each change is saved straight away, and the colour changes as you click. To reverse a change, click or drag over
 the same items again. If an item can't be added, or a change can't be saved, a message under the toolbar says so, and
-the outline goes back; click again to retry. Click the collections button, or press Escape when nothing is selected
+the colour goes back; click again to retry. Click the collections button, or press Escape when nothing is selected
 and no popup is open, to leave collection mode. Right-click goes back as usual and leaves you in collection mode.
 Reloading the page leaves it too. If the collection is deleted while you curate it, the button's border turns
 amber. To select items for something else, such as moving them, leave collection mode first.

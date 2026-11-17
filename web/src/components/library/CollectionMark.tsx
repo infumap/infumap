@@ -18,23 +18,33 @@
 
 import { Show, createEffect, onCleanup } from "solid-js";
 import { collectionMark, retainCollectionMark } from "../../items/collection-marks";
+import { isPage } from "../../items/page-item";
+import { VesCache } from "../../layout/ves-cache";
 import { VeFns, VisualElement, VisualElementFlags } from "../../layout/visual-element";
 import { BoundingBox } from "../../util/geometry";
 
-/** Direct members: the colour of the collection-mode bar. Green is the hue furthest from the blue selection. */
-export const COLLECTION_MARK_DIRECT_COLOR = "#16a34a";
-/** Covered through a member above. */
-export const COLLECTION_MARK_INHERITED_COLOR = "#86efac";
-const COLLECTION_MARK_WIDTH_PX = 2;
-
 /**
- * Around a desktop item, outside it with a white gap: inside, it collided with the focus ring (inset at the same edge)
- * and could not be seen on a green page. A row's neighbours touch it, so a line item's mark stays inside.
+ * A translucent fill, the hue of the toolbar button's border. Outlines were used first, because in the
+ * select-then-Add flow the blue selection fill showed on the same items. Clicks now change membership without
+ * selecting, so the two rarely meet, and a fill reads better and needs no per-shape fitting.
  */
-function markBoxShadow(color: string, lineItem: boolean): string {
-  return lineItem
-    ? `inset 0 0 0 ${COLLECTION_MARK_WIDTH_PX}px ${color}`
-    : `0 0 0 1px #ffffff, 0 0 0 ${COLLECTION_MARK_WIDTH_PX + 1}px ${color}`;
+const COLLECTION_MARK_DIRECT_FILL = "rgba(22, 163, 74, 0.32)";
+/** Covered through a member above. */
+const COLLECTION_MARK_INHERITED_FILL = "rgba(22, 163, 74, 0.13)";
+/**
+ * A page box is opaque and dark, with a white title: a translucent fill barely shows on it, and a strong one washes
+ * the title out. There the fill recolours instead (`mix-blend-mode: color`): the box takes the green hue and keeps
+ * its lightness, so the title stays white. Partly, for an item covered through a member above.
+ */
+const COLLECTION_MARK_PAGE_BOX_HUE = "rgb(22, 163, 74)";
+const COLLECTION_MARK_DIRECT_PAGE_BOX_OPACITY = 1;
+const COLLECTION_MARK_INHERITED_PAGE_BOX_OPACITY = 0.5;
+
+/** A page drawn as a box, without its children (Page_Opaque). */
+function isPageBox(ve: VisualElement): boolean {
+  return isPage(ve.displayItem) && !(ve.flags & VisualElementFlags.LineItem) &&
+    !(ve.flags & VisualElementFlags.EmbeddedInteractiveRoot) &&
+    (!(ve.flags & VisualElementFlags.Detailed) || !(ve.flags & VisualElementFlags.ShowChildren));
 }
 
 /** Roots and chrome are where the user is, not items in it, and a moving item is drawn by the drag. */
@@ -47,9 +57,24 @@ export function collectionMarkable(visualElement: VisualElement): boolean {
 }
 
 /**
- * An outline over an item showing how the collection being curated covers it. Drawn by the visual element
- * dispatchers as a sibling of the item, at its bounds, so every kind of item is marked the same way. An outline,
- * never a fill: the item selection is a blue fill and both can show on the same item. Purely visual, with no hit
+ * Whether an item shown inside ve (a page, table, composite or the item an attachment hangs on) is already under a
+ * fill. Translucent fills stack, so an item covered only through such a container is left unfilled: the container's
+ * fill is over it already.
+ */
+function insideFilledItem(ve: VisualElement): boolean {
+  let path = ve.parentPath;
+  while (path != null) {
+    const ancestor = VesCache.current.readNode(path);
+    if (ancestor == null || !collectionMarkable(ancestor)) { return false; }
+    if (collectionMark(ancestor.displayItem.id) != null) { return true; }
+    path = ancestor.parentPath;
+  }
+  return false;
+}
+
+/**
+ * A fill over an item showing how the collection being curated covers it. Drawn by the visual element dispatchers as
+ * a sibling of the item, at its bounds, so every kind of item is marked the same way. Purely visual, with no hit
  * target.
  */
 export function CollectionMark(props: { visualElement: VisualElement, boundsPx: BoundingBox, lineItem: boolean }) {
@@ -58,16 +83,24 @@ export function CollectionMark(props: { visualElement: VisualElement, boundsPx: 
     const release = retainCollectionMark(itemId());
     onCleanup(release);
   });
-  const color = () => {
+  /** The fill's CSS, or null for none. */
+  const fill = () => {
     const mark = collectionMark(itemId());
-    return mark == null ? null : mark.kind == "direct" ? COLLECTION_MARK_DIRECT_COLOR : COLLECTION_MARK_INHERITED_COLOR;
+    if (mark == null) { return null; }
+    const direct = mark.kind == "direct";
+    if (!direct && insideFilledItem(props.visualElement)) { return null; }
+    if (isPageBox(props.visualElement)) {
+      const opacity = direct ? COLLECTION_MARK_DIRECT_PAGE_BOX_OPACITY : COLLECTION_MARK_INHERITED_PAGE_BOX_OPACITY;
+      return `background-color: ${COLLECTION_MARK_PAGE_BOX_HUE}; mix-blend-mode: color; opacity: ${opacity};`;
+    }
+    return `background-color: ${direct ? COLLECTION_MARK_DIRECT_FILL : COLLECTION_MARK_INHERITED_FILL};`;
   };
   return (
-    <Show when={color()}>{color =>
+    <Show when={fill()}>{fill =>
       <div class={`absolute pointer-events-none ${props.lineItem ? "" : "rounded-item"}`}
         style={`left: ${props.boundsPx.x}px; top: ${props.boundsPx.y}px; ` +
           `width: ${props.boundsPx.w}px; height: ${props.boundsPx.h}px; ` +
-          `box-shadow: ${markBoxShadow(color(), props.lineItem)};` +
+          fill() +
           // The item's own stacking level: drawn after it in the same parent, so above it, and below anything
           // stacked over it.
           (props.lineItem ? "" : VeFns.zIndexStyle(props.visualElement))} />
