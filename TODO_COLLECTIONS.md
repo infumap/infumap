@@ -176,27 +176,25 @@ through one appearance is marked in its other appearances too.
 
 ### Adding and removing
 
-Membership changes only through the existing item selection: drag-select, Cmd-click (Ctrl-click off a Mac) to toggle
-a single item, Shift-click for a range. Clicking, editing, dragging and navigation behave exactly as they do outside
-the mode, so opening a page never competes with adding it.
+Revised after trying step 7: selecting, then pressing Add or Remove, was twice the work. In the mode, the selection
+gestures change membership directly instead of selecting. Plain clicking, editing, dragging and navigation behave
+exactly as outside the mode, so opening a page never competes with adding it.
 
-- **Add** makes every selected item a direct member, a link as its target. Items that are already direct members
-  are skipped. The label counts what will change ("Add 3").
-- **Remove** removes the selected items that are direct members. Items covered only through an ancestor stay
-  covered, and the bar says so ("1 is included via Financials").
-- Add and Remove are separate because a selection can mix members and non-members.
-- **Add this page** adds the focused page, either the current root page or an open popup, since neither can be
-  drag-selected.
+- **Cmd-click** (Ctrl-click off a Mac) flips the clicked item's own direct membership, a link as its target. An
+  inherited item becomes a direct member. In a composite it is the member under the pointer.
+- **Shift-click** in an ordered container (list, table, composite) applies the last Cmd-click's change, add or remove,
+  to the range from that item to the clicked one, as with checkbox ranges in mail clients. On spatial and calendar
+  pages it toggles the one item, as selection does there.
+- **Marquee** adds every item it covers, unless all are direct members already, when it removes them all; so a
+  second sweep undoes the first. A composite is swept whole.
+- **Add this page / Remove this page** toggles the focused page, either the current root page or an open popup,
+  since neither can be clicked or swept.
 - Add skips unsupported, missing or unreadable targets and says which and why.
-- A selection stays within one container, so adding from several containers takes one Add per container.
-- Only items that selection can reach can be added. Calendar pages are not covered by click selection; composite
-  members and notes in document pages need checking. Close such gaps in selection itself.
-- A keyboard shortcut for Add and Remove is still to be chosen. Single-letter keys already create items, so it needs
-  a modifier.
+- **Undo** in the bar reverses the last change, exactly the items it changed.
+- Selecting items for anything else (moving, grouping) means leaving the mode first. Keyboard selection (shift +
+  up/down) still selects, with no membership effect.
 
-There is no Undo. Items stay selected after Add, so a mistaken Add is reversed by pressing Remove.
-
-| State | Appearance | Add | Remove |
+| State | Appearance | Add (click or sweep) | Remove (click, or sweep of all members) |
 | --- | --- | --- | --- |
 | Not covered | No mark | Becomes a direct member | No effect |
 | Direct member | Green outline | No effect | Removed |
@@ -212,8 +210,7 @@ edited, or the user could not find new members.
 
 ### Saving and leaving
 
-Each Add or Remove saves immediately. Show pending saves and failures: a failed change reverts its marks or stays
-pending with a retry, and is never shown as saved.
+Each change saves immediately. Marks change at the click; a failed change reverts its marks and offers Retry.
 
 **Done** exits the mode and leaves the user where they are. **Escape** first clears the item selection if there is
 one; otherwise it exits the mode, after any open modal or editor that owns Escape. Reloading leaves the mode.
@@ -456,17 +453,23 @@ of it, Cmd-click selects a member, Shift-click a range of members. `mouse_down.t
 composite for such a click. A selected composite member or calendar item drags on its own, not as a group move.
 `docs/scopes.md` has a "Curating a collection" section.
 
+### 9. Toggle on click, sweep and range — done
+
+Replaces step 7's Add/Remove buttons, as revised under "Adding and removing" (decided: sweep adds unless all are
+members, Shift-click repeats the last click, an inherited item becomes a member, a composite's member on click and
+the whole composite on sweep). Marks change at the click (`showUnsavedCollectionMarks`), since a toggle reads the mark
+it shows and a second click before the answer would otherwise repeat the first change; a failed save puts them back.
+Each change offers Undo. The step 8 composite drill-in still applies outside the mode.
+
 ## Later
 
 Left out of v1 to keep it small:
 
 - A member listing with source paths and inherited coverage, as a page layout or overlay.
 - A **Show this collection** filter on source pages.
-- One-click per-item badges (a check badge inset at each item's top-left corner), if Add proves slow.
 - A mixed indicator for containers that hold members without being covered. It needs a third visual state and
   every ancestor of every member on the client.
 - Recent collections in the pickers.
-- Undo in collection mode.
 - Collection composition.
 - Computed filters that produce a selection for the same retrieval machinery.
 - Warnings when deleting a collection that something refers to.

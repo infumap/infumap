@@ -17,6 +17,7 @@
 */
 
 import { asContainerItem } from "../items/base/container-item";
+import { MembershipChange, changeCollectionMembers, toggleCollectionMember } from "../items/collection-mode";
 import { isComposite } from "../items/composite-item";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { isPlaceholder } from "../items/placeholder-item";
@@ -27,8 +28,9 @@ import { VesCache } from "../layout/ves-cache";
 import { VeFns, Veid, VisualElement, VisualElementFlags, isEmptyVeid, veFlagIsRoot } from "../layout/visual-element";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
+import { resolvedPathTargetIdForItem } from "../util/item-path";
 import { IS_MAC } from "../util/platform";
-import { Uid } from "../util/uid";
+import { Uid, isUid } from "../util/uid";
 import { CursorEventState, SelectionClick } from "./state";
 
 
@@ -64,7 +66,8 @@ export function veIsSelected(store: StoreContextModel, ve: VisualElement): boole
  * click in another container starts a new selection there.
  */
 export function applySelectionClick(store: StoreContextModel, hitVe: VisualElement, selectionClick: SelectionClick): boolean {
-  const ve = selectableVeMaybe(hitVe, store.overlay.selectedVeids.get());
+  const current = store.overlay.selectedVeids.get();
+  const ve = selectableVeMaybe(hitVe, compositeVe => selectionIsInComposite(current, compositeVe));
   if (ve == null) { return false; }
   const containerVe = VesCache.current.readNode(ve.parentPath!)!;
   const ordered = childrenAreOrdered(containerVe)!;
@@ -72,7 +75,6 @@ export function applySelectionClick(store: StoreContextModel, hitVe: VisualEleme
   const clickedVeid = VeFns.veidFromVe(ve);
   if (ordered && indexOfVeid(siblings, clickedVeid) < 0) { return false; }
 
-  const current = store.overlay.selectedVeids.get();
   const containerId = containerVe.displayItem.id;
   const sameContainer = current.length > 0 &&
     current.every(veid => itemState.get(veid.linkIdMaybe ?? veid.itemId)?.parentId == containerId);
@@ -112,19 +114,62 @@ export function applySelectionClick(store: StoreContextModel, hitVe: VisualEleme
 
 
 /**
+ * The shift-click anchor in collection mode: the item last clicked with a modifier, and what that click did to it.
+ * Shift-click does the same to every item from there to the one clicked, as shift-clicking checkboxes does in mail
+ * clients. There is no selection to keep it in step with, so it lasts until the next modifier click.
+ */
+let collectionAnchor: { veid: Veid, containerId: Uid, change: MembershipChange } | null = null;
+
+/**
+ * A click with a selection modifier, in collection mode: toggles the clicked item's membership instead of selecting it.
+ * Shift-click in an ordered container applies the last click's change to the range from that item. Returns false if
+ * nothing there can be selected, and the click should be handled as one without the modifier.
+ *
+ * The item is the one under the pointer, a composite's member included: a sweep (the marquee) toggles the whole
+ * composite. With no selection to show, the click-twice drill-in of applySelectionClick would depend on clicks the
+ * user can no longer see.
+ */
+export function applyCollectionClick(store: StoreContextModel, hitVe: VisualElement, selectionClick: SelectionClick): boolean {
+  const ve = selectableVeMaybe(hitVe, () => true);
+  if (ve == null || !isUid(ve.displayItem.id)) { return false; }
+  const containerVe = VesCache.current.readNode(ve.parentPath!)!;
+  const containerId = containerVe.displayItem.id;
+  const clickedVeid = VeFns.veidFromVe(ve);
+
+  if (selectionClick == "range" && childrenAreOrdered(containerVe) && collectionAnchor?.containerId == containerId) {
+    const siblings = orderedChildVeids(containerVe);
+    const anchorIdx = indexOfVeid(siblings, collectionAnchor.veid);
+    const clickedIdx = indexOfVeid(siblings, clickedVeid);
+    if (anchorIdx >= 0 && clickedIdx >= 0) {
+      // A row not rendered has a veid of the child itself, which for a link is the link, not the item it shows.
+      const ids = siblings.slice(Math.min(anchorIdx, clickedIdx), Math.max(anchorIdx, clickedIdx) + 1)
+        .map(veid => { const item = itemState.get(veid.itemId); return item == null ? veid.itemId : resolvedPathTargetIdForItem(item); })
+        .filter(isUid);
+      changeCollectionMembers(store, collectionAnchor.change, ids);
+      collectionAnchor = { veid: clickedVeid, containerId, change: collectionAnchor.change };
+      return true;
+    }
+  }
+  collectionAnchor = { veid: clickedVeid, containerId, change: toggleCollectionMember(store, ve.displayItem.id) };
+  return true;
+}
+
+
+/**
  * What a click on hitVe selects, following the marquee: a composite for any of its children, and otherwise only a
  * child of a page or table, not an attachment, popup or page background. An embedded interactive page is a root of
  * its own children, but selected as an item of the page it is in.
  *
- * A composite's member is selected instead once the selection is in that composite: the composite alone, or some of
- * its members. So a first click picks the composite, as on any page, and a second drills in to the member. Members
- * could not be selected at all before, which kept a single note in a composite out of a collection.
+ * A composite's member is selected instead when selectsMember says so for the composite. Outside collection mode,
+ * that is once the selection is in that composite: the composite alone, or some of its members. So a first click
+ * picks the composite, as on any page, and a second drills in to the member. Members could not be selected at all
+ * before, which kept a single note in a composite out of a collection.
  */
-function selectableVeMaybe(hitVe: VisualElement, current: Array<Veid>): VisualElement | null {
+function selectableVeMaybe(hitVe: VisualElement, selectsMember: (compositeVe: VisualElement) => boolean): VisualElement | null {
   let ve = hitVe;
   if ((ve.flags & VisualElementFlags.InsideCompositeOrDoc) && ve.parentPath != null) {
     const parentVe = VesCache.current.readNode(ve.parentPath);
-    if (parentVe != null && isComposite(parentVe.displayItem) && !selectionIsInComposite(current, parentVe)) {
+    if (parentVe != null && isComposite(parentVe.displayItem) && !selectsMember(parentVe)) {
       ve = parentVe;
     }
   }

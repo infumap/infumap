@@ -36,6 +36,13 @@ const REFRESH_DELAY_MS = 400;
 
 /** Null means checked and not covered. Absent means not checked yet. */
 const [marks, setMarks] = createSignal<ReadonlyMap<Uid, ItemCoverage | null>>(new Map());
+/**
+ * Marks for changes not saved yet, shown in place of the checked ones. A click toggles from the mark it shows, so the
+ * mark must change at the click: a second click before the server answered would otherwise repeat the first change.
+ * Each entry belongs to one save (`seq`), and only that save clears it, so a later click on the same item wins.
+ */
+const [pending, setPending] = createSignal<ReadonlyMap<Uid, { seq: number, mark: ItemCoverage | null }>>(new Map());
+let pendingSeq = 0;
 let collectionId: Uid | null = null;
 /** Rendered items wanting a mark, with how many of their appearances are shown. */
 const retained = new Map<Uid, number>();
@@ -45,7 +52,38 @@ let refreshAll = false;
 
 /** The mark for an item, null if it is not covered, undefined while not known. */
 export function collectionMark(itemId: Uid): ItemCoverage | null | undefined {
-  return marks().get(itemId);
+  const unsaved = pending().get(itemId);
+  return unsaved != null ? unsaved.mark : marks().get(itemId);
+}
+
+/** Shows the marks a change will give its items, until `settleCollectionMarks` with the returned number. */
+export function showUnsavedCollectionMarks(itemIds: Array<Uid>, mark: ItemCoverage | null): number {
+  const seq = ++pendingSeq;
+  const next = new Map(pending());
+  for (const itemId of itemIds) { next.set(itemId, { seq, mark }); }
+  setPending(next);
+  return seq;
+}
+
+/**
+ * Ends the unsaved marks of a save. Saved, the server's answer gives marks for its items, and everything shown is
+ * checked again, as a change also covers or uncovers what is under the items. Failed (`saved` null), the items show
+ * their checked marks again.
+ */
+export function settleCollectionMarks(seq: number, saved: ReadonlyMap<Uid, ItemCoverage | null> | null): void {
+  const next = new Map(pending());
+  for (const [itemId, entry] of pending()) {
+    if (entry.seq == seq) { next.delete(itemId); }
+  }
+  if (saved != null) {
+    // An answer to a check sent before this save could arrive after it, and show the item as it was.
+    generation++;
+    const nextMarks = new Map(marks());
+    for (const [itemId, mark] of saved) { nextMarks.set(itemId, mark); }
+    setMarks(nextMarks);
+  }
+  setPending(next);
+  if (saved != null) { refreshCollectionMarks(0); }
 }
 
 /** Called while an item is shown in collection mode. Returns the release for when it stops being shown. */
@@ -70,6 +108,7 @@ export function resetCollectionMarks(id: Uid | null): void {
   generation++;
   refreshAll = false;
   setMarks(new Map());
+  setPending(new Map());
   if (id != null && retained.size > 0) { scheduleFetch(FETCH_DELAY_MS); }
 }
 

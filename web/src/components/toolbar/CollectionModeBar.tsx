@@ -19,11 +19,12 @@
 import { Show, createEffect, on, onCleanup } from "solid-js";
 import { collectionMark, refreshCollectionMarks, retainCollectionMark } from "../../items/collection-marks";
 import {
-  addToCollection, collectionModeCollectionListed, collectionModeFailure, collectionModeNotice, collectionModeSaving,
-  collectionModeSummary, exitCollectionMode, removeFromCollection,
+  collectionModeCollectionListed, collectionModeFailure, collectionModeNotice, collectionModeSaving,
+  collectionModeSummary, collectionModeUndo, exitCollectionMode, toggleCollectionMember,
 } from "../../items/collection-mode";
 import { isPage } from "../../items/page-item";
-import { Uid, isUid } from "../../util/uid";
+import { IS_MAC } from "../../util/platform";
+import { Uid } from "../../util/uid";
 import { queryCollectionTitle } from "../../items/query-scope";
 import { initiateLoadItemMaybe } from "../../layout/load";
 import { switchToPage } from "../../layout/navigation";
@@ -62,17 +63,11 @@ export function CollectionModeBar() {
     return `${count} member${count == 1 ? "" : "s"}`;
   };
 
-  // Membership changes only through the item selection, so clicking, editing and navigating behave as outside the
-  // mode. A link is selected as its target, which is what becomes a member.
-  const selectedIds = (): Array<Uid> =>
-    [...new Set(store.overlay.selectedVeids.get().map(veid => veid.itemId))].filter(isUid);
-  // Marks are known for selected items, since they are shown. One not known yet counts as one Add would change.
-  const addableIds = () => selectedIds().filter(id => collectionMark(id)?.kind != "direct");
-  const removableIds = () => selectedIds().filter(id => collectionMark(id)?.kind == "direct");
-  const inheritedSelected = () => selectedIds().some(id => collectionMark(id)?.kind == "inherited");
+  // Membership changes through the selection gestures (see applyCollectionClick), so plain clicking, editing and
+  // navigating behave as outside the mode.
   const unavailable = () => !collectionModeCollectionListed();
 
-  // The page the user is on, or the page open in a popup: neither can be drag-selected.
+  // The page the user is on, or the page open in a popup: neither can be clicked or swept.
   const thisPageId = (): Uid | null => {
     const popupId = store.history.currentPopupSpecVeid()?.itemId;
     const popupItem = popupId == null ? null : itemState.get(popupId);
@@ -90,8 +85,7 @@ export function CollectionModeBar() {
   const status = () => {
     if (collectionModeSaving()) { return "Saving…"; }
     if (collectionModeNotice() != null) { return collectionModeNotice()!; }
-    if (selectedIds().length == 0) { return "Select items, then Add or Remove"; }
-    return null;
+    return `${IS_MAC ? "\u2318" : "Ctrl+"}click an item to add or remove it, or drag across items to add them all`;
   };
 
   return (
@@ -118,27 +112,23 @@ export function CollectionModeBar() {
           </span>
         </Show>
         <div class="ml-2 flex shrink-0 items-center gap-1">
-          <button type="button" class={dialogButtonClass()} disabled={unavailable() || addableIds().length == 0}
-            title="Make the selected items members. Items already members are left as they are."
-            onClick={() => addToCollection(store, addableIds())}>
-            {addableIds().length == 0 ? "Add" : `Add ${addableIds().length}`}
-          </button>
           <button type="button" class={dialogButtonClass()}
-            disabled={unavailable() || (removableIds().length == 0 && !inheritedSelected())}
-            title="Stop the selected members being members. Items included through a member above them stay included."
-            onClick={() => removeFromCollection(store, removableIds().length > 0 ? removableIds() : selectedIds())}>
-            {removableIds().length == 0 ? "Remove" : `Remove ${removableIds().length}`}
-          </button>
-          <button type="button" class={dialogButtonClass()}
-            disabled={unavailable() || thisPageId() == null || thisPageIsMember() || thisPageIsCollection()}
+            disabled={unavailable() || thisPageId() == null || thisPageIsCollection()}
             title={thisPageIsCollection() ? "This is the collection page."
-              : thisPageIsMember() ? "This page is a member." : "Make the page you are on, or the open popup, a member."}
-            onClick={() => { const id = thisPageId(); if (id != null) { addToCollection(store, [id]); } }}>
-            Add this page
+              : thisPageIsMember() ? "Stop the page you are on, or the open popup, being a member."
+                : "Make the page you are on, or the open popup, a member."}
+            onClick={() => { const id = thisPageId(); if (id != null) { toggleCollectionMember(store, id); } }}>
+            {thisPageIsMember() ? "Remove this page" : "Add this page"}
           </button>
         </div>
         <Show when={collectionModeFailure()} fallback={
-          <span class="min-w-0 grow truncate text-[12px] text-neutral-600" role="status" title={status() ?? ""}>{status()}</span>
+          <span class="flex min-w-0 grow items-center gap-2 text-[12px] text-neutral-600">
+            <span class="min-w-0 truncate" role="status" title={status()}>{status()}</span>
+            <Show when={!collectionModeSaving() && collectionModeUndo()}>{undo =>
+              <button type="button" class={`shrink-0 ${dialogButtonClass()}`} title="Reverse the last change"
+                onClick={() => undo()()}>Undo</button>
+            }</Show>
+          </span>
         }>{failure =>
           <span class="flex min-w-0 grow items-center gap-2 text-[12px] text-red-700" role="alert">
             <span class="min-w-0 truncate" title={failure().message}>{failure().message}</span>

@@ -56,9 +56,11 @@ import { StoreContextModel } from "../store/StoreProvider";
 import { TransientMessageType } from "../store/StoreProvider_Overlay";
 import { itemState, wouldCreateRelationshipCycle } from "../store/ItemState";
 import { panic } from "../util/lang";
+import { isUid } from "../util/uid";
 import { HitInfoFns } from "./hit";
 import { DoubleClickState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState, CursorEventState, MoveRollbackSnapshotEntry } from "./state";
-import { applySelectionClick } from "./click_selection";
+import { applyCollectionClick, applySelectionClick } from "./click_selection";
+import { collectionModeActive, sweepCollectionMembers } from "../items/collection-mode";
 import { MouseEventActionFlags } from "./enums";
 import { boundingBoxFromDOMRect, isInside } from "../util/geometry";
 import {
@@ -1545,7 +1547,10 @@ export function mouseUpHandler(store: StoreContextModel): MouseEventActionFlags 
     case MouseAction.Ambiguous:
       {
         const selectionClick = MouseActionState.getSelectionClick();
-        if (selectionClick != null && applySelectionClick(store, activeVisualElement, selectionClick)) {
+        const applied = selectionClick != null && (collectionModeActive()
+          ? applyCollectionClick(store, activeVisualElement, selectionClick)
+          : applySelectionClick(store, activeVisualElement, selectionClick));
+        if (applied) {
           DoubleClickState.preventDoubleClick();
           break;
         }
@@ -2772,6 +2777,15 @@ function handleSelectionMouseUp(store: StoreContextModel) {
   store.overlay.selectionMarqueePx.set(null);
   if (!marqueeShown) { return; }
 
+  // In collection mode, a sweep adds or removes what it covers rather than leaving a selection: see
+  // sweepCollectionMembers. A link counts as the item it shows, which is what becomes a member.
+  if (collectionModeActive()) {
+    const itemIds = marqueeSelection(store).map(veid => veid.itemId).filter(isUid);
+    store.overlay.selectedVeids.set([]);
+    arrangeNow(store, "mouse-up-finish-collection-sweep");
+    sweepCollectionMembers(store, itemIds);
+    return;
+  }
   store.overlay.selectionRootPath.set(MouseActionState.getSelectionRootPath()!);
   store.overlay.selectedVeids.set(marqueeSelection(store));
   arrangeNow(store, "mouse-up-finish-selection");

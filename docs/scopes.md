@@ -56,21 +56,25 @@ In collection mode, items show how the collection covers them:
 - A **green outline** marks a member, wherever it appears, including links to it.
 - A **light green outline** marks an item covered because a member above it covers it.
 
-To change membership, select items, then click a button in the bar:
+In collection mode, the gestures that select items change membership instead. Plain clicks still open and edit items.
 
-- **Add** makes the selected items members. A link adds the item it points to.
-- **Remove** stops the selected members being members. An item covered through a member above it stays covered, and
-  the bar says which member covers it. To leave out part of a member, remove the member and add the parts you want.
-- **Add this page** adds the page you are on, or the page open in a popup.
+- **Cmd-click** (Ctrl-click on Windows and Linux) an item to make it a member, or to stop it being one. A link adds
+  the item it points to. Clicking an item covered through a member above it makes it a member itself, so it stays
+  covered if that member is removed. In a composite, Cmd-click adds or removes the part you click.
+- **Shift-click** in a list, table or composite does what your last Cmd-click did, adding or removing, to every item
+  from that one to the one you click. On a free-form or calendar page it adds or removes the one item.
+- **Drag a rectangle** over items to add them all. If they are all members already, it removes them all instead, so
+  dragging over the same items again undoes it. A rectangle over a composite adds or removes the whole composite.
+- **Add this page** in the bar adds the page you are on, or the page open in a popup. If it is a member, the button
+  is **Remove this page**.
 
-Select items as anywhere else: drag a rectangle over them, Cmd-click (Ctrl-click on Windows and Linux) to add or remove
-one, or Shift-click for a range. A selection stays within one page. In a composite, the first Cmd-click selects the
-composite; Cmd-click a part of it again to select that part instead. In a calendar page, Cmd-click and Shift-click
-add or remove one item.
+Removing an item covered through a member above it leaves it covered, and the bar says which member covers it. To
+leave out part of a member, remove the member and add the parts you want.
 
-Each change is saved straight away, and the outlines update once it is. If a change can't be saved, the bar says so,
-with **Retry**. Click **Done**, or press Escape when nothing is selected and no popup is open, to leave collection mode. Reloading the page
-leaves it too.
+Each change is saved straight away, and the outline changes as you click. The bar says what changed, with **Undo**
+to reverse it. If a change can't be saved, the outline goes back, and the bar says so, with **Retry**. Click
+**Done**, or press Escape when nothing is selected and no popup is open, to leave collection mode. Reloading the page
+leaves it too. To select items for something else, such as moving them, leave collection mode first.
 
 ## Choosing a scope
 
