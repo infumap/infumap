@@ -387,7 +387,7 @@ exclusion use `TestDb::scope_hiding`, which adds the exclusion through `Resolved
 helper now expects links whose targets are out of scope to be left out of the allowed ids, which fixed the one
 long-failing scope test.
 
-### 5. Toolbar Collections picker and an empty collection mode
+### 5. Toolbar Collections picker and an empty collection mode — done
 
 - Icon button in `Toolbar.tsx` immediately left of the user icon, hidden when logged out and in small-screen mode,
   highlighted while the mode is active. Check crowding with the table and page toolbars on narrow windows.
@@ -395,6 +395,14 @@ long-failing scope test.
 - Mode state lives in the store (not persisted): collection id, entered by a row click, switched by another row.
 - Bar under the toolbar: name (opens the collection page), home path, member count, Done. Escape clears the
   selection first, then exits, after modals and editors. Reload exits.
+
+As built: `store.topToolbarHeightPx()` is now everything above the desktop (toolbar + bar); `toolbarHeightPx()` is
+the toolbar alone, for drawing it and placing its popups. The bar shows only with the toolbar, so hiding the toolbar
+or a small screen hides the bar, not the mode. Escape order: modals, editors, selection, item popups, then leaving the
+mode, then focus-parent. Popups come before leaving so Escape can still close one opened while curating. The picker
+reuses `QueryPickerPopover`; after a pick it drops focus from the toolbar button, or Escape would not reach the app.
+Divider positions are functions of login now (one more icon when logged in). Fits at 780px with page and table
+toolbars.
 
 ### 6. Membership marks
 
