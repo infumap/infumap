@@ -307,7 +307,7 @@ chat, curated by linking items into the page by hand; steps 5–8 add collection
   covers only its own page subtree (should already hold, since `subtree_item_ids` never follows link targets);
   attachments of members covered.
 
-### 2. Make collection / Make ordinary page, title marker (client only)
+### 2. Make collection / Make ordinary page, title marker (client only) — done
 
 This has to come before references, because there is otherwise no way to set the flag and step 3 cannot be tried.
 
@@ -315,6 +315,11 @@ This has to come before references, because there is otherwise no way to set the
   to any focused page the user can edit, including embedded pages that cannot be converted.
 - Title marker on collection pages, in every place a page title renders: page box, list row, root page title,
   popup title. Check it against the item rendering and the toolbar, not just the menus.
+- As built: the `bi-collection` glyph, never inside a contentEditable title. Page boxes (opaque, translucent,
+  embedded) have it bottom-left, 12–16px, because the other corners hold the link triangle, attachments and resize
+  triangle. List rows show it in the page colour in place of the thumbnail, since the thumbnail is often under 10px
+  tall. Popup and toolbar titles have it after the title. A nested toolbar title gives up the glyph's width, so it
+  stays aligned with its list column. Not offered on Home, Trash, Dock, Queries, Prompts or the search pages.
 
 ### 3. `ScopeRef` end to end (server and client in one change, since the wire format changes)
 

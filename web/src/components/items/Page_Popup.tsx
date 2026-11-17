@@ -50,6 +50,8 @@ import {
 import { requestArrange } from "../../layout/arrange";
 import { autoMovedIntoViewBackgroundImage, createPageTitleEditHandlers, scrollGestureStyleForArrangeAlgorithm } from "./helper";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
+import { CollectionTitleGlyph } from "../library/CollectionGlyph";
+import { isCollectionPage } from "../../items/collection";
 import { linkHasTriangle } from "../../layout/link-triangle";
 import { appendNewlineIfEmpty } from "../../util/string";
 import { DocumentPageTitle } from "./DocumentPageTitle";
@@ -394,6 +396,9 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
               `letter-spacing: -0.035em; ` +
               `color: ${titleColor()};`}>
             {renderOwnTitleText()}
+            <Show when={isCollectionPage(pageFns().pageItem())}>
+              <CollectionTitleGlyph color={titleColor()} />
+            </Show>
           </div>
           {renderLinkTriangleMaybe()}
         </div>
@@ -433,6 +438,9 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
                   `letter-spacing: -0.03em; ` +
                   `color: ${pageTitleColor};`}>
                 {idx() === 0 ? renderOwnTitleText() : pageTitle}
+                <Show when={isCollectionPage(titledPage.pageItem)}>
+                  <CollectionTitleGlyph color={pageTitleColor} />
+                </Show>
               </div>
             </div>
           );

@@ -32,6 +32,8 @@ import { itemCanEdit } from "../../items/base/capabilities-item";
 import { hexToRGBA } from "../../util/color";
 import { BORDER_COLOR, BorderType, Colors, LIGHT_BORDER_COLOR, borderColorForColorIdx, linearGradient, mainPageBorderColor, mainPageBorderWidth, tablePageLineColor } from "../../style";
 import { InfuIconButton } from '../library/InfuIconButton';
+import { CollectionTitleGlyph } from '../library/CollectionGlyph';
+import { isCollectionPage } from '../../items/collection';
 import { Toolbar_Page } from './item/Toolbar_Page';
 import { Toolbar_Table } from './item/Toolbar_Table';
 import { requestArrange } from '../../layout/arrange';
@@ -104,6 +106,9 @@ const ToolbarOutlineCorner = (props: {
   );
 };
 
+
+const TOOLBAR_COLLECTION_GLYPH_WIDTH_PX = 24;
+
 export const Toolbar: Component = () => {
   const store = useStore();
 
@@ -144,7 +149,7 @@ export const Toolbar: Component = () => {
     const defaultCol = hexToRGBA(Colors[0], 1.0);
 
     if (store.history.currentPageVeid() == null) {
-      return [{ title: "", idx: 0, lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, nextHasFocus: false, borderColor: ' ', borderWidthPx: 1, canEdit: false }];
+      return [{ title: "", idx: 0, lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, nextHasFocus: false, borderColor: ' ', borderWidthPx: 1, canEdit: false, isCollection: false }];
     }
 
     let aTopPageHasFocus = isPage(store.history.getFocusItem());
@@ -171,12 +176,12 @@ export const Toolbar: Component = () => {
       topPageVeids.push(VeFns.veidFromPath(topPageVePaths[i]));
     }
     if (topPageVeids.length === 0) {
-      return [{ title: "", idx: 0, lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, nextHasFocus: false, borderColor: ' ', borderWidthPx: 1, canEdit: false }];
+      return [{ title: "", idx: 0, lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, nextHasFocus: false, borderColor: ' ', borderWidthPx: 1, canEdit: false, isCollection: false }];
     }
 
     const firstTopPageMaybe = itemState.get(topPageVeids[0].itemId);
     if (!firstTopPageMaybe || !isPage(firstTopPageMaybe)) {
-      return [{ title: "", idx: 0, lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, nextHasFocus: false, borderColor: ' ', borderWidthPx: 1, canEdit: false }];
+      return [{ title: "", idx: 0, lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, nextHasFocus: false, borderColor: ' ', borderWidthPx: 1, canEdit: false, isCollection: false }];
     }
     const firstTopPage = asPageItem(firstTopPageMaybe);
 
@@ -185,11 +190,11 @@ export const Toolbar: Component = () => {
     if (aTopPageHasFocus) {
       focusPageIdx = calcFocusPageIdx();
       if (focusPageIdx == -1 || focusPageIdx >= topPageVeids.length) {
-        return [{ title: "", idx: 0, lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, nextHasFocus: false, borderColor: ' ', borderWidthPx: 1, canEdit: false }];
+        return [{ title: "", idx: 0, lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, nextHasFocus: false, borderColor: ' ', borderWidthPx: 1, canEdit: false, isCollection: false }];
       }
       const focusPageMaybe = itemState.get(topPageVeids[focusPageIdx].itemId);
       if (!focusPageMaybe || !isPage(focusPageMaybe)) {
-        return [{ title: "", idx: 0, lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, nextHasFocus: false, borderColor: ' ', borderWidthPx: 1, canEdit: false }];
+        return [{ title: "", idx: 0, lPosPx: 0, rPosPx: -1, bg: defaultBg, col: defaultCol, hasFocus: false, nextHasFocus: false, borderColor: ' ', borderWidthPx: 1, canEdit: false, isCollection: false }];
       }
       focusPageItem = asPageItem(focusPageMaybe);
     }
@@ -213,6 +218,7 @@ export const Toolbar: Component = () => {
         : ' ',
       borderWidthPx: focusPageIdx == 0 ? 2 : 1,
       canEdit: firstTopPage.id != SOLO_ITEM_HOLDER_PAGE_UID && itemCanEdit(firstTopPage),
+      isCollection: isCollectionPage(firstTopPage),
     });
 
     for (let i = 1; i < topPageVeids.length; ++i) {
@@ -242,6 +248,7 @@ export const Toolbar: Component = () => {
           : ' ',
         borderWidthPx: focusPageIdx <= i ? 2 : 1,
         canEdit: page.id != SOLO_ITEM_HOLDER_PAGE_UID && itemCanEdit(page),
+        isCollection: isCollectionPage(page),
       });
     }
 
@@ -457,11 +464,24 @@ export const Toolbar: Component = () => {
                 `border-top-width: ${tSpec().borderWidthPx - 1}px; ` +
                 `padding-top: ${2 - (tSpec().borderWidthPx - 1)}px; ` +
                 `height: ${store.topToolbarHeightPx()}px; ` +
-                (tSpec().rPosPx > 0 ? `width: ${tSpec().rPosPx - tSpec().lPosPx - 6 - (tSpec().nextHasFocus ? 1 : 0)}px;` : '') +
+                (tSpec().rPosPx > 0 ? `width: ${tSpec().rPosPx - tSpec().lPosPx - 6 - (tSpec().nextHasFocus ? 1 : 0) - (tSpec().isCollection ? TOOLBAR_COLLECTION_GLYPH_WIDTH_PX : 0)}px;` : '') +
                 "outline: 0px solid transparent;"}
               onClick={handleTitleClick}>
               {tSpec().title}
             </div>
+            {/* A sibling, not inside the title, which is contentEditable. Its width comes out of a nested title's
+                width so the titles stay aligned with the list columns below them. */}
+            <Show when={tSpec().isCollection}>
+              <div class="inline-block border-b grow-0 whitespace-nowrap"
+                style={`font-size: 22px; width: ${TOOLBAR_COLLECTION_GLYPH_WIDTH_PX}px; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
+                  `${tSpec().bg} ` +
+                  `border-top-color: ${tSpec().borderColor};` +
+                  `border-top-width: ${tSpec().borderWidthPx - 1}px; ` +
+                  `padding-top: ${5 - (tSpec().borderWidthPx - 1)}px; ` +
+                  `height: ${store.topToolbarHeightPx()}px;`}>
+                <CollectionTitleGlyph color={tSpec().col} />
+              </div>
+            </Show>
           </>
         }</Index>
 

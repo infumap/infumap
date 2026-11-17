@@ -29,6 +29,8 @@ import { hexToRGBA } from "../../util/color";
 import { linearGradient } from "../../style";
 import { linkHasTriangle } from "../../layout/link-triangle";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
+import { CollectionCornerGlyph } from "../library/CollectionGlyph";
+import { isCollectionPage } from "../../items/collection";
 import { ArrangeAlgorithm, PageFns } from "../../items/page-item";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { VesCache } from "../../layout/ves-cache";
@@ -704,6 +706,10 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
             <CompositeMoveOutHandle boundsPx={pageFns().moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(pageFns().vePath())} vePath={pageFns().vePath()} />
           </Show>
           {renderIsLinkMaybe()}
+          <Show when={isCollectionPage(pageFns().pageItem()) && pageFns().showTriangleDetail()}>
+            <CollectionCornerGlyph widthPx={pageFns().boundsPx().w} heightPx={pageFns().boundsPx().h}
+              color={hexToRGBA(Colors[pageFns().pageItem().backgroundColorIndex], 1.0)} />
+          </Show>
         </div>
         {renderBoxTitleMaybe()}
         {renderFocusRingMaybe()}

@@ -70,6 +70,7 @@ import { isVirtualTextDocumentPage, sourceTextItemForVirtualTextDocumentPage } f
 import { convertPageTableAtPath, pageTableConversionEligibility } from "../../items/page-table-conversion";
 import { convertPageCompositeAtPath, pageCompositeConversionEligibility } from "../../items/page-composite-conversion";
 import { ContainerConversionRefused } from "../../items/container-conversion";
+import { collectionToggleLabel, collectionTogglePageMaybe, toggleCollectionFlag } from "../../items/collection";
 import { VisualElementPath } from "../../layout/visual-element";
 import { PAGE_JUSTIFIED_LAYOUT_POPUP_HEIGHT_PX, Toolbar_PageJustifiedLayoutPopup } from "./Toolbar_PageJustifiedLayoutPopup";
 import { TOOLBAR_DIALOG_CLASS, toolbarDialogHeightPx } from "./toolbarDialog";
@@ -216,6 +217,7 @@ function sortMenuRows(store: StoreContextModel): number {
 function moreActionsRows(store: StoreContextModel): number {
   const focusPath = getToolbarFocusPathMaybe(store);
   return (itemConversionMaybe(store, focusPath) != null ? 1 : 0) +
+    (collectionTogglePageMaybe(store, focusPath) != null ? 1 : 0) +
     (toolbarFocusIsCurrentPage(store) ? 1 : 0);
 }
 
@@ -323,6 +325,7 @@ export const Toolbar_Popup: Component = () => {
   let emojiSearchInputElement: HTMLInputElement | undefined;
   let conversionButton: HTMLButtonElement | undefined;
   let printButton: HTMLButtonElement | undefined;
+  let collectionButton: HTMLButtonElement | undefined;
   let sortOrderMenu: HTMLDivElement | undefined;
 
   const pageItem = () => asPageItem(getToolbarFocusItem(store));
@@ -685,6 +688,14 @@ export const Toolbar_Popup: Component = () => {
 
   const conversion = () => itemConversionMaybe(store, getToolbarFocusPathMaybe(store));
 
+  const collectionTogglePage = () => collectionTogglePageMaybe(store, getToolbarFocusPathMaybe(store));
+
+  const handleCollectionToggleClick = () => {
+    const page = collectionTogglePage();
+    dismissMoreActions();
+    if (page != null) { toggleCollectionFlag(store, page); }
+  };
+
   const dismissMoreActions = () => {
     const openPopup = store.overlay.toolbarPopupInfoMaybe.get();
     if (openPopup == null || openPopup.type == ToolbarPopupType.MoreActions) {
@@ -952,7 +963,7 @@ export const Toolbar_Popup: Component = () => {
 
   onMount(() => {
     if (overlayTypeConst == ToolbarPopupType.MoreActions) {
-      (conversionButton ?? printButton)?.focus();
+      (conversionButton ?? collectionButton ?? printButton)?.focus();
       return;
     }
     if (overlayTypeConst == ToolbarPopupType.ChildSortOrder) {
@@ -1185,6 +1196,13 @@ export const Toolbar_Popup: Component = () => {
                 {conversion()?.label}
               </button>
             </Show>
+            <Show when={collectionTogglePage()}>{page =>
+              <button ref={collectionButton} type="button"
+                class={toolbarMenuItemClass()}
+                onClick={event => { event.stopPropagation(); handleCollectionToggleClick(); }}>
+                {collectionToggleLabel(page())}
+              </button>
+            }</Show>
             <Show when={toolbarFocusIsCurrentPage(store)}>
               <button ref={printButton} type="button"
                 class={toolbarMenuItemClass()}

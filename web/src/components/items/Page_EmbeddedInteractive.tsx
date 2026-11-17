@@ -21,10 +21,13 @@ import { ITEM_BORDER_WIDTH_PX, LINE_HEIGHT_PX, Z_INDEX_LOCAL_HIGHLIGHT, Z_INDEX_
 import { ListPageRowBand, VeFns, VisualElementFlags, isVeTranslucentPage } from "../../layout/visual-element";
 import { requestArrange } from "../../layout/arrange";
 import { VesCache } from "../../layout/ves-cache";
-import { BorderType, FOCUS_RING_BOX_SHADOW, borderColorForColorIdx, linearGradient } from "../../style";
+import { BorderType, Colors, FOCUS_RING_BOX_SHADOW, borderColorForColorIdx, linearGradient } from "../../style";
+import { hexToRGBA } from "../../util/color";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { VisualElement_DesktopShadowLayer } from "../VisualElementShadow";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
+import { CollectionCornerGlyph } from "../library/CollectionGlyph";
+import { isCollectionPage } from "../../items/collection";
 import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { useStore } from "../../store/StoreProvider";
 import { ArrangeAlgorithm, PageFns, isPage } from "../../items/page-item";
@@ -522,6 +525,10 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
         </Switch>
         {renderResizeTriangleMaybe()}
         {renderIsLinkMaybe()}
+        <Show when={isCollectionPage(pageFns().pageItem()) && pageFns().showTriangleDetail()}>
+          <CollectionCornerGlyph widthPx={pageFns().boundsPx().w} heightPx={pageFns().boundsPx().h}
+            color={hexToRGBA(Colors[pageFns().pageItem().backgroundColorIndex], 1.0)} />
+        </Show>
         {renderEmbeddedInteractiveForeground()}
         {renderEmbeddedInteractiveTitleMaybe()}
         {renderHighlightMaybe()}

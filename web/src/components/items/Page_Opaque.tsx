@@ -28,6 +28,8 @@ import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { appendNewlineIfEmpty } from "../../util/string";
 import { useStore } from "../../store/StoreProvider";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
+import { CollectionCornerGlyph } from "../library/CollectionGlyph";
+import { isCollectionPage } from "../../items/collection";
 import { PageVisualElementProps } from "./Page";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, pageIsFocusedOpenPopupSource, shouldShowFocusRingForVisualElement, highlightStyle, opaquePageBoxInsetPx, opaquePageBoxRadiusCss } from "./helper";
@@ -219,6 +221,10 @@ export const Page_Opaque: Component<PageVisualElementProps> = (props: PageVisual
             <CompositeMoveOutHandle boundsPx={pageFns().moveOutOfCompositeBox()} active={store.perVe.getMouseIsOverCompositeMoveOut(pageFns().vePath())} vePath={pageFns().vePath()} />
           </Show>
           {renderIsLinkMaybe()}
+          <Show when={isCollectionPage(pageFns().pageItem()) && pageFns().showTriangleDetail()}>
+            <CollectionCornerGlyph widthPx={pageFns().boundsPx().w} heightPx={pageFns().boundsPx().h}
+              color="#ffffff" textShadow={PAGE_TITLE_TEXT_SHADOW} />
+          </Show>
           <Show when={pageFns().showTriangleDetail() && canResizePage()}>
             <InfuResizeTriangle color={OPAQUE_RESIZE_TRIANGLE_COLOR} />
           </Show>

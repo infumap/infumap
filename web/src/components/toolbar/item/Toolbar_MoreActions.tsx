@@ -18,6 +18,7 @@
 
 import { Component, Show } from "solid-js";
 import { ClickState } from "../../../input/state";
+import { collectionTogglePageMaybe } from "../../../items/collection";
 import { pageCompositeConversionEligibility } from "../../../items/page-composite-conversion";
 import { pageTableConversionEligibility } from "../../../items/page-table-conversion";
 import { useStore } from "../../../store/StoreProvider";
@@ -39,6 +40,11 @@ export const Toolbar_MoreActions: Component = () => {
       pageCompositeConversionEligibility(store, focusPath).allowed;
   };
 
+  const canToggleCollection = () => {
+    store.touchToolbarDependency();
+    return collectionTogglePageMaybe(store, getToolbarFocusPathMaybe(store)) != null;
+  };
+
   const handleClick = () => {
     if (store.overlay.toolbarPopupInfoMaybe.get()?.type == ToolbarPopupType.MoreActions) {
       store.overlay.toolbarPopupInfoMaybe.set(null);
@@ -56,7 +62,7 @@ export const Toolbar_MoreActions: Component = () => {
   };
 
   return (
-    <Show when={canConvert() || toolbarFocusIsCurrentPage(store)}>
+    <Show when={canConvert() || canToggleCollection() || toolbarFocusIsCurrentPage(store)}>
       <button ref={button} type="button" title="More actions" aria-label="More actions"
         aria-expanded={store.overlay.toolbarPopupInfoMaybe.get()?.type == ToolbarPopupType.MoreActions}
         class={`inline-block ml-[3px] font-bold rounded-control w-[21px] h-[21px] text-center cursor-pointer text-[14px] relative text-neutral-800 ` +

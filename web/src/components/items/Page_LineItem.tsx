@@ -32,6 +32,8 @@ import { Colors, SELECTED_DARK, SELECTED_LIGHT, FOCUS_RING_BOX_SHADOW } from "..
 import { cloneBoundingBox } from "../../util/geometry";
 import { linkHasTriangle } from "../../layout/link-triangle";
 import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
+import { COLLECTION_ICON_CLASS } from "../library/CollectionGlyph";
+import { isCollectionPage } from "../../items/collection";
 import { MOUSE_LEFT } from "../../input/mouse_down";
 import { ClickState } from "../../input/state";
 import { appendNewlineIfEmpty } from "../../util/string";
@@ -163,10 +165,22 @@ export const Page_LineItem: Component<VisualElementProps> = (props: VisualElemen
       </Switch>);
   };
 
+  // A collection shows its glyph in the page colour in place of the thumbnail, in the same one-block slot, so the
+  // title's position and clipping are unchanged. Inside the thumbnail it was unreadable: a page thumbnail is often
+  // well under 10px tall.
   const renderThumbnail = () =>
-    <div class="absolute border border-neutral-700 rounded-xs shadow-xs"
-      style={`left: ${boundsPx().x + thumbBoundsPx().x}px; top: ${thumbBoundsPx().y}px; width: ${thumbBoundsPx().w}px; height: ${thumbBoundsPx().h}px; ` +
-        bgOpaqueVal()} />;
+    <Show when={isCollectionPage(pageItem())}
+      fallback={
+        <div class="absolute border border-neutral-700 rounded-xs shadow-xs"
+          style={`left: ${boundsPx().x + thumbBoundsPx().x}px; top: ${thumbBoundsPx().y}px; width: ${thumbBoundsPx().w}px; height: ${thumbBoundsPx().h}px; ` +
+            bgOpaqueVal()} />}>
+      <div class="absolute flex items-center justify-center pointer-events-none"
+        style={`left: ${boundsPx().x}px; top: ${boundsPx().y}px; width: ${oneBlockWidthPx()}px; height: ${boundsPx().h}px;`}>
+        <i class={COLLECTION_ICON_CLASS} aria-label="Collection"
+          style={`font-size: ${Math.min(oneBlockWidthPx(), boundsPx().h) * 0.8}px; line-height: 1; ` +
+            `color: ${hexToRGBA(Colors[pageItem().backgroundColorIndex], 1.0)};`} />
+      </div>
+    </Show>;
 
   const renderExpandIcon = () =>
     <Show when={itemCanExpandInLineItem(pageItem()) &&
