@@ -61,7 +61,8 @@ In collection mode, the gestures that select items change membership instead. Pl
 
 - **Cmd-click** (Ctrl-click on Windows and Linux) an item to make it a member, or to stop it being one. A link adds
   the item it points to. Clicking an item covered through a member above it makes it a member itself, so it stays
-  covered if that member is removed. In a composite, Cmd-click adds or removes the part you click.
+  covered if that member is removed. In a composite, Cmd-click adds or removes the part you click. Attachments,
+  such as the cells in a table's second and later columns, can be added or removed this way too.
 - **Shift-click** in a list, table or composite does what your last Cmd-click did, adding or removing, to every item
   from that one to the one you click. On a free-form or calendar page it adds or removes the one item.
 - **Drag a rectangle** over items to add them all. If they are all members already, it removes them all instead, so

@@ -178,7 +178,8 @@ gestures change membership directly instead of selecting. Plain clicking, editin
 exactly as outside the mode, so opening a page never competes with adding it.
 
 - **Cmd-click** (Ctrl-click off a Mac) flips the clicked item's own direct membership, a link as its target. An
-  inherited item becomes a direct member. In a composite it is the member under the pointer.
+  inherited item becomes a direct member. In a composite it is the member under the pointer. Attachments (e.g. a
+  table's later columns) toggle too, though selection can't reach them; Shift-click on one toggles just it.
 - **Shift-click** in an ordered container (list, table, composite) applies the last Cmd-click's change, add or remove,
   to the range from that item to the clicked one, as with checkbox ranges in mail clients. On spatial and calendar
   pages it toggles the one item, as selection does there.

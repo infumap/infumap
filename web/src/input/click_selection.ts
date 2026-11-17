@@ -130,6 +130,16 @@ let collectionAnchor: { veid: Veid, containerId: Uid, change: MembershipChange }
  * user can no longer see.
  */
 export function applyCollectionClick(store: StoreContextModel, hitVe: VisualElement, selectionClick: SelectionClick): boolean {
+  // An attachment, such as a table's second and later columns, can't be selected: a selection is of siblings, for a
+  // group move. Membership has no such need, so in the mode an attachment toggles on its own, with no range.
+  if (VeFns.treeItem(hitVe).relationshipToParent == RelationshipToParent.Attachment) {
+    if ((hitVe.flags & VisualElementFlags.Popup) || isPlaceholder(hitVe.displayItem) || !isUid(hitVe.displayItem.id)) {
+      return false;
+    }
+    collectionAnchor = null;
+    toggleCollectionMember(store, hitVe.displayItem.id);
+    return true;
+  }
   const ve = selectableVeMaybe(hitVe, () => true);
   if (ve == null || !isUid(ve.displayItem.id)) { return false; }
   const containerVe = VesCache.current.readNode(ve.parentPath!)!;
