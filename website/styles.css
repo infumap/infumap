@@ -56,9 +56,8 @@ code { font-family: var(--mono); font-size: 0.92em; background: var(--table-head
 .skip-link { position: absolute; left: 16px; top: -64px; z-index: 10; padding: 10px 16px; background: var(--blue); color: #fff; border-radius: var(--radius); }
 .skip-link:focus { top: 12px; }
 
-/* An Infumap item: a thin outline, a soft shadow, and the resize mark in its lower right corner. */
+/* An Infumap item: a thin outline and a soft shadow. */
 .item { position: relative; background: var(--ground); border: 1px solid var(--item-border); border-radius: 2px; box-shadow: var(--shadow); }
-.item::after { content: ""; position: absolute; right: 2px; bottom: 2px; width: 9px; height: 9px; background: linear-gradient(135deg, transparent 50%, var(--item-border) 50%); pointer-events: none; }
 
 /* Title bar: the app's page chrome, with the page name in the page colour. */
 .titlebar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 56px; padding: 8px var(--gutter); background: var(--chrome); border-bottom: 1px solid var(--item-line); }
@@ -74,12 +73,10 @@ code { font-family: var(--mono); font-size: 0.92em; background: var(--table-head
 main { max-width: calc(var(--max) + 2 * var(--gutter)); margin: 0 auto; padding: 0 var(--gutter); }
 
 /* Hero */
-/* The hero is a note item, the kind of block a visitor will make first in Infumap: outline, note icon, resize mark. */
-.hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 28px clamp(32px, 5vw, 72px); align-items: end; margin-top: clamp(28px, 4vw, 48px); padding: clamp(24px, 3.4vw, 44px) clamp(20px, 4vw, 56px) clamp(28px, 4vw, 48px) clamp(52px, 6.5vw, 96px); }
-.note-icon { position: absolute; left: clamp(16px, 2.2vw, 32px); top: clamp(32px, 4.6vw, 64px); width: clamp(22px, 2.4vw, 32px); height: clamp(22px, 2.4vw, 32px); color: var(--ink); }
+/* The hero echoes an Infumap item with its outline. */
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 28px clamp(32px, 5vw, 72px); align-items: end; margin-top: clamp(28px, 4vw, 48px); padding: clamp(24px, 3.4vw, 44px) clamp(20px, 4vw, 56px) clamp(28px, 4vw, 48px); }
 .hero h1 { grid-column: 1 / -1; color: var(--ink); font-size: clamp(38px, 6.6vw, 88px); line-height: 1.02; font-weight: 700; letter-spacing: -0.03em; text-wrap: balance; }
 .lede { font-size: clamp(18px, 1.6vw, 21px); line-height: 1.5; color: var(--text); max-width: 62ch; text-wrap: pretty; }
-.lede-detail { margin-top: 10px; font-size: 17px; color: var(--muted); }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; }
 .status-note { margin-top: 16px; font-size: 14px; color: var(--muted); }
 
@@ -90,25 +87,10 @@ main { max-width: calc(var(--max) + 2 * var(--gutter)); margin: 0 auto; padding:
 .button-primary:hover { background: #2e4262; box-shadow: 0 3px 8px -2px rgb(30 34 40 / 0.28); }
 .button-primary:focus-visible { outline-offset: 3px; }
 
-/* Two halves: an Infumap table page */
+/* Shared item title bars */
 .item-titlebar { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; padding: 10px 16px; background: var(--chrome); border-bottom: 1px solid var(--table-line); }
 .item-titlebar h2, .item-titlebar h3 { color: var(--blue); font-size: 20px; font-weight: 600; letter-spacing: -0.005em; }
 .item-titlebar p { color: var(--muted); font-size: 15px; }
-
-.glance { margin-top: clamp(20px, 2.5vw, 32px); }
-.glance-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.glance-table thead th, .glance-table .corner { background: var(--table-head); border-bottom: 1px solid var(--table-line); }
-.glance-table thead th { padding: 8px 16px; text-align: left; color: var(--ink); font-size: 15px; font-weight: 600; }
-.glance-table thead th .icon { margin-right: 6px; color: var(--blue); }
-.glance-table .corner { width: 120px; }
-.glance-table th, .glance-table td { border-left: 1px solid var(--table-line); vertical-align: top; }
-.glance-table tr > :first-child { border-left: 0; }
-.glance-table tbody tr + tr > * { border-top: 1px solid var(--chrome-line); }
-.glance-table tbody th { padding: 14px 16px; text-align: left; color: var(--blue); font-size: 15px; font-weight: 600; }
-.glance-table tbody td { padding: 14px 16px; font-size: 16px; color: var(--text); }
-.glance-table tbody tr { transition: background-color 120ms; }
-.glance-table tbody tr:hover { background: #f5f7fa; }
-.cell-label { display: none; }
 
 /* The real screenshot, as an embedded page */
 .screenshot { margin-top: clamp(48px, 7vw, 88px); }
@@ -127,7 +109,6 @@ main { max-width: calc(var(--max) + 2 * var(--gutter)); margin: 0 auto; padding:
 .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin-top: 28px; border: 1px solid #2c3442; border-radius: 2px; box-shadow: var(--shadow); overflow: hidden; }
 .tile { position: relative; min-height: clamp(96px, 12vw, 148px); padding: 16px; border: 0; border-left: 1px solid rgb(0 0 0 / 0.35); color: #fff; font: 700 clamp(18px, 2vw, 26px)/1.15 var(--sans); letter-spacing: -0.01em; cursor: pointer; text-align: center; transition: filter 160ms, box-shadow 160ms; }
 .tile:first-child { border-left: 0; }
-.tile::after { content: ""; position: absolute; right: 4px; bottom: 4px; width: 10px; height: 10px; background: linear-gradient(135deg, transparent 50%, rgb(255 255 255 / 0.55) 50%); }
 .tile:hover { filter: brightness(1.12); }
 .tile[aria-selected="true"] { box-shadow: inset 0 -5px 0 rgb(255 255 255 / 0.85); }
 .tile:focus-visible { outline: 3px solid #fff; outline-offset: -6px; box-shadow: inset 0 0 0 6px var(--focus); }
@@ -161,12 +142,10 @@ main { max-width: calc(var(--max) + 2 * var(--gutter)); margin: 0 auto; padding:
 
 /* Without the script, every panel shows in turn and the tiles are only labels. */
 html:not(.js) .tiles { pointer-events: none; }
-html:not(.js) .tile::after { display: none; }
 .mobile-only { display: none; }
 
 /* Download */
 .download { margin-top: clamp(64px, 9vw, 112px); padding-bottom: clamp(56px, 8vw, 96px); }
-.status-banner { margin-top: 24px; padding: 12px 16px; max-width: 860px; background: color-mix(in srgb, var(--yellow) 9%, white); border: 1px solid color-mix(in srgb, var(--yellow) 35%, white); border-radius: var(--radius); color: var(--ink); font-size: 16px; }
 .platforms { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 24px; }
 .platform { display: flex; flex-direction: column; }
 .platform ol { margin: 0; padding: 18px 20px 0 40px; display: grid; gap: 10px; font-size: 16px; }
@@ -204,19 +183,7 @@ html:not(.js) .tile::after { display: none; }
   .tool:not(.tool-primary) { padding: 0 10px; }
   .hero-actions .button { width: 100%; }
   .hero { gap: 20px; padding: 20px 20px 24px; }
-  .note-icon { position: static; width: 22px; height: 22px; }
   .mobile-only { display: inline; }
-
-  /* The table stacks: each row becomes a block, each cell names its column. */
-  .glance-table, .glance-table tbody, .glance-table tr, .glance-table th, .glance-table td { display: block; }
-  .glance-table thead { display: none; }
-  .glance-table th, .glance-table td { border-left: 0; }
-  .glance-table tbody tr + tr > * { border-top: 0; }
-  .glance-table tbody tr + tr { border-top: 1px solid var(--table-line); }
-  .glance-table tbody th { padding: 12px 16px 0; font-size: 17px; }
-  .glance-table tbody td { padding: 8px 16px 0; }
-  .glance-table tbody td:last-child { padding-bottom: 14px; }
-  .cell-label { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; color: var(--muted); font-size: 13px; font-weight: 600; }
 
   .tiles { grid-template-columns: repeat(2, 1fr); }
   .tile:nth-child(3) { border-left: 0; }

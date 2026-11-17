@@ -12,8 +12,6 @@
   <body>
     <svg class="sprite" aria-hidden="true" focusable="false">
       <symbol id="i-note" viewBox="0 0 16 16"><path d="M2.5 2.5h11v7l-4 4h-7z M13.5 9.5h-4v4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
-      <symbol id="i-page" viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M2 6h12" stroke="currentColor" stroke-width="1.6"/></symbol>
-      <symbol id="i-disk" viewBox="0 0 16 16"><ellipse cx="8" cy="4" rx="5.5" ry="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M2.5 4v8c0 1.1 2.5 2 5.5 2s5.5-.9 5.5-2V4 M2.5 8c0 1.1 2.5 2 5.5 2s5.5-.9 5.5-2" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
       <symbol id="i-down" viewBox="0 0 16 16"><path d="M8 2.5v8 M4.5 7 8 10.5 11.5 7 M3 13.5h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
       <symbol id="i-ext" viewBox="0 0 16 16"><path d="M5.5 3.5h7v7 M12.5 3.5 4 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
       <symbol id="i-copy" viewBox="0 0 16 16"><rect x="5.5" y="5.5" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3.5 10.5h-1v-8h8v1" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
@@ -35,11 +33,9 @@
 
     <main id="main">
       <section class="hero item" aria-labelledby="hero-title">
-        <svg class="note-icon" aria-hidden="true"><use href="#i-note"/></svg>
-        <h1 id="hero-title">A durable home for your information.</h1>
+        <h1 id="hero-title">A durable home for your information</h1>
         <div class="hero-text">
-        <p class="lede">Keep your notes, documents, images and links in one place. Nothing you add gets lost, you can always find it again, and nobody sees it without your permission.</p>
-        <p class="lede-detail">Infumap runs on your own computer or server. You use it in your browser.</p>
+        <p class="lede">Start with your information, then add structure as it grows.</p>
         </div>
         <div class="hero-download">
         <div class="hero-actions">
@@ -54,49 +50,6 @@
         </div>
         <p class="status-note">Both open the latest release on GitHub. <a href="#download">Install steps</a> are below.</p>
         </div>
-      </section>
-
-      <section class="glance item" aria-labelledby="glance-title">
-        <div class="item-titlebar">
-          <h2 id="glance-title">Two halves, one place</h2>
-          <p>A workspace you shape as you go, and a store you keep yourself.</p>
-        </div>
-        <table class="glance-table">
-          <thead>
-            <tr>
-              <td class="corner"></td>
-              <th scope="col"><svg class="icon" aria-hidden="true"><use href="#i-page"/></svg> Workspace</th>
-              <th scope="col"><svg class="icon" aria-hidden="true"><use href="#i-disk"/></svg> Store</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <th scope="row">Add</th>
-              <td><span class="cell-label" aria-hidden="true">Workspace</span>Jot down a thought, bookmark a link, drop in a document or an image. A note or a rating is an item in its own right, with no file to make.</td>
-              <td><span class="cell-label" aria-hidden="true">Store</span>Everything you add is written to a data directory on your own machine.</td>
-            </tr>
-            <tr>
-              <th scope="row">Arrange</th>
-              <td><span class="cell-label" aria-hidden="true">Workspace</span>Group a few items, lay out a page, or line details up in a table. Add structure only where it helps.</td>
-              <td><span class="cell-label" aria-hidden="true">Store</span>Your arrangement is kept with your items. There is no account with anyone else&rsquo;s service.</td>
-            </tr>
-            <tr>
-              <th scope="row">Find</th>
-              <td><span class="cell-label" aria-hidden="true">Workspace</span>When you don&rsquo;t remember where you put something, search for it.</td>
-              <td><span class="cell-label" aria-hidden="true">Store</span>The search index lives next to your data, on your machine.</td>
-            </tr>
-            <tr>
-              <th scope="row">Keep</th>
-              <td><span class="cell-label" aria-hidden="true">Workspace</span>Keep what you made of your material, the questions, comparisons and decisions, right beside the sources.</td>
-              <td><span class="cell-label" aria-hidden="true">Store</span>Optional backups to S3-compatible storage, encrypted with a key only you hold.</td>
-            </tr>
-            <tr>
-              <th scope="row">Share</th>
-              <td><span class="cell-label" aria-hidden="true">Workspace</span>Host it on your own server for remote access and sharing.</td>
-              <td><span class="cell-label" aria-hidden="true">Store</span>Nobody sees your information without your permission.</td>
-            </tr>
-          </tbody>
-        </table>
       </section>
 
       <figure class="screenshot item" id="tour">
@@ -182,8 +135,6 @@
           <p>Download a release and run it on your computer. Configuration and data directories are created for you.</p>
         </div>
 
-        <p class="status-banner"><strong>Still growing.</strong> Infumap is free software under the AGPL v3. It is actively developed and some rough edges remain. Releases are for everyday use; the <code>master</code> branch includes work in progress.</p>
-
         <div class="platforms">
           <article class="platform item">
             <div class="item-titlebar">
@@ -245,7 +196,7 @@
         <span class="brand-mark" aria-hidden="true">IM</span>
         <span class="brand-name">Infumap</span>
       </a>
-      <p>A durable home for your information.</p>
+      <p>A durable home for your information</p>
       <ul>
         <li><a href="https://github.com/infumap/infumap/issues">Report a bug or suggest an idea</a></li>
         <li><a href="https://github.com/infumap/infumap">GitHub</a></li>
