@@ -83,6 +83,7 @@ use std::collections::{HashMap, HashSet};
 
 mod backlinks;
 mod chat;
+mod collections;
 mod item_ops;
 mod link_targets;
 mod prompts;
@@ -244,6 +245,8 @@ pub async fn serve_command_route(
     "search" => search::handle_search(db, &request.json_data, &session_maybe).await,
     "list-collections" => scope::handle_list_collections(db, &request.json_data, &session_maybe).await,
     "collection-coverage" => scope::handle_collection_coverage(db, &request.json_data, &session_maybe).await,
+    "collection-add" => collections::handle_collection_add(db, &request.json_data, &session_maybe).await,
+    "collection-remove" => collections::handle_collection_remove(db, &request.json_data, &session_maybe).await,
     "list-prompts" => prompts::handle_list_prompts(db, &session_maybe).await,
     "describe-scope-items" => scope::handle_describe_scope_items(db, &request.json_data, &session_maybe).await,
     "query-profiles" => query_profiles::handle_query_profiles(config, db, &request.json_data, &session_maybe).await,

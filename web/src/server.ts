@@ -162,6 +162,21 @@ export type ItemCoverage =
   | { kind: "direct" }
   | { kind: "inherited", viaId: Uid, viaTitle: string | null };
 
+export interface CollectionAddResponse {
+  added: Array<Uid>,
+  alreadyMembers: Array<Uid>,
+  skipped: Array<{ itemId: Uid, title: string | null, reason: string }>,
+  memberCount: number,
+}
+
+export interface CollectionRemoveResponse {
+  removed: Array<Uid>,
+  /** Not direct members, and still covered through a member above them. */
+  inherited: Array<{ itemId: Uid, viaId: Uid, viaTitle: string | null }>,
+  notMembers: Array<Uid>,
+  memberCount: number,
+}
+
 export interface CollectionCoverageResponse {
   /** False when the collection is missing, trashed or no longer flagged. */
   available: boolean,
@@ -570,6 +585,8 @@ const COMMAND_DELETE_ITEM = "delete-item";
 const COMMAND_SEARCH = "search";
 const COMMAND_LIST_COLLECTIONS = "list-collections";
 const COMMAND_COLLECTION_COVERAGE = "collection-coverage";
+const COMMAND_COLLECTION_ADD = "collection-add";
+const COMMAND_COLLECTION_REMOVE = "collection-remove";
 const COMMAND_LIST_PROMPTS = "list-prompts";
 const COMMAND_DESCRIBE_SCOPE_ITEMS = "describe-scope-items";
 const COMMAND_QUERY_PROFILES = "query-profiles";
@@ -619,6 +636,12 @@ function getCommandDescription(command: string, payload: any): { description: st
       break;
     case COMMAND_COLLECTION_COVERAGE:
       description = "Checking collection members";
+      break;
+    case COMMAND_COLLECTION_ADD:
+      description = "Adding to collection";
+      break;
+    case COMMAND_COLLECTION_REMOVE:
+      description = "Removing from collection";
       break;
     case COMMAND_LIST_COLLECTIONS:
       description = "Loading collections";
@@ -678,6 +701,9 @@ function commandKind(command: string, payload: any): NetworkRequestKind {
   if (command == COMMAND_SYNC_CONTAINERS) { return "sync"; }
   if (command == COMMAND_CHAT) { return "chat"; }
   if (isMutationCommand(command)) { return "write"; }
+  // Writes, but not item mutations: the server makes and deletes the links, and no local item state needs repairing
+  // if one fails.
+  if (command == COMMAND_COLLECTION_ADD || command == COMMAND_COLLECTION_REMOVE) { return "write"; }
   if (command == COMMAND_QUERY_PROFILES && payload.operation != "list") { return "write"; }
   return "read";
 }
@@ -1406,6 +1432,16 @@ export const server = {
     expectedUserId: Uid,
   ): Promise<QueryProfilesResponse> => {
     return constructCommandPromise(null, COMMAND_QUERY_PROFILES, { ...operation, expectedUserId }, null);
+  },
+
+  /** Makes each item a direct member, a link as its target. At most 1000 ids. */
+  collectionAdd: async (collectionId: Uid, itemIds: Array<Uid>): Promise<CollectionAddResponse> => {
+    return constructCommandPromise(null, COMMAND_COLLECTION_ADD, { collectionId, itemIds }, null);
+  },
+
+  /** Removes each item that is a direct member. At most 1000 ids. */
+  collectionRemove: async (collectionId: Uid, itemIds: Array<Uid>): Promise<CollectionRemoveResponse> => {
+    return constructCommandPromise(null, COMMAND_COLLECTION_REMOVE, { collectionId, itemIds }, null);
   },
 
   /** How the collection covers each item. At most 2000 ids. */

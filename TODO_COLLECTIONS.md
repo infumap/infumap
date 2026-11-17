@@ -423,7 +423,7 @@ ring and vanished on green pages. Line item marks stay inset, since rows touch. 
 list-page roots, previews and moving items are not marked. Marks refresh after this tab's item writes and after sync
 changes (`onItemsChanged` in `server.ts`), and on navigation.
 
-### 7. Add / Remove / Add this page
+### 7. Add / Remove / Add this page — done
 
 - Server commands `collection-add { collectionId, itemIds }` and `collection-remove { collectionId, itemIds }` in
   `item_ops.rs`. Add resolves targets, skips existing direct members, appends links after the last child, and
@@ -433,6 +433,15 @@ changes (`onItemsChanged` in `server.ts`), and on navigation.
   de-duplication is atomic.
 - Bar buttons with counts ("Add 3"), Add this page (current root page or open popup), pending and failed state
   with retry or revert, and the "included via Financials" message. Selection stays after Add.
+
+As built: the commands are in `command/collections.rs`, not `item_ops.rs`. Their responses carry no sync ack: the
+client never saw the links made on the server, and an ack would mark them as already known; the next container sync
+fetches them. On a spatial collection page, new links go 3 grid units below the lowest child. Add skips missing items,
+passwords, broken links, trashed items and the collection itself, naming each. Marks are not changed optimistically:
+they are fetched again after a save succeeds, so a failed save has nothing to revert and shows "Could not add N items."
+with Retry. The server's reason does not reach the client, so a failure also refetches the collection list, which
+shows "No longer a collection" if that was the cause. Remove with only inherited items selected explains which member
+covers them. Still no keyboard shortcut.
 
 ### 8. Close selection gaps
 

@@ -316,7 +316,7 @@ pub(super) fn resolve_item_scope(db: &Db, user_id: &Uid, item_ids: &[Uid]) -> In
 }
 
 /// The collection page `id` names: the user's own page with the Collection flag, outside the trash.
-fn collection_page<'a>(db: &'a Db, user_id: &Uid, id: &Uid) -> Result<&'a Item, ScopeProblem> {
+pub(super) fn collection_page<'a>(db: &'a Db, user_id: &Uid, id: &Uid) -> Result<&'a Item, ScopeProblem> {
   let item = db.item.get(id).ok().filter(|item| &item.owner_id == user_id);
   match item {
     Some(page)
@@ -438,7 +438,7 @@ pub(super) async fn handle_list_collections(
 }
 
 /// The item and the items above it, nearest first, up to its root page. Stops at a cycle or a missing parent.
-fn ancestor_chain<'a>(db: &'a Db, item: &'a Item) -> Vec<&'a Item> {
+pub(super) fn ancestor_chain<'a>(db: &'a Db, item: &'a Item) -> Vec<&'a Item> {
   let mut chain = vec![item];
   let mut seen = HashSet::from([&item.id]);
   let mut current = item;
