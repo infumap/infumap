@@ -139,8 +139,10 @@ each collection, never down from the current page, so a collection in an optiona
 Collections / Key sources, while browsing Financials) ranks near the top with no organization metadata and no
 descendant scan.
 
-Each entry shows its name, home path and direct-member count, with **View** and **Edit members** actions. Names
-need not be globally unique. References use identity; paths disambiguate duplicate names.
+Each entry shows its name, home path and direct-member count. Clicking an entry enters collection mode for it and
+leaves the user where they are, since curating happens from the current location; there is no separate View
+action. While in the mode, clicking the selected collection again does nothing, and clicking another switches the
+destination. Names need not be globally unique. References use identity; paths disambiguate duplicate names.
 
 There is no separate creation flow. A page becomes a collection, or stops being one, through **Make collection** /
 **Make ordinary page** in the page's More actions (…) menu, next to the existing conversions. Making a page a
@@ -159,7 +161,7 @@ ownership hierarchy.
 
 ### Entering and identifying the mode
 
-The only entry point is **Edit members** on an entry in the toolbar Collections picker. An open collection page
+The only entry point is clicking an entry in the toolbar Collections picker. An open collection page
 needs no separate button: as the current root page it is always first under Here. Only one collection is edited at
 a time. Switching to another finishes outstanding membership saves before switching the destination; it does not
 discard the previous collection's changes.
@@ -171,7 +173,8 @@ Show a persistent bar immediately below the main toolbar:
   Select items, then Add or Remove
 ```
 
-The destination name and home path remain visible as the user navigates. Purple identifies collection membership
+The destination name and home path remain visible as the user navigates. Clicking the name opens the collection
+page. Purple identifies collection membership
 in this mode, with checkmarks and text so color is not the sole indicator. Reuse the same color for every collection;
 the bar identifies which one is being edited. Membership marks are purely visual (they have no hit target) and must
 stay distinct from the item selection highlight, since both show at once.
@@ -232,8 +235,7 @@ To include only part of a subtree that is currently covered, remove the parent a
 Collections have no per-member exceptions.
 
 Do not silently delete previously explicit descendant memberships when adding an ancestor. Removing the ancestor
-must leave those deliberate memberships intact. The collection view distinguishes explicit roots from inherited
-coverage, and duplicate target roots are prevented.
+must leave those deliberate memberships intact. Duplicate target roots are prevented.
 
 ### Saving and leaving
 
@@ -251,18 +253,14 @@ membership remains.
 
 ## Reviewing a collection
 
-**View** opens a complete listing of the collection's explicit member roots in membership order. Each entry shows
-its source path and makes subtree inclusion clear. Entries whose target has disappeared remain visible as broken
-members until removed; they do not broaden coverage.
-
-Allow opening source items and removing memberships from this view. Removing a membership
+The collection page is the review in v1. Its link children are the members, in membership order, rendered in
+whatever layout the page uses. Links whose target has disappeared already render as broken; they remain until
+removed and do not broaden coverage. Members are opened and removed as ordinary links. Removing a membership
 removes its reference only. Deleting a collection does not delete its members.
 
-The view includes roots from outside the collection's home. A collection is not limited to what is currently visible
-on the source page, and a partial or paginated listing must not be presented as its complete contents.
-
-An on-page **Show this collection** filter can later reuse the same coverage result. It is not required for the first
-version: the collection's own view supplies review without immediately implementing filtering in every page layout.
+There is no separate listing in v1. It would add each member's source path and what is covered through ancestors,
+which a page of links does not show. Add it later, as a page layout or an overlay, if the plain page proves
+insufficient. An on-page **Show this collection** filter on source pages is likewise later work.
 
 ## Search and chat UI
 
@@ -296,7 +294,7 @@ collection contributes its members' targets as include roots, or as exclude root
 access checks, rather than introducing an independent client-side selection that the server does not enforce.
 Membership coverage must agree across:
 
-- The selection highlights and collection view.
+- The membership marks in collection mode.
 - Ordinary search.
 - LLM search and direct item reads.
 - Container listings and any automatically supplied context.
@@ -344,14 +342,14 @@ Relevant existing code:
    transcripts, with old bare ids becoming unavailable; the shared picker with Except; Use in chat; removal of the
    Scopes system page and page-based scopes in the same change, since the old references stop resolving here.
    Collections are already usable at this point, curated by linking items into the page.
-3. **Collection view and discovery.** Make collection / Make ordinary page, title marker, the toolbar icon and
-   picker (Here / Recent / All), complete member listing and source paths.
+3. **Discovery.** Make collection / Make ordinary page, title marker, the toolbar icon and picker (Here / Recent /
+   All).
 4. **Collection mode.** Persistent destination bar, membership marks, Add / Remove / Add this page on the item
    selection, navigation/search continuity, save status, session Undo and explicit exit. This delivers the curation
    workflow. Close gaps in what item selection can reach (calendar pages, and any found in composites or document
    pages) as part of this step.
-5. **Optional source-page filtering.** Reuse resolved coverage across layouts only if reviewing the separate collection
-   view proves insufficient. No expression language or general rule builder is needed for the initial delivery.
+5. **Optional review and filtering.** A member listing with source paths and inherited coverage, or source-page
+   filtering, only if reviewing the plain collection page proves insufficient. No expression language or general rule builder is needed for the initial delivery.
 
 ## Missing collections
 
