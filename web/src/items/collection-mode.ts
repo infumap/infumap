@@ -21,6 +21,7 @@ import { requestArrange } from "../layout/arrange";
 import type { CollectionSummary } from "../server";
 import type { StoreContextModel } from "../store/StoreProvider";
 import type { Uid } from "../util/uid";
+import { resetCollectionMarks } from "./collection-marks";
 import { queryCollections } from "./query-scope";
 
 /**
@@ -57,6 +58,7 @@ export function collectionModeCollectionListed(): boolean {
 /** Enters the mode for the collection, or switches to it. The user stays where they are. */
 export function enterCollectionMode(store: StoreContextModel, collection: CollectionSummary): void {
   const wasActive = collectionModeActive();
+  if (collection.id != collectionModeCollectionId()) { resetCollectionMarks(collection.id); }
   setCollectionModeEntry(collection);
   // The bar under the toolbar takes height from the desktop.
   if (!wasActive) { requestArrange(store, "collection-mode-enter"); }
@@ -65,10 +67,12 @@ export function enterCollectionMode(store: StoreContextModel, collection: Collec
 export function exitCollectionMode(store: StoreContextModel): void {
   if (!collectionModeActive()) { return; }
   setCollectionModeEntry(null);
+  resetCollectionMarks(null);
   requestArrange(store, "collection-mode-exit");
 }
 
 /** On logout or account change, without arranging: the store is being cleared. */
 export function clearCollectionMode(): void {
   setCollectionModeEntry(null);
+  resetCollectionMarks(null);
 }

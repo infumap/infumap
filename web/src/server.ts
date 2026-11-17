@@ -157,6 +157,31 @@ export interface CollectionSummary {
   hereDepth: number | null,
 }
 
+/** How a collection covers an item: as a member (a link as its target), or through the nearest member above it. */
+export type ItemCoverage =
+  | { kind: "direct" }
+  | { kind: "inherited", viaId: Uid, viaTitle: string | null };
+
+export interface CollectionCoverageResponse {
+  /** False when the collection is missing, trashed or no longer flagged. */
+  available: boolean,
+  /** By requested id. Items not covered are left out. */
+  items: { [itemId: string]: ItemCoverage },
+}
+
+/**
+ * Called after an item write of this tab succeeds and after a container sync changes items. Anything derived from
+ * where items are on the server, such as collection-mode marks, is refreshed on these.
+ */
+const itemChangeListeners = new Set<() => void>();
+export function onItemsChanged(listener: () => void): () => void {
+  itemChangeListeners.add(listener);
+  return () => { itemChangeListeners.delete(listener); };
+}
+function notifyItemsChanged(): void {
+  itemChangeListeners.forEach(listener => listener());
+}
+
 export interface ListCollectionsResponse {
   /** By title, then path. */
   collections: Array<CollectionSummary>,
@@ -544,6 +569,7 @@ const COMMAND_CONVERT_PAGE_COMPOSITE = "convert-page-composite";
 const COMMAND_DELETE_ITEM = "delete-item";
 const COMMAND_SEARCH = "search";
 const COMMAND_LIST_COLLECTIONS = "list-collections";
+const COMMAND_COLLECTION_COVERAGE = "collection-coverage";
 const COMMAND_LIST_PROMPTS = "list-prompts";
 const COMMAND_DESCRIBE_SCOPE_ITEMS = "describe-scope-items";
 const COMMAND_QUERY_PROFILES = "query-profiles";
@@ -560,6 +586,7 @@ const PARALLEL_READ_COMMANDS = new Set<string>([
   COMMAND_GET_ITEMS,
   COMMAND_SYNC_CONTAINERS,
   COMMAND_LINK_TARGET_CANDIDATES,
+  COMMAND_COLLECTION_COVERAGE,
 ]);
 
 function getCommandDescription(command: string, payload: any): { description: string, itemId?: string } {
@@ -589,6 +616,9 @@ function getCommandDescription(command: string, payload: any): { description: st
       break;
     case COMMAND_SEARCH:
       description = `Searching for "${payload.text}"`;
+      break;
+    case COMMAND_COLLECTION_COVERAGE:
+      description = "Checking collection members";
       break;
     case COMMAND_LIST_COLLECTIONS:
       description = "Loading collections";
@@ -836,6 +866,7 @@ function serveWaiting() {
         .then((resp: any) => {
           command.resolve(resp);
           trackNetworkCommandFinished(command, "done");
+          if (isMutationCommand(command.command)) { notifyItemsChanged(); }
         })
         .catch((error) => {
           command.reject(error);
@@ -1375,6 +1406,11 @@ export const server = {
     expectedUserId: Uid,
   ): Promise<QueryProfilesResponse> => {
     return constructCommandPromise(null, COMMAND_QUERY_PROFILES, { ...operation, expectedUserId }, null);
+  },
+
+  /** How the collection covers each item. At most 2000 ids. */
+  collectionCoverage: async (collectionId: Uid, itemIds: Array<Uid>): Promise<CollectionCoverageResponse> => {
+    return constructCommandPromise(null, COMMAND_COLLECTION_COVERAGE, { collectionId, itemIds }, null);
   },
 
   /** `currentPageId` ranks the collections near it. */
@@ -2110,6 +2146,7 @@ async function performContainerSync(store: StoreContextModel): Promise<void> {
         didChange = true;
       }
     }
+    if (didChange) { notifyItemsChanged(); }
 
     // A sync deletion can remove the currently focused item, including the selected panel of a list page.
     const focusPath = store.history.getFocusPathMaybe();

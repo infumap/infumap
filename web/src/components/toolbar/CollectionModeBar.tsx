@@ -16,7 +16,8 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Show } from "solid-js";
+import { Show, createEffect, on } from "solid-js";
+import { refreshCollectionMarks } from "../../items/collection-marks";
 import { collectionModeCollectionListed, collectionModeSummary, exitCollectionMode } from "../../items/collection-mode";
 import { queryCollectionTitle } from "../../items/query-scope";
 import { initiateLoadItemMaybe } from "../../layout/load";
@@ -36,6 +37,9 @@ export const COLLECTION_MODE_COLOR = "#16a34a";
  */
 export function CollectionModeBar() {
   const store = useStore();
+  // Marks already known are checked again on navigation, which picks up changes this tab was not syncing, such as
+  // members added in another tab to a collection page not loaded here.
+  createEffect(on(() => store.history.currentPageVeid()?.itemId, () => refreshCollectionMarks(0), { defer: true }));
   const summary = () => collectionModeSummary();
   // The collection page is often somewhere the client has not loaded, so load it before navigating there.
   const openCollection = async () => {

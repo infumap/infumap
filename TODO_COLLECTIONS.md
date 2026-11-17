@@ -404,7 +404,7 @@ reuses `QueryPickerPopover`; after a pick it drops focus from the toolbar button
 Divider positions are functions of login now (one more icon when logged in). Fits at 780px with page and table
 toolbars.
 
-### 6. Membership marks
+### 6. Membership marks — done
 
 - `collection-coverage { collectionId, itemIds }` returns, for each item (a link resolved to its target), `direct`,
   `inherited { viaId, viaTitle }` or nothing. The client sends the target ids of rendered items, debounced on
@@ -414,6 +414,14 @@ toolbars.
   selection fill. Check against green pages.
 - Refetch when the collection page's container version changes in sync. Limitation: if the collection page isn't
   loaded in this tab, changes made in another tab arrive only on the next navigation. That seems acceptable.
+
+As built: one `CollectionMark` in each visual element dispatcher (desktop and line item), drawn as a sibling of the
+item at its bounds, so every item type is marked without touching item components or arrange flags. Each rendered
+mark asks for its item (`retainCollectionMark`); requests are batched per 30ms into `collection-coverage` and cached
+per collection. Desktop marks sit outside the item with a 1px white gap: inside, they collided with the inset focus
+ring and vanished on green pages. Line item marks stay inset, since rows touch. Roots, popups, the dock, trash,
+list-page roots, previews and moving items are not marked. Marks refresh after this tab's item writes and after sync
+changes (`onItemsChanged` in `server.ts`), and on navigation.
 
 ### 7. Add / Remove / Add this page
 

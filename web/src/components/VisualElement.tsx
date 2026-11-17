@@ -16,6 +16,8 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { collectionModeActive } from "../items/collection-mode";
+import { CollectionMark, collectionMarkable } from "./library/CollectionMark";
 import { Component, Match, Show, Switch } from "solid-js";
 import { isFile } from "../items/file-item";
 import { isText } from "../items/text-item";
@@ -87,7 +89,9 @@ export const VisualElement_Desktop: Component<VisualElementProps> = (props: Visu
     isLinkInTrash(props.visualElement.actualLinkItemMaybe ??
       (props.visualElement.flags & VisualElementFlags.ListPageRoot ? null : props.visualElement.linkItemMaybe),
       store.user.getUserMaybe()?.trashPageId);
-  return (
+  const markable = () => collectionModeActive() && collectionMarkable(props.visualElement) &&
+    !isEmptyItem(props.visualElement.displayItem) && !isPlaceholder(props.visualElement.displayItem) && !isTrashLink();
+  const item = (
     <Switch fallback={<div>VisualElement_Desktop: unknown display item type: '{props.visualElement.displayItem != null ? props.visualElement.displayItem.itemType : "N/A"}'</div>}>
       <Match when={isEmptyItem(props.visualElement.displayItem)}><></></Match>
       <Match when={isTrashLink()}><TrashLink_Desktop {...props} /></Match>
@@ -105,6 +109,14 @@ export const VisualElement_Desktop: Component<VisualElementProps> = (props: Visu
       <Match when={isDivider(props.visualElement.displayItem)}><Divider_Desktop {...props} /></Match>
       <Match when={isPlaceholder(props.visualElement.displayItem)}><Placeholder_Desktop {...props} /></Match>
     </Switch>
+  );
+  return (
+    <>
+      {item}
+      <Show when={markable()}>
+        <CollectionMark visualElement={props.visualElement} boundsPx={props.visualElement.boundsPx} lineItem={false} />
+      </Show>
+    </>
   );
 }
 
@@ -142,6 +154,10 @@ export const VisualElement_LineItem: Component<VisualElementProps> = (props: Vis
   return (
     <>
       {lineItem}
+      <Show when={collectionModeActive() && collectionMarkable(props.visualElement) && !isTrashLink() &&
+        !isEmptyItem(props.visualElement.displayItem) && !isPlaceholder(props.visualElement.displayItem)}>
+        <CollectionMark visualElement={props.visualElement} boundsPx={selectionHighlightBoundsPx()} lineItem={true} />
+      </Show>
       <Show when={(props.visualElement.flags & VisualElementFlags.SelectionHighlighted) && !isTrashLink()}>
         <div class="absolute pointer-events-none"
           style={`left: ${selectionHighlightBoundsPx().x}px; top: ${selectionHighlightBoundsPx().y}px; ` +

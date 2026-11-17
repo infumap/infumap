@@ -501,6 +501,80 @@ fn list_collections(db: &Db, user_id: &Uid, current_page_id: Option<&Uid>) -> In
   Ok(collections)
 }
 
+/// The most items one coverage request can ask about: more than a screen of rendered items.
+const MAX_COVERAGE_ITEMS: usize = 2000;
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CollectionCoverageRequest {
+  collection_id: Uid,
+  item_ids: Vec<Uid>,
+}
+
+/// How a collection covers an item, for collection-mode marks.
+#[derive(Debug, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+enum ItemCoverage {
+  /// The item, or a link's target, is a member.
+  Direct,
+  /// The nearest member above the item, through children and attachments.
+  #[serde(rename_all = "camelCase")]
+  Inherited { via_id: Uid, via_title: Option<String> },
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CollectionCoverageResponse {
+  /// False when the collection is missing, trashed or no longer flagged. Nothing is covered then.
+  available: bool,
+  /// By requested id. Items that are not covered, missing or unreadable are left out.
+  items: HashMap<Uid, ItemCoverage>,
+}
+
+pub(super) async fn handle_collection_coverage(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  json_data: &str,
+  session_maybe: &Option<Session>,
+) -> InfuResult<Option<String>> {
+  let session = session_maybe.as_ref().ok_or("Session is required to check collection coverage.")?;
+  let request: CollectionCoverageRequest =
+    serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
+  if request.item_ids.len() > MAX_COVERAGE_ITEMS {
+    return Err(format!("At most {MAX_COVERAGE_ITEMS} items can be checked at once.").into());
+  }
+  let response = collection_coverage(&*db.lock().await, &session.user_id, &request.collection_id, &request.item_ids)?;
+  debug!("Executed 'collection-coverage' command for user '{}'.", session.user_id);
+  Ok(Some(serde_json::to_string(&response)?))
+}
+
+/// Coverage is worked out per item by walking up from it, as `ResolvedScope::contains` does, so the client needs no
+/// ancestors loaded: it often has none for a link target that lives elsewhere.
+fn collection_coverage(
+  db: &Db,
+  user_id: &Uid,
+  collection_id: &Uid,
+  item_ids: &[Uid],
+) -> InfuResult<CollectionCoverageResponse> {
+  let Ok(collection) = collection_page(db, user_id, collection_id) else {
+    return Ok(CollectionCoverageResponse { available: false, items: HashMap::new() });
+  };
+  let members = collection_member_targets(db, user_id, collection)?.into_iter().collect::<HashSet<_>>();
+  let mut items = HashMap::new();
+  for item_id in item_ids {
+    let Some(target) = db.item.get(item_id).ok().and_then(|item| resolve_content(db, item, user_id)) else {
+      continue;
+    };
+    if members.contains(&target.id) {
+      items.insert(item_id.clone(), ItemCoverage::Direct);
+      continue;
+    }
+    if let Some(via) = ancestor_chain(db, target).into_iter().skip(1).find(|ancestor| members.contains(&ancestor.id)) {
+      items.insert(item_id.clone(), ItemCoverage::Inherited { via_id: via.id.clone(), via_title: via.title.clone() });
+    }
+  }
+  Ok(CollectionCoverageResponse { available: true, items })
+}
+
 /// A database in a temporary directory, holding one user with the standard pages.
 #[cfg(test)]
 pub(super) mod test_db {
@@ -1132,5 +1206,41 @@ mod tests {
     for scope in [ScopeRef::Everything, collection(&available), except(&available)] {
       assert_eq!(message(scope), None);
     }
+  }
+
+  #[tokio::test]
+  async fn coverage_marks_members_directly_and_their_contents_through_the_nearest_member() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let research = t.page(&home, "Research").await;
+    let financials = t.page(&research, "Financials").await;
+    let q1 = t.page(&financials, "Q1").await;
+    let note = t.note(&q1, "revenue", RelationshipToParent::Child).await;
+    let attached = t.note(&note, "source", RelationshipToParent::Attachment).await;
+    let other = t.page(&home, "Other").await;
+    let link_to_q1 = t.link(&other, &q1).await;
+    let key_sources = t.collection_of("Key sources", &[&financials, &q1]).await;
+
+    let ids = [&research, &financials, &q1, &note, &attached, &other, &link_to_q1, &new_uid()].map(|id| id.clone());
+    let coverage = collection_coverage(&t.db, &t.user_id, &key_sources, &ids).unwrap();
+    assert!(coverage.available);
+    let inherited =
+      |via: &Uid, title: &str| ItemCoverage::Inherited { via_id: via.clone(), via_title: Some(title.to_owned()) };
+    assert_eq!(
+      coverage.items,
+      HashMap::from([
+        (financials.clone(), ItemCoverage::Direct),
+        (q1.clone(), ItemCoverage::Direct),
+        (note.clone(), inherited(&q1, "Q1")),
+        (attached.clone(), inherited(&q1, "Q1")),
+        // A link shows its target, so it is marked as its target is, wherever it appears.
+        (link_to_q1.clone(), ItemCoverage::Direct),
+      ])
+    );
+
+    let missing = collection_coverage(&t.db, &t.user_id, &new_uid(), &ids).unwrap();
+    assert!(!missing.available && missing.items.is_empty());
+    let json = serde_json::to_value(inherited(&q1, "Q1")).unwrap();
+    assert_eq!(json, serde_json::json!({ "kind": "inherited", "viaId": q1, "viaTitle": "Q1" }));
   }
 }
