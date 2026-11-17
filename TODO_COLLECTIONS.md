@@ -127,23 +127,31 @@ page) on narrow windows.
 
 Its picker presents:
 
-1. **Here:** collections whose home is the current root page or an ancestor, nearest first. The current root page is
-   the page navigated to; focus in an embedded page or popup does not change it. This only affects ordering, since
-   every collection is also reachable under All. When browsing Financials,
-   collections organized under Northstar's Collections subpage must also be discoverable here; do not require
-   their immediate parent to be Northstar itself.
+1. **Here:** collections ranked by how deep their nearest common ancestor with the current root page is, deepest
+   first. Collections whose only common ancestor is the home page are left to All. The current root page is the
+   page navigated to; focus in an embedded page or popup does not change it. This only affects ordering, since
+   every collection is also reachable under All.
 2. **Recent:** recently used collections, without duplicating entries already shown nearby.
 3. **All collections:** find a collection by name or home path across the account.
 
-Discovery through an optional Collections subpage needs explicit organization metadata or another bounded lookup;
-do not recursively scan every descendant of every ancestor merely to populate this picker. The exact indexing
-approach remains an implementation detail.
+The server keeps the list of the account's collections, which All needs anyway. Here is computed by walking up from
+each collection, never down from the current page, so a collection in an optional subfolder (Northstar /
+Collections / Key sources, while browsing Financials) ranks near the top with no organization metadata and no
+descendant scan.
 
 Each entry shows its name, home path and direct-member count, with **View** and **Select items** actions. Names
 need not be globally unique. References use identity; paths disambiguate duplicate names.
 
-**New collection…** asks for a name and shows its proposed home, defaulting to the current page. The home can be
-changed before creation. Creating a collection immediately enters selection mode for it.
+There is no separate creation flow. A page becomes a collection, or stops being one, through **Make collection** /
+**Make ordinary page** in the page's More actions (…) menu, next to the existing conversions. Making a page a
+collection reinterprets content that is already there: its link children become members. That is a deliberate,
+infrequent change, so it does not get a toolbar button. The More actions menu currently appears only when a
+conversion is allowed or the focused page is the current page; widen that so any focused page the user can edit has
+it, including embedded pages that cannot be converted. Because the flag is otherwise invisible:
+
+- A collection page shows a marker by its title, so it is never mistaken for an ordinary page.
+- The toolbar for a focused collection page offers **Select items**, which is the frequent action.
+- The Collections picker, when empty, says how to make a collection.
 
 Normal item-tree navigation can open a collection too. The toolbar picker is a shortcut and index, not a separate
 ownership hierarchy.
@@ -250,7 +258,7 @@ Search's filter menu and the chat scope control share one picker:
    action that selects everything except that collection. Collections are not listed twice.
 
 Recent records choices as made, so "Everything except Private" is one click once used. The chosen collection shows
-**View**, **Select items** and **New collection…** beside it.
+**View** and **Select items** beside it.
 
 The control's label states the choice in full, for example **Key sources** or **Everything except Private**, so an
 exclusion is never mistaken for an inclusion.
@@ -320,7 +328,8 @@ Relevant existing code:
    transcripts, with old bare ids becoming unavailable; the shared picker with Except; Use in chat; removal of the
    Scopes system page and page-based scopes in the same change, since the old references stop resolving here.
    Collections are already usable at this point, curated by linking items into the page.
-3. **Collection view and discovery.** Create/name/home, local and global lookup, complete member listing and source paths.
+3. **Collection view and discovery.** Make collection / Make ordinary page, title marker, the toolbar icon and
+   picker (Here / Recent / All), complete member listing and source paths.
 4. **Selection mode.** Persistent destination bar, membership gestures, distinct Open actions, whole-page selection,
    navigation/search continuity, save status, session Undo and explicit exit. This delivers the curation workflow.
 5. **Optional source-page filtering.** Reuse resolved coverage across layouts only if reviewing the separate collection
@@ -328,8 +337,6 @@ Relevant existing code:
 
 ## Decisions still required
 
-- **Local discovery:** how a collection organized in an optional subfolder advertises its association with the company
-  page, without ambiguous title conventions or unbounded descendant scans.
 - **Deletion lifecycle:** saved references are not items, so nothing stops their collection from being deleted,
   trashed or unflagged. Decide how affected profiles, chats and the remembered search scope are reported and
   repaired, and what deleting a parent containing collections should expose. Do not silently detach or broaden.
