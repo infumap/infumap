@@ -150,7 +150,6 @@ conversion is allowed or the focused page is the current page; widen that so any
 it, including embedded pages that cannot be converted. Because the flag is otherwise invisible:
 
 - A collection page shows a marker by its title, so it is never mistaken for an ordinary page.
-- The toolbar for a focused collection page offers **Select items**, which is the frequent action.
 - The Collections picker, when empty, says how to make a collection.
 
 Normal item-tree navigation can open a collection too. The toolbar picker is a shortcut and index, not a separate
@@ -160,8 +159,8 @@ ownership hierarchy.
 
 ### Entering and identifying the mode
 
-Enter through **Select items** in the Collections picker, on an open collection, or beside the collection chosen in
-a search or chat scope picker. Only one collection is edited at a time. Switching to another finishes outstanding
+The only entry point is **Select items** on an entry in the toolbar Collections picker. An open collection page
+needs no separate button: as the current root page it is always first under Here. Only one collection is edited at a time. Switching to another finishes outstanding
 membership saves before switching the destination; it does not discard the previous collection's changes.
 
 Show a persistent bar immediately below the main toolbar:
@@ -174,9 +173,6 @@ Show a persistent bar immediately below the main toolbar:
 The destination name and home path remain visible as the user navigates. Purple identifies collection membership
 in this mode, with checkmarks and text so color is not the sole indicator. Reuse the same color for every collection;
 the bar identifies which one is being edited. Normal item selection must remain visually distinct.
-
-The bar describes membership, not exclusion, even when the collection is entered from an "everything except" choice:
-membership editing is the same whichever way the collection is used.
 
 The count means explicit member roots, not the number of all covered descendants. Label it accordingly in detailed
 views. If coverage counts are available, show them separately rather than presenting an approximate count as exact.
@@ -240,7 +236,7 @@ back. Reloading leaves selection mode; saved membership remains.
 its source path and makes subtree inclusion clear. Entries whose target has disappeared remain visible as broken
 members until removed; they do not broaden coverage.
 
-Allow opening source items, removing memberships and entering selection mode from this view. Removing a membership
+Allow opening source items and removing memberships from this view. Removing a membership
 removes its reference only. Deleting a collection does not delete its members.
 
 The view includes roots from outside the collection's home. A collection is not limited to what is currently visible
@@ -257,8 +253,8 @@ Search's filter menu and the chat scope control share one picker:
 2. **Collections,** grouped Here / Recent / All as in the toolbar Collections picker. Each row has an **Except**
    action that selects everything except that collection. Collections are not listed twice.
 
-Recent records choices as made, so "Everything except Private" is one click once used. The chosen collection shows
-**View** and **Select items** beside it.
+Recent records choices as made, so "Everything except Private" is one click once used. Editing a collection's
+membership is done from the toolbar Collections picker, not from here.
 
 The control's label states the choice in full, for example **Key sources** or **Everything except Private**, so an
 exclusion is never mistaken for an inclusion.
