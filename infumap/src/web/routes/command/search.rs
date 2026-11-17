@@ -1273,7 +1273,6 @@ mod tests {
   use crate::ai::fragment::sources::item_title_fragment_for_item;
   use crate::ai::lexical_index::LexicalFragment;
   use crate::ai::title_indexing::lexical_fragment_from_item_title_fragment;
-  use crate::web::routes::command::scope::resolve_scope;
   use crate::web::routes::command::scope::test_db::TestDb;
 
   #[test]
@@ -1301,8 +1300,8 @@ mod tests {
     assert!(parse(configuration).is_err());
   }
 
-  fn bounds_item_ids(t: &TestDb, page_id: Option<&Uid>, scope_id: Option<&Uid>) -> Vec<Uid> {
-    let scope = scope_id.map(|scope_id| resolve_scope(&t.db, &t.user_id, scope_id).unwrap());
+  fn bounds_item_ids(t: &TestDb, page_id: Option<&Uid>, scope: Option<&ScopeRef>) -> Vec<Uid> {
+    let scope = scope.map(|scope| resolve_scope_ref(&t.db, &t.user_id, scope).unwrap());
     match search_bounds(&t.db, page_id, scope.as_ref(), false, &t.user_id).unwrap() {
       SearchBounds::Items(item_ids) => item_ids,
       SearchBounds::UnderRoot(root_id) => panic!("expected an item restriction, got root '{}'", root_id),
@@ -1351,11 +1350,8 @@ mod tests {
     let archived = t.note(&archive, "archived", RelationshipToParent::Child).await;
     let to_booking = t.link(&trip, &booking).await;
     let to_archive = t.link(&trip, &archive).await;
-    let scope_id = t.page(&t.scopes_id(), "No bookings").await;
-    t.link(&scope_id, &home).await;
-    let exclude = t.page(&scope_id, "Exclude").await;
-    t.link(&exclude, &bookings).await;
-    let scope = resolve_scope(&t.db, &t.user_id, &scope_id).unwrap();
+    let hidden = t.collection_of("Bookings", &[&bookings]).await;
+    let scope = resolve_scope_ref(&t.db, &t.user_id, &ScopeRef::EverythingExcept { id: hidden }).unwrap();
     let bounds = |linked: bool, scope: Option<&ResolvedScope>| match search_bounds(
       &t.db,
       Some(&trip),
@@ -1384,12 +1380,9 @@ mod tests {
     let x = t.page(&a, "X").await;
     let x1 = t.note(&x, "x1", RelationshipToParent::Child).await;
     let b = t.page(&home, "B").await;
-    let scopes_id = t.scopes_id();
-    let no_x = t.page(&scopes_id, "No X").await;
-    let exclude = t.page(&no_x, "Exclude").await;
-    t.link(&exclude, &x).await;
-    let b_only = t.page(&scopes_id, "B only").await;
-    t.link(&b_only, &b).await;
+    let x_collection = t.collection_of("X", &[&x]).await;
+    let no_x = ScopeRef::EverythingExcept { id: x_collection };
+    let b_only = ScopeRef::Collection { id: t.collection_of("B", &[&b]).await };
 
     match search_bounds(&t.db, None, None, false, &t.user_id).unwrap() {
       SearchBounds::UnderRoot(root_id) => assert_eq!(root_id, home),

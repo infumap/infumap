@@ -78,7 +78,8 @@ that the collection is gone.
 
 Earlier versions defined scopes as pages in a **Scopes** page. Those definitions are no longer used: a
 profile, chat or search that used one shows **Old scope (unavailable)** until you choose again. The pages
-themselves are kept. A scope page whose links were all includes can become a collection with **Make
+themselves are kept: the **Scopes** page is now an ordinary page listed in the Queries page, which you can
+move or delete. A scope page whose links were all includes can become a collection with **Make
 collection**, since its links are already the members. Its **Exclude** page is not a member and is
 ignored. For an exclusion, make a separate collection of what to hide and choose **Except** beside it.
 

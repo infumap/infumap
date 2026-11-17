@@ -44,7 +44,7 @@ use crate::util::crypto::generate_key;
 use crate::web::cookie::SESSION_COOKIE_NAME;
 use crate::web::routes::{
   default_dock_page, default_home_page, default_queries_page, default_query_item, default_trash_page,
-  ensure_prompts_page, ensure_scopes_page, prompts_page_id, scopes_page_id,
+  ensure_prompts_page, prompts_page_id,
 };
 use crate::web::serve::{cors_response, forbidden_response, incoming_json, json_response, not_found_response};
 use crate::web::session::get_and_validate_session;
@@ -126,8 +126,6 @@ pub struct LoginResponse {
   pub dock_page_id: Option<String>,
   #[serde(rename = "queriesPageId")]
   pub queries_page_id: Option<String>,
-  #[serde(rename = "scopesPageId", default)]
-  pub scopes_page_id: Option<String>,
   #[serde(rename = "promptsPageId", default)]
   pub prompts_page_id: Option<String>,
   #[serde(rename = "searchAttentionPageId", default)]
@@ -161,7 +159,6 @@ pub async fn login(
       trash_page_id: None,
       dock_page_id: None,
       queries_page_id: None,
-      scopes_page_id: None,
       prompts_page_id: None,
       search_attention_page_id: None,
       search_processing_page_id: None,
@@ -271,7 +268,6 @@ pub async fn login(
       let result = LoginResponse {
         success: true,
         // Before user.id is moved below.
-        scopes_page_id: Some(scopes_page_id(&user.id)),
         prompts_page_id: Some(prompts_page_id(&user.id)),
         search_attention_page_id: Some(search_attention_page_id(&user.id)),
         search_processing_page_id: Some(search_processing_page_id(&user.id)),
@@ -532,10 +528,6 @@ pub async fn register(
     let query_item = default_query_item(user_id.as_str(), &queries_page_id, query_item_id, page_width_bl);
     if let Err(e) = db.item.add(query_item).await {
       error!("Error adding default query item: {}", e);
-      return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
-    }
-    if let Err(e) = ensure_scopes_page(&mut db, &user_id).await {
-      error!("Error adding default scopes page: {}", e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
     }
     if let Err(e) = ensure_prompts_page(&mut db, &user_id).await {
@@ -1056,8 +1048,6 @@ pub struct ValidateResponse {
   pub dock_page_id: Option<String>,
   #[serde(rename = "queriesPageId")]
   pub queries_page_id: Option<String>,
-  #[serde(rename = "scopesPageId")]
-  pub scopes_page_id: Option<String>,
   #[serde(rename = "promptsPageId")]
   pub prompts_page_id: Option<String>,
   #[serde(rename = "searchAttentionPageId")]
@@ -1085,7 +1075,6 @@ pub async fn validate(
         trash_page_id: None,
         dock_page_id: None,
         queries_page_id: None,
-        scopes_page_id: None,
         prompts_page_id: None,
         search_attention_page_id: None,
         search_processing_page_id: None,
@@ -1113,7 +1102,6 @@ pub async fn validate(
         trash_page_id: None,
         dock_page_id: None,
         queries_page_id: None,
-        scopes_page_id: None,
         prompts_page_id: None,
         search_attention_page_id: None,
         search_processing_page_id: None,
@@ -1124,7 +1112,6 @@ pub async fn validate(
     Some(user) => json_response(&ValidateResponse {
       success: true,
       // Before user.id is moved below.
-      scopes_page_id: Some(scopes_page_id(&user.id)),
       prompts_page_id: Some(prompts_page_id(&user.id)),
       search_attention_page_id: Some(search_attention_page_id(&user.id)),
       search_processing_page_id: Some(search_processing_page_id(&user.id)),

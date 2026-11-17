@@ -704,7 +704,7 @@ fn queries_page_arrange_algorithm_allowed(item: &Item) -> bool {
   item.arrange_algorithm.as_ref() == Some(&ArrangeAlgorithm::List)
 }
 
-/// The scopes and prompts pages may be renamed or rearranged, but must stay pinned to the bottom of the queries page.
+/// The prompts page may be renamed or rearranged, but must stay pinned to the bottom of the queries page.
 fn queries_subpage_update_disallowed(old_item: &Item, new_item: &Item) -> bool {
   old_item.item_type != new_item.item_type
     || old_item.parent_id != new_item.parent_id
@@ -1740,18 +1740,17 @@ fn virtual_search_status_page_child_items(
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::util::ordering::new_ordering_before;
   use crate::web::routes::command::scope::test_db::TestDb;
-  use crate::web::routes::{default_scopes_page, ensure_prompts_page, prompts_page_id, scopes_page_id};
+  use crate::web::routes::{default_prompts_page, ensure_prompts_page, prompts_page_id};
 
   #[test]
-  fn scopes_page_update_allows_rename_but_not_move_or_unpin() {
+  fn prompts_page_update_allows_rename_but_not_move_or_unpin() {
     let owner_id = "0123456789abcdef0123456789abcdef";
     let queries_page_id = "00000000000000000000000000000001".to_owned();
-    let old_item = default_scopes_page(owner_id, &queries_page_id, vec![200], 2.0);
+    let old_item = default_prompts_page(owner_id, &queries_page_id, vec![200], 2.0);
 
     let mut renamed = old_item.clone();
-    renamed.title = Some("My scopes".to_owned());
+    renamed.title = Some("My prompts".to_owned());
     assert!(!queries_subpage_update_disallowed(&old_item, &renamed));
 
     let mut moved = old_item.clone();
@@ -1763,30 +1762,28 @@ mod tests {
     assert!(queries_subpage_update_disallowed(&old_item, &unpinned));
   }
 
+  /// The Prompts page stays pinned in Queries. A page pinned there by an earlier version, such as the Scopes page,
+  /// is ordinary: it can be unpinned, moved and deleted.
   #[tokio::test]
-  async fn prompts_page_is_added_directly_above_the_scopes_page_and_stays_there() {
+  async fn prompts_page_stays_put_and_other_pinned_pages_in_queries_are_ordinary() {
     let mut t = TestDb::new().await;
     let user = t.db.user.get(&t.user_id).unwrap().clone();
-    let (prompts_id, scopes_id) = (prompts_page_id(&user.id), scopes_page_id(&user.id));
+    let prompts_id = prompts_page_id(&user.id);
     let order = |db: &Db| -> Vec<Uid> {
       let mut children = db.item.get_children(&user.queries_page_id).unwrap();
       children.sort_by(|a, b| a.ordering.cmp(&b.ordering));
       children.iter().map(|item| item.id.clone()).collect()
     };
-    let ids = order(&t.db);
-    assert_eq!(ids[ids.len() - 2..], [prompts_id.clone(), scopes_id.clone()]);
-
-    // An existing user, with a page of their own pinned directly above the scopes page.
+    assert_eq!(order(&t.db).last(), Some(&prompts_id));
     t.db.item.remove(&prompts_id).await.unwrap();
-    let mine_id = t.page(&user.queries_page_id, "Mine").await;
-    let mut mine = t.db.item.get(&mine_id).unwrap().clone();
-    mine.ordering = new_ordering_before(&t.db.item.get(&scopes_id).unwrap().ordering);
-    mine.pinned_to = Some(PinnedTo::Bottom);
-    t.db.item.update(&mine).await.unwrap();
+    let old_scopes_id = t.page(&user.queries_page_id, "Scopes").await;
+    let mut old_scopes = t.db.item.get(&old_scopes_id).unwrap().clone();
+    old_scopes.pinned_to = Some(PinnedTo::Bottom);
+    t.db.item.update(&old_scopes).await.unwrap();
     assert!(ensure_prompts_page(&mut t.db, &user.id).await.unwrap());
     assert!(!ensure_prompts_page(&mut t.db, &user.id).await.unwrap());
-    let ids = order(&t.db);
-    assert_eq!(ids[ids.len() - 3..], [mine_id, prompts_id.clone(), scopes_id]);
+    assert_eq!(order(&t.db).last(), Some(&prompts_id), "a new prompts page goes at the end");
+    let ordinary_id = t.page(&user.queries_page_id, "Ordinary").await;
 
     let db = Arc::new(tokio::sync::Mutex::new(t.db));
     let session = Some(Session {
@@ -1816,6 +1813,23 @@ mod tests {
     let mut renamed = prompts.clone();
     renamed.title = Some("My prompts".to_owned());
     update(renamed).await.unwrap();
+
+    let get = |id: &Uid| {
+      let db = db.clone();
+      let id = id.clone();
+      async move { db.lock().await.item.get(&id).unwrap().clone() }
+    };
+    let mut pinned = get(&ordinary_id).await;
+    pinned.pinned_to = Some(PinnedTo::Top);
+    assert!(update(pinned).await.is_err(), "nothing else is pinned in the queries page");
+    let mut unpinned = get(&old_scopes_id).await;
+    unpinned.pinned_to = None;
+    update(unpinned).await.unwrap();
+    let mut moved = get(&old_scopes_id).await;
+    moved.parent_id = Some(user.home_page_id.clone());
+    update(moved).await.unwrap();
+    // Deletion is refused only for pages `queries_subpage_name` names, which no longer includes Scopes.
+    assert_eq!(queries_subpage_name(&user.id, &old_scopes_id), None);
   }
 
   #[tokio::test]

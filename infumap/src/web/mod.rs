@@ -63,7 +63,7 @@ use crate::storage::object::{self as storage_object, ObjectStore};
 use crate::tokiort::TokioIo;
 use crate::util::crypto::{decrypt_file_data, encrypt_file_data};
 use crate::util::fs::expand_tilde;
-use crate::web::routes::{ensure_prompts_page, ensure_scopes_page};
+use crate::web::routes::ensure_prompts_page;
 
 use self::prometheus::spawn_prometheus_listener;
 use self::serve::http_serve;
@@ -336,9 +336,6 @@ pub async fn start_server_controlled(
     }
     // Finish loading every account before startup edits append to any item log.
     for user_id in all_user_ids {
-      if ensure_scopes_page(&mut db, &user_id).await? {
-        info!("Created scopes page for user '{}'.", user_id);
-      }
       if ensure_prompts_page(&mut db, &user_id).await? {
         info!("Created prompts page for user '{}'.", user_id);
       }

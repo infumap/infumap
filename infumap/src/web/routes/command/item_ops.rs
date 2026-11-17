@@ -675,12 +675,18 @@ async fn update_item(
   {
     return Err(format!("Queries page '{}' must use list arrangement.", item.id).into());
   }
-  // The server pins the current chat and the scopes page in the Queries page, and nothing else is pinned there.
+  // The server pins the current chat and the Prompts page in the Queries page, and nothing else is pinned there by a
+  // client. An ordinary page may be unpinned: the Scopes page of earlier versions is one now, still pinned to the
+  // bottom, and must stay movable and deletable.
   if client_request
     && old_item.pinned_to != item.pinned_to
     && (is_queries_page_child(&db, &old_item) || is_queries_page_child(&db, &item))
   {
-    return Err(format!("Item '{}' cannot be pinned or unpinned in the Queries page.", item.id).into());
+    let unpins_ordinary_item =
+      item.pinned_to.is_none() && !is_queries_page_query_item(&db, &old_item) && !is_queries_subpage_item(&old_item);
+    if !unpins_ordinary_item {
+      return Err(format!("Item '{}' cannot be pinned or unpinned in the Queries page.", item.id).into());
+    }
   }
   let chat_moved_to_trash = is_chat_moved_to_trash(&db, &old_item, &item);
   let chat_restored_from_trash = is_chat_restored_from_trash(&db, &old_item, &item);

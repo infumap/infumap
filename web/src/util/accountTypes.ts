@@ -58,7 +58,6 @@ export type User = {
   dockPageId: Uid,
   queriesPageId: Uid,
   /** Hidden from the queries page, so reached from the scope picker. */
-  scopesPageId: Uid,
   /** Hidden from the queries page, so reached from the prompt pickers. */
   promptsPageId: Uid,
   /** Virtual pages hidden from the queries page, so reached from icons on an empty query. */

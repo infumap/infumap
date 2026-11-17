@@ -1775,7 +1775,6 @@ impl<'a, 'b> Renderer<'a, 'b> {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::web::routes::command::scope::resolve_scope;
   use crate::web::routes::command::scope::test_db::TestDb;
   use infusdk::item::TableFlags;
 
@@ -2263,7 +2262,7 @@ mod tests {
       })
       .await;
     touch(&mut t, &note).await;
-    for page in [&bookings, &t.trash_id.clone(), &t.scopes_id()] {
+    for page in [&bookings, &t.trash_id.clone(), &t.dock_id.clone()] {
       let link = t.link(page, &booking).await;
       touch(&mut t, &link).await;
     }
@@ -2278,7 +2277,7 @@ mod tests {
        {note}) (note, 1 fragment); [malaysia](infumap://{}); [older](infumap://{}); +1 more",
       pages[2], pages[1]
     );
-    assert_eq!(listings[&booking].text, expected, "own page, trash and scope links are left out");
+    assert_eq!(listings[&booking].text, expected, "own page, trash and dock links are left out");
     assert_eq!(listings[&lonely].text, format!("[not linked](infumap://{lonely}) (note)"));
   }
 
@@ -2473,11 +2472,7 @@ mod tests {
     let secret = t.page(&work, "Secret").await;
     let elsewhere = t.page(&home, "Elsewhere").await;
     t.link(&work, &elsewhere).await;
-    let scope_id = t.page(&t.scopes_id(), "Work only").await;
-    t.link(&scope_id, &work).await;
-    let exclude = t.page(&scope_id, "Exclude").await;
-    t.link(&exclude, &secret).await;
-    let scope = resolve_scope(&t.db, &t.user_id, &scope_id).unwrap();
+    let scope = t.scope_hiding(&[&work], &[&secret]).await;
     let access = Access { user_id: &t.user_id, scope: Some(&scope) };
 
     let outline = container_outline(&t.db, &access, &work).unwrap();
@@ -2650,9 +2645,7 @@ mod tests {
     let home = t.home_id.clone();
     let page = t.page(&home, "Page").await;
     let note = t.note(&page, "included on its own", RelationshipToParent::Child).await;
-    let scope_id = t.page(&t.scopes_id(), "Just the note").await;
-    t.link(&scope_id, &note).await;
-    let scope = resolve_scope(&t.db, &t.user_id, &scope_id).unwrap();
+    let scope = t.scope_hiding(&[&note], &[]).await;
     let user_id = t.user_id.clone();
     let db = Arc::new(tokio::sync::Mutex::new(t.db));
 

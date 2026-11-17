@@ -31,7 +31,6 @@ interface ValidateSessionResponse {
   trashPageId?: string | null,
   dockPageId?: string | null,
   queriesPageId?: string | null,
-  scopesPageId?: string | null,
   promptsPageId?: string | null,
   searchAttentionPageId?: string | null,
   searchProcessingPageId?: string | null,
@@ -65,7 +64,6 @@ export function makeUserStore(): UserStoreContextModel {
       responseObj.trashPageId == null ||
       responseObj.dockPageId == null ||
       responseObj.queriesPageId == null ||
-      responseObj.scopesPageId == null ||
       responseObj.promptsPageId == null ||
       responseObj.searchAttentionPageId == null ||
       responseObj.searchProcessingPageId == null ||
@@ -86,7 +84,6 @@ export function makeUserStore(): UserStoreContextModel {
       trashPageId: responseObj.trashPageId,
       dockPageId: responseObj.dockPageId,
       queriesPageId: responseObj.queriesPageId,
-      scopesPageId: responseObj.scopesPageId,
       promptsPageId: responseObj.promptsPageId,
       searchAttentionPageId: responseObj.searchAttentionPageId,
       searchProcessingPageId: responseObj.searchProcessingPageId,

@@ -238,7 +238,7 @@ function isRenderableListPageSelectedVeid(veid: Veid): boolean {
 function listPageHiddenChildIds(store: StoreContextModel, page: PageItem): ReadonlyArray<Uid> {
   const user = store.user.getUserMaybe();
   return user != null && page.id == user.queriesPageId
-    ? [user.scopesPageId, user.promptsPageId, user.searchAttentionPageId, user.searchProcessingPageId]
+    ? [user.promptsPageId, user.searchAttentionPageId, user.searchProcessingPageId]
     : [];
 }
 

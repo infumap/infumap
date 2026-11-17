@@ -757,11 +757,7 @@ struct OpenAiToolCall {
 fn scope_items_to_attach(source: &ScopeSource) -> Option<&Vec<Uid>> {
   match source {
     ScopeSource::Items(item_ids) => Some(item_ids),
-    ScopeSource::All
-    | ScopeSource::Named { .. }
-    | ScopeSource::Collection { .. }
-    | ScopeSource::Except { .. }
-    | ScopeSource::Unavailable => None,
+    ScopeSource::All | ScopeSource::Collection { .. } | ScopeSource::Except { .. } | ScopeSource::Unavailable => None,
   }
 }
 
@@ -2654,10 +2650,6 @@ fn chat_system_prompt(
         one of them.",
       serde_json::Value::String(name.clone())
     )),
-    ScopeSource::Named { name, .. } => Some(format!(
-      "The tools only see the scope {}; an item not found may lie outside it.",
-      serde_json::Value::String(name.clone())
-    )),
     // The user chose these for this question, so the model is told where to start, not only what it cannot see.
     ScopeSource::Items(item_ids) => {
       let links = item_ids
@@ -4290,7 +4282,6 @@ async fn chat_completion(
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::web::routes::command::scope::resolve_scope;
   use crate::web::routes::command::scope::test_db::{TempDir, TestDb};
 
   struct Fixture {
@@ -4301,14 +4292,13 @@ mod tests {
     x: Uid,
     x1: Uid,
     link_to_b: Uid,
-    scope_id: Uid,
     collection_id: Uid,
     trashed_collection_id: Uid,
     _dir: TempDir,
   }
 
-  /// home/{A/{a1, X/{x1}, link to B}, B}, a scope "Work" that includes A and excludes X, a collection "Work" of A,
-  /// and a collection "Old" in the trash.
+  /// home/{A/{a1, X/{x1}, link to B}, B}, a collection "Work" of A, and a collection "Old" in the trash. The scoped
+  /// tools see Work without X.
   async fn fixture() -> Fixture {
     let mut t = TestDb::new().await;
     let home = t.home_id.clone();
@@ -4318,10 +4308,6 @@ mod tests {
     let x1 = t.note(&x, "x1", RelationshipToParent::Child).await;
     let b = t.page(&home, "B").await;
     let link_to_b = t.link(&a, &b).await;
-    let scope_id = t.page(&t.scopes_id(), "Work").await;
-    t.link(&scope_id, &a).await;
-    let exclude = t.page(&scope_id, "Exclude").await;
-    t.link(&exclude, &x).await;
     let collection_id = t.collection(&home, "Work").await;
     t.link(&collection_id, &a).await;
     let trashed_collection_id = t.collection(&t.trash_id.clone(), "Old").await;
@@ -4334,7 +4320,6 @@ mod tests {
       x,
       x1,
       link_to_b,
-      scope_id,
       collection_id,
       trashed_collection_id,
       _dir: t.dir,
@@ -4344,7 +4329,12 @@ mod tests {
   impl Fixture {
     async fn infumap_data(&self, scoped: bool) -> InfumapData {
       let scope = if scoped {
-        Some(resolve_scope(&*self.db.lock().await, &self.session.user_id, &self.scope_id).unwrap())
+        let db = self.db.lock().await;
+        let work = ScopeRef::Collection { id: self.collection_id.clone() };
+        let work = resolve_scope_ref(&db, &self.session.user_id, &work).unwrap();
+        // A collection cannot also hide X; a run adds exclusions as it does for its own transcript.
+        let hidden = HashSet::from([self.x.clone()]);
+        Some(ResolvedScope::for_chat(&db, &self.session.user_id, Some(work), hidden).unwrap())
       } else {
         None
       };
@@ -4421,11 +4411,7 @@ mod tests {
     let in_group = |item: &mut Item| item.group_id = Some(group_id.clone());
     t.note_with(&a, "first", in_group).await;
     let excluded = t.note_with(&a, "second", in_group).await;
-    let scope_id = t.page(&t.scopes_id(), "Work").await;
-    t.link(&scope_id, &a).await;
-    let exclude = t.page(&scope_id, "Exclude").await;
-    t.link(&exclude, &excluded).await;
-    let scope = resolve_scope(&t.db, &t.user_id, &scope_id).unwrap();
+    let scope = t.scope_hiding(&[&a], &[&excluded]).await;
     let session = test_session(&t.user_id);
     let db = Arc::new(tokio::sync::Mutex::new(t.db));
     let get = serde_json::json!({ "link": format!("infumap://{group_id}") });
@@ -4635,9 +4621,9 @@ mod tests {
     let (scoped, unscoped) = (f.infumap_data(true).await, f.infumap_data(false).await);
     let db = f.db.lock().await;
     let scoped = chat_system_prompt(&db, Some(&scoped), false, ChatRunMode::Chat);
-    assert!(scoped.contains("only see the scope \"Work\""));
+    assert!(scoped.contains("only see the collection \"Work\""));
     let unscoped = chat_system_prompt(&db, Some(&unscoped), false, ChatRunMode::DeepResearch);
-    assert!(!unscoped.contains("only see the scope"));
+    assert!(!unscoped.contains("only see the collection"));
     assert!(!unscoped.contains("limited the Infumap tools"));
   }
 

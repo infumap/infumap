@@ -14,30 +14,21 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! Named scopes for search and chat, defined by items under the user's scopes page.
+//! Scopes for search and chat: everything, a collection, everything except a collection, or items chosen in a chat.
 //!
-//! Each child page of the scopes page is a scope, named by its title. The scope page's link
-//! children are include roots. Links inside a child container titled "Exclude" (case-insensitive)
-//! are exclude roots. A scope covers its include roots and their descendants (children and
-//! attachments, never link targets), minus the exclude roots and their descendants. Exclusion
-//! wins over inclusion. A scope with no include links covers the user's home page tree and query chats; a scope
-//! whose include links all fail to resolve covers nothing.
-//!
-//! A chat can instead be limited to items chosen in it, without a scope page. Each covers itself and its
-//! descendants, as an include link would, and nothing is excluded.
-//!
-//! Collections are replacing scope pages. A collection is a page with the Collection flag; its direct link children
-//! are its members and its other children are annotations. A `ScopeRef` limits retrieval to a collection's members
-//! and their descendants, or to everything except them. A collection that is missing, trashed or no longer flagged
+//! A collection is a page with the Collection flag. Its direct link children are its members; its other children
+//! are annotations and cover nothing. A member covers its target and the target's descendants (children and
+//! attachments, never link targets). Excluding a collection hides that coverage from everything else, and exclusion
+//! wins over any other way an item could be reached. A collection that is missing, trashed or no longer flagged
 //! covers nothing, whichever way it is used: a broken reference must never broaden retrieval.
+//!
+//! A chat can instead be limited to items chosen in it. Each covers itself and its descendants, as a member would.
 
 use super::*;
 use crate::ai::search_eligibility::is_in_trash;
 use crate::query_configuration::ScopeRef;
-use crate::web::routes::scopes_page_id;
 use infusdk::item::PAGE_COLLECTION_FLAG;
 
-const EXCLUDE_CONTAINER_TITLE: &str = "exclude";
 /// The most items a chat can be limited to.
 pub(super) const MAX_SCOPE_ITEMS: usize = 32;
 const SCOPE_ITEM_TITLE_MAX_CHARS: usize = 120;
@@ -45,16 +36,6 @@ const SCOPE_ITEM_TITLE_MAX_CHARS: usize = 120;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub(super) enum ScopeProblem {
-  /// A link in the scope, or in one of its Exclude containers, has no readable target, or targets another link.
-  #[serde(rename_all = "camelCase")]
-  UnresolvedLink { item_id: Uid, exclude: bool },
-  /// A container that is not an Exclude container. Its contents do not affect the scope.
-  #[serde(rename_all = "camelCase")]
-  IgnoredContainer { item_id: Uid, title: Option<String> },
-  /// The scope has more than one Exclude container. The links in all of them are excluded.
-  MultipleExcludeContainers,
-  /// The scope has include links, but none of them resolve, so it covers nothing.
-  NoResolvedIncludes,
   /// An item chosen in a chat is missing or unreadable, or is a link to another link.
   #[serde(rename_all = "camelCase")]
   UnresolvedItem { item_id: Uid },
@@ -71,8 +52,6 @@ pub(super) enum ScopeProblem {
 pub(super) enum ScopeSource {
   /// Default retrieval, including earlier query chats, with any per-run exclusions.
   All,
-  /// A scope page, named by its title.
-  Named { id: Uid, name: String },
   /// Items chosen in a chat: each one that resolved, a link as its target, in the order chosen.
   Items(Vec<Uid>),
   /// A collection's members, named by the collection page's title.
@@ -242,24 +221,6 @@ pub(super) fn subtree_item_ids(db: &Db, roots: Vec<Uid>, pruned: &HashSet<Uid>, 
   Ok(item_ids)
 }
 
-// Scope pages are no longer used by search or chat; tests still build scopes from them until the Scopes page goes.
-#[cfg_attr(not(test), allow(dead_code))]
-pub(super) fn resolve_scope(db: &Db, user_id: &Uid, scope_id: &Uid) -> InfuResult<ResolvedScope> {
-  let scope_page =
-    db.item.get(scope_id).ok().filter(|item| is_scope_page(item, user_id)).ok_or("Scope was not found.")?;
-  resolve_scope_page(db, user_id, scope_page)
-}
-
-/// All of the user's scopes, in the order they appear on the scopes page.
-#[cfg_attr(not(test), allow(dead_code))]
-pub(super) fn list_scopes(db: &Db, user_id: &Uid) -> InfuResult<Vec<ResolvedScope>> {
-  sorted_children(db, &scopes_page_id(user_id))?
-    .into_iter()
-    .filter(|item| is_scope_page(item, user_id))
-    .map(|scope_page| resolve_scope_page(db, user_id, scope_page))
-    .collect()
-}
-
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct DescribeScopeItemsRequest {
@@ -320,93 +281,10 @@ fn describe_scope_items(db: &Db, user_id: &Uid, item_ids: &[Uid]) -> Vec<ScopeIt
     .collect()
 }
 
-fn is_scope_page(item: &Item, user_id: &Uid) -> bool {
-  &item.owner_id == user_id
-    && item.item_type == ItemType::Page
-    && item.relationship_to_parent == RelationshipToParent::Child
-    && item.parent_id.as_ref() == Some(&scopes_page_id(user_id))
-}
-
-fn is_exclude_container(item: &Item) -> bool {
-  is_container_item_type(item.item_type)
-    && item.title.as_deref().is_some_and(|title| title.trim().eq_ignore_ascii_case(EXCLUDE_CONTAINER_TITLE))
-}
-
 fn sorted_children<'a>(db: &'a Db, parent_id: &Uid) -> InfuResult<Vec<&'a Item>> {
   let mut children = db.item.get_children(parent_id)?;
   children.sort_by(|a, b| a.ordering.cmp(&b.ordering).then_with(|| a.id.cmp(&b.id)));
   Ok(children)
-}
-
-fn ignored_container_problem(item: &Item) -> ScopeProblem {
-  ScopeProblem::IgnoredContainer { item_id: item.id.clone(), title: item.title.clone() }
-}
-
-fn resolve_root(
-  db: &Db,
-  user_id: &Uid,
-  link: &Item,
-  exclude: bool,
-  roots: &mut HashSet<Uid>,
-  problems: &mut Vec<ScopeProblem>,
-) {
-  match resolve_content(db, link, user_id) {
-    Some(target) => {
-      roots.insert(target.id.clone());
-    }
-    None => problems.push(ScopeProblem::UnresolvedLink { item_id: link.id.clone(), exclude }),
-  }
-}
-
-fn resolve_scope_page(db: &Db, user_id: &Uid, scope_page: &Item) -> InfuResult<ResolvedScope> {
-  let user = db.user.get(user_id).ok_or(format!("Unknown user '{}'.", user_id))?;
-  let mut problems = Vec::new();
-  let mut include_links = Vec::new();
-  let mut exclude_containers = Vec::new();
-  for child in sorted_children(db, &scope_page.id)? {
-    if child.item_type == ItemType::Link {
-      include_links.push(child);
-    } else if is_exclude_container(child) {
-      exclude_containers.push(child);
-    } else if is_container_item_type(child.item_type) {
-      problems.push(ignored_container_problem(child));
-    }
-  }
-
-  let include_roots = if include_links.is_empty() {
-    None
-  } else {
-    let mut include_roots = HashSet::new();
-    for link in include_links {
-      resolve_root(db, user_id, link, false, &mut include_roots, &mut problems);
-    }
-    if include_roots.is_empty() {
-      problems.push(ScopeProblem::NoResolvedIncludes);
-    }
-    Some(include_roots)
-  };
-
-  if exclude_containers.len() > 1 {
-    problems.push(ScopeProblem::MultipleExcludeContainers);
-  }
-  let mut exclude_roots = HashSet::new();
-  for exclude_container in exclude_containers {
-    for child in sorted_children(db, &exclude_container.id)? {
-      if child.item_type == ItemType::Link {
-        resolve_root(db, user_id, child, true, &mut exclude_roots, &mut problems);
-      } else if is_container_item_type(child.item_type) {
-        problems.push(ignored_container_problem(child));
-      }
-    }
-  }
-
-  Ok(ResolvedScope {
-    source: ScopeSource::Named { id: scope_page.id.clone(), name: scope_page.title.clone().unwrap_or_default() },
-    home_page_id: user.home_page_id.clone(),
-    include_roots,
-    exclude_roots,
-    problems,
-  })
 }
 
 /// The scope of items chosen in a chat. An item that does not resolve is reported as a problem; if none
@@ -630,7 +508,6 @@ pub(super) mod test_db {
   use crate::storage::db::user::User;
   use crate::web::routes::{
     default_dock_page, default_home_page, default_queries_page, default_trash_page, ensure_prompts_page,
-    ensure_scopes_page,
   };
   use infusdk::item::NoteFlags;
   use std::path::PathBuf;
@@ -640,6 +517,8 @@ pub(super) mod test_db {
     pub user_id: Uid,
     pub home_id: Uid,
     pub trash_id: Uid,
+    /// Outside the home page tree, so collections kept here are not in the default search universe.
+    pub dock_id: Uid,
     pub dir: TempDir,
   }
 
@@ -678,19 +557,33 @@ pub(super) mod test_db {
       db.item.add(default_trash_page(&user.id, user.trash_page_id.clone(), 2.0)).await.unwrap();
       db.item.add(default_dock_page(&user.id, user.dock_page_id.clone(), 2.0)).await.unwrap();
       db.item.add(default_queries_page(&user.id, user.queries_page_id.clone(), 2.0)).await.unwrap();
-      ensure_scopes_page(&mut db, &user.id).await.unwrap();
       ensure_prompts_page(&mut db, &user.id).await.unwrap();
       TestDb {
         db,
         user_id: user.id.clone(),
         home_id: user.home_page_id,
         trash_id: user.trash_page_id,
+        dock_id: user.dock_page_id,
         dir: TempDir(dir),
       }
     }
 
-    pub fn scopes_id(&self) -> Uid {
-      scopes_page_id(&self.user_id)
+    /// A collection in the dock, linking to each member.
+    pub async fn collection_of(&mut self, title: &str, members: &[&Uid]) -> Uid {
+      let id = self.collection(&self.dock_id.clone(), title).await;
+      for member in members {
+        self.link(&id, member).await;
+      }
+      id
+    }
+
+    /// The scope of a collection of `members` that also hides `hidden`. A collection alone cannot say both; this
+    /// adds the exclusions as a chat run adds its own transcript.
+    pub async fn scope_hiding(&mut self, members: &[&Uid], hidden: &[&Uid]) -> ResolvedScope {
+      let id = self.collection_of("Scope", members).await;
+      let scope = resolve_scope_ref(&self.db, &self.user_id, &ScopeRef::Collection { id }).unwrap();
+      let hidden = hidden.iter().map(|id| (*id).clone()).collect();
+      ResolvedScope::for_chat(&self.db, &self.user_id, Some(scope), hidden).unwrap()
     }
 
     pub async fn add(&mut self, mut item: Item) -> Uid {
@@ -802,22 +695,21 @@ mod tests {
   use super::*;
 
   impl TestDb {
-    fn resolve(&self, scope_id: &Uid) -> ResolvedScope {
-      resolve_scope(&self.db, &self.user_id, scope_id).unwrap()
-    }
-
     fn contains(&self, scope: &ResolvedScope, item_id: &Uid) -> bool {
       scope.contains(&self.db, self.db.item.get(item_id).unwrap())
     }
 
-    /// Checks that contains() and allowed_item_ids() agree on every item the user owns.
+    /// Checks that contains() and allowed_item_ids() agree on every item the user owns. A link inside the scope is
+    /// left out of the allowed ids when its target is outside it, so its title is never a hit for hidden content.
     fn assert_consistent(&self, scope: &ResolvedScope) {
       let allowed = scope.allowed_item_ids(&self.db, &self.user_id).unwrap().into_iter().collect::<HashSet<_>>();
       for item_key in self.db.item.all_loaded_items().into_iter().filter(|key| key.user_id == self.user_id) {
         let item = self.db.item.get(&item_key.item_id).unwrap();
+        let target_allowed = item.item_type != ItemType::Link
+          || resolve_content(&self.db, item, &self.user_id).is_some_and(|target| scope.contains(&self.db, target));
         assert_eq!(
           allowed.contains(&item.id),
-          readable(item, &self.user_id) && scope.contains(&self.db, item),
+          readable(item, &self.user_id) && scope.contains(&self.db, item) && target_allowed,
           "contains() and allowed_item_ids() disagree on '{:?}'",
           item.title
         );
@@ -826,7 +718,7 @@ mod tests {
   }
 
   #[tokio::test]
-  async fn include_roots_cover_their_descendants_only() {
+  async fn members_cover_their_descendants_but_not_link_targets_or_ancestors() {
     let mut t = TestDb::new().await;
     let home = t.home_id.clone();
     let projects = t.page(&home, "Projects").await;
@@ -834,48 +726,25 @@ mod tests {
     let attachment = t.note(&project_note, "attached", RelationshipToParent::Attachment).await;
     let other = t.page(&home, "Other").await;
     let outside_link = t.link(&projects, &other).await;
-    let scope = t.page(&t.scopes_id(), "Work").await;
-    t.link(&scope, &projects).await;
+    let work = t.collection_of("Work", &[&projects]).await;
 
-    let resolved = t.resolve(&scope);
-    assert_eq!(resolved.source, ScopeSource::Named { id: scope.clone(), name: "Work".to_owned() });
+    let resolved = t.resolve_ref(&collection(&work));
     assert_eq!(resolved.include_root_count(), Some(1));
     assert!(resolved.problems.is_empty());
-    assert!(t.contains(&resolved, &projects));
-    assert!(t.contains(&resolved, &project_note));
-    assert!(t.contains(&resolved, &attachment));
-    assert!(t.contains(&resolved, &outside_link));
+    for inside in [&projects, &project_note, &attachment, &outside_link] {
+      assert!(t.contains(&resolved, inside));
+    }
     assert!(!t.contains(&resolved, &other), "link targets are not followed");
-    assert!(!t.contains(&resolved, &home), "ancestors of include roots are not included");
+    assert!(!t.contains(&resolved, &home), "ancestors of members are not covered");
+    assert!(
+      !resolved.allowed_item_ids(&t.db, &t.user_id).unwrap().contains(&outside_link),
+      "a link to something outside is not a hit either"
+    );
     t.assert_consistent(&resolved);
   }
 
   #[tokio::test]
-  async fn no_include_links_means_home_tree_minus_excludes() {
-    let mut t = TestDb::new().await;
-    let home = t.home_id.clone();
-    let trash = t.trash_id.clone();
-    let journal = t.page(&home, "Journal").await;
-    let entry = t.note(&journal, "entry", RelationshipToParent::Child).await;
-    let notes = t.page(&home, "Notes").await;
-    let trashed = t.note(&trash, "trashed", RelationshipToParent::Child).await;
-    let scope = t.page(&t.scopes_id(), "No journal").await;
-    let exclude = t.page(&scope, "Exclude").await;
-    t.link(&exclude, &journal).await;
-
-    let resolved = t.resolve(&scope);
-    assert_eq!(resolved.include_root_count(), None);
-    assert_eq!(resolved.exclude_root_count(), 1);
-    assert!(t.contains(&resolved, &home));
-    assert!(t.contains(&resolved, &notes));
-    assert!(!t.contains(&resolved, &journal));
-    assert!(!t.contains(&resolved, &entry));
-    assert!(!t.contains(&resolved, &trashed), "everything means the home tree");
-    t.assert_consistent(&resolved);
-  }
-
-  #[tokio::test]
-  async fn exclude_wins_whichever_root_is_nested() {
+  async fn exclusions_win_whichever_root_is_nested() {
     let mut t = TestDb::new().await;
     let home = t.home_id.clone();
     let archive = t.page(&home, "Archive").await;
@@ -883,145 +752,16 @@ mod tests {
     let receipt = t.note(&taxes, "receipt", RelationshipToParent::Child).await;
     let old = t.note(&archive, "old", RelationshipToParent::Child).await;
 
-    let carve_out = t.page(&t.scopes_id(), "Archive without taxes").await;
-    t.link(&carve_out, &archive).await;
-    let exclude = t.page(&carve_out, "Exclude").await;
-    t.link(&exclude, &taxes).await;
-    let resolved = t.resolve(&carve_out);
-    assert!(t.contains(&resolved, &old));
-    assert!(!t.contains(&resolved, &receipt));
-    t.assert_consistent(&resolved);
+    let carve_out = t.scope_hiding(&[&archive], &[&taxes]).await;
+    assert!(t.contains(&carve_out, &old));
+    assert!(!t.contains(&carve_out, &receipt));
+    t.assert_consistent(&carve_out);
 
-    let carve_in = t.page(&t.scopes_id(), "Taxes only").await;
-    t.link(&carve_in, &taxes).await;
-    let exclude = t.page(&carve_in, "Exclude").await;
-    t.link(&exclude, &archive).await;
-    let resolved = t.resolve(&carve_in);
-    assert!(!t.contains(&resolved, &taxes));
-    assert!(!t.contains(&resolved, &receipt));
-    assert!(resolved.allowed_item_ids(&t.db, &t.user_id).unwrap().is_empty());
-    t.assert_consistent(&resolved);
-  }
-
-  #[tokio::test]
-  async fn exclude_container_title_is_case_insensitive_and_multiple_are_combined() {
-    let mut t = TestDb::new().await;
-    let home = t.home_id.clone();
-    let a = t.page(&home, "A").await;
-    let b = t.page(&home, "B").await;
-    let scope = t.page(&t.scopes_id(), "Scope").await;
-    let first = t.page(&scope, "eXcLuDe").await;
-    t.link(&first, &a).await;
-    let second = t.page(&scope, " exclude ").await;
-    t.link(&second, &b).await;
-
-    let resolved = t.resolve(&scope);
-    assert_eq!(resolved.exclude_root_count(), 2);
-    assert_eq!(resolved.problems, vec![ScopeProblem::MultipleExcludeContainers]);
-    assert!(!t.contains(&resolved, &a));
-    assert!(!t.contains(&resolved, &b));
-  }
-
-  #[tokio::test]
-  async fn other_children_are_ignored_and_containers_reported() {
-    let mut t = TestDb::new().await;
-    let home = t.home_id.clone();
-    let a = t.page(&home, "A").await;
-    let scope = t.page(&t.scopes_id(), "Scope").await;
-    t.note(&scope, "a description", RelationshipToParent::Child).await;
-    let misnamed = t.page(&scope, "Excludes").await;
-    t.link(&misnamed, &a).await;
-    let exclude = t.page(&scope, "Exclude").await;
-    let nested = t.page(&exclude, "Nested").await;
-
-    let resolved = t.resolve(&scope);
-    assert_eq!(resolved.include_root_count(), None);
-    assert_eq!(resolved.exclude_root_count(), 0);
-    assert_eq!(
-      resolved.problems,
-      vec![
-        ScopeProblem::IgnoredContainer { item_id: misnamed, title: Some("Excludes".to_owned()) },
-        ScopeProblem::IgnoredContainer { item_id: nested, title: Some("Nested".to_owned()) },
-      ]
-    );
-    assert!(t.contains(&resolved, &a));
-  }
-
-  #[tokio::test]
-  async fn broken_links_are_reported_and_never_widen_the_scope() {
-    let mut t = TestDb::new().await;
-    let home = t.home_id.clone();
-    let a = t.page(&home, "A").await;
-    let b = t.page(&home, "B").await;
-
-    let partly_broken = t.page(&t.scopes_id(), "Partly broken").await;
-    t.link(&partly_broken, &a).await;
-    let broken_include = t.link(&partly_broken, &new_uid()).await;
-    let exclude = t.page(&partly_broken, "Exclude").await;
-    let broken_exclude = t.link(&exclude, &new_uid()).await;
-    let resolved = t.resolve(&partly_broken);
-    assert_eq!(
-      resolved.problems,
-      vec![
-        ScopeProblem::UnresolvedLink { item_id: broken_include, exclude: false },
-        ScopeProblem::UnresolvedLink { item_id: broken_exclude, exclude: true },
-      ]
-    );
-    assert!(t.contains(&resolved, &a));
-    assert!(!t.contains(&resolved, &b));
-
-    let all_broken = t.page(&t.scopes_id(), "All broken").await;
-    let broken = t.link(&all_broken, &new_uid()).await;
-    let resolved = t.resolve(&all_broken);
-    assert_eq!(resolved.include_root_count(), Some(0));
-    assert_eq!(
-      resolved.problems,
-      vec![ScopeProblem::UnresolvedLink { item_id: broken, exclude: false }, ScopeProblem::NoResolvedIncludes]
-    );
-    assert!(!t.contains(&resolved, &home));
-    assert!(resolved.allowed_item_ids(&t.db, &t.user_id).unwrap().is_empty());
-  }
-
-  #[tokio::test]
-  async fn links_to_links_do_not_resolve() {
-    let mut t = TestDb::new().await;
-    let home = t.home_id.clone();
-    let target = t.page(&home, "Target").await;
-    let elsewhere = t.page(&home, "Elsewhere").await;
-    let intermediate = t.link(&elsewhere, &target).await;
-    let scope = t.page(&t.scopes_id(), "Scope").await;
-    let link_to_link = t.link(&scope, &intermediate).await;
-
-    let resolved = t.resolve(&scope);
-    assert_eq!(
-      resolved.problems,
-      vec![ScopeProblem::UnresolvedLink { item_id: link_to_link, exclude: false }, ScopeProblem::NoResolvedIncludes]
-    );
-    assert!(!t.contains(&resolved, &target));
-    assert!(!t.contains(&resolved, &elsewhere));
-  }
-
-  #[tokio::test]
-  async fn scopes_are_listed_in_order_and_lookups_are_restricted_to_scope_pages() {
-    let mut t = TestDb::new().await;
-    let home = t.home_id.clone();
-    let not_a_scope = t.page(&home, "Not a scope").await;
-    let scopes_id = t.scopes_id();
-    let first = t.page(&scopes_id, "First").await;
-    t.note(&scopes_id, "not a scope either", RelationshipToParent::Child).await;
-    let second = t.page(&scopes_id, "Second").await;
-
-    let listed = list_scopes(&t.db, &t.user_id).unwrap();
-    assert_eq!(
-      listed.iter().map(|scope| scope.source.clone()).collect::<Vec<_>>(),
-      vec![
-        ScopeSource::Named { id: first, name: "First".to_owned() },
-        ScopeSource::Named { id: second, name: "Second".to_owned() },
-      ]
-    );
-    assert!(resolve_scope(&t.db, &t.user_id, &not_a_scope).is_err());
-    assert!(resolve_scope(&t.db, &t.user_id, &new_uid()).is_err());
-    assert!(resolve_scope(&t.db, &t.user_id, &scopes_id).is_err());
+    let carve_in = t.scope_hiding(&[&taxes], &[&archive]).await;
+    assert!(!t.contains(&carve_in, &taxes));
+    assert!(!t.contains(&carve_in, &receipt));
+    assert!(carve_in.allowed_item_ids(&t.db, &t.user_id).unwrap().is_empty());
+    t.assert_consistent(&carve_in);
   }
 
   #[tokio::test]

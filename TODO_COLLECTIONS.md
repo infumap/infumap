@@ -363,7 +363,7 @@ As built, beyond the list above:
 - A collection picker filter appears from 7 collections. An unlisted collection's title comes from the item state
   when loaded, else "Collection (unavailable)".
 
-### 4. Retire the Scopes system page
+### 4. Retire the Scopes system page — done
 
 - Remove `scopes_page_id`, `ensure_scopes_page` (startup in `web/mod.rs`, `admin.rs`, `account.rs`), the
   account-response field, `scopesPageId` in `accountTypes.ts` and the store, `resolve_scope`,
@@ -379,6 +379,13 @@ As built, beyond the list above:
   once its system status is gone, and that its fixed id has no other special handling.
 - The doc puts this in the same change as step 3. Keeping it separate makes review easier, and nothing uses the
   page after step 3.
+
+As built: the Queries pin guard now lets a client unpin an ordinary page there, since the old Scopes page is still
+pinned to the bottom; pinning anything, or unpinning the current chat or Prompts, is still refused. A new Prompts page
+goes at the end of Queries (`new_ordering_between` lost its last use and went). Tests that combined an include with an
+exclusion use `TestDb::scope_hiding`, which adds the exclusion through `ResolvedScope::for_chat`. The consistency
+helper now expects links whose targets are out of scope to be left out of the allowed ids, which fixed the one
+long-failing scope test.
 
 ### 5. Toolbar Collections picker and an empty collection mode
 
