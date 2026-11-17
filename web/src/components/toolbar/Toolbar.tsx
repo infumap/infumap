@@ -32,6 +32,7 @@ import { itemCanEdit } from "../../items/base/capabilities-item";
 import { hexToRGBA } from "../../util/color";
 import { BORDER_COLOR, BorderType, Colors, LIGHT_BORDER_COLOR, borderColorForColorIdx, linearGradient, mainPageBorderColor, mainPageBorderWidth, tablePageLineColor } from "../../style";
 import { InfuIconButton } from '../library/InfuIconButton';
+import { Toolbar_Collections } from './Toolbar_Collections';
 import { CollectionTitleGlyph } from '../library/CollectionGlyph';
 import { isCollectionPage } from '../../items/collection';
 import { Toolbar_Page } from './item/Toolbar_Page';
@@ -63,7 +64,7 @@ import { logout } from '../Main';
 import { getFocusedSearchWorkspaceChromeSpec } from '../../util/search-focus-chrome';
 import { getToolbarFocusItem } from './toolbarFocus';
 import { SOLO_ITEM_HOLDER_PAGE_UID } from '../../util/uid';
-import { TOOLBAR_RIGHT_DIVIDER_RIGHT_PX } from "./toolbarDividers";
+import { toolbarRightDividerRightPx } from "./toolbarDividers";
 import { MOD } from '../../util/platform';
 import { InfuRevealCaret } from '../library/InfuRevealCaret';
 
@@ -306,7 +307,7 @@ export const Toolbar: Component = () => {
     <Show when={store.dockVisible.get()}>
       <>
         <div class="fixed left-0 top-0 border-r border-b overflow-hidden"
-          style={`width: ${store.getCurrentDockWidthPx()}px; height: ${store.topToolbarHeightPx()}px; background-color: #fafafa; ` +
+          style={`width: ${store.getCurrentDockWidthPx()}px; height: ${store.toolbarHeightPx()}px; background-color: #fafafa; ` +
             `border-bottom-color: ${LIGHT_BORDER_COLOR}; border-right-color: ${mainPageBorderColor(store, itemState.get)}; ` +
             `border-right-width: ${mainPageBorderWidth(store)}px`}>
           <div class="flex flex-row flex-nowrap" style={'width: 100%; margin-top: 4px; margin-left: 6px;'}>
@@ -337,7 +338,7 @@ export const Toolbar: Component = () => {
           style={`width: ${mainPageBorderWidth(store)}px; ` +
             `height: 10px; ` +
             `left: ${store.getCurrentDockWidthPx() - mainPageBorderWidth(store)}px; ` +
-            `top: ${store.topToolbarHeightPx() - 5}px; ` +
+            `top: ${store.toolbarHeightPx() - 5}px; ` +
             `background-color: ${mainPageBorderColor(store, itemState.get)};`} />
       </>
     </Show>;
@@ -402,7 +403,7 @@ export const Toolbar: Component = () => {
 
       <div class="grow-0 ml-[7px] mr-[7px] relative" style="flex-order: 1; height: 25px;">
         {/* spacer line. TODO (LOW): don't use fixed layout for this. */}
-        <div class="fixed border-r border-chrome-line" style={`height: 25px; right: ${TOOLBAR_RIGHT_DIVIDER_RIGHT_PX}px; top: 7px;`}></div>
+        <div class="fixed border-r border-chrome-line" style={`height: 25px; right: ${toolbarRightDividerRightPx(store)}px; top: 7px;`}></div>
       </div>
 
       <div class="grow-0 pr-[8px]" style="flex-order: 2;">
@@ -410,6 +411,7 @@ export const Toolbar: Component = () => {
           <InfuIconButton icon="bi-box-arrow-in-right" highlighted={false} clickHandler={handleLogin} title="Log in" />
         </Show>
         <Show when={store.user.getUserMaybe()}>
+          <Toolbar_Collections />
           <InfuIconButton icon="bi-person-fill" highlighted={false} clickHandler={showUserSettings} title="User settings" />
         </Show>
         <InfuIconButton icon="bi-question-circle-fill" highlighted={false} clickHandler={showHelp} title="Help (?)" />
@@ -463,7 +465,7 @@ export const Toolbar: Component = () => {
                 `border-top-color: ${tSpec().borderColor};` +
                 `border-top-width: ${tSpec().borderWidthPx - 1}px; ` +
                 `padding-top: ${2 - (tSpec().borderWidthPx - 1)}px; ` +
-                `height: ${store.topToolbarHeightPx()}px; ` +
+                `height: ${store.toolbarHeightPx()}px; ` +
                 (tSpec().rPosPx > 0 ? `width: ${tSpec().rPosPx - tSpec().lPosPx - 6 - (tSpec().nextHasFocus ? 1 : 0) - (tSpec().isCollection ? TOOLBAR_COLLECTION_GLYPH_WIDTH_PX : 0)}px;` : '') +
                 "outline: 0px solid transparent;"}
               onClick={handleTitleClick}>
@@ -478,7 +480,7 @@ export const Toolbar: Component = () => {
                   `border-top-color: ${tSpec().borderColor};` +
                   `border-top-width: ${tSpec().borderWidthPx - 1}px; ` +
                   `padding-top: ${5 - (tSpec().borderWidthPx - 1)}px; ` +
-                  `height: ${store.topToolbarHeightPx()}px;`}>
+                  `height: ${store.toolbarHeightPx()}px;`}>
                 <CollectionTitleGlyph color={tSpec().col} />
               </div>
             </Show>

@@ -28,7 +28,7 @@ import { getToolbarFocusItem, getToolbarFocusLinkItemMaybe, getToolbarFocusPathM
 import { itemOrderingIsShown, Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 import { dividerIsAlwaysHorizontal } from "../../items/helper";
 import { Toolbar_InfoAndId } from "./Toolbar_InfoAndId";
-import { TOOLBAR_INFO_DIVIDER_RIGHT_PX } from "../toolbarDividers";
+import { toolbarInfoDividerRightPx } from "../toolbarDividers";
 
 
 function swapSize(item: { spatialWidthGr: number, spatialHeightGr: number }) {
@@ -91,7 +91,7 @@ export const Toolbar_Divider: Component = () => {
         <Toolbar_ItemOrdering />
 
         <Show when={hasOptions()}>
-          <div class="fixed border-r border-chrome-line" style={`height: 25px; right: ${TOOLBAR_INFO_DIVIDER_RIGHT_PX}px; top: 7px;`}></div>
+          <div class="fixed border-r border-chrome-line" style={`height: 25px; right: ${toolbarInfoDividerRightPx(store)}px; top: 7px;`}></div>
         </Show>
 
         <Toolbar_InfoAndId infoClass={hasOptions() ? undefined : "inline-block pl-[2px]"} />

@@ -18,16 +18,25 @@
 
 // The toolbar's divider lines are fixed, positioned from the window's right edge. TODO (LOW): don't use fixed layout.
 
+import type { StoreContextModel } from "../../store/StoreProvider";
+
 const ICON_BUTTON_WIDTH_PX = 24; // InfuIconButton: 21px wide, 3px left margin.
 
 /**
- * Before the right-most icons: user, help, network status, hide toolbar. Midway between the icon either side, so it
- * allows for each button's 3px left margin.
+ * Before the right-most icons: collections (when logged in), user, help, network status, hide toolbar. Midway between
+ * the icon either side, so it allows for each button's 3px left margin.
  */
-export const TOOLBAR_RIGHT_DIVIDER_RIGHT_PX = 8 + 4 * ICON_BUTTON_WIDTH_PX + 5;
+export function toolbarRightDividerRightPx(store: StoreContextModel): number {
+  const iconCount = store.user.getUserMaybe() == null ? 4 : 5;
+  return 8 + iconCount * ICON_BUTTON_WIDTH_PX + 5;
+}
 
 /** Before an item's info and id buttons, midway between the info button and the 16px of space left of it. */
-export const TOOLBAR_INFO_DIVIDER_RIGHT_PX = TOOLBAR_RIGHT_DIVIDER_RIGHT_PX + 63;
+export function toolbarInfoDividerRightPx(store: StoreContextModel): number {
+  return toolbarRightDividerRightPx(store) + 63;
+}
 
-/** As TOOLBAR_INFO_DIVIDER_RIGHT_PX, with one more button (e.g. download) before the info button. */
-export const TOOLBAR_INFO_DIVIDER_WITH_EXTRA_BUTTON_RIGHT_PX = TOOLBAR_INFO_DIVIDER_RIGHT_PX + ICON_BUTTON_WIDTH_PX;
+/** As toolbarInfoDividerRightPx, with one more button (e.g. download) before the info button. */
+export function toolbarInfoDividerWithExtraButtonRightPx(store: StoreContextModel): number {
+  return toolbarInfoDividerRightPx(store) + ICON_BUTTON_WIDTH_PX;
+}

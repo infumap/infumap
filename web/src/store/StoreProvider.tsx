@@ -21,7 +21,8 @@ import { createContext, useContext } from "solid-js";
 import { panic } from "../util/lang";
 import { Uid } from "../util/uid";
 import { BoundingBox, Dimensions } from "../util/geometry";
-import { NATURAL_BLOCK_SIZE_PX, TOP_TOOLBAR_HEIGHT_PX } from "../constants";
+import { COLLECTION_BAR_HEIGHT_PX, NATURAL_BLOCK_SIZE_PX, TOP_TOOLBAR_HEIGHT_PX } from "../constants";
+import { clearCollectionMode, collectionModeActive } from "../items/collection-mode";
 import { NONE_VISUAL_ELEMENT, VisualElement, VisualElementPath } from "../layout/visual-element";
 import { createInfuSignal, InfuSignal } from "../util/signals";
 import { GeneralStoreContextModel, makeGeneralStore } from "./StoreProvider_General";
@@ -63,7 +64,15 @@ export interface StoreContextModel {
   setDockWidthPx: (widthPx: number) => void,
 
   topToolbarVisible: InfuSignal<boolean>,
+  /**
+   * The height of everything above the desktop: the toolbar and, in collection mode, the collection bar under it.
+   * Positions on the desktop are offset by this.
+   */
   topToolbarHeightPx: () => number,
+  /** The toolbar alone, for drawing the toolbar and placing its popups. */
+  toolbarHeightPx: () => number,
+  /** The collection bar, or 0 when it is not shown. */
+  collectionBarHeightPx: () => number,
 
   dockVisible: InfuSignal<boolean>,
 
@@ -109,7 +118,10 @@ export function StoreProvider(props: StoreContextProps) {
   const currentUrlPath = createInfuSignal<string>('');
 
   const topToolbarVisible = createInfuSignal<boolean>(true);
-  const topToolbarHeightPx = () => topToolbarVisible.get() && !smallScreenMode() ? TOP_TOOLBAR_HEIGHT_PX : 0;
+  const toolbarHeightPx = () => topToolbarVisible.get() && !smallScreenMode() ? TOP_TOOLBAR_HEIGHT_PX : 0;
+  // Shown only with the toolbar: hiding the toolbar, printing or a small screen hides the bar, not the mode.
+  const collectionBarHeightPx = () => collectionModeActive() && toolbarHeightPx() > 0 ? COLLECTION_BAR_HEIGHT_PX : 0;
+  const topToolbarHeightPx = () => toolbarHeightPx() + collectionBarHeightPx();
 
   const browserClientSizePx = createInfuSignal<Dimensions>({ w: (document.getElementById("rootDiv") ?? panic("no rootDiv")).clientWidth, h: (document.getElementById("rootDiv") ?? panic("no rootDiv")).clientHeight });
 
@@ -194,6 +206,7 @@ export function StoreProvider(props: StoreContextProps) {
     perItem.clear();
     general.queryProfiles.clear();
     clearQueryCollections();
+    clearCollectionMode();
     clearQueryPrompts();
     perVe.clear();
     find.clear();
@@ -219,6 +232,8 @@ export function StoreProvider(props: StoreContextProps) {
     devicePixelRatio,
     topToolbarVisible,
     topToolbarHeightPx,
+    toolbarHeightPx,
+    collectionBarHeightPx,
 
     currentUrlPath,
 

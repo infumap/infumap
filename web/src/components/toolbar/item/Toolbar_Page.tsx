@@ -45,7 +45,7 @@ import { Toolbar_SortOrder } from "./Toolbar_SortOrder";
 import { cellShapeLabel } from "../toolbarCellShape";
 import { roundAspect } from "../toolbarDialog";
 import { justifiedRowSizeWord } from "../Toolbar_PageJustifiedLayoutPopup";
-import { TOOLBAR_INFO_DIVIDER_RIGHT_PX, TOOLBAR_INFO_DIVIDER_WITH_EXTRA_BUTTON_RIGHT_PX } from "../toolbarDividers";
+import { toolbarInfoDividerRightPx, toolbarInfoDividerWithExtraButtonRightPx } from "../toolbarDividers";
 
 
 const columnsText = (n: number): string => `${n} col${n == 1 ? "" : "s"}`;
@@ -572,7 +572,7 @@ export const Toolbar_Page: Component = () => {
     </>
   );
 
-  const infoDividerRightPx = () => showVirtualDocumentButtons() ? TOOLBAR_INFO_DIVIDER_WITH_EXTRA_BUTTON_RIGHT_PX : TOOLBAR_INFO_DIVIDER_RIGHT_PX;
+  const infoDividerRightPx = () => showVirtualDocumentButtons() ? toolbarInfoDividerWithExtraButtonRightPx(store) : toolbarInfoDividerRightPx(store);
 
   return (
     <div id="toolbarItemOptionsDiv"

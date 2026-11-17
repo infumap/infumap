@@ -16,6 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { collectionModeActive, exitCollectionMode } from "../items/collection-mode";
 import { itemCanEdit } from "../items/base/capabilities-item";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage, pageUsesEmbeddedInteractiveMode } from "../items/page-item";
 import { ImageFns, isImage } from "../items/image-item";
@@ -904,6 +905,12 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
       VesCache.mutate.clearPopup(VeFns.veToPath(topRootVes.get()));
       topRootVes.set(topRootVes.get());
       arrangeNow(store, "key-escape-close-popup");
+      return;
+    }
+    // After the selection and any popup, so Escape still closes a popup opened to look at something while curating,
+    // but before moving focus up: leaving the mode is the next thing Escape undoes.
+    if (collectionModeActive()) {
+      exitCollectionMode(store);
       return;
     }
 
