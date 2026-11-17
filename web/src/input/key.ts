@@ -910,7 +910,7 @@ export function keyDownHandler(store: StoreContextModel, ev: KeyboardEvent): voi
     // After the selection and any popup, so Escape still closes a popup opened to look at something while curating,
     // but before moving focus up: leaving the mode is the next thing Escape undoes.
     if (collectionModeActive()) {
-      exitCollectionMode(store);
+      exitCollectionMode();
       return;
     }
 

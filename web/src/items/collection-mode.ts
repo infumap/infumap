@@ -17,10 +17,10 @@
 */
 
 import { createSignal } from "solid-js";
-import { requestArrange } from "../layout/arrange";
 import { CollectionAddResponse, CollectionRemoveResponse, CollectionSummary, ItemCoverage, server } from "../server";
 import { itemState } from "../store/ItemState";
 import type { StoreContextModel } from "../store/StoreProvider";
+import { TransientMessageType } from "../store/StoreProvider_Overlay";
 import type { Uid } from "../util/uid";
 import { collectionMark, resetCollectionMarks, settleCollectionMarks, showUnsavedCollectionMarks } from "./collection-marks";
 import { queryCollections, refreshQueryCollections } from "./query-scope";
@@ -61,30 +61,20 @@ export function collectionModeCollectionListed(): boolean {
 }
 
 /** Enters the mode for the collection, or switches to it. The user stays where they are. */
-export function enterCollectionMode(store: StoreContextModel, collection: CollectionSummary): void {
-  const wasActive = collectionModeActive();
-  if (collection.id != collectionModeCollectionId()) {
-    resetCollectionMarks(collection.id);
-    clearChangeState();
-  }
+export function enterCollectionMode(collection: CollectionSummary): void {
+  if (collection.id != collectionModeCollectionId()) { resetCollectionMarks(collection.id); }
   setCollectionModeEntry(collection);
-  // The bar under the toolbar takes height from the desktop.
-  if (!wasActive) { requestArrange(store, "collection-mode-enter"); }
 }
 
-export function exitCollectionMode(store: StoreContextModel): void {
+export function exitCollectionMode(): void {
   if (!collectionModeActive()) { return; }
-  clearChangeState();
   setCollectionModeEntry(null);
   resetCollectionMarks(null);
-  requestArrange(store, "collection-mode-exit");
 }
 
-/** On logout or account change, without arranging: the store is being cleared. */
+/** On logout or account change. */
 export function clearCollectionMode(): void {
-  clearChangeState();
-  setCollectionModeEntry(null);
-  resetCollectionMarks(null);
+  exitCollectionMode();
 }
 
 
@@ -100,20 +90,18 @@ export type MembershipChange = "add" | "remove";
 /** The server limit on one add or remove. */
 const MAX_IDS_PER_CHANGE = 1000;
 
-/** Saves in flight, for "Saving…". */
-const [savingCount, setSavingCount] = createSignal(0);
-/** The last result worth saying, such as what was skipped and why. Replaced by the next. */
-const [notice, setNotice] = createSignal<string | null>(null);
-/** A failed save, with the means to try it again. */
-const [failure, setFailure] = createSignal<{ message: string, retry: () => void } | null>(null);
-
-export function collectionModeSaving(): boolean { return savingCount() > 0; }
-export function collectionModeNotice(): string | null { return notice(); }
-export function collectionModeFailure(): { message: string, retry: () => void } | null { return failure(); }
-
-function clearChangeState(): void {
-  setNotice(null);
-  setFailure(null);
+/**
+ * Says something the marks can't, in the toolbar's passing message: what was skipped and why, an item still included
+ * through a member above it, a failed save. The marks themselves show what was added or removed. A failed save puts
+ * its marks back, so clicking again is the retry.
+ */
+function say(store: StoreContextModel, text: string, type: TransientMessageType = TransientMessageType.Info): void {
+  const message = { text, type };
+  store.overlay.toolbarTransientMessage.set(message);
+  // By identity, so the timer of an earlier message doesn't cut a later one short.
+  setTimeout(() => {
+    if (store.overlay.toolbarTransientMessage.get() === message) { store.overlay.toolbarTransientMessage.set(null); }
+  }, type == TransientMessageType.Error ? 6000 : 4000);
 }
 
 function itemsLabel(count: number): string {
@@ -155,19 +143,16 @@ export function changeCollectionMembers(store: StoreContextModel, change: Member
   const collectionId = collectionModeCollectionId();
   if (collectionId == null) { return; }
   if (!collectionModeCollectionListed()) {
-    clearChangeState();
-    setNotice("It is no longer a collection, so nothing was changed.");
+    say(store, "Nothing was changed: it is no longer a collection.", TransientMessageType.Error);
     return;
   }
   const ids = [...new Set(itemIds)].filter(id => (collectionMark(id)?.kind == "direct") == (change == "remove"));
   if (ids.length == 0) {
-    clearChangeState();
-    if (itemIds.length > 1) { setNotice(change == "add" ? "All of them are members already." : "None of them are members."); }
+    if (itemIds.length > 1) { say(store, change == "add" ? "All of them are members already." : "None of them are members."); }
     return;
   }
   if (ids.length > MAX_IDS_PER_CHANGE) {
-    clearChangeState();
-    setNotice(`Nothing was changed: at most ${MAX_IDS_PER_CHANGE} items can be changed at once.`);
+    say(store, `Nothing was changed: at most ${MAX_IDS_PER_CHANGE} items can be changed at once.`, TransientMessageType.Error);
     return;
   }
   if (change == "add") {
@@ -179,18 +164,12 @@ export function changeCollectionMembers(store: StoreContextModel, change: Member
         const saved = new Map<Uid, ItemCoverage | null>();
         for (const id of [...response.added, ...response.alreadyMembers]) { saved.set(id, { kind: "direct" }); }
         settleCollectionMarks(seq, saved);
-        const parts: Array<string> = [];
-        if (response.added.length > 0) { parts.push(`Added ${itemsDescription(response.added)}.`); }
-        if (response.alreadyMembers.length > 0) {
-          parts.push(`${response.alreadyMembers.length} ${response.alreadyMembers.length == 1 ? "was" : "were"} already a member.`);
-        }
         if (response.skipped.length == 1) {
-          parts.push(`${quoted(response.skipped[0].title)} was skipped: ${response.skipped[0].reason}`);
+          say(store, `${quoted(response.skipped[0].title)} was not added: ${response.skipped[0].reason}`);
         } else if (response.skipped.length > 1) {
-          parts.push(`${response.skipped.length} were skipped: ` +
+          say(store, `${response.skipped.length} were not added. ` +
             response.skipped.map(skip => `${quoted(skip.title)}: ${skip.reason}`).join(" "));
         }
-        setNotice(parts.length == 0 ? null : parts.join(" "));
       });
   } else {
     void save(store, collectionId, `Could not remove ${itemsDescription(ids)}`,
@@ -205,15 +184,13 @@ export function changeCollectionMembers(store: StoreContextModel, change: Member
           saved.set(item.itemId, { kind: "inherited", viaId: item.viaId, viaTitle: item.viaTitle });
         }
         settleCollectionMarks(seq, saved);
-        const parts: Array<string> = [];
-        if (response.removed.length > 0) { parts.push(`Removed ${itemsDescription(response.removed)}.`); }
-        const vias = [...new Set(response.inherited.map(item => item.viaTitle ?? "an untitled page"))];
-        if (response.inherited.length > 0) {
+        // Only after removing a direct member: one that never was is shown as included, and says so by its mark.
+        if (response.inherited.length > 0 && response.removed.length > 0) {
           const count = response.inherited.length;
-          const subject = `${count} ${count == 1 ? "is" : "are"} still included`;
-          parts.push(vias.length == 1 ? `${subject} via ${vias[0]}.` : `${subject} through other members.`);
+          const vias = [...new Set(response.inherited.map(item => item.viaTitle ?? "an untitled page"))];
+          const subject = count == 1 ? `${itemsDescription(response.inherited.map(item => item.itemId))} is` : `${count} are`;
+          say(store, vias.length == 1 ? `${subject} still included via ${vias[0]}.` : `${subject} still included through other members.`);
         }
-        setNotice(parts.length == 0 ? null : parts.join(" "));
       });
   }
 }
@@ -226,9 +203,7 @@ async function save<T>(
   request: () => Promise<T>,
   done: (response: T, seq: number) => void,
 ): Promise<void> {
-  clearChangeState();
   const seq = showUnsaved();
-  setSavingCount(savingCount() + 1);
   try {
     const response = await request();
     // A switch to another collection meanwhile keeps the save, but its result is about the earlier one, and the
@@ -240,14 +215,9 @@ async function save<T>(
     if (collectionModeCollectionId() != collectionId) { return; }
     settleCollectionMarks(seq, null);
     // The server's reason does not reach the client. The commonest one, a collection deleted or unflagged meanwhile,
-    // shows in the bar once the list is fetched again.
+    // shows on the toolbar button once the list is fetched again.
     void refreshQueryCollections(store);
-    setFailure({
-      message: `${failureText}.`,
-      retry: () => { void save(store, collectionId, failureText, showUnsaved, request, done); },
-    });
-  } finally {
-    setSavingCount(savingCount() - 1);
+    say(store, `${failureText}. Try again.`, TransientMessageType.Error);
   }
 }
 

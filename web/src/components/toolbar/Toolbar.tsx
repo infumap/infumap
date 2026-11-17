@@ -307,7 +307,7 @@ export const Toolbar: Component = () => {
     <Show when={store.dockVisible.get()}>
       <>
         <div class="fixed left-0 top-0 border-r border-b overflow-hidden"
-          style={`width: ${store.getCurrentDockWidthPx()}px; height: ${store.toolbarHeightPx()}px; background-color: #fafafa; ` +
+          style={`width: ${store.getCurrentDockWidthPx()}px; height: ${store.topToolbarHeightPx()}px; background-color: #fafafa; ` +
             `border-bottom-color: ${LIGHT_BORDER_COLOR}; border-right-color: ${mainPageBorderColor(store, itemState.get)}; ` +
             `border-right-width: ${mainPageBorderWidth(store)}px`}>
           <div class="flex flex-row flex-nowrap" style={'width: 100%; margin-top: 4px; margin-left: 6px;'}>
@@ -338,7 +338,7 @@ export const Toolbar: Component = () => {
           style={`width: ${mainPageBorderWidth(store)}px; ` +
             `height: 10px; ` +
             `left: ${store.getCurrentDockWidthPx() - mainPageBorderWidth(store)}px; ` +
-            `top: ${store.toolbarHeightPx() - 5}px; ` +
+            `top: ${store.topToolbarHeightPx() - 5}px; ` +
             `background-color: ${mainPageBorderColor(store, itemState.get)};`} />
       </>
     </Show>;
@@ -465,7 +465,7 @@ export const Toolbar: Component = () => {
                 `border-top-color: ${tSpec().borderColor};` +
                 `border-top-width: ${tSpec().borderWidthPx - 1}px; ` +
                 `padding-top: ${2 - (tSpec().borderWidthPx - 1)}px; ` +
-                `height: ${store.toolbarHeightPx()}px; ` +
+                `height: ${store.topToolbarHeightPx()}px; ` +
                 (tSpec().rPosPx > 0 ? `width: ${tSpec().rPosPx - tSpec().lPosPx - 6 - (tSpec().nextHasFocus ? 1 : 0) - (tSpec().isCollection ? TOOLBAR_COLLECTION_GLYPH_WIDTH_PX : 0)}px;` : '') +
                 "outline: 0px solid transparent;"}
               onClick={handleTitleClick}>
@@ -480,7 +480,7 @@ export const Toolbar: Component = () => {
                   `border-top-color: ${tSpec().borderColor};` +
                   `border-top-width: ${tSpec().borderWidthPx - 1}px; ` +
                   `padding-top: ${5 - (tSpec().borderWidthPx - 1)}px; ` +
-                  `height: ${store.toolbarHeightPx()}px;`}>
+                  `height: ${store.topToolbarHeightPx()}px;`}>
                 <CollectionTitleGlyph color={tSpec().col} />
               </div>
             </Show>

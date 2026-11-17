@@ -167,7 +167,7 @@ function pageAttachmentsLayout(
   // A page whose title is shown in the toolbar (the top root, and the selected pages of top level list pages). Its top
   // edge is the bottom of the toolbar. If the toolbar is hidden (e.g. for presentations), attachments are not shown.
   const isTopTitled = !(flags & ArrangeItemFlags.IsPopupRoot) && geometry.boundsPx.h == store.desktopMainAreaBoundsPx().h;
-  if (isTopTitled && store.toolbarHeightPx() == 0) { return null; }
+  if (isTopTitled && store.topToolbarHeightPx() == 0) { return null; }
 
   const blockSizePx = (isTopTitled || (flags & ArrangeItemFlags.IsPopupRoot))
     ? LINE_HEIGHT_PX

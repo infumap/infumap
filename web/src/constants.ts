@@ -22,7 +22,6 @@ export const GRID_SIZE = 60;
 
 export const TOP_TOOLBAR_HEIGHT_PX = 40;
 /** The bar under the toolbar while a collection is being curated. */
-export const COLLECTION_BAR_HEIGHT_PX = 30;
 
 export const RESIZE_BOX_SIZE_PX = 10;
 

@@ -157,14 +157,12 @@ embedded pages that cannot be converted. Because the flag is otherwise invisible
 The only entry point is clicking an entry in the toolbar Collections picker. One collection is edited at a time;
 switching to another lets outstanding saves finish.
 
-Show a persistent bar immediately below the main toolbar:
-
-```
-● Key sources · Research / Northstar   8 members   ⌘click an item to add or remove it, …   Done
-```
-
-The name and home path stay visible as the user navigates; clicking the name opens the collection page. The count
-is direct members, not covered descendants.
+No bar (tried, and more than the mode needs; under trial since 2026-11-17). In the mode, the toolbar's Collections
+button names the collection beside its icon, inside a bold green border (amber once the collection is gone), and a
+click on it leaves the mode. Its tooltip carries the home path, the member count of direct members, and how to
+add and remove. Switching collection means leaving the mode and choosing again. Messages the marks can't show
+(skipped items and why, still included via an ancestor, a failed save) use the toolbar's passing message; a failed
+save puts its marks back, so clicking again is the retry.
 
 Membership is shown by highlight color alone: a green outline (around Tailwind green-600, `#16a34a`) on direct
 members and a lighter green outline on items covered through an ancestor. The marks are outlines, never fills,
@@ -197,7 +195,7 @@ exactly as outside the mode, so opening a page never competes with adding it.
 | --- | --- | --- | --- |
 | Not covered | No mark | Becomes a direct member | No effect |
 | Direct member | Green outline | No effect | Removed |
-| Covered through an ancestor | Lighter green outline | Also becomes a direct member, so it stays if the ancestor is removed | No effect; the bar names the ancestor |
+| Covered through an ancestor | Lighter green outline | Also becomes a direct member, so it stays if the ancestor is removed | No effect; a message names the ancestor |
 
 A member page, table or composite covers everything below it. To include only part of a covered subtree, remove the
 parent and add individual contents; collections have no per-member exceptions. Adding an ancestor does not delete
@@ -462,6 +460,12 @@ the whole composite on sweep). Marks change at the click (`showUnsavedCollection
 it shows and a second click before the answer would otherwise repeat the first change; a failed save puts them back.
 The step 8 composite drill-in still applies outside the mode. Later trimmed: no Undo, no Add this page. Right click
 exiting the mode was tried and reverted.
+
+### 10. No bar: the toolbar button shows the mode — under trial
+
+The collection mode bar is gone, and with it `toolbarHeightPx` / `collectionBarHeightPx` (`topToolbarHeightPx` is
+again the toolbar alone) and Retry. The Collections button grows to name the collection; `toolbarDividers.ts`
+measures it, since the divider lines are placed from the window's right edge.
 
 ## Later
 

@@ -18,17 +18,27 @@
 
 // The toolbar's divider lines are fixed, positioned from the window's right edge. TODO (LOW): don't use fixed layout.
 
+import { createSignal } from "solid-js";
 import type { StoreContextModel } from "../../store/StoreProvider";
 
 const ICON_BUTTON_WIDTH_PX = 24; // InfuIconButton: 21px wide, 3px left margin.
+
+/** How much wider than an icon button the collections button is: in collection mode it also names the collection. */
+const [collectionsButtonExtraWidthPx, setCollectionsButtonExtraWidthPx] = createSignal(0);
+
+/** Called with the collections button's rendered width, whenever it changes. */
+export function setCollectionsButtonWidthPx(widthPx: number): void {
+  setCollectionsButtonExtraWidthPx(Math.max(0, Math.round(widthPx) - (ICON_BUTTON_WIDTH_PX - 3)));
+}
 
 /**
  * Before the right-most icons: collections (when logged in), user, help, network status, hide toolbar. Midway between
  * the icon either side, so it allows for each button's 3px left margin.
  */
 export function toolbarRightDividerRightPx(store: StoreContextModel): number {
-  const iconCount = store.user.getUserMaybe() == null ? 4 : 5;
-  return 8 + iconCount * ICON_BUTTON_WIDTH_PX + 5;
+  const loggedIn = store.user.getUserMaybe() != null;
+  const iconCount = loggedIn ? 5 : 4;
+  return 8 + iconCount * ICON_BUTTON_WIDTH_PX + (loggedIn ? collectionsButtonExtraWidthPx() : 0) + 5;
 }
 
 /** Before an item's info and id buttons, midway between the info button and the 16px of space left of it. */

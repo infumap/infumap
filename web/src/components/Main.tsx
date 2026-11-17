@@ -43,7 +43,6 @@ import { ensureQueryItemUnderQueries, highlightGroup, navigateToLocalRoot, navig
 import { panic } from "../util/lang";
 import { VesCache } from "../layout/ves-cache";
 import { Toolbar } from "./toolbar/Toolbar";
-import { CollectionModeBar } from "./toolbar/CollectionModeBar";
 import { FindOverlay } from "./overlay/FindOverlay";
 import { UploadOverlay } from "./overlay/UploadOverlay";
 import { EmptyTrashOverlay } from "./overlay/EmptyTrashOverlay";
@@ -815,7 +814,6 @@ export const Main: Component = () => {
       </Show>
 
       <Toolbar />
-      <CollectionModeBar />
 
       {/* global overlays */}
       <div class="contents print:hidden">

@@ -37,4 +37,4 @@ export const toolbarMenuHeightPx = (rows: number): number => rows * 26 + 8;
 export const toolbarMenuItemClass = (selected = false): string => `block ${menuItemClass(selected)}`;
 
 // Anchor every dropdown and message to the toolbar, regardless of the trigger's baseline.
-export const toolbarPopupTopPx = (store: StoreContextModel): number => store.toolbarHeightPx() + 5;
+export const toolbarPopupTopPx = (store: StoreContextModel): number => store.topToolbarHeightPx() + 5;

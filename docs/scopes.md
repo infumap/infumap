@@ -48,8 +48,9 @@ The rules:
 
 To add items to a collection from wherever they are, click the collections button in the toolbar, left of the
 user button, and choose a collection. It lists collections near the page you are on under **Here**, and every
-collection under **All collections**. You stay where you are, in collection mode: a green bar under the toolbar names
-the collection being curated and how many members it has. Click its name to open the collection page.
+collection under **All collections**. You stay where you are, in collection mode: the collections button shows the
+name of the collection being curated, inside a green border. Hover over it to see how many members the collection
+has. Click it to leave collection mode.
 
 In collection mode, items show how the collection covers them:
 
@@ -68,14 +69,15 @@ In collection mode, the gestures that select items change membership instead. Pl
 
 To add the page you are on, go up to the page that holds it and Cmd-click it there.
 
-Removing an item covered through a member above it leaves it covered, and the bar says which member covers it. To
+Removing an item covered through a member above it leaves it covered, and a message says which member covers it. To
 leave out part of a member, remove the member and add the parts you want.
 
-Each change is saved straight away, and the outline changes as you click. The bar says what changed. To reverse a
-change, click or drag over the same items again. If a change can't be saved, the outline goes back, and the bar says
-so, with **Retry**. Click **Done**, or press Escape when nothing is selected and no popup is open, to leave collection
-mode. Right-click goes back as usual and leaves you in collection mode. Reloading the page
-leaves it too. To select items for something else, such as moving them, leave collection mode first.
+Each change is saved straight away, and the outline changes as you click. To reverse a change, click or drag over
+the same items again. If an item can't be added, or a change can't be saved, a message under the toolbar says so, and
+the outline goes back; click again to retry. Click the collections button, or press Escape when nothing is selected
+and no popup is open, to leave collection mode. Right-click goes back as usual and leaves you in collection mode.
+Reloading the page leaves it too. If the collection is deleted while you curate it, the button's border turns
+amber. To select items for something else, such as moving them, leave collection mode first.
 
 ## Choosing a scope
 
