@@ -277,9 +277,11 @@ export const SelectionGroupAction: Component = () => {
     if (parentItem == null || !isPage(parentItem)) {
       return null;
     }
-    // Rows selected in a list or table page (shift + up/down) are selected to be moved together, not grouped.
+    // Rows selected in a list or table page (shift + up/down) are selected to be moved together, not grouped. A
+    // calendar places items by date, where grouping or cleaning up positions means nothing.
     const parentArrangeAlgorithm = asPageItem(parentItem).arrangeAlgorithm;
-    if (parentArrangeAlgorithm == ArrangeAlgorithm.List || parentArrangeAlgorithm == ArrangeAlgorithm.Table) {
+    if (parentArrangeAlgorithm == ArrangeAlgorithm.List || parentArrangeAlgorithm == ArrangeAlgorithm.Table ||
+      parentArrangeAlgorithm == ArrangeAlgorithm.Calendar) {
       return null;
     }
 

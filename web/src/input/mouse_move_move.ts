@@ -611,6 +611,12 @@ function groupMoveItemsFromSelectionMaybe(
   const selected = store.overlay.selectedVeids.get();
   const activeVeid = VeFns.veidFromVe(activeVisualElement);
   if (!selected.some(v => VeFns.compareVeids(v, activeVeid) == 0)) { return undefined; }
+  // Members of a composite and items in a calendar page can be selected by clicking, but group moves place items by
+  // page position, which neither uses: a dragged one moves on its own, as when nothing is selected.
+  if (isComposite(parentItem) ||
+    (isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.Calendar)) {
+    return undefined;
+  }
 
   const entries = selected
     .map(veid => ({ veid, item: itemState.get(veid.linkIdMaybe ? veid.linkIdMaybe : veid.itemId) }))

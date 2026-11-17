@@ -64,7 +64,7 @@ export function veIsSelected(store: StoreContextModel, ve: VisualElement): boole
  * click in another container starts a new selection there.
  */
 export function applySelectionClick(store: StoreContextModel, hitVe: VisualElement, selectionClick: SelectionClick): boolean {
-  const ve = selectableVeMaybe(hitVe);
+  const ve = selectableVeMaybe(hitVe, store.overlay.selectedVeids.get());
   if (ve == null) { return false; }
   const containerVe = VesCache.current.readNode(ve.parentPath!)!;
   const ordered = childrenAreOrdered(containerVe)!;
@@ -115,12 +115,18 @@ export function applySelectionClick(store: StoreContextModel, hitVe: VisualEleme
  * What a click on hitVe selects, following the marquee: a composite for any of its children, and otherwise only a
  * child of a page or table, not an attachment, popup or page background. An embedded interactive page is a root of
  * its own children, but selected as an item of the page it is in.
+ *
+ * A composite's member is selected instead once the selection is in that composite: the composite alone, or some of
+ * its members. So a first click picks the composite, as on any page, and a second drills in to the member. Members
+ * could not be selected at all before, which kept a single note in a composite out of a collection.
  */
-function selectableVeMaybe(hitVe: VisualElement): VisualElement | null {
+function selectableVeMaybe(hitVe: VisualElement, current: Array<Veid>): VisualElement | null {
   let ve = hitVe;
   if ((ve.flags & VisualElementFlags.InsideCompositeOrDoc) && ve.parentPath != null) {
     const parentVe = VesCache.current.readNode(ve.parentPath);
-    if (parentVe != null && isComposite(parentVe.displayItem)) { ve = parentVe; }
+    if (parentVe != null && isComposite(parentVe.displayItem) && !selectionIsInComposite(current, parentVe)) {
+      ve = parentVe;
+    }
   }
   if (ve.parentPath == null || (ve.flags & VisualElementFlags.Popup) || isPlaceholder(ve.displayItem)) { return null; }
   if (veFlagIsRoot(ve.flags) && !(ve.flags & VisualElementFlags.EmbeddedInteractiveRoot)) { return null; }
@@ -133,15 +139,26 @@ function selectableVeMaybe(hitVe: VisualElement): VisualElement | null {
   return ve;
 }
 
+/** The composite selected on its own, or members of it: a click on one of its members then selects the member. */
+function selectionIsInComposite(current: Array<Veid>, compositeVe: VisualElement): boolean {
+  if (current.length == 0) { return false; }
+  const compositeVeid = VeFns.veidFromVe(compositeVe);
+  if (current.length == 1 && VeFns.compareVeids(current[0], compositeVeid) == 0) { return true; }
+  const compositeId = compositeVe.displayItem.id;
+  return current.every(veid => itemState.get(veid.linkIdMaybe ?? veid.itemId)?.parentId == compositeId);
+}
+
 /**
  * Whether the children of containerVe are shown in an order a range can be taken from, or null if they can't be
- * selected by clicking. Calendar pages are left out, as they are by the marquee.
+ * selected by clicking. A composite's members are stacked in order. A calendar page places items by date, so, as on
+ * a free-form page, shift-click adds or removes the item rather than taking a range. The marquee still leaves
+ * calendar pages out.
  */
 function childrenAreOrdered(containerVe: VisualElement): boolean | null {
-  if (isTable(containerVe.displayItem)) { return true; }
+  if (isTable(containerVe.displayItem) || isComposite(containerVe.displayItem)) { return true; }
   const arrangeAlgorithm = pageArrangeAlgorithmMaybe(containerVe);
-  if (arrangeAlgorithm == null || arrangeAlgorithm == ArrangeAlgorithm.Calendar) { return null; }
-  return arrangeAlgorithm != ArrangeAlgorithm.SpatialStretch;
+  if (arrangeAlgorithm == null) { return null; }
+  return arrangeAlgorithm != ArrangeAlgorithm.SpatialStretch && arrangeAlgorithm != ArrangeAlgorithm.Calendar;
 }
 
 function pageArrangeAlgorithmMaybe(ve: VisualElement): string | null {

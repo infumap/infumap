@@ -443,11 +443,18 @@ with Retry. The server's reason does not reach the client, so a failure also ref
 shows "No longer a collection" if that was the cause. Remove with only inherited items selected explains which member
 covers them. Still no keyboard shortcut.
 
-### 8. Close selection gaps
+### 8. Close selection gaps — done
 
 - Calendar pages, composite members and notes in document pages under click selection and drag-select. These are
   selection fixes in `click_selection.ts` and the drag-select code, useful outside collections too.
 - The Add/Remove keyboard shortcut is still undecided (it needs a modifier). Leave it out until chosen.
+
+As built: document page notes were already selectable. Calendar pages now take Cmd/Shift-click as toggles, as
+spatial pages do; the marquee still leaves them out, and the group/clean-up actions are not offered there. Composite
+members drill in (decided): the first Cmd-click selects the composite; with the composite alone selected, or members
+of it, Cmd-click selects a member, Shift-click a range of members. `mouse_down.ts` no longer swaps in the selected
+composite for such a click. A selected composite member or calendar item drags on its own, not as a group move.
+`docs/scopes.md` has a "Curating a collection" section.
 
 ## Later
 

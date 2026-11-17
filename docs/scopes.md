@@ -44,6 +44,34 @@ The rules:
   members.
 - Changes take effect on the next search or chat message. There is nothing to save.
 
+## Curating a collection
+
+To add items to a collection from wherever they are, click the collections button in the toolbar, left of the
+user button, and choose a collection. It lists collections near the page you are on under **Here**, and every
+collection under **All collections**. You stay where you are, in collection mode: a green bar under the toolbar names
+the collection being curated and how many members it has. Click its name to open the collection page.
+
+In collection mode, items show how the collection covers them:
+
+- A **green outline** marks a member, wherever it appears, including links to it.
+- A **light green outline** marks an item covered because a member above it covers it.
+
+To change membership, select items, then click a button in the bar:
+
+- **Add** makes the selected items members. A link adds the item it points to.
+- **Remove** stops the selected members being members. An item covered through a member above it stays covered, and
+  the bar says which member covers it. To leave out part of a member, remove the member and add the parts you want.
+- **Add this page** adds the page you are on, or the page open in a popup.
+
+Select items as anywhere else: drag a rectangle over them, Cmd-click (Ctrl-click on Windows and Linux) to add or remove
+one, or Shift-click for a range. A selection stays within one page. In a composite, the first Cmd-click selects the
+composite; Cmd-click a part of it again to select that part instead. In a calendar page, Cmd-click and Shift-click
+add or remove one item.
+
+Each change is saved straight away, and the outlines update once it is. If a change can't be saved, the bar says so,
+with **Retry**. Click **Done**, or press Escape when nothing is selected and no popup is open, to leave collection mode. Reloading the page
+leaves it too.
+
 ## Choosing a scope
 
 The **Scope** control sits below the query input, on the search results border, and beside the

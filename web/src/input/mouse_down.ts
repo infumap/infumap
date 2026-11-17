@@ -770,6 +770,8 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
 
   // If clicking a child inside a composite and that composite is in the current selection,
   // treat this as hitting the composite to preserve selection during drag (tables unchanged).
+  // Except for a selection click when the composite alone is selected: that drills in to the member (see
+  // selectableVeMaybe in click_selection.ts).
   if ((hitVe.flags & VisualElementFlags.InsideCompositeOrDoc) && !isTable(hitVe.displayItem)) {
     const parentVe = VesCache.current.readNode(hitVe.parentPath!)!;
     if (isComposite(parentVe.displayItem)) {
@@ -777,7 +779,8 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
       if (sel && sel.length > 0) {
         const parentVeid = VeFns.veidFromItems(parentVe.displayItem, parentVe.actualLinkItemMaybe);
         const parentSelected = sel.some(v => v.itemId === parentVeid.itemId && v.linkIdMaybe === parentVeid.linkIdMaybe);
-        if (parentSelected) { hitVe = parentVe; }
+        const drillsIn = sel.length == 1 && selectionClickFromModifiers() != null;
+        if (parentSelected && !drillsIn) { hitVe = parentVe; }
       }
     }
   }
