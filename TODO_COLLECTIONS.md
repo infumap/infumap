@@ -245,7 +245,8 @@ empty-scope state.
 A chat, a query profile or search's remembered scope refers to a collection by id. Nothing prevents that collection
 from being deleted, trashed or turned back into an ordinary page, directly or by deleting a page containing it.
 
-- Retrieval covers nothing, never everything.
+- Retrieval covers nothing, never everything. A chat run refuses to start, with a message naming the collection;
+  search returns no hits.
 - The scope control shows the collection as unavailable, for example **Key sources (unavailable)**, until the user
   chooses again. Profiles show the same.
 - Restoring the page from the trash, or setting the flag again, makes every reference work again, since the id is
@@ -277,16 +278,124 @@ Relevant code:
 - [Page flags](web/src/items/base/flags-item.ts): the Collection flag.
 - [Click selection](web/src/input/click_selection.ts): the item selection that Add and Remove act on.
 
-## Implementation order
+## Implementation steps
 
-1. **Collections and resolution.** Collection flag, membership add/remove, direct/inherited coverage, missing
-   members, `ScopeRef` input to the resolver. Membership changes synchronize with other open views.
-2. **References, retiring scope pages.** `ScopeRef` in search, query configurations, profiles and transcripts, with
-   old bare ids becoming unavailable; the shared picker with Except; removal of the Scopes system page and
-   page-based scopes in the same change. Collections are usable from here, curated by linking items into the page.
-3. **Discovery.** Make collection / Make ordinary page, title marker, toolbar icon and picker.
-4. **Collection mode.** Bar, marks, Add / Remove / Add this page, save status, exit, and closing the gaps in what
-   item selection can reach.
+Each step is one reviewable change that leaves the app working. Steps 1–4 make collections usable for search and
+chat, curated by linking items into the page by hand; steps 5–8 add collection mode.
+
+### 1. Collection flag and resolver (server only)
+
+- `PAGE_COLLECTION_FLAG = 0x1000` in `infusdk/src/item/mod.rs`, `PageFlags.Collection = 0x1000` in `flags-item.ts`.
+  0x004–0x020 are unassigned in TS too; check history before reusing them. 0x1000 is the next unused bit.
+- `scope.rs`:
+  - `collection_page(db, user_id, id)`: owned page, flag set, not under the trash page, else missing.
+  - `collection_member_targets(db, user_id, page)`: direct link children in ordering, resolved through
+    `resolve_content`, de-duplicated by target. Non-links are ignored. Unresolved links are dropped silently, since
+    they already render as broken.
+  - `enum ScopeRef { Everything, Collection(Uid), EverythingExcept(Uid), Unavailable }`, serialized as
+    `{"kind": "...", "id": ...}`. `Unavailable` is what old bare scope ids become; the design names it but the
+    three-variant type had nowhere to store it.
+  - `resolve_scope_ref(db, user_id, &ScopeRef) -> ResolvedScope`. New `ScopeSource::Collection { id, name }` and
+    `ScopeSource::Except { id, name }`. `Collection` uses `include_roots: Some(targets)`, so an empty collection
+    is `Some({})` and covers nothing. `Except` is `All` plus exclude roots (what `for_chat` already does), and
+    `contains` treats it like `All`. Missing and `Unavailable` give `Some({})` plus a new
+    `ScopeProblem::UnavailableCollection`.
+- Leave `resolve_scope` (scope pages) in place so nothing breaks yet.
+- `TestDb` tests: empty collection; missing, trashed or unflagged collection; annotations not covered; member that
+  is a link to a link; exclusion beats an include through another path; a collection that is a member of another
+  covers only its own page subtree (should already hold, since `subtree_item_ids` never follows link targets);
+  attachments of members covered.
+
+### 2. Make collection / Make ordinary page, title marker (client only)
+
+This has to come before references, because there is otherwise no way to set the flag and step 3 cannot be tried.
+
+- `Toolbar_MoreActions.tsx`: toggle the flag through the normal item update. Widen the menu's visibility condition
+  to any focused page the user can edit, including embedded pages that cannot be converted.
+- Title marker on collection pages, in every place a page title renders: page box, list row, root page title,
+  popup title. Check it against the item rendering and the toolbar, not just the menus.
+
+### 3. `ScopeRef` end to end (server and client in one change, since the wire format changes)
+
+Server:
+- `QueryConfiguration.scope_id` → `scope: ScopeRef`; `normalize` validates the id.
+- User log v10 migration rewrites profiles: `scopeId: null` → `everything`, an id → `unavailable`.
+- Transcripts: on read, map a configuration with `scopeId` the same way. New lines write `scope`. Extend the
+  existing per-version transcript read tests.
+- Search request `scopeId` → `scope`. Chat runs and the tool-test request (`chat/mod.rs`, `scopeId` and
+  `scopeItemIds`) call `resolve_scope_ref`. Chosen items still win over the reference.
+- `list-collections { currentPageId }` replaces `list-scopes`. It returns per collection: id, title, home path,
+  direct member count and a Here rank (depth of the nearest common ancestor with `currentPageId`; none when that
+  ancestor is the home page). Do the ranking on the server, since the client may not have the current page's
+  ancestors loaded. Start with a scan of `user_items` for the flag; add an index only if it measures slow.
+- `scope_attachments.rs` only attaches for `ScopeSource::Items`; add a test that a collection scope attaches
+  nothing.
+
+Client:
+- `query-scope.ts`: the collection list replaces the scope list. One label function gives **Everything**,
+  **Key sources**, **Everything except Private**, **Key sources (unavailable)** and an old-scope unavailable label.
+- `QueryScopePicker.tsx`: Everything, then Here / All, with an **Except** action on each row, plus an explicit
+  empty-scope state.
+- `StoreProvider_General.tsx`: `searchScopeIds` becomes a per-account `ScopeRef`. An old string value reads as
+  `unavailable`.
+- `query-configuration-availability.ts`, `QueryProfileBar.tsx`, `query-configuration-labels.ts`,
+  `query-configuration.ts`, `query.ts`: replace `scopeId`.
+
+Decided: a chat run whose scope is unavailable refuses to start, as `resolve_item_scope` does when no chosen item
+resolves. A run that silently finds nothing gives the model false negatives. The message names the collection when
+its page still exists (trashed or unflagged, e.g. "Key sources is no longer a collection. Choose another scope."),
+says it no longer exists when the page is gone, and says an old scope page is no longer supported for
+`unavailable`. Search does not refuse: it returns no hits, with the unavailable label showing.
+
+### 4. Retire the Scopes system page
+
+- Remove `scopes_page_id`, `ensure_scopes_page` (startup in `web/mod.rs`, `admin.rs`, `account.rs`), the
+  account-response field, `scopesPageId` in `accountTypes.ts` and the store, `resolve_scope`,
+  `resolve_scope_page`, `is_exclude_container`, `IgnoredContainer`, `MultipleExcludeContainers`,
+  `NoResolvedIncludes`, `list_scopes` and `handle_list_scopes`, and `TestDb::scopes_id`.
+- `queries_subpage_name` and `listPageHiddenChildIds` also serve Prompts and the search pages. Drop only their
+  Scopes entries; the design's removal list was too broad here.
+- The existing Scopes page is left in place as an ordinary page. Check that it can be moved, deleted and converted
+  once its system status is gone, and that its fixed id has no other special handling.
+- The doc puts this in the same change as step 3. Keeping it separate makes review easier, and nothing uses the
+  page after step 3.
+
+### 5. Toolbar Collections picker and an empty collection mode
+
+- Icon button in `Toolbar.tsx` immediately left of the user icon, hidden when logged out and in small-screen mode,
+  highlighted while the mode is active. Check crowding with the table and page toolbars on narrow windows.
+- Picker: Here / All from `list-collections`, name/path/count per row, empty state explaining Make collection.
+- Mode state lives in the store (not persisted): collection id, entered by a row click, switched by another row.
+- Bar under the toolbar: name (opens the collection page), home path, member count, Done. Escape clears the
+  selection first, then exits, after modals and editors. Reload exits.
+
+### 6. Membership marks
+
+- `collection-coverage { collectionId, itemIds }` returns, for each item (a link resolved to its target), `direct`,
+  `inherited { viaId, viaTitle }` or nothing. The client sends the target ids of rendered items, debounced on
+  navigation and on view changes. This is exact without assuming the client has ancestors loaded, which it often
+  won't for link targets that live elsewhere. Keyed by target id, so every appearance is marked.
+- Outline rendering: `#16a34a` for direct members, lighter for inherited, no hit target, alongside the blue
+  selection fill. Check against green pages.
+- Refetch when the collection page's container version changes in sync. Limitation: if the collection page isn't
+  loaded in this tab, changes made in another tab arrive only on the next navigation. That seems acceptable.
+
+### 7. Add / Remove / Add this page
+
+- Server commands `collection-add { collectionId, itemIds }` and `collection-remove { collectionId, itemIds }` in
+  `item_ops.rs`. Add resolves targets, skips existing direct members, appends links after the last child, and
+  returns skip reasons. Remove deletes every direct link child whose target matches, and names the covering
+  ancestor for items that are only inherited. Both bump the collection's container version. Doing this on the
+  server, not as client item creation, means the collection page needn't be loaded on the client and
+  de-duplication is atomic.
+- Bar buttons with counts ("Add 3"), Add this page (current root page or open popup), pending and failed state
+  with retry or revert, and the "included via Financials" message. Selection stays after Add.
+
+### 8. Close selection gaps
+
+- Calendar pages, composite members and notes in document pages under click selection and drag-select. These are
+  selection fixes in `click_selection.ts` and the drag-select code, useful outside collections too.
+- The Add/Remove keyboard shortcut is still undecided (it needs a modifier). Leave it out until chosen.
 
 ## Later
 
