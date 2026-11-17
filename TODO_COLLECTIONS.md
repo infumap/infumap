@@ -1,8 +1,8 @@
-# Collections and search scopes
+# Collections
 
-Proposed design from discussion; not implemented. Collection pages replace the current scope pages, and scopes
-become small records that refer to collections. How existing scope pages are migrated still requires an explicit
-user decision before implementation.
+Proposed design from discussion; not implemented. Collection pages replace the current scope pages. Search and chat
+are limited by choosing a collection, or everything except a collection; there are no separate scope objects.
+Existing scope pages are not migrated automatically; the user re-creates what they need by hand.
 
 ## Goal
 
@@ -41,45 +41,37 @@ The collection page can be opened, renamed, moved and linked from elsewhere. Its
 its membership. Moving an item outside the company's pages does not remove it from Key sources. Moving or renaming
 the collection does not change its members or break references to it.
 
-### Scope
+A collection says nothing about whether it is used to include or exclude material. That is decided each time it is
+used, so the same collection can limit one chat and be hidden from another.
 
-A scope is a small record, not an item:
+### Retrieval scope
 
-```
-Scope { id, name, include: Everything | <collection>, exclude: <collection> }
-```
-
-Scopes are stored in the user record next to query profiles and edited in a **Manage scopes** dialog. They have no
-place in the item tree.
-
-Effective coverage is the include coverage minus the exclude coverage. Exclusions take precedence, including when
-an explicitly included item is inside an excluded subtree. Everything has the existing default search universe
-(the home page tree and query chats); it is not a new promise that every item on every connected host is
-searchable.
-
-A scope exists to express an exclusion. Include = a collection with nothing excluded is just that collection, which
-is selected directly; include = Everything with nothing excluded is Everything. Proposed: the dialog does not save
-either as a scope, so the picker never lists a scope that duplicates a simpler choice. In practice most scopes are
-expected to be **Everything − <collection>**, for example Everything − Private.
-
-An empty include collection means no material, never Everything. An empty exclude collection excludes nothing. A
-missing collection, including a page whose Collection flag was cleared or that is in the trash, is an error, not
-an empty collection or a reason to broaden retrieval.
-
-Collections contain no exclusions of their own. A union of two collections is a new collection; scopes take one
-collection on each side.
-
-### Scope references
-
-Everything that remembers a retrieval choice stores a tagged reference:
+Everything that remembers how retrieval is limited stores one of:
 
 ```
-ScopeRef = everything | collection(<id>) | scope(<id>)
+ScopeRef = everything | collection(<id>) | everythingExcept(<id>)
 ```
 
-This covers search's remembered scope, query configurations and profiles, and chat transcripts. Selecting a
-collection directly means include = that collection, exclude = nothing. The tag keeps ids unambiguous; a migrated
-scope may share its id with the collection made from its old page.
+This covers search's remembered scope, query configurations and profiles, and chat transcripts.
+
+- **everything** is the existing default search universe: the home page tree and query chats. It is not a new
+  promise that every item on every connected host is searchable.
+- **collection(C)** covers C's members and their descendants. An empty collection covers nothing, never everything.
+- **everythingExcept(C)** covers everything minus C's coverage. Exclusion wins, including over an item that would
+  otherwise be reachable another way. An empty collection excludes nothing.
+
+The inversion belongs to the reference, not the collection. Putting it on the collection as a flag was considered
+and rejected: the same collection could then not be used both ways, and flipping the flag would silently change
+every profile and chat using it.
+
+A missing collection, including a page whose Collection flag was cleared or that is in the trash, is an error. It
+is never treated as an empty collection, and never as a reason to broaden retrieval.
+
+Not expressible, deliberately:
+
+- **C minus D.** Curate C without the unwanted items instead.
+- **Several exclusions.** Use one collection whose members are all the subtrees to hide. Members are subtrees, so
+  this needs no collection composition.
 
 Items chosen in a chat (up to 32, see `MAX_SCOPE_ITEMS`) are unchanged. While a chat has any, they are used in
 place of its scope reference.
@@ -89,22 +81,22 @@ place of its scope reference.
 Today a scope is a child page of the system Scopes page under Queries. Its link children are include roots, links
 inside a child container titled "Exclude" are exclude roots, and a scope with no include links covers everything.
 The title convention, the overloaded empty case and the problems they generate (`IgnoredContainer`,
-`MultipleExcludeContainers`) all go away.
+`MultipleExcludeContainers`) all go away, along with named scopes as a concept.
 
-Proposed migration, per scope page:
+Decided: no automatic migration. The user re-creates the collections they need by hand. An old scope page whose
+links are all includes can become a collection just by setting its flag, since its link children are already its
+members.
 
-- With include links: flag the page as a collection. Its link children are already exactly its members.
-- With an Exclude container: flag the container as a collection (merging multiple containers into one) and create
-  `Scope { id: <old page id>, name: <old title>, include: collection(<page>) or Everything, exclude: collection(<container>) }`.
-- Without an Exclude container, no scope record is needed: references become `collection(<page id>)`, or
-  `everything` if the page had no include links either.
+Remove the Scopes system page (`scopes_page_id`, `ensure_scopes_page`, `queries_subpage_name`, `scopesPageId` in
+account responses and `listPageHiddenChildIds` in `page-item.ts`) and the page-based scope listing in `scope.rs`.
+The existing Scopes page and its contents are user data and are not deleted. Without its system status it becomes an
+ordinary page in Queries: shown as a row, movable and deletable.
 
-Saved references are bare ids today. Profiles are rewritten by the user log migration. Older transcripts and the
-search scope remembered in localStorage are resolved on read: a bare id is a scope with that id if one exists, else
-a collection with that id, else missing (an error, not Everything).
-
-Afterwards, remove the Scopes system page (`scopes_page_id`, `ensure_scopes_page`, `scopesPageId` in account
-responses and the hidden-page handling in `page-item.ts`) and the page-based scope listing in `scope.rs`.
+Saved references are bare scope page ids today, in query profiles, chat transcripts and the search scope remembered
+in localStorage. They become an unavailable reference: shown as such, and covering nothing until the user chooses
+again. They are not reinterpreted as `collection(<same id>)`. If the user later flags an old scope page that had an
+Exclude container, that would silently widen every chat still pointing at it. Profiles are rewritten this way by the
+user log migration; transcripts and localStorage are mapped on read.
 
 ## Organization and discovery
 
@@ -123,10 +115,9 @@ Research
 ```
 
 The Collections subpage is optional organization, not a reserved container. Key sources could live directly on
-Northstar instead. A collection can contain items from anywhere the existing scope/read rules support.
+Northstar instead. A collection can contain items from anywhere the existing read rules support.
 
-Add a permanent **Collections** control to the application toolbar. It lists collections only, not scopes. Its
-picker presents:
+Add a permanent **Collections** control to the application toolbar. Its picker presents:
 
 1. **Here:** collections whose home is the current page or an ancestor, nearest first. When browsing Financials,
    collections organized under Northstar's Collections subpage must also be discoverable here; do not require
@@ -142,8 +133,7 @@ Each entry shows its name, home path and direct-member count, with **View** and 
 need not be globally unique. References use identity; paths disambiguate duplicate names.
 
 **New collection…** asks for a name and shows its proposed home, defaulting to the current page. The home can be
-changed before creation. Creating a collection immediately enters selection mode for it. Creating from a scope's
-Include or Exclude control also assigns the new collection to that control.
+changed before creation. Creating a collection immediately enters selection mode for it.
 
 Normal item-tree navigation can open a collection too. The toolbar picker is a shortcut and index, not a separate
 ownership hierarchy.
@@ -152,9 +142,9 @@ ownership hierarchy.
 
 ### Entering and identifying the mode
 
-Enter through **Select items** in the Collections picker, on an open collection, or beside a collection chosen in a
-scope. Only one collection is edited at a time. Switching to another finishes outstanding membership saves before
-switching the destination; it does not discard the previous collection's changes.
+Enter through **Select items** in the Collections picker, on an open collection, or beside the collection chosen in
+a search or chat scope picker. Only one collection is edited at a time. Switching to another finishes outstanding
+membership saves before switching the destination; it does not discard the previous collection's changes.
 
 Show a persistent bar immediately below the main toolbar:
 
@@ -166,6 +156,9 @@ Show a persistent bar immediately below the main toolbar:
 The destination name and home path remain visible as the user navigates. Purple identifies collection membership
 in this mode, with checkmarks and text so color is not the sole indicator. Reuse the same color for every collection;
 the bar identifies which one is being edited. Normal item selection must remain visually distinct.
+
+The bar describes membership, not exclusion, even when the collection is entered from an "everything except" choice:
+membership editing is the same whichever way the collection is used.
 
 The count means explicit member roots, not the number of all covered descendants. Label it accordingly in detailed
 views. If coverage counts are available, show them separately rather than presenting an approximate count as exact.
@@ -203,8 +196,8 @@ editing behavior after the mode ends.
 A selected table includes its rows, cells and attachments. A selected composite includes its members. A selected
 page includes its subtree. Unmarked children of such a root remain covered; they do not need individual marks.
 
-To select only part of a currently selected subtree, remove the parent root and choose individual contents. To keep
-an entire subtree except a few branches, use a scope with an exclude collection.
+To select only part of a currently selected subtree, remove the parent root and choose individual contents.
+Collections have no per-member exceptions.
 
 Do not silently delete previously explicit descendant memberships when adding an ancestor. Removing the ancestor
 must leave those deliberate selections intact. The collection view distinguishes explicit roots from inherited
@@ -238,45 +231,40 @@ on the source page, and a partial or paginated listing must not be presented as 
 An on-page **Show this collection** filter can later reuse the same coverage result. It is not required for the first
 version: the collection's own view supplies review without immediately implementing filtering in every page layout.
 
-## Scope and chat UI
+## Search and chat UI
 
 Search's filter menu and the chat scope control share one picker:
 
 1. **Everything.**
-2. **Scopes:** all of them, by name. Expected to be few.
-3. **Collections:** grouped Here / Recent / All, as in the toolbar Collections picker. Most entries are here.
+2. **Collections,** grouped Here / Recent / All as in the toolbar Collections picker. Each row has an **Except**
+   action that selects everything except that collection. Collections are not listed twice.
 
-The picker ends with **Manage scopes…**, which opens a dialog consistent with Manage profiles. Editing a scope sets
-its name, Include (Everything or a collection) and Exclude (a collection), with **View**, **Select items** and
-**New collection…** beside each collection control.
+Recent records choices as made, so "Everything except Private" is one click once used. The chosen collection shows
+**View**, **Select items** and **New collection…** beside it.
 
-Opening either selection editor uses the same application mode and destination bar. When entered from a scope,
-also identify the role, for example **Selecting exclusions for Work · Private material**. Inclusion and exclusion
-do not have different membership-editing semantics; the role belongs to the scope using the collection.
+The control's label states the choice in full, for example **Key sources** or **Everything except Private**, so an
+exclusion is never mistaken for an inclusion.
 
-Show an effective-coverage preview so a user can inspect the result after exclusions, not just the two lists of roots.
-An item covered by both sides is excluded. The preview and LLM retrieval must use the same resolution rules.
-
-On a collection, **Use in chat** opens a new query whose scope reference is `collection(<id>)`. No scope record is
-created. This does not modify the default profile or other chats.
+On a collection, **Use in chat** opens a new query limited to `collection(<id>)`. This does not modify the default
+profile or other chats.
 
 Choosing a collection as retrieval scope does not automatically attach its entire content to the prompt. It limits
 search and direct reads, with a bounded overview of the selection. Keep explicit whole-text attachments a separate
 action. Existing chats retain material they have already read; changing scope affects subsequent retrieval, not
 earlier context.
 
-An empty include collection produces an explicit empty-scope state. Missing definitions or failed resolution must
-never fall back to Everything. Distinguish unavailable collections and scopes from successfully resolved empty
-collections.
+An empty collection produces an explicit empty-scope state. Missing collections or failed resolution must never
+fall back to everything. Distinguish unavailable collections from successfully resolved empty ones.
 
 ## Retrieval rules and implementation foundation
 
-The resolver takes a `ScopeRef` (or a chat's chosen items) and produces the existing include/exclude root sets:
-a collection contributes its members' targets as roots. Reuse its access checks, rather than introducing an
-independent client-side selection that the server does not enforce. Membership coverage must agree across:
+The resolver takes a `ScopeRef` (or a chat's chosen items) and produces the existing include/exclude root sets: a
+collection contributes its members' targets as include roots, or as exclude roots for `everythingExcept`. Reuse its
+access checks, rather than introducing an independent client-side selection that the server does not enforce.
+Membership coverage must agree across:
 
 - The selection highlights and collection view.
-- Scope previews and ordinary search.
+- Ordinary search.
 - LLM search and direct item reads.
 - Container listings and any automatically supplied context.
 
@@ -300,9 +288,8 @@ Relevant existing code:
 
 - [Scope resolution](infumap/src/web/routes/command/scope.rs): include/exclude roots, canonical target resolution,
   subtree coverage and availability reporting. The page-based scope listing here is replaced.
-- [User record](infumap/src/storage/db/user.rs): query profiles live here; scope records go alongside them, with a
-  user log version bump.
-- [Query configuration](infumap/src/query_configuration.rs), [search](infumap/src/web/routes/command/search.rs) and
+- [Query configuration](infumap/src/query_configuration.rs), [search](infumap/src/web/routes/command/search.rs),
+  [user record](infumap/src/storage/db/user.rs) (query profiles) and
   [transcripts](infumap/src/web/routes/command/chat/transcript.rs): bare `scopeId` becomes a `ScopeRef`.
 - [Container fragments](infumap/src/web/routes/command/chat/container_fragments.rs): scoped listings, canonical
   content access and structural context.
@@ -316,34 +303,26 @@ Relevant existing code:
 
 ## Implementation order
 
-1. **Decide the migration.** Settle the decisions below before changing persisted formats.
-2. **Collection resolution and membership operations.** Collection flag, canonical roots, idempotent add/remove,
+1. **Collection resolution and membership operations.** Collection flag, canonical roots, idempotent add/remove,
    direct/inherited/partial status, missing members and a shared coverage result. Membership changes must
    synchronize with other open views.
-3. **Collection references.** `ScopeRef` in search, query configurations, profiles and transcripts; collections in
-   the shared picker; Use in chat. Collections are already usable here, curated by linking items into the page.
-4. **Collection view and discovery.** Create/name/home, local and global lookup, complete member listing and source paths.
-5. **Selection mode.** Persistent destination bar, membership gestures, distinct Open actions, whole-page selection,
+2. **Collection references, retiring scope pages.** `ScopeRef` in search, query configurations, profiles and
+   transcripts, with old bare ids becoming unavailable; the shared picker with Except; Use in chat; removal of the
+   Scopes system page and page-based scopes in the same change, since the old references stop resolving here.
+   Collections are already usable at this point, curated by linking items into the page.
+3. **Collection view and discovery.** Create/name/home, local and global lookup, complete member listing and source paths.
+4. **Selection mode.** Persistent destination bar, membership gestures, distinct Open actions, whole-page selection,
    navigation/search continuity, save status, session Undo and explicit exit. This delivers the curation workflow.
-6. **Scope records.** Storage in the user record, Manage scopes dialog, effective preview and shared server
-   enforcement.
-7. **Migrate and retire scope pages.**
-8. **Optional source-page filtering.** Reuse resolved coverage across layouts only if reviewing the separate collection
+5. **Optional source-page filtering.** Reuse resolved coverage across layouts only if reviewing the separate collection
    view proves insufficient. No expression language or general rule builder is needed for the initial delivery.
 
 ## Decisions still required
 
-- **Migration:** migrate existing scope pages as proposed above, or drop them and recreate scopes by hand? If
-  migrated, where do the resulting collection pages live once the Scopes system page is removed: left in place as
-  an ordinary page, or moved under home? An old Exclude container would otherwise remain a child (an annotation)
-  of its include collection.
-- **Scope names:** required, or optional with a derived label such as "Everything − Private"?
-- **Redundant scopes:** confirm that include-only and Everything/Nothing combinations are not saved as scopes.
 - **Local discovery:** how a collection organized in an optional subfolder advertises its association with the company
   page, without ambiguous title conventions or unbounded descendant scans.
-- **Deletion lifecycle:** scope records and saved references are not items, so nothing stops their collection from
-  being deleted, trashed or unflagged. Decide how such scopes are reported and repaired, and what deleting a parent
-  containing collections should expose. Do not silently detach, delete or broaden dependent scopes.
+- **Deletion lifecycle:** saved references are not items, so nothing stops their collection from being deleted,
+  trashed or unflagged. Decide how affected profiles, chats and the remembered search scope are reported and
+  repaired, and what deleting a parent containing collections should expose. Do not silently detach or broaden.
 
 The interaction above is the proposed first implementation. These decisions do not need to be settled to review the
 workflow, but must be settled explicitly before changing existing behavior.
