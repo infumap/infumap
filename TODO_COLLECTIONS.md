@@ -117,9 +117,19 @@ Research
 The Collections subpage is optional organization, not a reserved container. Key sources could live directly on
 Northstar instead. A collection can contain items from anywhere the existing read rules support.
 
-Add a permanent **Collections** control to the application toolbar. Its picker presents:
+Add a **Collections** icon button to the toolbar's global group: right of the divider, immediately left of the user
+icon. It is shown whatever item has focus, because collections relate to where the user is, not to the focused
+item. It is hidden when no user is logged in. When the toolbar is hidden or in small-screen mode there is no
+picker; collections remain reachable through the item tree. The icon must not resemble the page, link or
+search/query icons (for example `bi-collection` or `bi-bookmarks`). It is highlighted while selection mode is
+active, the same for every collection. Check that the extra icon does not crowd the widest item toolbars (table,
+page) on narrow windows.
 
-1. **Here:** collections whose home is the current page or an ancestor, nearest first. When browsing Financials,
+Its picker presents:
+
+1. **Here:** collections whose home is the current root page or an ancestor, nearest first. The current root page is
+   the page navigated to; focus in an embedded page or popup does not change it. This only affects ordering, since
+   every collection is also reachable under All. When browsing Financials,
    collections organized under Northstar's Collections subpage must also be discoverable here; do not require
    their immediate parent to be Northstar itself.
 2. **Recent:** recently used collections, without duplicating entries already shown nearby.
