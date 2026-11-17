@@ -16,19 +16,25 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { For, Show, onMount } from "solid-js";
+import { For, Show, createSignal, onMount } from "solid-js";
 import { getQueryRuntime } from "../../items/query-item";
 import { queryConfigurationChangeBlockedReason } from "../../items/query-configuration-state";
+import { EVERYTHING_SCOPE, scopeRefsEqual, type ScopeRef } from "../../items/query-configuration";
 import {
-  clearQueryScopeItems, describeQueryScopeItems, queryScopeDescription, queryScopeId, queryScopeItemIds,
-  queryScopeItemResolved, queryScopeItemTitle, queryScopeItemsLabel, queryScopeName, queryScopeProblemText,
-  queryScopeSummary, queryScopes, queryScopesError, refreshQueryScopes, removeQueryScopeItem, setQueryScopeId,
+  clearQueryScopeItems, describeQueryScopeItems, queryCollectionDescription, queryCollectionTitle, queryCollections,
+  queryCollectionsError, queryHereCollections, queryScope, queryScopeEmptyText, queryScopeItemIds,
+  queryScopeItemResolved, queryScopeItemTitle, queryScopeItemsLabel, queryScopeName, queryScopeUnavailable,
+  queryScopeUnavailableText, refreshQueryCollections, removeQueryScopeItem, setQueryScope,
 } from "../../items/query-scope";
-import { switchToPage } from "../../layout/navigation";
+import { COLLECTION_ICON_CLASS } from "../library/CollectionGlyph";
+import type { CollectionSummary } from "../../server";
 import { useStore } from "../../store/StoreProvider";
 import type { Uid } from "../../util/uid";
 import { QueryPickerPopover, type QueryPickerProps } from "./QueryPickerPopover";
-import { DIALOG_LINK_CLASS, DIALOG_NOTE_CLASS, DialogHeader } from "../library/dialogStyle";
+import { DIALOG_INPUT_CLASS, DIALOG_NOTE_CLASS, DialogHeader } from "../library/dialogStyle";
+
+/** Below this many collections, the list is short enough to scan without a filter. */
+const COLLECTION_FILTER_MIN_COUNT = 7;
 
 interface QueryScopePickerProps extends QueryPickerProps {
   /** Search always uses scope; chat uses it when Infumap tools are enabled. */
@@ -45,13 +51,14 @@ export function QueryScopePicker(props: QueryScopePickerProps) {
   const store = useStore();
   onMount(() => {
     void store.general.queryProfiles.retrieve();
-    if (queryScopes() == null) { void refreshQueryScopes(store); }
+    if (queryCollections() == null) { void refreshQueryCollections(store); }
   });
+  const [filter, setFilter] = createSignal("");
   const searchScope = () => props.searchScope?.() == true;
-  const selectedId = () => searchScope() ? store.general.searchScopeId() : queryScopeId(store, props.queryItem());
+  const selected = (): ScopeRef => searchScope() ? store.general.searchScope() : queryScope(store, props.queryItem());
   const blockedReason = () => searchScope() ? null : queryConfigurationChangeBlockedReason(store, props.queryItem());
-  const selectedSummary = () => queryScopeSummary(selectedId());
-  const missing = () => selectedId() != null && selectedSummary() === null && queryScopesError() == null;
+  const unavailable = () => queryScopeUnavailable(selected());
+  const unverified = () => selected().kind != "everything" && selected().kind != "unavailable" && queryCollectionsError() != null;
   const inUse = () => props.inUse?.() != false;
   const scopeItems = () => props.usesScopeItems?.() == true ? queryScopeItemIds(store, props.queryItem()) : [];
   const itemsActive = () => scopeItems().length > 0;
@@ -60,35 +67,29 @@ export function QueryScopePicker(props: QueryScopePickerProps) {
     : `${missingItemCount()} of the items no longer ${missingItemCount() == 1 ? "exists" : "exist"} and will be left out.`;
   const ready = () => searchScope() || getQueryRuntime(store, props.queryItem()).configurationInitialized || store.general.defaultQueryProfile() != null;
   const disabled = () => props.disabled?.() == true || blockedReason() != null || !ready() || !inUse();
-  const label = () => !inUse() ? "Not used" : itemsActive() ? queryScopeItemsLabel(scopeItems().length) : selectedSummary() === undefined
-    ? queryScopesError() == null ? "Loading…" : "Unverified" : selectedSummary() == null && selectedId() != null && queryScopesError() != null ? "Unverified" : queryScopeName(selectedId());
-  const warning = () => {
-    if (inUse() && itemsActive()) { return missingItemCount() > 0; }
-    const summary = selectedSummary();
-    return inUse() && selectedId() != null && (missing() || queryScopesError() != null || (summary != null && queryScopeProblemText(summary.problems) != null));
-  };
+  const label = () => !inUse() ? "Not used" : itemsActive() ? queryScopeItemsLabel(scopeItems().length) : queryScopeName(selected());
+  const warning = () => inUse() && (itemsActive()
+    ? missingItemCount() > 0
+    : unavailable() || unverified() || queryScopeEmptyText(selected()) != null);
   const title = () => {
     if (blockedReason() != null) { return blockedReason()!; }
-    if (!inUse()) { return `Scope is not used because Infumap tools are off. Saved scope: ${queryScopeName(selectedId())}.`; }
+    if (!inUse()) { return `Scope is not used because Infumap tools are off. Saved scope: ${queryScopeName(selected())}.`; }
     if (!ready()) { return store.general.queryProfiles.error() ?? "Loading the default query profile…"; }
     if (itemsActive()) {
       return [`Scope: ${queryScopeItemsLabel(scopeItems().length)} and everything inside them`,
         ...scopeItems().map(id => `· ${queryScopeItemTitle(id)}`), missingItemsText()].filter(Boolean).join("\n");
     }
-    if (missing()) { return `Scope ${selectedId()} no longer exists or is not accessible. Choose another.`; }
-    if (selectedId() != null && queryScopesError() != null) { return `${queryScopesError()} Could not verify saved scope: ${selectedId()}.`; }
-    const summary = selectedSummary();
-    return [`Scope: ${queryScopeName(selectedId())}`,
-      summary == null ? null : queryScopeDescription(summary),
-      summary == null ? null : queryScopeProblemText(summary.problems)].filter(Boolean).join("\n");
+    if (unverified()) { return `${queryCollectionsError()} Could not verify the saved collection.`; }
+    return [`Scope: ${queryScopeName(selected())}`, queryScopeUnavailableText(selected()), queryScopeEmptyText(selected())]
+      .filter(Boolean).join("\n");
   };
-  const select = (id: Uid | null, close: () => void) => {
+  const select = (scope: ScopeRef, close: () => void) => {
     if (disabled()) { return; }
     close();
-    if (id == selectedId()) { return; }
+    if (scopeRefsEqual(scope, selected())) { return; }
     props.beforeChange?.();
-    if (searchScope()) { store.general.setSearchScopeId(id); }
-    else { setQueryScopeId(store, props.queryItem(), id); }
+    if (searchScope()) { store.general.setSearchScope(scope); }
+    else { setQueryScope(store, props.queryItem(), scope); }
     props.onChange?.();
   };
   // A change is blocked when the picker is disabled, so there is nothing to report here.
@@ -102,33 +103,91 @@ export function QueryScopePicker(props: QueryScopePickerProps) {
     props.beforeChange?.();
     clearQueryScopeItems(store, props.queryItem());
   };
-  const row = (id: Uid | null, name: string, description: string, problem: string | null, close: () => void, unavailable: boolean = false) => (
-    <button type="button" role="radio" aria-checked={selectedId() == id} disabled={disabled() || unavailable || itemsActive()}
-      data-picker-autofocus={selectedId() == id ? true : undefined}
+  const isSelected = (scope: ScopeRef) => scopeRefsEqual(scope, selected());
+  const rowDisabled = () => disabled() || itemsActive();
+  const radioIcon = (checked: boolean) =>
+    <i class={`mt-1 shrink-0 text-[12px] ${checked ? "bi-record-circle text-neutral-700" : "bi-circle text-neutral-400"}`} />;
+
+  const everythingRow = (close: () => void) => (
+    <button type="button" role="radio" aria-checked={isSelected(EVERYTHING_SCOPE)} disabled={rowDisabled()}
+      data-picker-autofocus={isSelected(EVERYTHING_SCOPE) ? true : undefined}
       class="flex w-full items-start gap-2 cursor-pointer rounded px-3 py-1.5 text-left hover:bg-control-hover disabled:cursor-default disabled:opacity-50"
-      onClick={() => select(id, close)}>
-      <i class={`mt-1 shrink-0 text-[12px] ${selectedId() == id ? "bi-record-circle text-neutral-700" : "bi-circle text-neutral-400"}`} />
+      onClick={() => select(EVERYTHING_SCOPE, close)}>
+      {radioIcon(isSelected(EVERYTHING_SCOPE))}
       <div class="min-w-0 grow">
-        <div class="truncate text-[13px]">{name}</div>
-        <div class="text-[11px] text-neutral-500">{description}</div>
-        <Show when={problem != null}><div class="text-[11px] text-amber-700">{problem}</div></Show>
+        <div class="truncate text-[13px]">Everything</div>
+        <div class="text-[11px] text-neutral-500">Everything under your home page, and earlier chats</div>
       </div>
     </button>
   );
 
-  return <QueryPickerPopover width={320} disabled={disabled()} buttonRef={props.buttonRef} onTabKey={props.onTabKey}
-    buttonClass="max-w-[200px] shrink-[3] cursor-pointer" ariaLabel={`Scope: ${label()}`} title={title()}
+  // The row selects the collection; Except selects everything except it. Both are radios of the same group, so the
+  // choice is always one reference and the label states it in full.
+  const collectionRow = (collection: CollectionSummary, close: () => void) => {
+    const include: ScopeRef = { kind: "collection", id: collection.id };
+    const except: ScopeRef = { kind: "everythingExcept", id: collection.id };
+    return (
+      <div class="flex items-start gap-1 rounded pr-2 hover:bg-control-hover">
+        <button type="button" role="radio" aria-checked={isSelected(include)} disabled={rowDisabled()}
+          data-picker-autofocus={isSelected(include) && filter() == "" ? true : undefined}
+          class="flex min-w-0 grow items-start gap-2 cursor-pointer px-3 py-1.5 text-left disabled:cursor-default disabled:opacity-50"
+          onClick={() => select(include, close)}>
+          {radioIcon(isSelected(include))}
+          <div class="min-w-0 grow">
+            <div class="flex items-center gap-1 text-[13px]">
+              <i class={`${COLLECTION_ICON_CLASS} shrink-0 text-[11px] text-neutral-500`} aria-hidden="true" />
+              <span class="truncate">{queryCollectionTitle(collection)}</span>
+            </div>
+            <div class="truncate text-[11px] text-neutral-500">{queryCollectionDescription(collection)}</div>
+          </div>
+        </button>
+        <button type="button" role="radio" aria-checked={isSelected(except)} disabled={rowDisabled()}
+          data-picker-autofocus={isSelected(except) && filter() == "" ? true : undefined}
+          aria-label={`Everything except ${queryCollectionTitle(collection)}`}
+          title={`Search everything except ${queryCollectionTitle(collection)} and what is inside its members`}
+          class={`mt-1.5 shrink-0 cursor-pointer rounded-control border px-1.5 text-[11px] leading-[18px] disabled:cursor-default disabled:opacity-50 ` +
+            (isSelected(except) ? "border-neutral-700 bg-control-selected text-black" : "border-control-border bg-white text-neutral-600 hover:text-black")}
+          onClick={() => select(except, close)}>Except</button>
+      </div>
+    );
+  };
+
+  const matchesFilter = (collection: CollectionSummary) => {
+    const words = filter().trim().toLowerCase().split(/\s+/).filter(word => word != "");
+    const text = `${collection.title} ${collection.path.join(" ")}`.toLowerCase();
+    return words.every(word => text.includes(word));
+  };
+  const showFilter = () => (queryCollections()?.length ?? 0) >= COLLECTION_FILTER_MIN_COUNT;
+  const sectionHeading = (text: string) => <div class="px-3 pb-0.5 pt-2 text-[11px] font-medium text-neutral-500">{text}</div>;
+
+  return <QueryPickerPopover width={340} disabled={disabled()} buttonRef={props.buttonRef} onTabKey={props.onTabKey}
+    buttonClass="max-w-[220px] shrink-[3] cursor-pointer" ariaLabel={`Scope: ${label()}`} title={title()}
     label={<><i class={warning() ? "bi-exclamation-triangle shrink-0 text-[11px] text-amber-600" : "bi-funnel shrink-0 text-[11px]"} />
       <span class="min-w-0 truncate">{label()}</span></>}
     onOpen={() => {
+      setFilter("");
       void store.general.queryProfiles.refresh();
-      void refreshQueryScopes(store);
+      void refreshQueryCollections(store);
       void describeQueryScopeItems(scopeItems(), true);
     }}>
     {close => <>
       <DialogHeader title="Scope"
         description="Limits what Infumap search can find. Web tools and attachments are not affected.">
         <Show when={props.note?.()}><div class={`mt-1 ${DIALOG_NOTE_CLASS}`}>{props.note!()}</div></Show>
+        <Show when={!itemsActive() && (queryScopeUnavailableText(selected()) ?? queryScopeEmptyText(selected()))}>{text =>
+          <div role="status" class="mt-1 text-[11px] text-amber-700">{text()}</div>
+        }</Show>
+        <Show when={showFilter()}>
+          <input data-picker-autofocus type="search" aria-label="Find a collection" placeholder="Find a collection by name or path…"
+            class={`mt-1.5 w-full ${DIALOG_INPUT_CLASS}`}
+            value={filter()} onInput={ev => setFilter(ev.currentTarget.value)}
+            onKeyDown={ev => {
+              if (ev.key == "ArrowDown") {
+                ev.preventDefault();
+                ev.currentTarget.closest("[role='dialog']")?.querySelector<HTMLButtonElement>("button[role='radio']:not([disabled])")?.focus();
+              }
+            }} />
+        </Show>
       </DialogHeader>
       <div class="min-h-0 grow overflow-y-auto">
         <Show when={itemsActive()}>
@@ -154,24 +213,39 @@ export function QueryScopePicker(props: QueryScopePickerProps) {
         </Show>
         <div class="py-1" classList={{ "opacity-60": itemsActive() }} role="radiogroup" aria-label="Infumap search scope">
           <Show when={itemsActive()}><div class="px-3 py-1 text-[11px] text-neutral-500">Used again when the chosen items are cleared.</div></Show>
-          {row(null, "Everything", "Everything under your home page", null, close)}
-          <Show when={missing()}>{row(selectedId(), "Missing scope", `Saved scope: ${selectedId()}`, "This scope no longer exists or is not accessible. Choose another.", close, true)}</Show>
-          <Show when={selectedId() != null && selectedSummary() == null && !missing()}>{row(selectedId(), "Saved scope (unverified)", `Saved scope: ${selectedId()}`, "Could not check this scope. Reopen to try again.", close, true)}</Show>
-          <Show when={queryScopes() == null && queryScopesError() == null}><div class="px-3 py-2 text-[12px] text-neutral-500">Loading scopes…</div></Show>
-          <Show when={queryScopesError()}><div class="px-3 py-2 text-[12px] text-red-700">{queryScopesError()}</div></Show>
-          <For each={queryScopes()?.scopes ?? []}>{scope => row(scope.id, queryScopeName(scope.id), queryScopeDescription(scope), queryScopeProblemText(scope.problems), close)}</For>
+          <Show when={filter() == ""}>{everythingRow(close)}</Show>
+          {/* The saved choice that can no longer be used stays visible, selected, until another is chosen. */}
+          <Show when={filter() == "" && unavailable()}>
+            <div role="radio" aria-checked="true" aria-disabled="true" data-picker-autofocus
+              class="flex w-full items-start gap-2 px-3 py-1.5 text-left opacity-70">
+              {radioIcon(true)}
+              <div class="min-w-0 grow">
+                <div class="truncate text-[13px] text-amber-700">{queryScopeName(selected())}</div>
+                <div class="text-[11px] text-neutral-500">Covers nothing until you choose another scope</div>
+              </div>
+            </div>
+          </Show>
+          <Show when={queryCollections() == null && queryCollectionsError() == null}><div class="px-3 py-2 text-[12px] text-neutral-500">Loading collections…</div></Show>
+          <Show when={queryCollectionsError()}><div class="px-3 py-2 text-[12px] text-red-700">{queryCollectionsError()} Reopen to try again.</div></Show>
+          <Show when={queryCollections()?.length == 0}>
+            <div class={`px-3 py-2 ${DIALOG_NOTE_CLASS}`}>
+              No collections yet. To make one, choose <b>Make collection</b> in a page's <i class="bi-three-dots" aria-label="More actions" /> menu.
+              The items it links to are its members.
+            </div>
+          </Show>
+          <Show when={filter() == "" && queryHereCollections().length > 0}>
+            {sectionHeading("Here")}
+            <For each={queryHereCollections()}>{collection => collectionRow(collection, close)}</For>
+          </Show>
+          <Show when={(queryCollections()?.length ?? 0) > 0}>
+            {sectionHeading("All collections")}
+            <For each={(queryCollections() ?? []).filter(matchesFilter)}
+              fallback={<div class={`px-3 py-1.5 ${DIALOG_NOTE_CLASS}`}>No collection matches.</div>}>
+              {collection => collectionRow(collection, close)}
+            </For>
+          </Show>
         </div>
       </div>
-      <Show when={queryScopes() != null}>
-        <div class="shrink-0 border-t border-chrome-line px-3 py-2">
-          <button type="button" class={`block ${DIALOG_LINK_CLASS}`}
-            title="Links in a scope page include items; links in its Exclude page exclude them." onClick={() => {
-            const pageId = queryScopes()?.scopesPageId;
-            close();
-            if (pageId != null) { switchToPage(store, { itemId: pageId, linkIdMaybe: null }, true, false, false); }
-          }}>Edit scopes</button>
-        </div>
-      </Show>
     </>}
   </QueryPickerPopover>;
 }

@@ -28,7 +28,7 @@ use std::path::PathBuf;
 use super::user::User;
 use crate::util::fs::expand_tilde;
 
-pub const CURRENT_USER_LOG_VERSION: i64 = 9;
+pub const CURRENT_USER_LOG_VERSION: i64 = 10;
 
 /// Usernames are case insensitive: they are indexed and looked up by this key.
 pub fn username_key(username: &str) -> String {
@@ -337,6 +337,28 @@ pub fn migrate_record_v8_to_v9(kvs: &Map<String, Value>) -> InfuResult<Map<Strin
   }
 }
 
+/// Version 10 replaces each saved profile's scope page id with a scope reference. A null id (everything) becomes
+/// `everything`; a scope page id becomes `unavailable`, which the user replaces by choosing a collection.
+pub fn migrate_record_v9_to_v10(kvs: &Map<String, Value>) -> InfuResult<Map<String, Value>> {
+  match json::get_string_field(kvs, "__recordType")?.ok_or("'__recordType' field is missing from log record.")?.as_str()
+  {
+    "entry" | "update" => {
+      let mut result = kvs.clone();
+      if let Some(collection) = result.get_mut("queryProfiles").filter(|collection| !collection.is_null()) {
+        let profiles = collection.get_mut("profiles").and_then(Value::as_array_mut).ok_or("Invalid query profiles.")?;
+        for profile in profiles {
+          crate::query_configuration::upgrade_legacy_scope(
+            profile.get_mut("configuration").ok_or("Profile configuration is missing.")?,
+          )?;
+        }
+      }
+      Ok(result)
+    }
+    "delete" => Ok(kvs.clone()),
+    unexpected_record_type => Err(format!("Unknown log record type '{}'.", unexpected_record_type).into()),
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -372,7 +394,7 @@ mod tests {
         id: id.clone(),
         name: "Default".to_owned(),
         configuration: QueryConfiguration {
-          scope_id: None,
+          scope: crate::query_configuration::ScopeRef::Everything,
           model: None,
           capabilities: vec!["infumap_data".to_owned()],
           tool_approval: crate::query_configuration::ToolApproval::Automatic,
@@ -437,6 +459,34 @@ mod tests {
     let mut delete = Map::new();
     delete.insert("__recordType".to_owned(), Value::String("delete".to_owned()));
     assert_eq!(migrate_record_v8_to_v9(&delete).unwrap(), delete);
+  }
+
+  #[test]
+  fn v9_profiles_lose_their_scope_page_ids() {
+    let mut with = user();
+    let mut collection = profiles();
+    let mut second = collection.profiles[0].clone();
+    second.id = new_uid();
+    second.name = "Scoped".to_owned();
+    second.configuration.scope = crate::query_configuration::ScopeRef::Unavailable;
+    collection.profiles.push(second);
+    with.query_profiles = Some(collection);
+    let mut entry = with.to_json().unwrap();
+    for (index, scope_id) in [(0, Value::Null), (1, Value::String(new_uid()))] {
+      let configuration = entry["queryProfiles"]["profiles"][index]["configuration"].as_object_mut().unwrap();
+      configuration.remove("scope");
+      configuration.insert("scopeId".to_owned(), scope_id);
+    }
+    assert!(User::from_json(&entry).is_err(), "a current reader rejects the old field");
+    let migrated = migrate_record_v9_to_v10(&entry).unwrap();
+    assert_eq!(User::from_json(&migrated).unwrap().query_profiles, with.query_profiles);
+
+    let without = User { query_profiles: None, ..with.clone() };
+    let update = User::create_json_update(&without, &with).unwrap();
+    assert_eq!(migrate_record_v9_to_v10(&update).unwrap(), update, "current records are unchanged");
+    let mut delete = Map::new();
+    delete.insert("__recordType".to_owned(), Value::String("delete".to_owned()));
+    assert_eq!(migrate_record_v9_to_v10(&delete).unwrap(), delete);
   }
 
   struct TempDir(PathBuf);

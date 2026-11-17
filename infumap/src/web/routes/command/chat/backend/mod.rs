@@ -210,7 +210,7 @@ pub(crate) async fn default_query_configuration(
   capabilities.sort();
   capabilities.dedup();
   Ok(crate::query_configuration::QueryConfiguration {
-    scope_id: None,
+    scope: crate::query_configuration::ScopeRef::Everything,
     model,
     capabilities,
     tool_approval: crate::query_configuration::ToolApproval::Automatic,

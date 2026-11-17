@@ -33,13 +33,25 @@ pub fn make_clap_subcommand() -> Command {
         .default_value("default")
         .help("The name of the Infumap CLI session to use."),
     )
-    .arg(Arg::new("scope").long("scope").global(true).help("Scope id limiting what the tool can search or read."))
+    .arg(
+      Arg::new("collection")
+        .long("collection")
+        .global(true)
+        .conflicts_with("except")
+        .help("Collection id limiting the tool to the collection's members and their descendants."),
+    )
+    .arg(
+      Arg::new("except")
+        .long("except")
+        .global(true)
+        .help("Collection id hiding the collection's members and their descendants from the tool."),
+    )
     .arg(
       Arg::new("scope-item")
         .long("scope-item")
         .global(true)
         .action(ArgAction::Append)
-        .help("Item id limiting the tool to it and its descendants, in place of --scope. Repeatable."),
+        .help("Item id limiting the tool to it and its descendants, in place of a collection. Repeatable."),
     )
     .subcommand(
       Command::new("infumap_search")
@@ -92,8 +104,10 @@ pub async fn execute(matches: &ArgMatches) -> InfuResult<()> {
   let client = build_http_client(Some(build_session_headers(&named_session.session)?)).await?;
   let url = named_session.command_url()?.join("/chat/tool").map_err(|e| format!("Could not build tool URL: {e}"))?;
   let mut request = json!({ "name": name, "arguments": arguments });
-  if let Some(scope) = matches.get_one::<String>("scope") {
-    request["scopeId"] = json!(scope);
+  if let Some(id) = matches.get_one::<String>("collection") {
+    request["scope"] = json!({ "kind": "collection", "id": id });
+  } else if let Some(id) = matches.get_one::<String>("except") {
+    request["scope"] = json!({ "kind": "everythingExcept", "id": id });
   }
   if let Some(items) = matches.get_many::<String>("scope-item") {
     request["scopeItemIds"] = json!(items.collect::<Vec<_>>());

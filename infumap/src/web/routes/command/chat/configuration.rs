@@ -54,11 +54,11 @@ mod tests {
   #[test]
   fn client_settings_are_normalized_before_use() {
     let mut normalized = settings(serde_json::json!({
-      "configuration": { "toolApproval": "automatic", "scopeId": null, "model": null, "capabilities": ["web", "infumap_data", "web"] },
+      "configuration": { "toolApproval": "automatic", "scope": { "kind": "everything" }, "model": null, "capabilities": ["web", "infumap_data", "web"] },
       "appliedProfile": {
         "id": "0123456789abcdef0123456789abcdef",
         "name": "  Research  ",
-        "configuration": { "toolApproval": "automatic", "scopeId": null, "model": null, "capabilities": ["web", "web"] },
+        "configuration": { "toolApproval": "automatic", "scope": { "kind": "everything" }, "model": null, "capabilities": ["web", "web"] },
       },
       "mode": "chat",
     }));
@@ -69,9 +69,9 @@ mod tests {
     assert_eq!(profile.configuration.capabilities, ["web"]);
 
     let invalid = [
-      serde_json::json!({ "toolApproval": "automatic", "scopeId": "not-a-uid", "model": null, "capabilities": [] }),
-      serde_json::json!({ "toolApproval": "automatic", "scopeId": null, "model": { "backend": " ", "model": null, "reasoningEffort": null }, "capabilities": [] }),
-      serde_json::json!({ "toolApproval": "automatic", "scopeId": null, "model": null, "capabilities": ["a\u{0}b"] }),
+      serde_json::json!({ "toolApproval": "automatic", "scope": { "kind": "collection", "id": "not-a-uid" }, "model": null, "capabilities": [] }),
+      serde_json::json!({ "toolApproval": "automatic", "scope": { "kind": "everything" }, "model": { "backend": " ", "model": null, "reasoningEffort": null }, "capabilities": [] }),
+      serde_json::json!({ "toolApproval": "automatic", "scope": { "kind": "everything" }, "model": null, "capabilities": ["a\u{0}b"] }),
     ];
     for configuration in invalid {
       let mut rejected =
@@ -79,8 +79,8 @@ mod tests {
       assert!(rejected.normalize().is_err());
     }
     let mut bad_profile = settings(serde_json::json!({
-      "configuration": { "toolApproval": "automatic", "scopeId": null, "model": null, "capabilities": [] },
-      "appliedProfile": { "id": "x", "name": "P", "configuration": { "toolApproval": "automatic", "scopeId": null, "model": null, "capabilities": [] } },
+      "configuration": { "toolApproval": "automatic", "scope": { "kind": "everything" }, "model": null, "capabilities": [] },
+      "appliedProfile": { "id": "x", "name": "P", "configuration": { "toolApproval": "automatic", "scope": { "kind": "everything" }, "model": null, "capabilities": [] } },
       "mode": "chat",
     }));
     assert!(bad_profile.normalize().is_err());
@@ -90,14 +90,14 @@ mod tests {
   fn scope_items_are_optional_deduplicated_in_order_and_limited() {
     let with_items = |items: serde_json::Value| {
       settings(serde_json::json!({
-        "configuration": { "toolApproval": "automatic", "scopeId": null, "model": null, "capabilities": [] },
+        "configuration": { "toolApproval": "automatic", "scope": { "kind": "everything" }, "model": null, "capabilities": [] },
         "scopeItemIds": items,
         "appliedProfile": null,
         "mode": "chat",
       }))
     };
     let mut absent = settings(serde_json::json!({
-      "configuration": { "toolApproval": "automatic", "scopeId": null, "model": null, "capabilities": [] },
+      "configuration": { "toolApproval": "automatic", "scope": { "kind": "everything" }, "model": null, "capabilities": [] },
       "appliedProfile": null,
       "mode": "chat",
     }));

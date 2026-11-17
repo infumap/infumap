@@ -2,13 +2,13 @@
 
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import { getQueryRuntime, QUERY_PROFILE_ROW_HEIGHT_PX, type QueryItem } from "../../items/query-item";
-import { cloneQueryConfiguration, queryConfigurationsEqual, type QueryConfiguration, type QueryProfile } from "../../items/query-configuration";
+import { cloneQueryConfiguration, queryConfigurationsEqual, scopeRefsEqual, type QueryConfiguration, type QueryProfile } from "../../items/query-configuration";
 import {
   appliedSavedProfile, applyQueryProfile, isQueryConfigurationModified, queryConfigurationChangeBlockedReason,
 } from "../../items/query-configuration-state";
 import { queryConfigurationIssues } from "../../items/query-configuration-availability";
 import { queryConfigurationSummary, queryModelRouteLabel, queryToolsLabel } from "../../items/query-configuration-labels";
-import { queryScopeName, queryScopes, refreshQueryScopes } from "../../items/query-scope";
+import { queryCollections, queryScopeName, refreshQueryCollections } from "../../items/query-scope";
 import { useStore } from "../../store/StoreProvider";
 import { TransientMessageType } from "../../store/StoreProvider_Overlay";
 import { QueryPickerPopover, stopQueryPickerEvent } from "./QueryPickerPopover";
@@ -50,7 +50,7 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
   onMount(() => {
     void store.general.queryProfiles.retrieve();
     void store.general.retrieveChatBackends();
-    if (queryScopes() == null) { void refreshQueryScopes(store); }
+    if (queryCollections() == null) { void refreshQueryCollections(store); }
   });
   createEffect(() => {
     const element = row();
@@ -88,10 +88,10 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
 
   const apply = (profile: QueryProfile) => {
     if (reason() != null) { return; }
-    const previousScope = runtime().configuration.scopeId;
+    const previousScope = runtime().configuration.scope;
     props.beforeChange?.();
     applyQueryProfile(store, props.queryItem(), profile);
-    props.onChange?.(previousScope != profile.configuration.scopeId);
+    props.onChange?.(!scopeRefsEqual(previousScope, profile.configuration.scope));
   };
   /** A saved setup becomes this query's applied profile, unless the query changed while saving. */
   const adopt = (profile: QueryProfile, configuration: QueryConfiguration) => {
@@ -172,7 +172,7 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
 
   const profileTitle = (profile: QueryProfile) => [
     profile.name,
-    `Scope: ${queryScopeName(profile.configuration.scopeId)}`,
+    `Scope: ${queryScopeName(profile.configuration.scope)}`,
     ...(props.searchMode() ? [] : [`Model: ${queryModelRouteLabel(store, profile.configuration.model)}`, `Tools: ${queryToolsLabel(profile.configuration.capabilities)}`]),
     ...unavailable(profile).map(issue => issue.message),
     isActive(profile) && modified() ? "Modified in this query. Click to restore the saved settings." : null,
@@ -248,7 +248,7 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
       <QueryPickerPopover buttonClass="shrink-0 cursor-pointer" width={360} ariaLabel="All query profiles"
         title={hiddenCount() > 0 ? `${hiddenCount()} more pinned profiles, and all saved profiles` : "All saved profiles"}
         label={<span class="whitespace-nowrap">{menuLabel()}</span>} onTabKey={props.onTabKey}
-        onOpen={() => { setNaming(false); void store.general.queryProfiles.refresh(); void refreshQueryScopes(store); void store.general.retrieveChatBackends(); }}>
+        onOpen={() => { setNaming(false); void store.general.queryProfiles.refresh(); void refreshQueryCollections(store); void store.general.retrieveChatBackends(); }}>
         {close => <>
           <div class="min-h-0 grow overflow-y-auto py-1" role="radiogroup" aria-label="Saved profiles">
             <Show when={store.general.queryProfiles.error()}>{error =>

@@ -58,9 +58,8 @@ pub struct ChatModelSelection {
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QueryConfiguration {
-  /// None covers everything in Infumap. Scope limits retrieval, not existing context or attachments.
-  #[serde(deserialize_with = "Option::deserialize")]
-  pub scope_id: Option<Uid>,
+  /// What Infumap retrieval covers. It limits retrieval, not existing context or attachments.
+  pub scope: ScopeRef,
   /// None means no model selected. Chat execution requires a selection.
   #[serde(deserialize_with = "Option::deserialize")]
   pub model: Option<ChatModelSelection>,
@@ -87,12 +86,27 @@ pub(crate) fn upgrade_legacy_configuration(configuration: &mut Value) -> InfuRes
   Ok(())
 }
 
+/// Replaces a configuration's bare `scopeId`, saved before collections, with a `scope`. A scope page id becomes
+/// `unavailable`, never a collection with the same id (see `ScopeRef::Unavailable`). A configuration that already
+/// has a `scope` is left alone, so this can be applied to records of any age.
+pub(crate) fn upgrade_legacy_scope(configuration: &mut Value) -> InfuResult<()> {
+  let configuration = configuration.as_object_mut().ok_or("Legacy query configuration must be an object.")?;
+  let Some(scope_id) = configuration.remove("scopeId") else {
+    return Ok(());
+  };
+  let scope = if scope_id.is_null() { ScopeRef::Everything } else { ScopeRef::Unavailable };
+  configuration.entry("scope").or_insert(serde_json::to_value(scope)?);
+  Ok(())
+}
+
 impl QueryConfiguration {
   /// Validates the format of every field and sorts and deduplicates capabilities. Used wherever a
   /// configuration arrives from a client: profile writes, chat requests and search.
   pub fn normalize(&mut self) -> InfuResult<()> {
-    if self.scope_id.as_ref().is_some_and(|id| !is_uid(id)) {
-      return Err("Invalid scope ID.".into());
+    if let ScopeRef::Collection { id } | ScopeRef::EverythingExcept { id } = &self.scope
+      && !is_uid(id)
+    {
+      return Err("Invalid collection ID.".into());
     }
     if let Some(model) = &self.model {
       validate_text(&model.backend, "model provider", 256)?;
@@ -111,7 +125,7 @@ impl QueryConfiguration {
     if self.capabilities.len() > MAX_CAPABILITIES {
       return Err("Too many capabilities.".into());
     }
-    // Availability is deliberately not checked: a removed scope, model or tool remains repairable.
+    // Availability is deliberately not checked: a removed collection, model or tool remains repairable.
     Ok(())
   }
 }

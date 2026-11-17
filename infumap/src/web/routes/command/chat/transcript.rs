@@ -56,7 +56,8 @@ use crate::util::fs::expand_tilde;
 /// old records to something sensible. An added field that defaults when absent, such as attachments or scope items,
 /// reads in every version and needs no bump. The turn settings embed `QueryConfiguration` and `QueryProfile`
 /// from `query_configuration.rs`, so changing those types is a transcript format change too.
-pub(super) const TRANSCRIPT_FORMAT_VERSION: u32 = 3;
+/// Version 4 replaced the configuration's bare `scopeId` with a `scope` reference.
+pub(super) const TRANSCRIPT_FORMAT_VERSION: u32 = 4;
 const CHATS_DIR_NAME: &str = "chats";
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -354,7 +355,7 @@ pub(super) fn parse_transcript(bytes: &[u8]) -> InfuResult<Option<Transcript>> {
   let mut lines = complete[..complete.len() - 1].split(|byte| *byte == b'\n').enumerate();
   let mut transcript = match lines.next().map(|(_, line)| serde_json::from_slice::<TranscriptRecord>(line)) {
     Some(Ok(TranscriptRecord::Header(header))) => {
-      if !matches!(header.version, 2 | TRANSCRIPT_FORMAT_VERSION) {
+      if !matches!(header.version, 2 | 3 | TRANSCRIPT_FORMAT_VERSION) {
         return Err(format!("Unsupported transcript format version {}.", header.version).into());
       }
       Transcript { header, turns: vec![] }
@@ -373,6 +374,8 @@ pub(super) fn parse_transcript(bytes: &[u8]) -> InfuResult<Option<Transcript>> {
 
 /// A profile applied before template notes were removed names its note: `"queryNoteId":"<id>"`.
 const LEGACY_QUERY_NOTE_KEY: &[u8] = b"\"queryNoteId\"";
+/// A configuration saved before collections names a scope page: `"scopeId":null` or `"scopeId":"<id>"`.
+const LEGACY_SCOPE_ID_KEY: &[u8] = b"\"scopeId\"";
 
 /// Version 2 has no approval setting. Preserve its conservative behavior without rewriting saved
 /// chats. A live version 2 file can contain new turns too; explicitly recorded policies are retained.
@@ -380,9 +383,14 @@ const LEGACY_QUERY_NOTE_KEY: &[u8] = b"\"queryNoteId\"";
 /// A profile in any version may name a template note, from before prompts replaced them. The reference is dropped
 /// on reading, with no version bump: nothing else changed, so files written since are still version 3. Only lines
 /// that mention it take the slower path through `Value`.
+///
+/// Versions 2 and 3 name a scope page in `scopeId`, which becomes a `scope` (see `upgrade_legacy_scope`). It is
+/// found by its key, not the header's version: a live version 2 or 3 file goes on to get version 4 lines appended.
 fn parse_transcript_record(line: &[u8], version: u32) -> InfuResult<TranscriptRecord> {
-  let legacy_query_note = line.windows(LEGACY_QUERY_NOTE_KEY.len()).any(|window| window == LEGACY_QUERY_NOTE_KEY);
-  if version != 2 && !legacy_query_note {
+  let mentions = |key: &[u8]| line.windows(key.len()).any(|window| window == key);
+  let legacy_query_note = mentions(LEGACY_QUERY_NOTE_KEY);
+  let legacy_scope_id = mentions(LEGACY_SCOPE_ID_KEY);
+  if version != 2 && !legacy_query_note && !legacy_scope_id {
     return Ok(serde_json::from_slice(line)?);
   }
   let mut record: Value = serde_json::from_slice(line)?;
@@ -400,6 +408,14 @@ fn parse_transcript_record(line: &[u8], version: u32) -> InfuResult<TranscriptRe
     }
     if let Some(profile) = settings.get_mut("appliedProfile").and_then(Value::as_object_mut) {
       profile.remove("queryNoteId");
+    }
+    crate::query_configuration::upgrade_legacy_scope(
+      settings.get_mut("configuration").ok_or("Transcript configuration is missing.")?,
+    )?;
+    if let Some(profile) = settings.get_mut("appliedProfile").filter(|profile| !profile.is_null()) {
+      crate::query_configuration::upgrade_legacy_scope(
+        profile.get_mut("configuration").ok_or("Profile configuration is missing.")?,
+      )?;
     }
   }
   Ok(serde_json::from_value(record)?)
@@ -711,7 +727,7 @@ mod tests {
       attachments: vec![],
       settings: TurnSettings {
         configuration: QueryConfiguration {
-          scope_id: None,
+          scope: crate::query_configuration::ScopeRef::Everything,
           model: None,
           capabilities: vec![],
           tool_approval: crate::query_configuration::ToolApproval::Automatic,
@@ -908,9 +924,39 @@ mod tests {
     }
   }
 
+  /// Chats saved with a scope page id still open. The id is not reused as a collection's.
+  #[test]
+  fn a_scope_page_id_reads_as_an_unavailable_scope() {
+    use crate::query_configuration::ScopeRef;
+    let (query_item_id, profile_id, scope_id) = (new_uid(), new_uid(), new_uid());
+    for version in [2, 3, 4] {
+      let header = format!(r#"{{"type":"header","version":{version},"queryItemId":"{query_item_id}","createdAt":1}}"#);
+      let scoped = format!(r#"{{"toolApproval":"automatic","scopeId":"{scope_id}","model":null,"capabilities":[]}}"#);
+      let unscoped = r#"{"toolApproval":"automatic","scopeId":null,"model":null,"capabilities":[]}"#;
+      let current = r#"{"toolApproval":"automatic","scope":{"kind":"everything"},"model":null,"capabilities":[]}"#;
+      let user = |request_id: &str, configuration: &str, profile_configuration: &str| {
+        format!(
+          r#"{{"type":"user","requestId":"{request_id}","startedAt":1,"text":"q","settings":{{"configuration":{configuration},"appliedProfile":{{"id":"{profile_id}","name":"P","configuration":{profile_configuration}}},"mode":"chat"}}}}"#
+        )
+      };
+      let turn = |request_id: &str| {
+        format!(r#"{{"type":"turn","requestId":"{request_id}","startedAt":1,"endedAt":2,"outcome":"completed"}}"#)
+      };
+      // A file written before collections that a newer server went on appending to.
+      let lines = [header, user("r1", &scoped, unscoped), turn("r1"), user("r2", current, current), turn("r2")];
+      let transcript = parse_transcript(format!("{}\n", lines.join("\n")).as_bytes()).unwrap().unwrap();
+      let settings = |index: usize| &transcript.turns[index].user.settings;
+      assert_eq!(settings(0).configuration.scope, ScopeRef::Unavailable, "version {version}");
+      assert_eq!(settings(0).applied_profile.as_ref().unwrap().configuration.scope, ScopeRef::Everything);
+      assert_eq!(settings(1).configuration.scope, ScopeRef::Everything);
+      let line = record_line(&TranscriptRecord::User(transcript.turns[0].user.clone())).unwrap();
+      assert!(!line.contains("scopeId"));
+    }
+  }
+
   #[test]
   fn user_record_without_attachments_parses_and_omits_them() {
-    let line = r#"{"type":"user","requestId":"r1","startedAt":1,"text":"q","settings":{"configuration":{"toolApproval": "automatic", "scopeId":null,"model":null,"capabilities":[]},"appliedProfile":null,"mode":"chat"}}"#;
+    let line = r#"{"type":"user","requestId":"r1","startedAt":1,"text":"q","settings":{"configuration":{"toolApproval": "automatic", "scope":{"kind":"everything"},"model":null,"capabilities":[]},"appliedProfile":null,"mode":"chat"}}"#;
     let TranscriptRecord::User(user) = serde_json::from_str::<TranscriptRecord>(line).unwrap() else {
       panic!("expected a user record");
     };

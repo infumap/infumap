@@ -30,7 +30,7 @@ import { makeHistoryStore, HistoryStoreContextModel } from "./StoreProvider_Hist
 import { OverlayStoreContextModel, makeOverlayStore } from "./StoreProvider_Overlay";
 import { PerItemStoreContextModel, makePerItemStore } from "./StoreProvider_PerItem";
 import { clearQueryPrompts } from "../items/query-prompt";
-import { clearQueryScopes } from "../items/query-scope";
+import { clearQueryCollections } from "../items/query-scope";
 import { clearQueryChatSessions } from "../items/chat";
 import { PerVeStoreContextModel, makePerVeStore } from "./StoreProvider_PerVe";
 import { FindStoreContextModel, makeFindStore } from "./StoreProvider_Find";
@@ -193,7 +193,7 @@ export function StoreProvider(props: StoreContextProps) {
     overlay.clear();
     perItem.clear();
     general.queryProfiles.clear();
-    clearQueryScopes();
+    clearQueryCollections();
     clearQueryPrompts();
     perVe.clear();
     find.clear();

@@ -1,54 +1,58 @@
 # Scopes
 
 A scope limits which of your items search, chat and deep research can see. For example, you can
-keep a journal out of chat, or search only a project's pages.
+keep a journal out of chat, or search only a project's key sources. A scope is **Everything**, a
+[collection](#collections), or everything except a collection.
 
-## Defining a scope
+## Collections
 
-Scopes live in the **Scopes** page. It belongs to the Queries page but isn't listed there: open it
-with **Edit scopes** in the scope picker. It is created automatically and cannot be moved or deleted,
-but it can be renamed.
+A collection is a page that names a set of items without moving or copying them. Make one with
+**Make collection** in a page's **…** (More actions) menu, and turn it back into an ordinary page with
+**Make ordinary page**. A collection shows a collection icon by its title.
 
-Each page directly inside Scopes is one scope, and its title is the scope's name. Inside a scope page:
+- **Links** directly inside the collection page are its members. Each member covers the linked item and
+  everything inside it. Linking the same item twice adds it once.
+- Anything else in the page, such as a note saying what the collection is for or a subpage, is not a
+  member, and neither is anything inside it.
+- A collection with no members covers nothing.
 
-- **Links** are include roots. The scope covers each linked item and everything inside it.
-- A page (or table or composite) titled **Exclude**, in any letter case, holds exclude roots. Each
-  link inside it removes the linked item and everything inside it from the scope.
-- Anything else, such as a note describing the scope, is ignored.
+To add an item, put a link to it in the collection page. To remove one, delete its link. Deleting a link, or the collection, never deletes the item it
+points to.
 
 ```
-Scopes
-├── Work
-│   ├── → Projects        included
-│   ├── → Clients         included
-│   └── Exclude
-│       └── → Clients/Old excluded
-└── No journal
-    └── Exclude           (no include links, so everything else is included)
-        └── → Journal
+Research
+└── Northstar
+    ├── Financials
+    ├── Interviews
+    └── Collections
+        └── Key sources        (a collection)
+            ├── → Financials   member
+            ├── → Industry report (elsewhere)  member
+            └── Why these      a note, not a member
 ```
+
+A collection can live anywhere, and its members can be anywhere. Moving or renaming it, or moving its
+members, does not change what it covers.
 
 The rules:
 
-- "Everything inside" means children and attachments, at any depth. Links inside an included item
-  are not followed: the item a link points to is only in scope if it is in scope itself.
-- Exclusion always wins. An include root inside an excluded item is excluded.
-- A scope with no include links covers everything under your home page and query chats, minus its exclusions.
-- A scope whose include links all point to deleted or inaccessible items covers nothing, not everything.
-- A link must point at an item, not at another link. A scope link that points to a link is reported as a
-  problem and includes or excludes nothing.
+- "Everything inside" means children and attachments, at any depth. Links inside a member are not
+  followed: the item a link points to is only covered if it is covered itself.
+- A link must point at an item, not at another link. A link to a deleted item covers nothing until you
+  remove it.
+- A member that is itself a collection page covers that page and what is in it, not that collection's
+  members.
 - Changes take effect on the next search or chat message. There is nothing to save.
-
-To check whether a page is an include or exclude root, open its info popup: its
-[backlinks](backlinks.md) list the scope links that point to it, under a path such as
-`… / Scopes / Work / Exclude`. A page inside a root has no backlink of its own, so check the pages
-above it too.
 
 ## Choosing a scope
 
 The **Scope** control sits below the query input, on the search results border, and beside the
-independent **Model** and **Tools** controls in chat. Its list shows each scope's coverage and problems
-with its definition, such as a link to a deleted item or a container that is not named Exclude. **Edit scopes** opens the Scopes page.
+independent **Model** and **Tools** controls in chat. It lists **Everything**, then your collections:
+under **Here**, those nearest the page you were on before opening search, nearest first, and under
+**All collections**, every collection by name with the pages above it. Choose a collection to search
+only what it covers, or click **Except** beside it to search everything except what it covers. The
+control's label states the choice in full, such as **Key sources** or **Everything except Private**.
+Exclusion wins: an item a collection covers stays hidden even if it is also linked from somewhere else.
 
 Search remembers the last scope you chose for it, separately for each account in each browser. Until you choose
 one, search covers everything. Chats instead copy the scope from the default [query profile](chats.md#query-profiles).
@@ -56,17 +60,27 @@ Changing a chat's scope affects only that chat; it does not change the default p
 switching between Search and Chat switches the scope shown.
 
 In a chat, changing the scope applies from the next message. Earlier answers keep what they found.
-Items you add to a chat's context yourself are always sent, whatever the scope.
+Items you add to a chat's context yourself are always sent, whatever the scope. Choosing a collection
+does not send its contents to the model; it only limits what the model can find.
 
 When Infumap tools are off, the control displays **Scope: Not used** and retains its saved selection.
 Turn Infumap on again to use that scope. Search always uses scope, regardless of chat tool choices.
 The scope popup is labelled **Search within Infumap**: it does not constrain web tools or existing chat context.
 
-If the chosen scope is deleted, the button shows **Missing scope**. Search and chats using Infumap
-tools cannot send until you choose another scope; chats with Infumap tools off retain the missing
-selection without using it. They never fall back to searching everything. **Refresh scopes** checks
-availability again. A failed discovery request is labelled **Unverified**, rather than treated as
-evidence that the scope was deleted.
+If a chosen collection is deleted, moved to the trash or made an ordinary page, the control shows it
+as unavailable, such as **Key sources (unavailable)**, and it covers nothing. It never falls back to
+searching everything. Search finds nothing, and a chat using Infumap tools cannot send until you choose
+another scope. Restoring the page from the trash, or making it a collection again, makes it work again.
+A failed request for the list of collections is labelled **Unverified**, rather than treated as evidence
+that the collection is gone.
+
+### Scopes from earlier versions
+
+Earlier versions defined scopes as pages in a **Scopes** page. Those definitions are no longer used: a
+profile, chat or search that used one shows **Old scope (unavailable)** until you choose again. The pages
+themselves are kept. A scope page whose links were all includes can become a collection with **Make
+collection**, since its links are already the members. Its **Exclude** page is not a member and is
+ignored. For an exclusion, make a separate collection of what to hide and choose **Except** beside it.
 
 ## Limiting a chat to chosen items
 

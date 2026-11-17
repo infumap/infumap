@@ -19,7 +19,7 @@
 import { EMPTY_VEID, Veid } from "../layout/visual-element";
 import { BooleanSignal, InfuSignal, NumberSignal, createBooleanSignal, createInfuSignal, createNumberSignal } from "../util/signals";
 import type { SearchResult } from "../server";
-import { cloneQueryConfiguration, snapshotQueryProfile, type QueryConfiguration, type QueryProfile } from "../items/query-configuration";
+import { EVERYTHING_SCOPE, cloneQueryConfiguration, snapshotQueryProfile, type QueryConfiguration, type QueryProfile } from "../items/query-configuration";
 import type { ArrangeAlgorithm } from "../items/page-item";
 import type { Uid } from "../util/uid";
 
@@ -178,7 +178,7 @@ export function makePerItemStore(
       mode: null,
       text: "",
       configuration: profile == null
-        ? { scopeId: null, model: null, capabilities: [], toolApproval: "automatic" }
+        ? { scope: EVERYTHING_SCOPE, model: null, capabilities: [], toolApproval: "automatic" }
         : cloneQueryConfiguration(profile.configuration),
       configurationInitialized: profile != null,
       appliedProfile: profile == null ? null : snapshotQueryProfile(profile),

@@ -23,7 +23,6 @@ import { VisualElementPath, VeFns } from "../layout/visual-element";
 import { server, type ContinueChatResponse } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
-import { querySearchUnavailableReason } from "./query-configuration-availability";
 import type { ChatDraftAttachment } from "./chat-attachment";
 import { asContainerItem, isContainer } from "./base/container-item";
 import type { Uid } from "../util/uid";
@@ -142,15 +141,15 @@ export async function runQuerySearch(
     return true;
   }
 
-  const scopeId = store.general.searchScopeId();
-  const unavailable = querySearchUnavailableReason(scopeId);
-  if (unavailable != null) { throw new Error(unavailable); }
+  // An unavailable collection is sent anyway: the server finds nothing, never everything, and the scope control
+  // says why.
+  const scope = store.general.searchScope();
   setQueryMode(store, queryItem, "search");
   setQuerySearchArrangeAlgorithm(store, queryItem, store.general.searchResultsArrangeAlgorithm());
   requestArrange(store, "query-search-start");
 
   const response = await server.search(
-    null, text, 1, scopeId,
+    null, text, 1, scope,
   );
   if (options.shouldApply && !options.shouldApply()) {
     return false;
@@ -179,13 +178,11 @@ export async function loadMoreQuerySearchResults(
     return false;
   }
 
-  const scopeId = store.general.searchScopeId();
-  const unavailable = querySearchUnavailableReason(scopeId);
-  if (unavailable != null) { throw new Error(unavailable); }
+  const scope = store.general.searchScope();
   const loadedPageCount = getQuerySearchLoadedPageCount(store, queryItem);
   const nextPage = Math.max(1, loadedPageCount + 1);
   const response = await server.search(
-    null, requestedQuery, nextPage, scopeId,
+    null, requestedQuery, nextPage, scope,
   );
   if (options.shouldApply && !options.shouldApply()) {
     return false;

@@ -2,11 +2,11 @@
 
 import type { StoreContextModel } from "../store/StoreProvider";
 import type { Uid } from "../util/uid";
-import type { ChatModelSelection, QueryConfiguration } from "./query-configuration";
+import type { ChatModelSelection, QueryConfiguration, ScopeRef } from "./query-configuration";
 import { queryModelRouteLabel, queryProviderLabel } from "./query-configuration-labels";
 import {
-  queryScopeItemResolved, queryScopeName, queryScopeProblemText, queryScopeSummary, queryScopesError, queryScopesLoading,
-  refreshQueryScopes,
+  queryCollectionsError, queryCollectionsLoading, queryScopeCollection, queryScopeEmptyText, queryScopeItemResolved,
+  queryScopeName, queryScopeUnavailableText, refreshQueryCollections,
 } from "./query-scope";
 
 export interface QueryConfigurationIssue {
@@ -51,20 +51,20 @@ export function queryModelIssues(store: StoreContextModel, selection: ChatModelS
   return [];
 }
 
-function queryScopeIssues(scopeId: Uid | null): ResourceIssue[] {
-  if (scopeId == null) { return []; }
-  const summary = queryScopeSummary(scopeId);
-  if (summary === undefined || queryScopesError() != null) {
-    const checking = queryScopesLoading() && queryScopesError() == null;
+function queryScopeIssues(scope: ScopeRef): ResourceIssue[] {
+  if (scope.kind == "everything") { return []; }
+  const unavailable = (): ResourceIssue[] =>
+    [{ resource: "scope", status: "unavailable", subject: queryScopeName(scope), message: queryScopeUnavailableText(scope)! }];
+  if (scope.kind == "unavailable") { return unavailable(); }
+  const collection = queryScopeCollection(scope);
+  if (collection === undefined || queryCollectionsError() != null) {
+    const checking = queryCollectionsLoading() && queryCollectionsError() == null;
     return [{ resource: "scope", status: checking ? "checking" : "unverified", subject: "Scope",
-      message: checking ? "Checking the saved scope's availability…" : "Could not verify the saved scope." }];
+      message: checking ? "Checking the saved collection's availability…" : "Could not verify the saved collection." }];
   }
-  if (summary == null) {
-    return [{ resource: "scope", status: "unavailable", subject: "Scope",
-      message: `Scope ${scopeId} no longer exists or is not accessible. Choose another scope.` }];
-  }
-  const problem = queryScopeProblemText(summary.problems);
-  return problem == null ? [] : [{ resource: "scope", status: "warning", subject: queryScopeName(scopeId), message: `${queryScopeName(scopeId)}: ${problem}.` }];
+  if (collection == null) { return unavailable(); }
+  const empty = queryScopeEmptyText(scope);
+  return empty == null ? [] : [{ resource: "scope", status: "warning", subject: queryScopeName(scope), message: empty }];
 }
 
 /**
@@ -79,7 +79,7 @@ export function queryConfigurationIssues(
 ): QueryConfigurationIssue[] {
   const issues: QueryConfigurationIssue[] = [];
   const scopeActive = mode == "search" || (configuration.capabilities.includes("infumap_data") && scopeItemIds.length == 0);
-  issues.push(...queryScopeIssues(configuration.scopeId).map(issue => ({ ...issue, active: scopeActive })));
+  issues.push(...queryScopeIssues(configuration.scope).map(issue => ({ ...issue, active: scopeActive })));
   if (mode == "chat" && scopeItemIds.length > 0) {
     // The server leaves out items that do not resolve, and refuses a chat whose items all fail to.
     const missing = scopeItemIds.filter(id => !queryScopeItemResolved(id)).length;
@@ -116,11 +116,6 @@ export function queryConfigurationUnavailableReason(
   return messages.length == 0 ? null : messages.join("\n");
 }
 
-/** Search uses the scope remembered for search, not the query's configuration. */
-export function querySearchUnavailableReason(scopeId: Uid | null): string | null {
-  return queryScopeIssues(scopeId).find(issue => issue.status == "unavailable")?.message ?? null;
-}
-
 export async function refreshQueryConfigurationAvailability(store: StoreContextModel): Promise<void> {
-  await Promise.all([refreshQueryScopes(store), store.general.refreshChatBackends()]);
+  await Promise.all([refreshQueryCollections(store), store.general.refreshChatBackends()]);
 }

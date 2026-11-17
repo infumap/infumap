@@ -1,7 +1,7 @@
 # Backlinks
 
 An item's backlinks are your links and notes that refer to it. Use them to find where you have
-linked to something, or to check whether a page is an include or exclude root of a [scope](scopes.md).
+linked to something, or to check whether a page is a member of a [collection](scopes.md#collections).
 
 ## Seeing backlinks
 

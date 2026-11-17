@@ -29,7 +29,8 @@ use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::ReceiverStream;
 use uuid::Uuid;
 
-use super::scope::{MAX_SCOPE_ITEMS, ResolvedScope, ScopeSource, resolve_item_scope, resolve_scope};
+use super::scope::{MAX_SCOPE_ITEMS, ResolvedScope, ScopeSource, resolve_item_scope, resolve_scope_ref};
+use crate::query_configuration::ScopeRef;
 use crate::web::LLM_LOG_ENABLED;
 use crate::web::serve::{empty_body, forbidden_response, not_found_response};
 
@@ -749,6 +750,23 @@ struct OpenAiToolCall {
   #[serde(rename = "type", default, skip_serializing_if = "String::is_empty")]
   tool_type: String,
   function: OpenAiToolCallFunction,
+}
+
+/// The items whose content goes into the message: only items chosen in the chat. A collection limits retrieval and
+/// nothing more; attaching its members would put all of them in every chat that uses it.
+fn scope_items_to_attach(source: &ScopeSource) -> Option<&Vec<Uid>> {
+  match source {
+    ScopeSource::Items(item_ids) => Some(item_ids),
+    ScopeSource::All
+    | ScopeSource::Named { .. }
+    | ScopeSource::Collection { .. }
+    | ScopeSource::Except { .. }
+    | ScopeSource::Unavailable => None,
+  }
+}
+
+fn everything() -> ScopeRef {
+  ScopeRef::Everything
 }
 
 fn default_tool_call_type() -> String {
@@ -2239,7 +2257,7 @@ async fn start_live_chat_turn(
   // Items chosen as the scope go before the user's own attachments, the first time each is in scope. One whose turn
   // did not complete is not in the history, so it is attached again.
   if let Some(scope) = scope
-    && let ScopeSource::Items(item_ids) = &scope.source
+    && let Some(item_ids) = scope_items_to_attach(&scope.source)
   {
     let existing = transcript.transcript();
     let new_item_ids = item_ids
@@ -2390,8 +2408,9 @@ fn resolve_pending_tool_approval(request_id: &str, call_id: &str, user_id: &Uid,
 struct ChatToolRequest {
   name: String,
   arguments: Value,
-  #[serde(rename = "scopeId", default)]
-  scope_id: Option<Uid>,
+  /// Everything when absent.
+  #[serde(default = "everything")]
+  scope: ScopeRef,
   /// Items limiting the tools in place of the scope, as in a chat.
   #[serde(rename = "scopeItemIds", default)]
   scope_item_ids: Vec<Uid>,
@@ -2436,12 +2455,16 @@ pub async fn serve_chat_tool_route(
       Err(e) => return chat_tool_error_response(StatusCode::BAD_REQUEST, &format!("Could not resolve scope: {e}")),
     }
   } else {
-    match request.scope_id {
-      Some(scope_id) => match resolve_scope(&*db.lock().await, &session.user_id, &scope_id) {
-        Ok(scope) => Some(scope),
+    match request.scope {
+      ScopeRef::Everything => None,
+      scope => match resolve_scope_ref(&*db.lock().await, &session.user_id, &scope) {
+        // Refused as a chat run is, so a test of the tools never reports what it could not see as absent.
+        Ok(scope) => match scope.unavailable_message() {
+          Some(message) => return chat_tool_error_response(StatusCode::BAD_REQUEST, &message),
+          None => Some(scope),
+        },
         Err(e) => return chat_tool_error_response(StatusCode::BAD_REQUEST, &format!("Could not resolve scope: {e}")),
       },
-      None => None,
     }
   };
   let infumap_data = InfumapData { scope };
@@ -3256,13 +3279,18 @@ async fn prepare_chat_resources(
           .map_err(|error| error.message().to_owned())?,
       )
     } else {
-      match &request.settings.configuration.scope_id {
-        // A missing scope page is the only failure for a signed-in user.
-        Some(scope_id) => Some(
-          resolve_scope(&*db.lock().await, &session.user_id, scope_id)
-            .map_err(|_| "The selected scope no longer exists. Choose another scope.")?,
-        ),
-        None => None,
+      match &request.settings.configuration.scope {
+        ScopeRef::Everything => None,
+        scope => {
+          let scope = resolve_scope_ref(&*db.lock().await, &session.user_id, scope)
+            .map_err(|error| error.message().to_owned())?;
+          // An unavailable collection would leave the run searching nothing, and the model would report what it
+          // could not see as absent. Searching everything instead would break the user's limit.
+          if let Some(message) = scope.unavailable_message() {
+            return Err(message);
+          }
+          Some(scope)
+        }
       }
     };
     let scope = if let Some(query_item_id) = &request.query_item_id {
@@ -3498,7 +3526,8 @@ async fn execute_search_tool_call(
     text: search_text.clone(),
     num_results: CHAT_SEARCH_TOOL_PAGE_SIZE,
     page_num,
-    scope_id: None,
+    // The run's resolved scope is passed separately.
+    scope: ScopeRef::Everything,
     exclude_chats: false,
   };
 
@@ -4261,6 +4290,7 @@ async fn chat_completion(
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::web::routes::command::scope::resolve_scope;
   use crate::web::routes::command::scope::test_db::{TempDir, TestDb};
 
   struct Fixture {
@@ -4272,10 +4302,13 @@ mod tests {
     x1: Uid,
     link_to_b: Uid,
     scope_id: Uid,
+    collection_id: Uid,
+    trashed_collection_id: Uid,
     _dir: TempDir,
   }
 
-  /// home/{A/{a1, X/{x1}, link to B}, B}, and a scope "Work" that includes A and excludes X.
+  /// home/{A/{a1, X/{x1}, link to B}, B}, a scope "Work" that includes A and excludes X, a collection "Work" of A,
+  /// and a collection "Old" in the trash.
   async fn fixture() -> Fixture {
     let mut t = TestDb::new().await;
     let home = t.home_id.clone();
@@ -4289,8 +4322,23 @@ mod tests {
     t.link(&scope_id, &a).await;
     let exclude = t.page(&scope_id, "Exclude").await;
     t.link(&exclude, &x).await;
+    let collection_id = t.collection(&home, "Work").await;
+    t.link(&collection_id, &a).await;
+    let trashed_collection_id = t.collection(&t.trash_id.clone(), "Old").await;
     let session = test_session(&t.user_id);
-    Fixture { db: Arc::new(tokio::sync::Mutex::new(t.db)), session, a, a1, x, x1, link_to_b, scope_id, _dir: t.dir }
+    Fixture {
+      db: Arc::new(tokio::sync::Mutex::new(t.db)),
+      session,
+      a,
+      a1,
+      x,
+      x1,
+      link_to_b,
+      scope_id,
+      collection_id,
+      trashed_collection_id,
+      _dir: t.dir,
+    }
   }
 
   impl Fixture {
@@ -4622,9 +4670,10 @@ mod tests {
       ))
       .build()
       .unwrap();
-    let request = |model: Value, scope_id: &Uid, capabilities: Value| -> ChatRequest {
+    let collection = |id: &Uid| serde_json::json!({ "kind": "collection", "id": id });
+    let request = |model: Value, scope: Value, capabilities: Value| -> ChatRequest {
       serde_json::from_value(serde_json::json!({
-        "configuration": { "toolApproval": "automatic", "scopeId": scope_id, "model": model, "capabilities": capabilities },
+        "configuration": { "toolApproval": "automatic", "scope": scope, "model": model, "capabilities": capabilities },
         "appliedProfile": null,
         "mode": "chat",
       }))
@@ -4636,7 +4685,7 @@ mod tests {
       async move { prepare_chat_resources(config, db, session, &request).await.err() }
     };
     let with_items = |items: &[&Uid], capabilities: Value| -> ChatRequest {
-      let mut request = request(llama.clone(), &new_uid(), capabilities);
+      let mut request = request(llama.clone(), collection(&new_uid()), capabilities);
       request.settings.scope_item_ids = items.iter().map(|id| (*id).clone()).collect();
       request
     };
@@ -4651,8 +4700,8 @@ mod tests {
     .await
     .ok()
     .unwrap();
-    let scope = chosen.infumap_data.unwrap().scope.unwrap();
-    assert_eq!(scope.source, ScopeSource::Items(vec![f.x.clone(), f.a1.clone()]));
+    let chosen_source = chosen.infumap_data.unwrap().scope.unwrap().source;
+    assert_eq!(chosen_source, ScopeSource::Items(vec![f.x.clone(), f.a1.clone()]));
     assert_eq!(
       prepare(with_items(&[&new_uid()], serde_json::json!(["infumap_data"]))).await.as_deref(),
       Some("None of the items in scope exist any more. Remove them or add others.")
@@ -4664,35 +4713,74 @@ mod tests {
       &config,
       &f.db,
       &f.session,
-      &request(llama.clone(), &f.scope_id, serde_json::json!(["infumap_data"])),
+      &request(llama.clone(), collection(&f.collection_id), serde_json::json!(["infumap_data"])),
     )
     .await
     .ok()
     .unwrap();
-    assert!(ready.infumap_data.unwrap().scope.is_some());
+    let scope = ready.infumap_data.unwrap().scope.unwrap();
+    assert_eq!(scope.source, ScopeSource::Collection { id: f.collection_id.clone(), name: "Work".to_owned() });
+    let everything = prepare_chat_resources(
+      &config,
+      &f.db,
+      &f.session,
+      &request(llama.clone(), serde_json::json!({ "kind": "everything" }), serde_json::json!(["infumap_data"])),
+    )
+    .await
+    .ok()
+    .unwrap();
+    assert!(everything.infumap_data.unwrap().scope.is_none());
 
     assert_eq!(
-      prepare(request(Value::Null, &f.scope_id, serde_json::json!([]))).await.as_deref(),
+      prepare(request(Value::Null, collection(&f.collection_id), serde_json::json!([]))).await.as_deref(),
       Some("Choose a model and provider for Chat.")
     );
     let unknown = serde_json::json!({ "backend": "b", "model": "default", "reasoningEffort": null });
     assert_eq!(
-      prepare(request(unknown, &f.scope_id, serde_json::json!([]))).await.as_deref(),
+      prepare(request(unknown, collection(&f.collection_id), serde_json::json!([]))).await.as_deref(),
       Some("Provider 'b' is not configured on this server. Choose another provider.")
     );
     let no_model = serde_json::json!({ "backend": "a", "model": null, "reasoningEffort": null });
     assert_eq!(
-      prepare(request(no_model, &f.scope_id, serde_json::json!([]))).await.as_deref(),
+      prepare(request(no_model, collection(&f.collection_id), serde_json::json!([]))).await.as_deref(),
       Some("Selected model is missing. Choose an explicit model.")
     );
+    // An unavailable collection refuses the run, whichever way it is used, and never searches everything.
+    let infumap = || serde_json::json!(["infumap_data"]);
     assert_eq!(
-      prepare(request(llama.clone(), &new_uid(), serde_json::json!(["infumap_data"]))).await.as_deref(),
-      Some("The selected scope no longer exists. Choose another scope.")
+      prepare(request(llama.clone(), collection(&new_uid()), infumap())).await.as_deref(),
+      Some("The collection this chat is limited to no longer exists. Choose another scope.")
+    );
+    assert_eq!(
+      prepare(request(
+        llama.clone(),
+        serde_json::json!({ "kind": "everythingExcept", "id": f.trashed_collection_id }),
+        infumap()
+      ))
+      .await
+      .as_deref(),
+      Some("\"Old\" is no longer a collection. Choose another scope.")
+    );
+    assert_eq!(
+      prepare(request(llama.clone(), serde_json::json!({ "kind": "unavailable" }), infumap())).await.as_deref(),
+      Some("Scope pages are no longer used. Choose a collection or Everything as the scope.")
+    );
+    // A scope page id is rejected outright; transcripts and profiles map theirs when read.
+    assert!(
+      serde_json::from_value::<ChatRequest>(serde_json::json!({
+        "configuration": { "toolApproval": "automatic", "scopeId": null, "model": llama, "capabilities": [] },
+        "appliedProfile": null,
+        "mode": "chat",
+      }))
+      .is_err()
     );
     // An unused scope is not checked: Infumap tools are off.
-    assert!(prepare(request(llama.clone(), &new_uid(), serde_json::json!([]))).await.is_none());
+    assert!(prepare(request(llama.clone(), collection(&new_uid()), serde_json::json!([]))).await.is_none());
+    // Only chosen items are attached to the message; a collection's members are not.
+    assert_eq!(scope_items_to_attach(&scope.source), None);
+    assert_eq!(scope_items_to_attach(&chosen_source), Some(&vec![f.x.clone(), f.a1.clone()]));
     assert_eq!(
-      prepare(request(llama, &f.scope_id, serde_json::json!(["web"]))).await.as_deref(),
+      prepare(request(llama, collection(&f.collection_id), serde_json::json!(["web"]))).await.as_deref(),
       Some("Selected tool source 'web' is not configured. Disable it or choose another profile.")
     );
   }
@@ -4776,7 +4864,7 @@ mod live_chat_tests {
       "expectedRevision": expected_revision,
       "text": text,
       "configuration": {
-        "toolApproval": "automatic", "scopeId": new_uid(),
+        "toolApproval": "automatic", "scope": { "kind": "collection", "id": new_uid() },
         "model": { "backend": "llama:test", "model": null, "reasoningEffort": null },
         "capabilities": ["infumap_data"],
       },
@@ -5241,7 +5329,7 @@ mod live_chat_tests {
       attachments: vec![],
       settings: TurnSettings {
         configuration: QueryConfiguration {
-          scope_id: None,
+          scope: crate::query_configuration::ScopeRef::Everything,
           model: None,
           capabilities: vec![],
           tool_approval: crate::query_configuration::ToolApproval::Automatic,

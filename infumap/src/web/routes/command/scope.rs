@@ -66,24 +66,6 @@ pub(super) enum ScopeProblem {
   RetiredScope,
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct ScopeSummary<'a> {
-  id: &'a Uid,
-  name: &'a str,
-  /// Null when the scope has no include links and so covers the default home tree and query chats.
-  include_count: Option<usize>,
-  exclude_count: usize,
-  problems: &'a [ScopeProblem],
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct ListScopesResponse<'a> {
-  scopes_page_id: Uid,
-  scopes: Vec<ScopeSummary<'a>>,
-}
-
 /// What a scope was resolved from.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum ScopeSource {
@@ -127,10 +109,31 @@ impl ResolvedScope {
     Ok(scope)
   }
 
+  /// Why a chat cannot run with this scope, when what it refers to is gone, as a message for the user. A run would
+  /// otherwise search nothing, and the model would report what it could not see as absent. None when it resolved.
+  pub fn unavailable_message(&self) -> Option<String> {
+    if self.source != ScopeSource::Unavailable {
+      return None;
+    }
+    let first_line = |title: &str| title.lines().map(str::trim).find(|line| !line.is_empty()).map(str::to_owned);
+    Some(match self.problems.first() {
+      Some(ScopeProblem::UnavailableCollection { title: Some(title), .. }) if first_line(title).is_some() => {
+        let name = first_line(title).unwrap_or_default().chars().take(SCOPE_ITEM_TITLE_MAX_CHARS).collect::<String>();
+        format!("\"{name}\" is no longer a collection. Choose another scope.")
+      }
+      Some(ScopeProblem::RetiredScope) => {
+        "Scope pages are no longer used. Choose a collection or Everything as the scope.".to_owned()
+      }
+      _ => "The collection this chat is limited to no longer exists. Choose another scope.".to_owned(),
+    })
+  }
+
+  #[cfg(test)]
   pub fn include_root_count(&self) -> Option<usize> {
     self.include_roots.as_ref().map(HashSet::len)
   }
 
+  #[cfg(test)]
   pub fn exclude_root_count(&self) -> usize {
     self.exclude_roots.len()
   }
@@ -239,6 +242,8 @@ pub(super) fn subtree_item_ids(db: &Db, roots: Vec<Uid>, pruned: &HashSet<Uid>, 
   Ok(item_ids)
 }
 
+// Scope pages are no longer used by search or chat; tests still build scopes from them until the Scopes page goes.
+#[cfg_attr(not(test), allow(dead_code))]
 pub(super) fn resolve_scope(db: &Db, user_id: &Uid, scope_id: &Uid) -> InfuResult<ResolvedScope> {
   let scope_page =
     db.item.get(scope_id).ok().filter(|item| is_scope_page(item, user_id)).ok_or("Scope was not found.")?;
@@ -246,47 +251,13 @@ pub(super) fn resolve_scope(db: &Db, user_id: &Uid, scope_id: &Uid) -> InfuResul
 }
 
 /// All of the user's scopes, in the order they appear on the scopes page.
+#[cfg_attr(not(test), allow(dead_code))]
 pub(super) fn list_scopes(db: &Db, user_id: &Uid) -> InfuResult<Vec<ResolvedScope>> {
   sorted_children(db, &scopes_page_id(user_id))?
     .into_iter()
     .filter(|item| is_scope_page(item, user_id))
     .map(|scope_page| resolve_scope_page(db, user_id, scope_page))
     .collect()
-}
-
-pub(super) async fn handle_list_scopes(
-  db: &Arc<tokio::sync::Mutex<Db>>,
-  session_maybe: &Option<Session>,
-) -> InfuResult<Option<String>> {
-  let session = session_maybe.as_ref().ok_or("Session is required to list scopes.")?;
-  let response = list_scopes_json(&*db.lock().await, &session.user_id)?;
-  debug!("Executed 'list-scopes' command for user '{}'.", session.user_id);
-  Ok(Some(response))
-}
-
-fn list_scopes_json(db: &Db, user_id: &Uid) -> InfuResult<String> {
-  let scopes = list_scopes(db, user_id)?;
-  let response = ListScopesResponse {
-    scopes_page_id: scopes_page_id(user_id),
-    scopes: scopes
-      .iter()
-      .filter_map(|scope| match &scope.source {
-        ScopeSource::Named { id, name } => Some(ScopeSummary {
-          id,
-          name,
-          include_count: scope.include_root_count(),
-          exclude_count: scope.exclude_root_count(),
-          problems: &scope.problems,
-        }),
-        ScopeSource::Items(_)
-        | ScopeSource::All
-        | ScopeSource::Collection { .. }
-        | ScopeSource::Except { .. }
-        | ScopeSource::Unavailable => None,
-      })
-      .collect(),
-  };
-  Ok(serde_json::to_string(&response)?)
 }
 
 #[derive(Deserialize)]
@@ -506,9 +477,6 @@ pub(super) fn collection_member_targets(db: &Db, user_id: &Uid, collection: &Ite
 }
 
 /// The scope a saved reference covers now, from live data.
-// Search, chat and query profiles still pass scope page ids; they switch to this when saved references become
-// `ScopeRef`s, and the dead-code allowance goes then.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(super) fn resolve_scope_ref(db: &Db, user_id: &Uid, scope: &ScopeRef) -> InfuResult<ResolvedScope> {
   let user = db.user.get(user_id).ok_or(format!("Unknown user '{}'.", user_id))?;
   let covers_nothing = |problem: ScopeProblem| ResolvedScope {
@@ -548,6 +516,111 @@ pub(super) fn resolve_scope_ref(db: &Db, user_id: &Uid, scope: &ScopeRef) -> Inf
       problems: Vec::new(),
     },
   })
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ListCollectionsRequest {
+  /// The page being viewed, which ranks collections near it. Null ranks none.
+  #[serde(deserialize_with = "Option::deserialize")]
+  current_page_id: Option<Uid>,
+}
+
+#[derive(Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CollectionSummary {
+  id: Uid,
+  title: String,
+  /// Titles of the pages above the collection, outermost first, without the home page.
+  path: Vec<String>,
+  /// Distinct targets of its links that resolve, the same members that `collection_member_targets` gives.
+  member_count: usize,
+  /// How many levels below its root page the collection's nearest common ancestor with the current page is: the
+  /// deeper, the nearer the collection is to where the user is. None when the only common ancestor is a root page,
+  /// such as Home, or there is none.
+  here_depth: Option<usize>,
+}
+
+#[derive(Serialize)]
+struct ListCollectionsResponse {
+  collections: Vec<CollectionSummary>,
+}
+
+pub(super) async fn handle_list_collections(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  json_data: &str,
+  session_maybe: &Option<Session>,
+) -> InfuResult<Option<String>> {
+  let session = session_maybe.as_ref().ok_or("Session is required to list collections.")?;
+  let request: ListCollectionsRequest =
+    serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
+  let collections = list_collections(&*db.lock().await, &session.user_id, request.current_page_id.as_ref())?;
+  debug!("Executed 'list-collections' command for user '{}'.", session.user_id);
+  Ok(Some(serde_json::to_string(&ListCollectionsResponse { collections })?))
+}
+
+/// The item and the items above it, nearest first, up to its root page. Stops at a cycle or a missing parent.
+fn ancestor_chain<'a>(db: &'a Db, item: &'a Item) -> Vec<&'a Item> {
+  let mut chain = vec![item];
+  let mut seen = HashSet::from([&item.id]);
+  let mut current = item;
+  while let Some(parent) = current
+    .parent_id
+    .as_ref()
+    .filter(|parent_id| !is_empty_uid(parent_id))
+    .and_then(|parent_id| db.item.get(parent_id).ok())
+  {
+    if !seen.insert(&parent.id) {
+      break;
+    }
+    chain.push(parent);
+    current = parent;
+  }
+  chain
+}
+
+/// All of the user's collections, sorted by title and then path, each ranked against the current page.
+///
+/// Ranking walks up from each collection and from the current page, never down, so a collection kept in a subpage
+/// of a project (Northstar / Collections / Key sources) ranks highly while the user is anywhere in that project.
+/// Every item is scanned for the flag: an index is not worth keeping until this measures slow.
+fn list_collections(db: &Db, user_id: &Uid, current_page_id: Option<&Uid>) -> InfuResult<Vec<CollectionSummary>> {
+  let user = db.user.get(user_id).ok_or(format!("Unknown user '{}'.", user_id))?;
+  let current_chain = current_page_id
+    .and_then(|id| db.item.get(id).ok())
+    .filter(|item| &item.owner_id == user_id)
+    .map(|item| ancestor_chain(db, item).into_iter().map(|item| &item.id).collect::<Vec<_>>())
+    .unwrap_or_default();
+  let mut collections = Vec::new();
+  for item in db.item.user_items(user_id) {
+    if item.item_type != ItemType::Page || !item.flags.is_some_and(|flags| flags & PAGE_COLLECTION_FLAG != 0) {
+      continue;
+    }
+    let Ok(collection) = collection_page(db, user_id, &item.id) else {
+      continue;
+    };
+    let chain = ancestor_chain(db, collection);
+    let here_depth = chain.iter().position(|ancestor| current_chain.contains(&&ancestor.id)).and_then(|index| {
+      // Levels below the root: the ancestor's own chain is the rest of this one.
+      let depth = chain.len() - 1 - index;
+      (depth > 0).then_some(depth)
+    });
+    collections.push(CollectionSummary {
+      id: collection.id.clone(),
+      title: collection.title.clone().unwrap_or_default(),
+      path: chain[1..]
+        .iter()
+        .rev()
+        .filter(|ancestor| ancestor.id != user.home_page_id)
+        .map(|ancestor| ancestor.title.clone().unwrap_or_default())
+        .collect(),
+      member_count: collection_member_targets(db, user_id, collection)?.len(),
+      here_depth,
+    });
+  }
+  let key = |summary: &CollectionSummary| (summary.title.to_lowercase(), summary.path.join("\u{0}").to_lowercase());
+  collections.sort_by(|a, b| key(a).cmp(&key(b)).then_with(|| a.id.cmp(&b.id)));
+  Ok(collections)
 }
 
 /// A database in a temporary directory, holding one user with the standard pages.
@@ -1035,34 +1108,6 @@ mod tests {
     );
   }
 
-  #[tokio::test]
-  async fn list_scopes_json_summarizes_each_scope() {
-    let mut t = TestDb::new().await;
-    let home = t.home_id.clone();
-    let a = t.page(&home, "A").await;
-    let b = t.page(&home, "B").await;
-    let scopes_id = t.scopes_id();
-    let everything = t.page(&scopes_id, "Everything").await;
-    let work = t.page(&scopes_id, "Work").await;
-    t.link(&work, &a).await;
-    let broken = t.link(&work, &new_uid()).await;
-    let exclude = t.page(&work, "Exclude").await;
-    t.link(&exclude, &b).await;
-    let misnamed = t.page(&work, "Notes").await;
-
-    let response: Value = serde_json::from_str(&list_scopes_json(&t.db, &t.user_id).unwrap()).unwrap();
-    assert_eq!(
-      response,
-      serde_json::json!({ "scopesPageId": scopes_id, "scopes": [
-        { "id": everything, "name": "Everything", "includeCount": null, "excludeCount": 0, "problems": [] },
-        { "id": work, "name": "Work", "includeCount": 1, "excludeCount": 1, "problems": [
-          { "kind": "ignoredContainer", "itemId": misnamed, "title": "Notes" },
-          { "kind": "unresolvedLink", "itemId": broken, "exclude": false },
-        ]},
-      ]})
-    );
-  }
-
   impl TestDb {
     fn resolve_ref(&self, scope: &ScopeRef) -> ResolvedScope {
       resolve_scope_ref(&self.db, &self.user_id, scope).unwrap()
@@ -1274,5 +1319,78 @@ mod tests {
     }
     assert!(serde_json::from_value::<ScopeRef>(serde_json::json!({ "kind": "collection" })).is_err());
     assert!(serde_json::from_value::<ScopeRef>(serde_json::json!(id)).is_err());
+  }
+
+  #[tokio::test]
+  async fn collections_are_listed_with_paths_and_ranked_by_their_nearest_common_ancestor() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let research = t.page(&home, "Research").await;
+    let northstar = t.page(&research, "Northstar").await;
+    let financials = t.page(&northstar, "Financials").await;
+    let q1 = t.page(&financials, "Q1").await;
+    let folder = t.page(&northstar, "Collections").await;
+    let key_sources = t.collection(&folder, "Key sources").await;
+    t.link(&key_sources, &financials).await;
+    t.link(&key_sources, &financials).await;
+    t.link(&key_sources, &new_uid()).await;
+    let risks = t.collection(&research, "risks").await;
+    let personal = t.collection(&home, "Personal").await;
+    t.collection(&t.trash_id.clone(), "Trashed").await;
+    let unflagged = t.collection(&home, "Unflagged").await;
+    t.set_page_flags(&unflagged, 0).await;
+
+    let summary =
+      |id: &Uid, title: &str, path: &[&str], member_count: usize, here_depth: Option<usize>| CollectionSummary {
+        id: id.clone(),
+        title: title.to_owned(),
+        path: path.iter().map(|title| (*title).to_owned()).collect(),
+        member_count,
+        here_depth,
+      };
+    // Browsing Q1: Key sources shares Northstar (depth 2), risks shares Research (depth 1), Personal only Home.
+    assert_eq!(
+      list_collections(&t.db, &t.user_id, Some(&q1)).unwrap(),
+      vec![
+        summary(&key_sources, "Key sources", &["Research", "Northstar", "Collections"], 1, Some(2)),
+        summary(&personal, "Personal", &[], 0, None),
+        summary(&risks, "risks", &["Research"], 0, Some(1)),
+      ]
+    );
+    // Inside a collection page, it is its own nearest common ancestor.
+    let ranked = list_collections(&t.db, &t.user_id, Some(&key_sources)).unwrap();
+    assert_eq!(ranked[0].here_depth, Some(4));
+    // No current page, or one that is not the user's, ranks nothing.
+    for current in [None, Some(new_uid())] {
+      let listed = list_collections(&t.db, &t.user_id, current.as_ref()).unwrap();
+      assert!(listed.iter().all(|summary| summary.here_depth.is_none()));
+    }
+  }
+
+  #[tokio::test]
+  async fn an_unavailable_scope_explains_itself_and_others_do_not() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let named = t.collection(&t.trash_id.clone(), "  \n  Key sources\nmore").await;
+    let untitled = t.collection(&t.trash_id.clone(), "").await;
+    let available = t.collection(&home, "Fine").await;
+    let message = |scope: ScopeRef| t.resolve_ref(&scope).unavailable_message();
+    assert_eq!(
+      message(collection(&named)).as_deref(),
+      Some("\"Key sources\" is no longer a collection. Choose another scope.")
+    );
+    for scope in [collection(&untitled), except(&new_uid())] {
+      assert_eq!(
+        message(scope).as_deref(),
+        Some("The collection this chat is limited to no longer exists. Choose another scope.")
+      );
+    }
+    assert_eq!(
+      message(ScopeRef::Unavailable).as_deref(),
+      Some("Scope pages are no longer used. Choose a collection or Everything as the scope.")
+    );
+    for scope in [ScopeRef::Everything, collection(&available), except(&available)] {
+      assert_eq!(message(scope), None);
+    }
   }
 }

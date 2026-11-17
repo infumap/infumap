@@ -17,7 +17,7 @@
 */
 
 import { logout } from "./components/Main";
-import type { ChatBackendId, QueryChatSettings, QueryProfileOperation, QueryProfilesResponse } from "./items/query-configuration";
+import type { ChatBackendId, QueryChatSettings, QueryProfileOperation, QueryProfilesResponse, ScopeRef } from "./items/query-configuration";
 import { Item, ItemType } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
 import {
@@ -142,25 +142,24 @@ export interface ChatRequest extends QueryChatSettings {
   attachments?: Array<{ id: Uid, title: string, mimeType: string, text: string }>,
 }
 
-/** Something about a scope's definition the user may want to fix. None of these widen the scope. */
-export type ScopeProblem =
-  | { kind: "unresolvedLink", itemId: Uid, exclude: boolean }
-  | { kind: "ignoredContainer", itemId: Uid, title: string | null }
-  | { kind: "multipleExcludeContainers" }
-  | { kind: "noResolvedIncludes" };
-
-export interface ScopeSummary {
+/** A page with the Collection flag, outside the trash. */
+export interface CollectionSummary {
   id: Uid,
-  name: string,
-  /** Null when the scope has no include links, and so covers everything under the home page. */
-  includeCount: number | null,
-  excludeCount: number,
-  problems: Array<ScopeProblem>,
+  title: string,
+  /** Titles of the pages above it, outermost first, without the home page. */
+  path: Array<string>,
+  /** Distinct items its links resolve to. */
+  memberCount: number,
+  /**
+   * How many levels below its root page its nearest common ancestor with the current page is. Null when that is
+   * only a root page, such as Home. Collections with a depth are listed under Here, deepest first.
+   */
+  hereDepth: number | null,
 }
 
-export interface ListScopesResponse {
-  scopesPageId: Uid,
-  scopes: Array<ScopeSummary>,
+export interface ListCollectionsResponse {
+  /** By title, then path. */
+  collections: Array<CollectionSummary>,
 }
 
 /** A note or composite on the prompts page, or a link to one. */
@@ -544,7 +543,7 @@ const COMMAND_CONVERT_PAGE_TABLE = "convert-page-table";
 const COMMAND_CONVERT_PAGE_COMPOSITE = "convert-page-composite";
 const COMMAND_DELETE_ITEM = "delete-item";
 const COMMAND_SEARCH = "search";
-const COMMAND_LIST_SCOPES = "list-scopes";
+const COMMAND_LIST_COLLECTIONS = "list-collections";
 const COMMAND_LIST_PROMPTS = "list-prompts";
 const COMMAND_DESCRIBE_SCOPE_ITEMS = "describe-scope-items";
 const COMMAND_QUERY_PROFILES = "query-profiles";
@@ -591,8 +590,8 @@ function getCommandDescription(command: string, payload: any): { description: st
     case COMMAND_SEARCH:
       description = `Searching for "${payload.text}"`;
       break;
-    case COMMAND_LIST_SCOPES:
-      description = "Loading scopes";
+    case COMMAND_LIST_COLLECTIONS:
+      description = "Loading collections";
       break;
     case COMMAND_LIST_PROMPTS:
       description = "Loading prompts";
@@ -1364,10 +1363,10 @@ export const server = {
     pageIdMaybe: Uid | null,
     text: String,
     pageNum: number,
-    scopeId: Uid | null,
+    scope: ScopeRef,
   ): Promise<SearchResponse> => {
     return constructCommandPromise(null, COMMAND_SEARCH, {
-      pageId: pageIdMaybe, text, numResults: SEARCH_RESULTS_PER_PAGE, pageNum, scopeId,
+      pageId: pageIdMaybe, text, numResults: SEARCH_RESULTS_PER_PAGE, pageNum, scope,
     }, null).then((response: any) => normalizeSearchResponse(response));
   },
 
@@ -1378,8 +1377,9 @@ export const server = {
     return constructCommandPromise(null, COMMAND_QUERY_PROFILES, { ...operation, expectedUserId }, null);
   },
 
-  listScopes: async (): Promise<ListScopesResponse> => {
-    return constructCommandPromise(null, COMMAND_LIST_SCOPES, {}, null);
+  /** `currentPageId` ranks the collections near it. */
+  listCollections: async (currentPageId: Uid | null): Promise<ListCollectionsResponse> => {
+    return constructCommandPromise(null, COMMAND_LIST_COLLECTIONS, { currentPageId }, null);
   },
 
   listPrompts: async (): Promise<ListPromptsResponse> => {

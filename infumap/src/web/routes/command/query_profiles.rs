@@ -267,7 +267,7 @@ mod tests {
 
   fn configuration() -> QueryConfiguration {
     QueryConfiguration {
-      scope_id: None,
+      scope: crate::query_configuration::ScopeRef::Everything,
       model: Some(ChatModelSelection { backend: "llama:a".to_owned(), model: None, reasoning_effort: None }),
       capabilities: vec!["infumap_data".to_owned()],
       tool_approval: crate::query_configuration::ToolApproval::Automatic,

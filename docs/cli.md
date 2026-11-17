@@ -323,15 +323,18 @@ infumap tool infumap_search "budget" --within infumap://<page-id>
 infumap tool infumap_search "budget" --page-num 2
 infumap tool infumap_get_fragment infumap://<item-id>
 infumap tool infumap_get_fragment <item-id> --fragment-ordinal 4
-infumap tool infumap_search "budget" --session work --scope <scope-id>
+infumap tool infumap_search "budget" --session work --collection <collection-id>
+infumap tool infumap_search "budget" --except <collection-id>
 infumap tool infumap_search "budget" --scope-item <item-id> --scope-item <item-id>
 ```
 
-Both subcommands accept `-s --session <name>` (default: `default`), `--scope <scope-id>` and
-`--scope-item <item-id>`. These options may appear before or after the tool name. An invalid or deleted
-scope fails the request; it never falls back to an unrestricted call.
+Both subcommands accept `-s --session <name>` (default: `default`), `--collection <collection-id>`,
+`--except <collection-id>` and `--scope-item <item-id>`. These options may appear before or after the tool
+name. `--collection` limits the tool to the [collection](scopes.md#collections)'s members and everything
+inside them; `--except` hides them instead. A collection that does not exist, is in the trash or is no
+longer a collection fails the request; it never falls back to an unrestricted call.
 
-`--scope-item` limits the tool to the item and everything inside it, in place of `--scope`. It can be
+`--scope-item` limits the tool to the item and everything inside it, in place of a collection. It can be
 repeated, up to 32 times. Ids of items that no longer exist are left out, and the request fails if none remain.
 
 `tool infumap_search <text>` accepts:

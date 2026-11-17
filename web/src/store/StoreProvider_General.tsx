@@ -18,7 +18,7 @@
 
 import { Accessor, createSignal } from "solid-js";
 import { ChatBackends, post, server } from "../server";
-import type { QueryProfile } from "../items/query-configuration";
+import { EVERYTHING_SCOPE, parseScopeRef, scopeRefsEqual, type QueryProfile, type ScopeRef } from "../items/query-configuration";
 import { makeQueryProfilesStore, type QueryProfilesStore } from "./StoreProvider_QueryProfiles";
 import type { Uid } from "../util/uid";
 
@@ -39,6 +39,8 @@ interface LocalStorageData {
   prefer2fa?: boolean,
   searchResultsArrangeAlgorithm?: string,
   /** By account id. An account without an entry searches everything. */
+  searchScopes?: { [accountId: string]: ScopeRef },
+  /** Scope page ids remembered before collections, by account id. Read as an unavailable scope until replaced. */
   searchScopeIds?: { [accountId: string]: Uid },
 }
 
@@ -119,10 +121,10 @@ export interface GeneralStoreContextModel {
 
   /**
    * The scope search uses, remembered per account in this browser. Kept apart from the query configuration, which
-   * comes from the chat profile, so that a new query and a reload search where the last search did. Null is everything.
+   * comes from the chat profile, so that a new query and a reload search where the last search did.
    */
-  searchScopeId: () => Uid | null,
-  setSearchScopeId: (scopeId: Uid | null) => void,
+  searchScope: () => ScopeRef,
+  setSearchScope: (scope: ScopeRef) => void,
 
   queryInputMode: () => QueryInputMode,
   setQueryInputMode: (mode: QueryInputMode) => void,
@@ -353,20 +355,25 @@ export function makeGeneralStore(accountId: () => Uid | null): GeneralStoreConte
       searchResultsArrangeAlgorithm: normalizedArrangeAlgorithm,
     });
   };
-  const searchScopeId = (): Uid | null => {
+  const searchScope = (): ScopeRef => {
     const id = accountId();
-    if (id == null) { return null; }
-    const scopeId = readLocalStorageData().searchScopeIds?.[id];
-    return typeof scopeId == "string" ? scopeId : null;
-  };
-  const setSearchScopeId = (scopeId: Uid | null) => {
-    const id = accountId();
-    if (id == null || searchScopeId() == scopeId) { return; }
+    if (id == null) { return EVERYTHING_SCOPE; }
     const data = readLocalStorageData();
+    const saved = data.searchScopes?.[id];
+    if (saved != null) { return parseScopeRef(saved); }
+    // Not reinterpreted as a collection with the same id: that page may have had an Exclude container.
+    return typeof data.searchScopeIds?.[id] == "string" ? { kind: "unavailable" } : EVERYTHING_SCOPE;
+  };
+  const setSearchScope = (scope: ScopeRef) => {
+    const id = accountId();
+    if (id == null || scopeRefsEqual(searchScope(), scope)) { return; }
+    const data = readLocalStorageData();
+    const searchScopes = { ...data.searchScopes };
     const searchScopeIds = { ...data.searchScopeIds };
-    if (scopeId == null) { delete searchScopeIds[id]; }
-    else { searchScopeIds[id] = scopeId; }
-    writeLocalStorageData({ ...data, searchScopeIds });
+    delete searchScopeIds[id];
+    if (scope.kind == "everything") { delete searchScopes[id]; }
+    else { searchScopes[id] = scope; }
+    writeLocalStorageData({ ...data, searchScopes, searchScopeIds });
   };
   const setQueryInputMode = (mode: QueryInputMode) => {
     setQueryInputModeSignal(normalizeQueryInputMode(mode));
@@ -378,7 +385,7 @@ export function makeGeneralStore(accountId: () => Uid | null): GeneralStoreConte
     defaultQueryProfile, setDefaultQueryProfile, queryProfiles,
     prefer2fa, setPrefer2fa,
     searchResultsArrangeAlgorithm, setSearchResultsArrangeAlgorithm,
-    searchScopeId, setSearchScopeId,
+    searchScope, setSearchScope,
     queryInputMode, setQueryInputMode,
     setNetworkActive, networkBusy,
     inProgressNetworkRequests, setInProgressNetworkRequests,

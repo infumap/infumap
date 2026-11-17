@@ -14,8 +14,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use super::scope::{ResolvedScope, readable, resolve_content, resolve_scope};
+use super::scope::{ResolvedScope, readable, resolve_content, resolve_scope_ref};
 use super::*;
+use crate::query_configuration::ScopeRef;
 use crate::util::mime::CHAT_TRANSCRIPT_MIME_TYPE;
 
 const SEARCH_RRF_K: f64 = 60.0;
@@ -45,9 +46,8 @@ struct SearchCommandRequest {
   text: String,
   num_results: i64,
   page_num: Option<i64>,
-  /// A scope page from the user's scopes page, or null for everything. When given with `page_id`, both apply.
-  #[serde(deserialize_with = "Option::deserialize")]
-  scope_id: Option<Uid>,
+  /// When given with `page_id`, both apply.
+  scope: ScopeRef,
 }
 
 /// Internal retrieval request, used by the search command and chat tools.
@@ -57,7 +57,7 @@ pub struct SearchRequest {
   pub num_results: i64,
   pub page_num: Option<i64>,
   /// Command scope; chat tools resolve their scope once per run and pass it to run_lexical_search.
-  pub scope_id: Option<Uid>,
+  pub scope: ScopeRef,
   /// Optional exclusion of saved chat files. Chat runs allow earlier chats and exclude themselves through their scope.
   pub exclude_chats: bool,
 }
@@ -157,15 +157,17 @@ pub(super) async fn handle_search(
 
   let command: SearchCommandRequest =
     serde_json::from_str(json_data).map_err(|e| format!("could not parse json_data {json_data}: {e}"))?;
-  if command.scope_id.as_ref().is_some_and(|id| !is_uid(id)) {
-    return Err("Invalid scope ID.".into());
+  if let ScopeRef::Collection { id } | ScopeRef::EverythingExcept { id } = &command.scope
+    && !is_uid(id)
+  {
+    return Err("Invalid collection ID.".into());
   }
   let request = SearchRequest {
     page_id: command.page_id,
     text: command.text,
     num_results: command.num_results,
     page_num: command.page_num,
-    scope_id: command.scope_id,
+    scope: command.scope,
     exclude_chats: false,
   };
 
@@ -187,8 +189,8 @@ pub(super) async fn run_search(
   let start_result = if let Some(page_num) = request.page_num { (page_num - 1) * request.num_results } else { 0 };
   let end_result = start_result + request.num_results + 1;
 
-  let results = match (&request.page_id, &request.scope_id) {
-    (Some(page_id), None) => {
+  let results = match (&request.page_id, &request.scope) {
+    (Some(page_id), ScopeRef::Everything) => {
       let mut db = db.lock().await;
       let started = Instant::now();
       let result =
@@ -196,10 +198,12 @@ pub(super) async fn run_search(
       record_search_backend_metrics("exact", started, &result);
       result?
     }
-    (page_id, scope_id) => {
-      let scope = match scope_id {
-        Some(scope_id) => Some(resolve_scope(&*db.lock().await, &session.user_id, scope_id)?),
-        None => None,
+    (page_id, scope) => {
+      // An unavailable collection resolves to a scope covering nothing, so search returns no hits rather than
+      // failing: the scope control already says it is unavailable.
+      let scope = match scope {
+        ScopeRef::Everything => None,
+        scope => Some(resolve_scope_ref(&*db.lock().await, &session.user_id, scope)?),
       };
       let (data_dir, bounds) = resolve_search_bounds(db, page_id.as_ref(), scope.as_ref(), false, session).await?;
       indexed_search_results(db, &data_dir, &session.user_id, &bounds, &request.text, start_result, end_result, false)
@@ -1269,6 +1273,7 @@ mod tests {
   use crate::ai::fragment::sources::item_title_fragment_for_item;
   use crate::ai::lexical_index::LexicalFragment;
   use crate::ai::title_indexing::lexical_fragment_from_item_title_fragment;
+  use crate::web::routes::command::scope::resolve_scope;
   use crate::web::routes::command::scope::test_db::TestDb;
 
   #[test]
@@ -1280,14 +1285,19 @@ mod tests {
       json[key] = value;
       json
     };
-    assert_eq!(parse(with("scopeId", Value::Null)).unwrap().scope_id, None);
-    let scope_id = infusdk::util::uid::new_uid();
-    assert_eq!(parse(with("scopeId", serde_json::json!(scope_id))).unwrap().scope_id, Some(scope_id));
+    let everything = serde_json::json!({ "kind": "everything" });
+    assert_eq!(parse(with("scope", everything.clone())).unwrap().scope, ScopeRef::Everything);
+    let id = infusdk::util::uid::new_uid();
+    assert_eq!(
+      parse(with("scope", serde_json::json!({ "kind": "everythingExcept", "id": id }))).unwrap().scope,
+      ScopeRef::EverythingExcept { id }
+    );
     // The scope is explicit, and the rest of a query's configuration is not part of a search.
     assert!(parse(base()).is_err());
-    let mut configuration = with("scopeId", Value::Null);
+    assert!(parse(with("scopeId", Value::Null)).is_err(), "a bare scope page id is no longer accepted");
+    let mut configuration = with("scope", everything.clone());
     configuration["configuration"] =
-      serde_json::json!({ "scopeId": null, "model": null, "capabilities": [], "toolApproval": "automatic" });
+      serde_json::json!({ "scope": everything, "model": null, "capabilities": [], "toolApproval": "automatic" });
     assert!(parse(configuration).is_err());
   }
 
@@ -1297,6 +1307,30 @@ mod tests {
       SearchBounds::Items(item_ids) => item_ids,
       SearchBounds::UnderRoot(root_id) => panic!("expected an item restriction, got root '{}'", root_id),
     }
+  }
+
+  #[tokio::test]
+  async fn a_collection_bounds_search_and_an_unavailable_one_finds_nothing() {
+    let mut t = TestDb::new().await;
+    let home = t.home_id.clone();
+    let trip = t.page(&home, "Trip").await;
+    let plan = t.note(&trip, "plan", RelationshipToParent::Child).await;
+    let other = t.page(&home, "Other").await;
+    let collection = t.collection(&home, "Trip only").await;
+    t.link(&collection, &trip).await;
+    let bounds = |scope: ScopeRef| {
+      let scope = resolve_scope_ref(&t.db, &t.user_id, &scope).unwrap();
+      match search_bounds(&t.db, None, Some(&scope), false, &t.user_id).unwrap() {
+        SearchBounds::Items(item_ids) => item_ids,
+        SearchBounds::UnderRoot(root_id) => panic!("expected an item restriction, got root '{}'", root_id),
+      }
+    };
+    assert_eq!(bounds(ScopeRef::Collection { id: collection.clone() }), sorted(vec![trip.clone(), plan.clone()]));
+    let except = bounds(ScopeRef::EverythingExcept { id: collection.clone() });
+    assert!(except.contains(&other) && except.contains(&collection));
+    assert!(!except.contains(&trip) && !except.contains(&plan));
+    assert!(bounds(ScopeRef::Collection { id: new_uid() }).is_empty());
+    assert!(bounds(ScopeRef::Unavailable).is_empty());
   }
 
   fn sorted(mut item_ids: Vec<Uid>) -> Vec<Uid> {

@@ -55,6 +55,6 @@ export function queryToolApprovalLabel(approval: ToolApproval): string {
 
 /** Includes the approval policy so profiles with otherwise identical resources are distinct. */
 export function queryConfigurationSummary(store: StoreContextModel, configuration: QueryConfiguration): string {
-  return [queryScopeName(configuration.scopeId), queryModelLabel(store, configuration.model, true),
+  return [queryScopeName(configuration.scope), queryModelLabel(store, configuration.model, true),
     queryToolsLabel(configuration.capabilities), `Approvals: ${queryToolApprovalLabel(configuration.toolApproval)}`].join(" · ");
 }

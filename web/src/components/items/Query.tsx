@@ -35,7 +35,7 @@ import type { PromptSummary } from "../../server";
 import { QueryProfileBar } from "./QueryProfileBar";
 import { QuerySearchStatusLinks } from "./QuerySearchStatusLinks";
 import { initializeQueryConfiguration, queryConfigurationChangeBlockedReason } from "../../items/query-configuration-state";
-import { queryConfigurationUnavailableReason, querySearchUnavailableReason } from "../../items/query-configuration-availability";
+import { queryConfigurationUnavailableReason } from "../../items/query-configuration-availability";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { setCaretPosition } from "../../util/caret";
 import { itemCanEdit, itemCanResize } from "../../items/base/capabilities-item";
@@ -345,7 +345,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const selectedInputMode = (): QueryInputMode =>
     isSearchMode() ? "search" : (isChatHistoryEntry() ? "chat" : store.general.queryInputMode());
   const configurationUnavailableReason = () => {
-    if (selectedInputMode() == "search") { return querySearchUnavailableReason(store.general.searchScopeId()); }
+    // Search sends an unavailable collection anyway and finds nothing; the scope control says why.
+    if (selectedInputMode() == "search") { return null; }
     const runtime = getQueryRuntime(store, queryItem());
     return runtime.configurationInitialized
       ? queryConfigurationUnavailableReason(store, runtime.configuration, selectedInputMode(), runtime.scopeItemIds) : null;

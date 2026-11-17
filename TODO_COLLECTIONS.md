@@ -321,7 +321,7 @@ This has to come before references, because there is otherwise no way to set the
   tall. Popup and toolbar titles have it after the title. A nested toolbar title gives up the glyph's width, so it
   stays aligned with its list column. Not offered on Home, Trash, Dock, Queries, Prompts or the search pages.
 
-### 3. `ScopeRef` end to end (server and client in one change, since the wire format changes)
+### 3. `ScopeRef` end to end (server and client in one change, since the wire format changes) — done
 
 Server:
 - `QueryConfiguration.scope_id` → `scope: ScopeRef`; `normalize` validates the id.
@@ -353,12 +353,26 @@ its page still exists (trashed or unflagged, e.g. "Key sources is no longer a co
 says it no longer exists when the page is gone, and says an old scope page is no longer supported for
 `unavailable`. Search does not refuse: it returns no hits, with the unavailable label showing.
 
+As built, beyond the list above:
+- Transcripts are format version 4. Old `scopeId` is mapped by its key, not the header version, because live v2/v3
+  files get v4 lines appended. The user log is version 10.
+- From the Queries page, Here ranks against the previous page (`peekPrevPageVeid`): search and chat open on
+  Queries, so ranking against it showed no Here section.
+- The client no longer blocks search for an unavailable collection; the server returns nothing.
+- `infumap tool` takes `--collection` / `--except` in place of `--scope`. `docs/scopes.md` describes collections.
+- A collection picker filter appears from 7 collections. An unlisted collection's title comes from the item state
+  when loaded, else "Collection (unavailable)".
+
 ### 4. Retire the Scopes system page
 
 - Remove `scopes_page_id`, `ensure_scopes_page` (startup in `web/mod.rs`, `admin.rs`, `account.rs`), the
   account-response field, `scopesPageId` in `accountTypes.ts` and the store, `resolve_scope`,
   `resolve_scope_page`, `is_exclude_container`, `IgnoredContainer`, `MultipleExcludeContainers`,
-  `NoResolvedIncludes`, `list_scopes` and `handle_list_scopes`, and `TestDb::scopes_id`.
+  `NoResolvedIncludes`, `UnresolvedLink`, `ScopeSource::Named` (and its chat prompt line), `list_scopes`,
+  `include_root_count`/`exclude_root_count` if unused, and `TestDb::scopes_id`. `handle_list_scopes` and the
+  `list-scopes` command went in step 3.
+- Port the tests that still build scopes from scope pages to collections: `scope.rs`, `search.rs`,
+  `chat/mod.rs` and `chat/container_fragments.rs` (`resolve_scope` is test-only since step 3).
 - `queries_subpage_name` and `listPageHiddenChildIds` also serve Prompts and the search pages. Drop only their
   Scopes entries; the design's removal list was too broad here.
 - The existing Scopes page is left in place as an ordinary page. Check that it can be moved, deleted and converted

@@ -17,10 +17,43 @@ export interface ChatModelSelection {
   reasoningEffort: string | null,
 }
 
+/**
+ * What Infumap retrieval covers. The inversion belongs to the reference, not the collection, so the same collection
+ * can limit one query and be hidden from another. `unavailable` is what a scope page id saved before collections
+ * became: it covers nothing until another scope is chosen.
+ */
+export type ScopeRef =
+  | { kind: "everything" }
+  | { kind: "collection", id: Uid }
+  | { kind: "everythingExcept", id: Uid }
+  | { kind: "unavailable" };
+
+export const EVERYTHING_SCOPE: ScopeRef = { kind: "everything" };
+
+/** The collection a reference names, if any. */
+export function scopeRefCollectionId(scope: ScopeRef): Uid | null {
+  return scope.kind == "collection" || scope.kind == "everythingExcept" ? scope.id : null;
+}
+
+export function scopeRefsEqual(left: ScopeRef, right: ScopeRef): boolean {
+  return left.kind == right.kind && scopeRefCollectionId(left) == scopeRefCollectionId(right);
+}
+
+/** A value read from storage the server never checked. Anything unrecognised is unavailable, never everything. */
+export function parseScopeRef(value: unknown): ScopeRef {
+  if (value != null && typeof value == "object") {
+    const raw = value as { kind?: unknown, id?: unknown };
+    if (raw.kind == "everything") { return EVERYTHING_SCOPE; }
+    if (raw.kind == "collection" && typeof raw.id == "string") { return { kind: "collection", id: raw.id }; }
+    if (raw.kind == "everythingExcept" && typeof raw.id == "string") { return { kind: "everythingExcept", id: raw.id }; }
+  }
+  return { kind: "unavailable" };
+}
+
 /** Resources used by a query. Execution mode is separate from this configuration. */
 export interface QueryConfiguration {
-  /** Null covers everything in Infumap. This limits retrieval, not attachments or existing chat context. */
-  scopeId: Uid | null,
+  /** This limits retrieval, not attachments or existing chat context. */
+  scope: ScopeRef,
   /** Null means no model has been selected, for example before the catalog loads or in Search. */
   model: ChatModelSelection | null,
   /** Capability IDs: "infumap_data" and configured MCP server IDs. Order has no meaning. */
@@ -94,7 +127,7 @@ export interface QueryChatSettings {
   configuration: QueryConfiguration,
   /**
    * Items chosen in the chat, each covering itself and its descendants. When there are any, they limit Infumap tools
-   * in place of `configuration.scopeId`, which stays selected for when they are removed. Not part of the
+   * in place of `configuration.scope`, which stays selected for when they are removed. Not part of the
    * configuration, so profiles never carry them. The server omits an empty list.
    */
   scopeItemIds?: Array<Uid>,
@@ -105,7 +138,7 @@ export interface QueryChatSettings {
 /** A value copy, so conversation settings never share mutable objects with a saved profile. */
 export function cloneQueryConfiguration(configuration: QueryConfiguration): QueryConfiguration {
   return {
-    scopeId: configuration.scopeId,
+    scope: { ...configuration.scope },
     model: configuration.model == null ? null : { ...configuration.model },
     capabilities: [...new Set(configuration.capabilities)],
     toolApproval: configuration.toolApproval,
@@ -123,7 +156,7 @@ export function snapshotQueryProfile(profile: QueryProfile): QueryProfile {
 
 /** Capability order and duplicate entries cannot make an otherwise identical setup appear modified. */
 export function queryConfigurationsEqual(left: QueryConfiguration, right: QueryConfiguration): boolean {
-  if (left.scopeId != right.scopeId) { return false; }
+  if (!scopeRefsEqual(left.scope, right.scope)) { return false; }
   if (left.toolApproval != right.toolApproval) { return false; }
   if (left.model == null || right.model == null) {
     if (left.model !== right.model) { return false; }

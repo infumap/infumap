@@ -248,6 +248,9 @@ fn migration_for(descriptor: LogDescriptor) -> InfuResult<Migration> {
       6 => |output, descriptor, records| migrate_records(output, descriptor, records, user_db::migrate_record_v6_to_v7),
       7 => |output, descriptor, records| migrate_records(output, descriptor, records, user_db::migrate_record_v7_to_v8),
       8 => |output, descriptor, records| migrate_records(output, descriptor, records, user_db::migrate_record_v8_to_v9),
+      9 => {
+        |output, descriptor, records| migrate_records(output, descriptor, records, user_db::migrate_record_v9_to_v10)
+      }
       _ => return Err(format!("Unsupported user log migration from version {}.", descriptor.version).into()),
     },
   };
