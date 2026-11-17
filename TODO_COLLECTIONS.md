@@ -31,11 +31,11 @@ are annotations: they are not members and their subtrees are not covered. A coll
 nothing.
 
 Because members are ordinary links, a collection can also be edited with existing tools: dragging or linking an
-item into the collection page adds it, deleting the link removes it. Selection mode is the faster way to curate,
+item into the collection page adds it, deleting the link removes it. Collection mode is the faster way to curate,
 not the only one.
 
-Clicking a link while selecting adds its target, not the link's placement. Selecting the same target from another
-appearance does not create another membership entry.
+Adding a link adds its target, not the link's placement. Adding the same target from another appearance does not
+create another membership entry.
 
 The collection page can be opened, renamed, moved and linked from elsewhere. Its home organizes the collection, not
 its membership. Moving an item outside the company's pages does not remove it from Key sources. Moving or renaming
@@ -121,7 +121,7 @@ Add a **Collections** icon button to the toolbar's global group: right of the di
 icon. It is shown whatever item has focus, because collections relate to where the user is, not to the focused
 item. It is hidden when no user is logged in. When the toolbar is hidden or in small-screen mode there is no
 picker; collections remain reachable through the item tree. The icon must not resemble the page, link or
-search/query icons (for example `bi-collection` or `bi-bookmarks`). It is highlighted while selection mode is
+search/query icons (for example `bi-collection` or `bi-bookmarks`). It is highlighted while collection mode is
 active, the same for every collection. Check that the extra icon does not crowd the widest item toolbars (table,
 page) on narrow windows.
 
@@ -139,7 +139,7 @@ each collection, never down from the current page, so a collection in an optiona
 Collections / Key sources, while browsing Financials) ranks near the top with no organization metadata and no
 descendant scan.
 
-Each entry shows its name, home path and direct-member count, with **View** and **Select items** actions. Names
+Each entry shows its name, home path and direct-member count, with **View** and **Edit members** actions. Names
 need not be globally unique. References use identity; paths disambiguate duplicate names.
 
 There is no separate creation flow. A page becomes a collection, or stops being one, through **Make collection** /
@@ -155,80 +155,99 @@ it, including embedded pages that cannot be converted. Because the flag is other
 Normal item-tree navigation can open a collection too. The toolbar picker is a shortcut and index, not a separate
 ownership hierarchy.
 
-## Collection selection mode
+## Collection mode
 
 ### Entering and identifying the mode
 
-The only entry point is **Select items** on an entry in the toolbar Collections picker. An open collection page
-needs no separate button: as the current root page it is always first under Here. Only one collection is edited at a time. Switching to another finishes outstanding
-membership saves before switching the destination; it does not discard the previous collection's changes.
+The only entry point is **Edit members** on an entry in the toolbar Collections picker. An open collection page
+needs no separate button: as the current root page it is always first under Here. Only one collection is edited at
+a time. Switching to another finishes outstanding membership saves before switching the destination; it does not
+discard the previous collection's changes.
 
 Show a persistent bar immediately below the main toolbar:
 
 ```
-● Selecting for Research / Northstar / Key sources   8 members   Undo   Done
-  Click to add or remove · Open to navigate
+● Key sources · Research / Northstar   8 members   [Add 3]  [Remove]  [Add this page]   Undo   Done
+  Select items, then Add or Remove
 ```
 
 The destination name and home path remain visible as the user navigates. Purple identifies collection membership
 in this mode, with checkmarks and text so color is not the sole indicator. Reuse the same color for every collection;
-the bar identifies which one is being edited. Normal item selection must remain visually distinct.
+the bar identifies which one is being edited. Membership marks are purely visual (they have no hit target) and must
+stay distinct from the item selection highlight, since both show at once.
 
 The count means explicit member roots, not the number of all covered descendants. Label it accordingly in detailed
 views. If coverage counts are available, show them separately rather than presenting an approximate count as exact.
 
-### Clicking and navigating
+### Adding and removing
 
-- Clicking an eligible item's body toggles direct membership. Existing content editing and dragging do not activate
-  from that gesture while selection mode is active.
-- Give items a separate, visible **Open** action. Opening a page navigates into it without selecting the whole page.
-  Opening a document permits inspection without accidentally changing membership.
-- Ordinary navigation, breadcrumbs, back/forward and search remain available. Selection mode survives them,
-  including opening a page as the application root. It is application interaction state, not inherited editability
-  stored on a page or a link.
-- When selecting from search, let search range outside the collection being edited. Otherwise the user cannot
-  find new members. Any retained search scope must be visible and changeable; do not silently constrain search to
-  the collection under construction.
-- Display a **Select whole page** action near the current page's title. The background of a page remains a place to
-  navigate and inspect, not a giant implicit membership toggle.
-- Selecting a canonical item through one appearance highlights its other appearances too. Show the source path
-  when needed to make the shared identity clear.
-- Unsupported, missing or unreadable targets cannot be added. Explain why rather than showing a successful mark.
+Membership changes only through the existing item selection: drag-select, Cmd-click (Ctrl-click off a Mac) to toggle
+a single item, Shift-click for a range. Clicking, editing, dragging and navigation behave exactly as they do outside
+the mode, so opening a page never competes with adding it.
+
+- **Add** makes every selected item a direct member, a link as its target. Items that are already direct members
+  are skipped. The label counts what will change ("Add 3").
+- **Remove** removes the selected items that are direct members. Items covered only through an ancestor stay
+  covered, and the bar says so ("1 is included via Financials").
+- Add and Remove are separate because a selection can mix members and non-members, which would make a single
+  toggle ambiguous.
+- **Add this page** adds the focused page, either the current root page or an open popup, since neither can be
+  drag-selected.
+- A selection stays within one container, so adding from several containers takes one Add per container.
+- Only items that selection can reach can be added. Calendar pages are not covered by click selection; composite
+  members and notes in document pages need checking. Close such gaps in selection itself rather than adding a
+  membership-only gesture.
+- Add skips unsupported, missing or unreadable targets and says which and why, rather than showing a successful mark.
+- A keyboard shortcut for Add and Remove is still to be chosen. Single-letter keys already create items, so it needs
+  a modifier.
+
+Ordinary navigation, breadcrumbs, back/forward and search remain available, and the mode survives them, including
+opening a page as the application root. It is application interaction state, not inherited editability stored on a
+page or a link. When adding from search, let search range outside the collection being edited, or the user cannot
+find new members. Any retained search scope must be visible and changeable.
+
+A canonical item marked through one appearance is marked in its other appearances too. Show the source path when
+needed to make the shared identity clear.
 
 The mode changes collection membership only. It does not change the target's permissions, content or normal link
-editing behavior after the mode ends.
+editing behavior.
+
+One-click per-item badges were considered (a check badge inset at each item's top-left corner) and set aside.
+Cmd-click already covers single items, drag-select covers many, and badges would need a new hit target in every
+layout. Revisit if Add proves slow in practice.
 
 ### Direct, inherited and partial membership
 
-| State | Appearance | Click behavior |
-| --- | --- | --- |
-| Not covered | Empty checkbox | Add this item as a root |
-| Direct member | Purple checkmark and highlight | Remove this explicit root |
-| Covered through an ancestor | Lighter highlight, checkmark, "Included via Financials" | Explain the parent selection; do not silently create an exclusion |
-| Contains selected descendants, but is not itself covered | Mixed indicator | Add the whole container as a root |
+| State | Appearance | Add | Remove |
+| --- | --- | --- | --- |
+| Not covered | No mark | Becomes a direct member | No effect |
+| Direct member | Purple checkmark and highlight | No effect | Removed |
+| Covered through an ancestor | Lighter highlight, checkmark, "Included via Financials" | Also becomes a direct member, so it stays if the ancestor is removed | No effect; the bar names the ancestor. No exclusion is created |
+| Contains members, but is not itself covered | Mixed indicator | The container becomes a direct member | No effect |
 
-A selected table includes its rows, cells and attachments. A selected composite includes its members. A selected
-page includes its subtree. Unmarked children of such a root remain covered; they do not need individual marks.
+A member table includes its rows, cells and attachments. A member composite includes its members. A member page
+includes its subtree. Unmarked children of such a root remain covered; they do not need individual marks.
 
-To select only part of a currently selected subtree, remove the parent root and choose individual contents.
+To include only part of a subtree that is currently covered, remove the parent and add individual contents.
 Collections have no per-member exceptions.
 
 Do not silently delete previously explicit descendant memberships when adding an ancestor. Removing the ancestor
-must leave those deliberate selections intact. The collection view distinguishes explicit roots from inherited
+must leave those deliberate memberships intact. The collection view distinguishes explicit roots from inherited
 coverage, and duplicate target roots are prevented.
 
 ### Saving and leaving
 
-Each toggle saves immediately. **Undo** reverses membership changes made in this selection session, not content
-edits or navigation. Apply inverse membership operations rather than restoring an old copy of the entire collection,
-which could overwrite changes from another tab.
+Each Add or Remove saves immediately. **Undo** reverses whole Add and Remove operations made in this session, most
+recent first, not content edits or navigation. Apply inverse membership operations rather than restoring an old copy
+of the entire collection, which could overwrite changes from another tab.
 
-Show pending saves and failures. A failed mutation must revert its optimistic mark or clearly remain pending with
+Show pending saves and failures. A failed mutation must revert its optimistic marks or clearly remain pending with
 a retry; never label it saved. Done must not report completion while failed or pending changes are hidden.
 
-**Done** exits the mode and leaves the user at the current location. **Escape** does the same after handling any
-open modal or editor that owns Escape. There is no Cancel action implying that already saved clicks will be rolled
-back. Reloading leaves selection mode; saved membership remains.
+**Done** exits the mode and leaves the user at the current location. **Escape** first clears the item selection if
+there is one; otherwise it exits the mode, after any open modal or editor that owns Escape has handled it. There is
+no Cancel action implying that already saved changes will be rolled back. Reloading leaves the mode; saved
+membership remains.
 
 ## Reviewing a collection
 
@@ -312,8 +331,9 @@ Relevant existing code:
 - [Scope picker](web/src/components/items/QueryScopePicker.tsx) and
   [query scope state](web/src/items/query-scope.ts): existing scope selection and chosen-item behavior.
 - [Page flags](web/src/items/base/flags-item.ts): the Collection flag.
+- [Click selection](web/src/input/click_selection.ts): the item selection that Add and Remove act on.
 - [Link items](web/src/items/link-item.ts): membership references use the existing link construct.
-- [Navigation history](web/src/store/StoreProvider_History.tsx): browsing must not implicitly end the selection session.
+- [Navigation history](web/src/store/StoreProvider_History.tsx): browsing must not implicitly end collection mode.
 
 ## Implementation order
 
@@ -326,8 +346,10 @@ Relevant existing code:
    Collections are already usable at this point, curated by linking items into the page.
 3. **Collection view and discovery.** Make collection / Make ordinary page, title marker, the toolbar icon and
    picker (Here / Recent / All), complete member listing and source paths.
-4. **Selection mode.** Persistent destination bar, membership gestures, distinct Open actions, whole-page selection,
-   navigation/search continuity, save status, session Undo and explicit exit. This delivers the curation workflow.
+4. **Collection mode.** Persistent destination bar, membership marks, Add / Remove / Add this page on the item
+   selection, navigation/search continuity, save status, session Undo and explicit exit. This delivers the curation
+   workflow. Close gaps in what item selection can reach (calendar pages, and any found in composites or document
+   pages) as part of this step.
 5. **Optional source-page filtering.** Reuse resolved coverage across layouts only if reviewing the separate collection
    view proves insufficient. No expression language or general rule builder is needed for the initial delivery.
 
