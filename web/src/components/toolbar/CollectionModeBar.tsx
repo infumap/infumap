@@ -28,12 +28,14 @@ import { initiateLoadItemMaybe } from "../../layout/load";
 import { switchToPage } from "../../layout/navigation";
 import { itemState } from "../../store/ItemState";
 import { useStore } from "../../store/StoreProvider";
-import { LIGHT_BORDER_COLOR } from "../../style";
+import { LIGHT_BORDER_COLOR, mainPageBorderColor, mainPageBorderWidth } from "../../style";
 import { COLLECTION_ICON_CLASS } from "../library/CollectionGlyph";
 import { dialogButtonClass } from "../library/dialogStyle";
 
-/** The colour of membership marks, so the bar reads as the key to them. */
+/** The colour of membership marks, so the bar's icon reads as the key to them. */
 export const COLLECTION_MODE_COLOR = "#16a34a";
+/** Neutral, like the toolbar above it. Only the icon carries the marks' green. */
+const COLLECTION_BAR_BACKGROUND_COLOR = "#f5f5f5";
 
 /**
  * Says which collection is being curated, as the user moves about Infumap. Only shown with the toolbar; the desktop
@@ -75,9 +77,18 @@ export function CollectionModeBar() {
       <div role="region" aria-label="Collection mode"
         class="fixed left-0 right-0 flex items-center gap-2 border-b px-3 text-[13px] text-neutral-800 print:hidden"
         style={`top: ${store.toolbarHeightPx()}px; height: ${store.collectionBarHeightPx()}px; ` +
-          `background-color: #f0fdf4; border-bottom-color: ${LIGHT_BORDER_COLOR};`}
+          `background-color: ${COLLECTION_BAR_BACKGROUND_COLOR}; border-bottom-color: ${LIGHT_BORDER_COLOR};`}
         onMouseDown={ev => ev.stopPropagation()} onMouseUp={ev => ev.stopPropagation()}
         onMouseMove={ev => ev.stopPropagation()}>
+        {/* The page's left edge, the dock's right border, carries on through the bar, so the page reads as running up
+            to the toolbar with the bar laid over it. Faint, and behind the text (z-index -1 within the bar, which as a
+            fixed element is its own stacking context). */}
+        <Show when={store.dockVisible.get() && !store.smallScreenMode()}>
+          <div class="pointer-events-none absolute top-0 bottom-0"
+            style={`left: ${store.getCurrentDockWidthPx() - mainPageBorderWidth(store)}px; ` +
+              `width: ${mainPageBorderWidth(store)}px; z-index: -1; opacity: 0.5; ` +
+              `background-color: ${mainPageBorderColor(store, itemState.get)};`} />
+        </Show>
         <i class={`${COLLECTION_ICON_CLASS} shrink-0 text-[13px]`} style={`color: ${COLLECTION_MODE_COLOR};`} aria-hidden="true" />
         <span class="shrink-0 text-neutral-500">Curating</span>
         <button type="button" class="min-w-0 max-w-[40%] shrink truncate cursor-pointer font-semibold hover:underline"
