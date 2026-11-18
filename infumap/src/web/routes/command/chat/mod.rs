@@ -30,7 +30,7 @@ use tokio_stream::wrappers::ReceiverStream;
 use uuid::Uuid;
 
 use super::scope::{MAX_SCOPE_ITEMS, ResolvedScope, ScopeSource, resolve_item_scope, resolve_scope_ref};
-use super::skills::read_skills;
+use super::skills::{MAX_SKILLS_PER_MESSAGE, read_skills};
 use crate::query_configuration::ScopeRef;
 use crate::web::LLM_LOG_ENABLED;
 use crate::web::serve::{empty_body, forbidden_response, not_found_response};
@@ -354,11 +354,38 @@ struct ChatRequest {
   /// For a live chat: text attached to the new user message.
   #[serde(default)]
   attachments: Vec<ChatAttachmentRequest>,
-  /// Document pages explicitly selected for the new turn. The server resolves their current Markdown.
+  /// Skill selections sent by clients that used a separate chip instead of an inline mention.
   #[serde(rename = "skillIds", default)]
   skill_ids: Vec<Uid>,
+  /// Confirmed inline mentions in message order. The server resolves each document's current Markdown.
+  #[serde(rename = "skillMentions", default)]
+  skill_mentions: Vec<ChatSkillMention>,
   #[serde(flatten)]
   settings: TurnSettings,
+}
+
+#[derive(Deserialize)]
+struct ChatSkillMention {
+  id: Uid,
+  mention: String,
+}
+
+impl ChatSkillMention {
+  fn appears_in(&self, text: &str) -> bool {
+    let Some(slug) = self.mention.strip_prefix('/') else { return false };
+    if !slug.starts_with(char::is_alphanumeric)
+      || slug.chars().count() > 80
+      || !slug.chars().all(|ch| ch.is_alphanumeric() || ch == '-')
+    {
+      return false;
+    }
+    text.match_indices(&self.mention).any(|(start, token)| {
+      let before = text[..start].chars().next_back();
+      let after = text[start + token.len()..].trim_start_matches(['.', ',', '!', '?', ';', ':']).chars().next();
+      before.is_none_or(|ch| ch.is_whitespace() || matches!(ch, '(' | '[' | '{'))
+        && after.is_none_or(|ch| ch.is_whitespace() || matches!(ch, ')' | ']' | '}'))
+    })
+  }
 }
 
 #[derive(Deserialize)]
@@ -446,6 +473,33 @@ impl ChatRequest {
 
   fn uses_infumap_data(&self) -> bool {
     self.settings.configuration.capabilities.iter().any(|capability| capability == CHAT_CAPABILITY_INFUMAP_DATA)
+  }
+
+  fn has_skills(&self) -> bool {
+    !self.skill_ids.is_empty() || !self.skill_mentions.is_empty()
+  }
+
+  fn selected_skill_ids(&self, text: &str) -> Result<Vec<Uid>, String> {
+    if self.skill_mentions.is_empty() {
+      return Ok(self.skill_ids.clone());
+    }
+    if !self.skill_ids.is_empty() {
+      return Err("Send either inline skill mentions or skill IDs for this message.".to_owned());
+    }
+    if self.skill_mentions.len() > MAX_SKILLS_PER_MESSAGE {
+      return Err(format!("A message can use at most {MAX_SKILLS_PER_MESSAGE} skills."));
+    }
+    let mut seen = HashSet::new();
+    self
+      .skill_mentions
+      .iter()
+      .map(|selection| {
+        if !selection.appears_in(text) || !seen.insert(selection.mention.as_str()) {
+          return Err("A selected skill has a missing or invalid mention.".to_owned());
+        }
+        Ok(selection.id.clone())
+      })
+      .collect()
   }
 
   fn plugin_capabilities(&self) -> Vec<String> {
@@ -1055,7 +1109,7 @@ pub async fn serve_chat_stream_route(
       ChatStreamEventKind::error("Attachments are only supported in a chat in the Queries page."),
     );
   }
-  if request.query_item_id.is_none() && !request.skill_ids.is_empty() {
+  if request.query_item_id.is_none() && request.has_skills() {
     return single_chat_stream_event_response(
       stream_request_id,
       ChatStreamEventKind::error("Skills are only supported in a chat in the Queries page."),
@@ -2035,7 +2089,7 @@ impl LoadChatAttachment {
   fn resolved(attachments: &[ChatAttachment]) -> Vec<Self> {
     attachments
       .iter()
-      .filter(|attachment| attachment.item_id.is_some() || attachment.is_skill())
+      .filter(|attachment| !attachment.is_inline_skill() && (attachment.item_id.is_some() || attachment.is_skill()))
       .map(Self::from)
       .collect()
   }
@@ -2067,7 +2121,13 @@ fn load_chat_response(owner_id: &Uid, transcript: Option<&Transcript>, running: 
         started_at: turn.user.started_at,
         ended_at: end.map(|end| end.ended_at),
         error: end.and_then(|end| end.error.clone()),
-        attachments: turn.user.attachments.iter().map(LoadChatAttachment::from).collect(),
+        attachments: turn
+          .user
+          .attachments
+          .iter()
+          .filter(|attachment| !attachment.is_inline_skill())
+          .map(LoadChatAttachment::from)
+          .collect(),
         assistant_text,
         items,
         rounds: end.map(|end| end.rounds.clone()).unwrap_or_default(),
@@ -2226,7 +2286,12 @@ fn chat_attachments_from_request(attachments: Vec<ChatAttachmentRequest>) -> Res
       if !is_uid(&attachment.id) || !ids.insert(attachment.id.clone()) {
         return Err(format!("Attachment '{}' has a missing or repeated id.", title));
       }
-      if !attachment.mime_type.starts_with("text/") || attachment.mime_type == transcript::SKILL_SNAPSHOT_MIME_TYPE {
+      if !attachment.mime_type.starts_with("text/")
+        || matches!(
+          attachment.mime_type.as_str(),
+          transcript::SKILL_SNAPSHOT_MIME_TYPE | transcript::INLINE_SKILL_SNAPSHOT_MIME_TYPE
+        )
+      {
         return Err(format!("Attachment '{}' is not text.", title));
       }
       if attachment.text.trim().is_empty() {
@@ -2265,7 +2330,7 @@ async fn start_live_chat_turn(
   let text = request.text.as_deref().map(str::trim).unwrap_or("").to_owned();
   let mut attachments =
     chat_attachments_from_request(std::mem::take(&mut request.attachments)).map_err(|e| error(&e))?;
-  if text.is_empty() && attachments.is_empty() && request.skill_ids.is_empty() {
+  if text.is_empty() && attachments.is_empty() && !request.has_skills() {
     return Err(error("Chat request did not contain any message text."));
   }
   let expected_revision = request
@@ -2299,18 +2364,25 @@ async fn start_live_chat_turn(
   {
     return Err(error("An attachment of this message is already in the chat."));
   }
-  if !request.skill_ids.is_empty() {
-    let skills =
-      read_skills(&*db.lock().await, &session.user_id, &request.skill_ids).map_err(|e| error(&e.message()))?;
+  if request.has_skills() {
+    let ids = request.selected_skill_ids(&text).map_err(|message| error(&message))?;
+    let skills = read_skills(&*db.lock().await, &session.user_id, &ids).map_err(|e| error(&e.message()))?;
     let mut skills = skills
       .into_iter()
-      .map(|(title, text)| ChatAttachment {
-        id: new_uid(),
-        item_id: None,
-        title,
-        mime_type: transcript::SKILL_SNAPSHOT_MIME_TYPE.to_owned(),
-        size_bytes: text.len(),
-        text,
+      .enumerate()
+      .map(|(index, (title, text))| {
+        let (title, mime_type) = match request.skill_mentions.get(index) {
+          Some(selection) => (selection.mention.clone(), transcript::INLINE_SKILL_SNAPSHOT_MIME_TYPE),
+          None => (title, transcript::SKILL_SNAPSHOT_MIME_TYPE),
+        };
+        ChatAttachment {
+          id: new_uid(),
+          item_id: None,
+          title,
+          mime_type: mime_type.to_owned(),
+          size_bytes: text.len(),
+          text,
+        }
       })
       .collect::<Vec<_>>();
     skills.append(&mut attachments);
@@ -3388,8 +3460,7 @@ async fn prepare_chat_resources(
   // The live-chat path also protects retained attachments and skill snapshots. Earlier Infumap retrieval
   // deliberately does not affect this rule.
   let always_ask = request.settings.configuration.tool_approval == crate::query_configuration::ToolApproval::AlwaysAsk;
-  let private_sources_enabled =
-    infumap_data.is_some() || !request.attachments.is_empty() || !request.skill_ids.is_empty();
+  let private_sources_enabled = infumap_data.is_some() || !request.attachments.is_empty() || request.has_skills();
   let mut approval_required: HashSet<String> = name_map
     .iter()
     .filter(|(_, target)| {

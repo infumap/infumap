@@ -62,6 +62,9 @@ const CHATS_DIR_NAME: &str = "chats";
 /// Skill snapshots use the existing transcript attachment storage so a saved chat can reopen the exact instructions.
 /// This media type is reserved to the server and gives snapshots their own role in the model's user message.
 pub(super) const SKILL_SNAPSHOT_MIME_TYPE: &str = "text/vnd.infumap.skill+markdown";
+/// The title of an inline snapshot is the slash token in the user's message. Earlier skills have their page title
+/// here and need an attachment row so the user can see what was selected.
+pub(super) const INLINE_SKILL_SNAPSHOT_MIME_TYPE: &str = "text/vnd.infumap.inline-skill+markdown";
 
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -158,7 +161,11 @@ pub(super) struct ChatAttachment {
 
 impl ChatAttachment {
   pub(super) fn is_skill(&self) -> bool {
-    self.mime_type == SKILL_SNAPSHOT_MIME_TYPE
+    self.mime_type == SKILL_SNAPSHOT_MIME_TYPE || self.is_inline_skill()
+  }
+
+  pub(super) fn is_inline_skill(&self) -> bool {
+    self.mime_type == INLINE_SKILL_SNAPSHOT_MIME_TYPE
   }
 }
 

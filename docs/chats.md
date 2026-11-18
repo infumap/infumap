@@ -92,9 +92,12 @@ Skills give the model reusable instructions. Open **Skills** at the bottom of **
 with the **Document** arrangement directly inside it. The page title is the skill's name. Write the instructions
 in the document body. Existing notes and composites from the former Prompts page stay where they are.
 
-In Chat or Deep research, type `/` at the start of any line in the composer, then type part of a skill name.
-Use ↑ and ↓ to choose, Enter to add it, or Esc to dismiss the picker. You can also click a result. The skill
-appears as a removable chip above the input. Add your request and any attachments, then send.
+In Chat or Deep research, type `/` at the start of the message or after a space in your draft, then type part
+of a skill name. Use ↑ and ↓ to choose, Enter to insert the mention, or Esc to dismiss the picker. You can also
+click a result. The mention stays in your message. Delete it to remove the skill from the draft.
+
+You can use multiple skills in one message. For example, write “Use `/review-code` on this diff, then use
+`/release-notes` to draft the changelog,” selecting each skill from the picker as you type.
 
 Infumap reads the document when the message is sent and passes its Markdown body to the model as instructions
 alongside your message. The chat keeps a copy of the instructions it received. Edits to the document apply the

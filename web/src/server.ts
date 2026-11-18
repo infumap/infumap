@@ -128,6 +128,13 @@ export type {
   ChatBackendId, ChatModelSelection, ChatRunMode, QueryChatSettings, QueryConfiguration, QueryProfile,
 } from "./items/query-configuration";
 
+export interface ChatSkillMention {
+  /** The skill document. The server loads its Markdown when the turn is submitted. */
+  id: Uid,
+  /** The slash token in the message. */
+  mention: string,
+}
+
 export interface ChatRequest extends QueryChatSettings {
   requestId: string,
   /** The model history, for a chat without a transcript. Omitted for a live chat. */
@@ -140,8 +147,8 @@ export interface ChatRequest extends QueryChatSettings {
   text?: string,
   /** For a live chat: text attached to the new user message. */
   attachments?: Array<{ id: Uid, title: string, mimeType: string, text: string }>,
-  /** For a live chat: document pages used as skills on this turn. */
-  skillIds?: Array<Uid>,
+  /** For a live chat: confirmed skill mentions in message order. */
+  skillMentions?: Array<ChatSkillMention>,
 }
 
 /** A page with the Collection flag, outside the trash. */

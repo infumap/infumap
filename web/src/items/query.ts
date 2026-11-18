@@ -20,7 +20,7 @@ import { arrangeNow, requestArrange } from "../layout/arrange";
 import { initiateLoadChildItemsMaybe, initiateLoadItemMaybe } from "../layout/load";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { VisualElementPath, VeFns } from "../layout/visual-element";
-import { server, type ContinueChatResponse } from "../server";
+import { server, type ChatSkillMention, type ContinueChatResponse } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import type { ChatDraftAttachment } from "./chat-attachment";
@@ -204,7 +204,7 @@ export async function startQueryChat(
   queryItemPath: VisualElementPath,
   deepResearch: boolean = false,
   attachments: Array<ChatDraftAttachment> = [],
-  skillIds: Array<Uid> = [],
+  skillMentions: Array<ChatSkillMention> = [],
 ): Promise<boolean> {
   clearQueryChat(store, queryItem);
   ensureTemporaryQueryChatPage(store, queryItem);
@@ -213,7 +213,7 @@ export async function startQueryChat(
   store.history.setFocus(queryItemPath);
   store.overlay.autoFocusChatInput.set(true);
   arrangeNow(store, "query-start-chat");
-  return await submitQueryChatMessage(store, queryItem, initialText, deepResearch, attachments, skillIds);
+  return await submitQueryChatMessage(store, queryItem, initialText, deepResearch, attachments, skillMentions);
 }
 
 /**

@@ -3,25 +3,12 @@
 import { For, Show, createEffect, createMemo, createSignal, on, onCleanup } from "solid-js";
 import { Portal } from "solid-js/web";
 import { Z_INDEX_GLOBAL_APP_OVERLAY } from "../../constants";
-import { filterQuerySkills, querySkills, querySkillsError, refreshQuerySkills } from "../../items/query-skill";
+import { filterQuerySkills, querySkills, querySkillsError, refreshQuerySkills, type QuerySkillSlash } from "../../items/query-skill";
 import type { SkillSummary } from "../../server";
 import type { StoreContextModel } from "../../store/StoreProvider";
 import { DIALOG_SURFACE_CLASS } from "../library/dialogStyle";
 
 let nextListId = 0;
-
-export interface QuerySkillSlash {
-  start: number,
-  end: number,
-  filter: string,
-}
-
-/** The slash query on the active line, up to the caret. Other lines can contain draft text. */
-export function querySkillSlash(text: string, caret: number): QuerySkillSlash | null {
-  const start = caret == 0 ? 0 : text.lastIndexOf("\n", caret - 1) + 1;
-  if (caret <= start || text[start] != "/") { return null; }
-  return { start, end: caret, filter: text.slice(start + 1, caret) };
-}
 
 interface QuerySkillSuggestions {
   open: () => boolean,
@@ -37,14 +24,14 @@ export function createQuerySkillSuggestions(
 ): QuerySkillSuggestions {
   const [active, setActive] = createSignal(0);
   const [dismissed, setDismissed] = createSignal(false);
-  const lineStart = () => slash()?.start;
+  const tokenStart = () => slash()?.start;
   const filter = () => slash()?.filter;
   const skills = createMemo(() => {
     const current = filter();
     return current == null ? [] : filterQuerySkills(querySkills()?.skills ?? [], current);
   });
   createEffect(on(filter, () => setActive(0)));
-  createEffect(on(lineStart, start => { setDismissed(false); if (start != null) { void refreshQuerySkills(store); } }));
+  createEffect(on(tokenStart, start => { setDismissed(false); if (start != null) { void refreshQuerySkills(store); } }));
   const open = () => {
     const current = filter();
     return current != null && !dismissed() && (current.trim() == "" || skills().length > 0);
@@ -147,7 +134,7 @@ export function QuerySkillSuggestionList(props: QuerySkillSuggestionListProps) {
             active={props.suggestions.active} setActive={props.suggestions.setActive} onChoose={props.onChoose} />
         </div>
         <div class="flex shrink-0 items-center gap-2 border-t border-chrome-line px-3 py-1.5 text-[11px] text-neutral-500">
-          <span class="min-w-0 truncate">↑↓ choose · Enter add · Esc dismiss</span>
+          <span class="min-w-0 truncate">↑↓ choose · Enter mention · Esc dismiss</span>
         </div>
       </div>
     </Portal>

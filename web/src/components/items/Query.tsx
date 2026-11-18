@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Component, For, Show, createEffect, createMemo, createSignal, onCleanup, untrack } from "solid-js";
+import { Component, For, Show, batch, createEffect, createMemo, createSignal, onCleanup, untrack } from "solid-js";
 import { Portal } from "solid-js/web";
 import { arrangeNow, requestArrange } from "../../layout/arrange";
 import { VeFns, VisualElementFlags } from "../../layout/visual-element";
@@ -28,11 +28,12 @@ import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { QueryModelPicker } from "./QueryModelPicker";
 import { QueryToolsPicker } from "./QueryToolsPicker";
 import { QueryScopePicker } from "./QueryScopePicker";
-import {
-  QuerySkillSuggestionList, createQuerySkillSuggestions, querySkillSlash, type QuerySkillSlash,
-} from "./QuerySkillPicker";
+import { QuerySkillSuggestionList, createQuerySkillSuggestions } from "./QuerySkillPicker";
 import type { SkillSummary } from "../../server";
-import { MAX_SKILLS_PER_MESSAGE } from "../../items/query-skill";
+import {
+  MAX_SKILLS_PER_MESSAGE, draftSkillToken, querySkillSlash, selectedDraftSkills, updateDraftSkillSelection,
+  type DraftSkillSelection, type QuerySkillSlash,
+} from "../../items/query-skill";
 import { QueryProfileBar } from "./QueryProfileBar";
 import { QuerySearchStatusLinks } from "./QuerySearchStatusLinks";
 import { initializeQueryConfiguration, queryConfigurationChangeBlockedReason } from "../../items/query-configuration-state";
@@ -165,6 +166,7 @@ const QUERY_CHAT_ACTIVITY_EXPANDED_TOP_INSET_PX = 12;
 const QUERY_CHAT_SEND_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
 const QUERY_DRAFT_ATTACHMENTS_ROW_HEIGHT_PX = 30;
 const QUERY_DRAFT_ATTACHMENTS_ROW_GAP_PX = 6;
+const EMPTY_SKILL_SELECTION: DraftSkillSelection = { text: "", mentions: [] };
 export const Query_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
   const [pendingInputFocus, setPendingInputFocus] = createSignal<{ caretIdx: number, selectAll: boolean } | null>(null);
@@ -177,7 +179,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const [chatText, setChatText] = createSignal("");
   /** Attachments of the message being written, in the chat composer or in the query input in chat mode. */
   const [draftAttachments, setDraftAttachments] = createSignal<Array<ChatDraftAttachment>>([]);
-  const [draftSkills, setDraftSkills] = createSignal<Array<SkillSummary>>([]);
+  const [draftSkillSelection, setDraftSkillSelection] = createSignal(EMPTY_SKILL_SELECTION);
   const [pendingItemAttachments, setPendingItemAttachments] = createSignal(0);
   const [itemAttachmentError, setItemAttachmentError] = createSignal<string | null>(null);
   let itemAttachmentQueue = Promise.resolve();
@@ -206,7 +208,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   let queryModelButton: HTMLButtonElement | undefined;
   let queryToolsButton: HTMLButtonElement | undefined;
   let queryProfileBar: HTMLDivElement | undefined;
-  let queryDraftRow: HTMLDivElement | undefined;
   let chatTextarea: HTMLTextAreaElement | undefined;
   let chatActivityBody: HTMLDivElement | undefined;
   let activeSearchRequestSerial = 0;
@@ -221,8 +222,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const liveChatActivity = () => chatStreamingStateForQuery(queryItem().id);
   const chatStreamingRequestId = createMemo(() => liveChatActivity()?.requestId ?? null);
   const chatContextTokens = () => queryChatContextTokenDisplay(store, queryItem(), chatText(), draftAttachments());
-  const hasDraftAttachmentRow = () => draftSkills().length > 0 || draftAttachments().length > 0 ||
-    pendingItemAttachments() > 0 || itemAttachmentError() != null;
+  const hasDraftAttachmentRow = () => draftAttachments().length > 0 || pendingItemAttachments() > 0 || itemAttachmentError() != null;
   const draftAttachmentsRowPx = () => hasDraftAttachmentRow()
     ? QUERY_DRAFT_ATTACHMENTS_ROW_HEIGHT_PX + QUERY_DRAFT_ATTACHMENTS_ROW_GAP_PX
     : 0;
@@ -450,10 +450,11 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     const unavailable = configurationUnavailableReason();
     if (unavailable != null) { showTransientMessage(unavailable, TransientMessageType.Error); return; }
 
+    const draftText = isEditing() && queryInput != null ? queryInput.value : queryText();
+    const skillDraft = updateDraftSkillSelection(draftSkillSelection(), draftText);
     const text = commitEditingQuery(editingElMaybe);
     const attachments = draftAttachments();
-    const skills = draftSkills();
-    if (text.trim() == "" && attachments.length == 0 && skills.length == 0) {
+    if (text.trim() == "" && attachments.length == 0) {
       requestEditMode(queryText().length, false);
       return;
     }
@@ -462,20 +463,20 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     activeSearchRequestSerial++;
     setSearchingSerial(null);
     setDraftAttachments([]);
-    setDraftSkills([]);
+    setDraftSkillSelection(EMPTY_SKILL_SELECTION);
     setItemAttachmentError(null);
     const useDeepResearch = deepResearch();
     let recorded = false;
     try {
-      recorded = await startQueryChat(store, queryItem(), text, vePath(), useDeepResearch, attachments, skills.map(skill => skill.id));
+      recorded = await startQueryChat(store, queryItem(), text, vePath(), useDeepResearch, attachments, selectedDraftSkills(skillDraft));
       if (!recorded && chatText() == "") {
-        setChatText(text);
+        setDraftSkillSelection(skillDraft);
+        setChatText(draftText);
         resizeChatTextareaSoon();
       }
       if (!recorded && draftAttachments().length == 0) {
         setDraftAttachments(attachments);
       }
-      if (!recorded && draftSkills().length == 0) { setDraftSkills(skills); }
     } finally {
       if (recorded) { setDeepResearch(false); }
       setIsStartingChat(false);
@@ -526,14 +527,12 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     queryDiscardButton.focus();
   };
 
-  type QueryControlName = "mode" | "input" | "send" | "discard" | "scope" | "model" | "tools" | `profile:${number}` | `skill:${number}`;
+  type QueryControlName = "mode" | "input" | "send" | "discard" | "scope" | "model" | "tools" | `profile:${number}`;
 
   const queryProfileButtons = () => Array.from(queryProfileBar?.querySelectorAll<HTMLButtonElement>("button:not([disabled])") ?? []).filter(button => button.isConnected);
-  const querySkillButtons = () => Array.from(queryDraftRow?.querySelectorAll<HTMLButtonElement>("[data-query-skill-remove]") ?? []);
 
   const queryControlButton = (control: QueryControlName): HTMLButtonElement | undefined => {
     if (control.startsWith("profile:")) { return queryProfileButtons()[Number(control.slice("profile:".length))]; }
-    if (control.startsWith("skill:")) { return querySkillButtons()[Number(control.slice("skill:".length))]; }
     switch (control) {
       case "mode": return queryModeButtons[selectedInputModeOption()];
       case "send": return querySendButton;
@@ -547,10 +546,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   const queryControlOrder = (): Array<QueryControlName> => {
     const controls: Array<QueryControlName> = isSearchMode() ? ["input", "send"] : ["mode", "input", "send"];
-    controls.unshift(
-      ...queryProfileButtons().map((_, index): QueryControlName => `profile:${index}`),
-      ...querySkillButtons().map((_, index): QueryControlName => `skill:${index}`),
-    );
+    controls.unshift(...queryProfileButtons().map((_, index): QueryControlName => `profile:${index}`));
     if (hasSubmittedQuery()) { controls.push("discard"); }
     if (queryScopeButton?.isConnected && !queryScopeButton.disabled) { controls.push("scope"); }
     if (selectedInputMode() == "chat") {
@@ -647,7 +643,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     setMoreButtonHost(null);
     setChatText("");
     setDraftAttachments([]);
-    setDraftSkills([]);
+    setDraftSkillSelection(EMPTY_SKILL_SELECTION);
     attachmentDraftGeneration++;
     itemAttachmentQueue = Promise.resolve();
     setPendingItemAttachments(0);
@@ -807,16 +803,14 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       if (chatTextarea == null) { return; }
       chatTextarea.focus();
       chatTextarea.setRangeText(text, chatTextarea.selectionStart, chatTextarea.selectionEnd, "end");
-      setChatText(chatTextarea.value);
-      resizeChatTextarea(chatTextarea);
+      updateChatComposerInput(chatTextarea);
       return;
     }
     // The query input's text is read from the DOM while it is edited, and committed when editing ends.
     if (isEditing() && queryInput != null) {
       queryInput.focus();
       queryInput.setRangeText(text, queryInput.selectionStart, queryInput.selectionEnd, "end");
-      setQueryInputText(queryInput.value);
-      resizeQueryTextarea(queryInput);
+      updateQueryComposerInput(queryInput);
       return;
     }
     const current = queryText();
@@ -831,73 +825,95 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
 
   const caretIn = (input: HTMLTextAreaElement) =>
     input.selectionStart == input.selectionEnd ? input.selectionStart : null;
-  const chatSlash = () => {
-    const caret = chatCaret();
-    return chatTextareaFocused() && caret != null ? querySkillSlash(chatText(), caret) : null;
+  const syncSkillDraft = (input: HTMLTextAreaElement) => {
+    setDraftSkillSelection(draft => updateDraftSkillSelection(draft, input.value, caretIn(input)));
   };
-  const querySlash = () => {
-    const caret = queryCaret();
-    return selectedInputMode() == "chat" && isEditing() && queryInputFocused() && caret != null
-      ? querySkillSlash(queryInputText(), caret) : null;
+  const updateChatComposerInput = (input: HTMLTextAreaElement) => {
+    batch(() => {
+      syncSkillDraft(input);
+      setChatText(input.value);
+      setChatCaret(caretIn(input));
+    });
+    resizeChatTextarea(input);
   };
+  const updateQueryComposerInput = (input: HTMLTextAreaElement) => {
+    batch(() => {
+      syncSkillDraft(input);
+      setQueryInputText(input.value);
+      setQueryCaret(caretIn(input));
+    });
+    resizeQueryTextarea(input);
+  };
+  const unconfirmedSlash = (text: string, caret: number | null) => {
+    if (caret == null) { return null; }
+    const slash = querySkillSlash(text, caret);
+    if (slash == null) { return null; }
+    const token = text.slice(slash.start, slash.end);
+    return draftSkillSelection().mentions.some(mention => mention.start == slash.start && mention.mention == token)
+      ? null : slash;
+  };
+  const chatSlash = () => chatTextareaFocused() ? unconfirmedSlash(chatText(), chatCaret()) : null;
+  const querySlash = () => selectedInputMode() == "chat" && isEditing() && queryInputFocused()
+    ? unconfirmedSlash(queryInputText(), queryCaret()) : null;
   const chatSkillSuggestions = createQuerySkillSuggestions(store, chatSlash);
   const querySkillSuggestions = createQuerySkillSuggestions(store, querySlash);
-  const addDraftSkill = (skill: SkillSummary, input: HTMLTextAreaElement, slash: QuerySkillSlash) => {
-    const skills = draftSkills();
-    if (!skills.some(selected => selected.id == skill.id)) {
-      if (skills.length >= MAX_SKILLS_PER_MESSAGE) {
-        showTransientMessage(`A message can use at most ${MAX_SKILLS_PER_MESSAGE} skills.`, TransientMessageType.Info);
-        return false;
-      }
-      setDraftSkills([...skills, skill]);
+  const insertSkillMention = (skill: SkillSummary, input: HTMLTextAreaElement, slash: QuerySkillSlash) => {
+    const draft = updateDraftSkillSelection(draftSkillSelection(), input.value);
+    const skillIds = new Set(draft.mentions.map(mention => mention.id));
+    if (!skillIds.has(skill.id) && skillIds.size >= MAX_SKILLS_PER_MESSAGE) {
+      showTransientMessage(`A message can use at most ${MAX_SKILLS_PER_MESSAGE} skills.`, TransientMessageType.Info);
+      return false;
     }
-    input.setRangeText("", slash.start, slash.end, "start");
+    const mention = draftSkillToken(skill, draft.mentions);
+    const separator = slash.end == input.value.length ? " " : "";
+    input.setRangeText(mention + separator, slash.start, slash.end, "end");
+    const updated = updateDraftSkillSelection(draft, input.value, input.selectionEnd);
+    const mentions = [...updated.mentions, { id: skill.id, mention, start: slash.start }];
+    mentions.sort((a, b) => a.start - b.start);
+    setDraftSkillSelection({ text: input.value, mentions });
     return true;
   };
   const chooseChatSkill = (skill: SkillSummary) => {
     const slash = chatSlash();
-    if (chatTextarea == null || slash == null || !addDraftSkill(skill, chatTextarea, slash)) { return; }
-    setChatText(chatTextarea.value);
-    setChatCaret(caretIn(chatTextarea));
-    resizeChatTextarea(chatTextarea);
+    if (chatTextarea == null || slash == null) { return; }
+    const input = chatTextarea;
+    batch(() => { if (insertSkillMention(skill, input, slash)) { updateChatComposerInput(input); } });
   };
   const chooseQuerySkill = (skill: SkillSummary) => {
     const slash = querySlash();
-    if (queryInput == null || slash == null || !addDraftSkill(skill, queryInput, slash)) { return; }
-    setQueryInputText(queryInput.value);
-    setQueryCaret(caretIn(queryInput));
-    resizeQueryTextarea(queryInput);
+    if (queryInput == null || slash == null) { return; }
+    const input = queryInput;
+    batch(() => { if (insertSkillMention(skill, input, slash)) { updateQueryComposerInput(input); } });
   };
 
   const sendChatMessage = async () => {
     const value = chatText();
     const attachments = draftAttachments();
-    const skills = draftSkills();
-    if (queryRequestActive() || pendingItemAttachments() > 0 ||
-        (value.trim() == "" && attachments.length == 0 && skills.length == 0)) {
+    if (queryRequestActive() || pendingItemAttachments() > 0 || (value.trim() == "" && attachments.length == 0)) {
       focusChatTextareaSoon();
       return;
     }
     const unavailable = configurationUnavailableReason();
     if (unavailable != null) { showTransientMessage(unavailable, TransientMessageType.Error); return; }
+    const skillDraft = updateDraftSkillSelection(draftSkillSelection(), value);
     setChatText("");
     setDraftAttachments([]);
-    setDraftSkills([]);
+    setDraftSkillSelection(EMPTY_SKILL_SELECTION);
     setItemAttachmentError(null);
     resizeChatTextareaSoon();
     setIsSendingChat(true);
     const useDeepResearch = deepResearch();
     let recorded = false;
     try {
-      recorded = await submitQueryChatMessage(store, queryItem(), value, useDeepResearch, attachments, skills.map(skill => skill.id));
+      recorded = await submitQueryChatMessage(store, queryItem(), value, useDeepResearch, attachments, selectedDraftSkills(skillDraft));
       if (!recorded && chatText() == "") {
+        setDraftSkillSelection(skillDraft);
         setChatText(value);
         resizeChatTextareaSoon();
       }
       if (!recorded && draftAttachments().length == 0) {
         setDraftAttachments(attachments);
       }
-      if (!recorded && draftSkills().length == 0) { setDraftSkills(skills); }
     } finally {
       if (recorded) { setDeepResearch(false); }
       setIsSendingChat(false);
@@ -978,6 +994,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   };
 
   const keyDownHandler = (ev: KeyboardEvent) => {
+    if (ev.isComposing) { ev.stopPropagation(); return; }
     if (querySkillSuggestions.keyDown(ev, chooseQuerySkill)) {
       ev.stopPropagation();
       return;
@@ -1231,7 +1248,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const desktopIconTopPx = () => -Math.max(desktopBlockSizePx().h * 0.03, 0.5);
   const desktopTextIndentPx = () => desktopPopupIconTextIndentPx(desktopSizeBl().w);
 
-  /** Removable skills and attachments of the message being written. */
+  /** Removable attachments of the message being written. */
   const renderDraftAttachments = () => {
     const stopMouse = (ev: MouseEvent) => {
       // Keeps the focus, and the caret, in the input.
@@ -1239,7 +1256,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       ev.stopPropagation();
     };
     return (
-      <div ref={queryDraftRow} class="flex items-center overflow-x-auto overflow-y-hidden"
+      <div class="flex items-center overflow-x-auto overflow-y-hidden"
         style={`height: ${QUERY_DRAFT_ATTACHMENTS_ROW_HEIGHT_PX}px; gap: ${QUERY_DRAFT_ATTACHMENTS_ROW_GAP_PX}px;`}
         onMouseDown={stopMouse}
         onMouseUp={stopMouse}
@@ -1257,30 +1274,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         <Show when={draftAttachmentContextWarning()}>{message =>
           <span role="status" class="max-w-full shrink-0 truncate text-xs text-amber-700" title={message()}>{message()}</span>
         }</Show>
-        <For each={draftSkills()}>{(skill, index) =>
-          <div class="flex min-w-0 shrink-0 items-center gap-1.5 rounded-xs border border-control-border bg-control-hover pl-2 text-black"
-            style={`height: ${QUERY_DRAFT_ATTACHMENTS_ROW_HEIGHT_PX}px; max-width: 240px; font-size: 13px;`}
-            title={`Skill: ${skill.name}`}>
-            <i class="bi-journal-text shrink-0 text-control-text" aria-hidden="true" />
-            <span class="min-w-0 truncate">{skill.name}</span>
-            <button type="button" data-query-skill-remove
-              class="flex h-full w-6 shrink-0 cursor-pointer items-center justify-center text-control-text hover:bg-white"
-              aria-label={`Remove skill ${skill.name}`}
-              onKeyDown={ev => {
-                if (!isChatMode() && ev.key == "Tab") { handleQueryControlTab(ev, `skill:${index()}`); }
-              }}
-              onClick={ev => {
-                const hadFocus = document.activeElement == ev.currentTarget;
-                setDraftSkills(current => current.filter(selected => selected.id != skill.id));
-                if (hadFocus) {
-                  if (isChatMode()) { focusChatTextareaSoon(); }
-                  else { focusQueryInputControl(); }
-                }
-              }}>
-              <i class="bi-x-lg" />
-            </button>
-          </div>
-        }</For>
         <For each={draftAttachments()}>{attachment => {
           const tokens = estimateChatAttachmentTokens([attachment]).toLocaleString("en-US");
           return (
@@ -1352,6 +1345,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     };
     const chatKeyDown = (ev: KeyboardEvent) => {
       ev.stopPropagation();
+      if (ev.isComposing) { return; }
       if (chatSkillSuggestions.keyDown(ev, chooseChatSkill)) { return; }
       if (ev.key == "Escape") {
         ev.preventDefault();
@@ -1489,10 +1483,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 }}
                 onBlur={(ev) => { ev.currentTarget.spellcheck = false; setChatTextareaFocused(false); }}
                 onInput={(ev) => {
-                  const el = ev.currentTarget as HTMLTextAreaElement;
-                  setChatText(el.value);
-                  setChatCaret(caretIn(el));
-                  resizeChatTextarea(el);
+                  updateChatComposerInput(ev.currentTarget);
                 }}
                 onKeyDown={chatKeyDown}
                 onKeyUp={ev => setChatCaret(caretIn(ev.currentTarget))}
@@ -1511,7 +1502,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               disabled={chatRequestActive()
                 ? !chatRequestCanCancel() || stopPending()
                 : pendingItemAttachments() > 0 || configurationUnavailableReason() != null ||
-                  (chatText().trim() == "" && draftAttachments().length == 0 && draftSkills().length == 0)}
+                  (chatText().trim() == "" && draftAttachments().length == 0)}
               onClick={() => {
                 if (chatRequestCanCancel()) {
                   cancelQueryChatRequest(queryItem().id);
@@ -1725,9 +1716,12 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               onSelect={ev => setQueryCaret(caretIn(ev.currentTarget))}
               onClick={ev => setQueryCaret(caretIn(ev.currentTarget))}
               onFocus={(ev) => {
-                setQueryInputText(ev.currentTarget.value);
-                setQueryCaret(caretIn(ev.currentTarget));
-                setQueryInputFocused(true);
+                batch(() => {
+                  setDraftSkillSelection(draft => updateDraftSkillSelection(draft, ev.currentTarget.value));
+                  setQueryInputText(ev.currentTarget.value);
+                  setQueryCaret(caretIn(ev.currentTarget));
+                  setQueryInputFocused(true);
+                });
               }}
               onBlur={() => setQueryInputFocused(false)}
               onPaste={(ev) => {
@@ -1737,9 +1731,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               }}
               onInput={(ev) => {
                 inputListener(ev);
-                setQueryInputText(ev.currentTarget.value);
-                setQueryCaret(caretIn(ev.currentTarget));
-                resizeQueryTextarea(ev.currentTarget);
+                updateQueryComposerInput(ev.currentTarget);
               }} />
             <button
               ref={querySendButton}

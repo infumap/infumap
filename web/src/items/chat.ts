@@ -47,6 +47,7 @@ import {
   server,
   type ChatModelSelection,
   type ChatRequest,
+  type ChatSkillMention,
   type ChatStreamEvent,
   type ChatStreamConnectionState,
   type ChatStreamPhase,
@@ -1158,9 +1159,9 @@ export async function submitQueryChatMessage(
   rawText: string,
   deepResearch: boolean = false,
   attachments: Array<ChatDraftAttachment> = [],
-  skillIds: Array<Uid> = [],
+  skillMentions: Array<ChatSkillMention> = [],
 ): Promise<boolean> {
-  if (rawText.trim() == "" && attachments.length == 0 && skillIds.length == 0) { return true; }
+  if (rawText.trim() == "" && attachments.length == 0) { return true; }
   const chat = getQueryRuntime(store, queryItem).chat;
   if (chat.requestId != null || chat.runningElsewhere || activeQueryChatRequestByQueryId.has(queryItem.id)) {
     showChatMessage(store, "A response is already running in this chat.", TransientMessageType.Info);
@@ -1171,7 +1172,7 @@ export async function submitQueryChatMessage(
   const generation = queryChatGenerations.get(queryItem.id) ?? 0;
   updateQueryRuntime(store, queryItem, current => ({ ...current, chat: { ...current.chat, requestId } }));
   try {
-    return await submitQueryChatTurn(store, queryItem, requestId, rawText, deepResearch, attachments, skillIds);
+    return await submitQueryChatTurn(store, queryItem, requestId, rawText, deepResearch, attachments, skillMentions);
   } finally {
     if ((store.user.getUserMaybe()?.userId ?? null) == accountId &&
         (queryChatGenerations.get(queryItem.id) ?? 0) == generation &&
@@ -1188,7 +1189,7 @@ async function submitQueryChatTurn(
   rawText: string,
   deepResearch: boolean,
   attachments: Array<ChatDraftAttachment>,
-  skillIds: Array<Uid>,
+  skillMentions: Array<ChatSkillMention>,
 ): Promise<boolean> {
   const text = rawText.trim();
   const accountId = store.user.getUserMaybe()?.userId ?? null;
@@ -1242,7 +1243,7 @@ async function submitQueryChatTurn(
         attachments: attachments.length > 0
           ? attachments.map(({ id, title, mimeType, text }) => ({ id, title, mimeType, text }))
           : undefined,
-        skillIds: skillIds.length > 0 ? skillIds : undefined,
+        skillMentions: skillMentions.length > 0 ? skillMentions : undefined,
         ...settings,
       },
     },
