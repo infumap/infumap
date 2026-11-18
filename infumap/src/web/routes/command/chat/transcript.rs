@@ -51,15 +51,12 @@ use crate::ai::artifact_io::atomic_write;
 use crate::query_configuration::ScopeRef;
 use crate::util::fs::expand_tilde;
 
-/// Version 2 replaced version 1 without a reader for it; version 1 chats were deleted rather than
-/// converted. From version 2 on, a format change must stay backwards compatible for reading: saved
-/// `.chat` items live in the object store and in backups and are never rewritten, so there is no
-/// migration pass. Bump the version and have `parse_transcript` read every earlier version, mapping
-/// old records to something sensible. An added field that defaults when absent, such as attachments or scope items,
-/// reads in every version and needs no bump. The turn settings embed `QueryConfiguration` and `QueryProfile`
-/// from `query_configuration.rs`, so changing those types is a transcript format change too.
-/// Version 4 replaced the configuration's bare `scopeId` with a `scope` reference.
-pub(super) const TRANSCRIPT_FORMAT_VERSION: u32 = 4;
+/// Version 5 records each turn as it happens: the user message exactly as the model got it, each request before it is
+/// sent, each response, and each message the server or a tool adds. Earlier versions stored the user message as parts
+/// to be rebuilt, and the turn's messages and activity only at its end. They are not read: transcripts are not kept
+/// compatible across this redesign. The turn settings embed `QueryConfiguration` and `QueryProfile` from
+/// `query_configuration.rs`, so changing those types is a format change too.
+pub(super) const TRANSCRIPT_FORMAT_VERSION: u32 = 5;
 const CHATS_DIR_NAME: &str = "chats";
 /// Skill snapshots use the existing transcript attachment storage so a saved chat can reopen the exact instructions.
 /// This media type is reserved to the server and gives snapshots their own role in the model's user message.
@@ -68,12 +65,20 @@ pub(super) const SKILL_SNAPSHOT_MIME_TYPE: &str = "text/vnd.infumap.skill+markdo
 /// here and need an attachment row so the user can see what was selected.
 pub(super) const INLINE_SKILL_SNAPSHOT_MIME_TYPE: &str = "text/vnd.infumap.inline-skill+markdown";
 
+/// A transcript is the record of what the model was given and what it returned. Each request a turn makes can be
+/// rebuilt exactly from it: the header's system prompt and tools, then the messages of earlier completed turns (each
+/// turn's user message, then the messages it added, in order), then this turn's user message and the messages it had
+/// added by then, `count` in all; then the request's other fields. Messages are stored in the server's form; the
+/// provider gets them converted the same way every time (`for_llama_server`, `without_reasoning`).
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum TranscriptRecord {
   Header(TranscriptHeader),
   User(UserRecord),
-  Turn(TurnRecord),
+  Request(RequestRecord),
+  Response(ResponseRecord),
+  Message(MessageRecord),
+  End(EndRecord),
 }
 
 /// The first line of the file, and only there.
@@ -88,8 +93,10 @@ pub(super) struct TranscriptHeader {
   /// from a saved `.chat` item keeps the start of the chat it continues.
   #[serde(rename = "createdAt")]
   pub(super) created_at: i64,
-  /// What every turn sends unchanged, fixed by the first turn. None in a chat started before setups were fixed, which
-  /// builds its prompt and tools again on each turn.
+  /// The server that wrote the header.
+  #[serde(rename = "serverVersion", default)]
+  pub(super) server_version: String,
+  /// What every turn sends unchanged, fixed by the first turn. None only in tests.
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(super) setup: Option<ChatSetup>,
 }
@@ -121,20 +128,47 @@ impl ChatSetup {
   }
 }
 
-/// Written, and synced, before inference starts.
+/// Written, and synced, before inference starts. The message is stored as the model got it, wrappers and all, so it
+/// is never rebuilt: a later change to how messages are put together can't change what an old chat sends. Each
+/// attachment's text is a span of it, so the text is stored once.
 #[derive(Clone, Deserialize, Serialize)]
+#[serde(into = "StoredUserRecord", try_from = "StoredUserRecord")]
 pub(super) struct UserRecord {
-  #[serde(rename = "requestId")]
   pub(super) request_id: String,
   /// Unix time in milliseconds.
-  #[serde(rename = "startedAt")]
   pub(super) started_at: i64,
   pub(super) text: String,
   /// Text attached to the message, sent to the model before it. Kept in the transcript rather than as text items,
   /// which a live chat must not create, so that a persisted `.chat` item stays one self-contained blob.
-  #[serde(default, skip_serializing_if = "Vec::is_empty")]
   pub(super) attachments: Vec<ChatAttachment>,
+  /// The model, effort and approval this turn used. Scope and tools are the chat's (`ChatSetup`).
   pub(super) settings: TurnSettings,
+  content: String,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct StoredUserRecord {
+  request_id: String,
+  started_at: i64,
+  text: String,
+  content: String,
+  #[serde(default, skip_serializing_if = "Vec::is_empty")]
+  attachments: Vec<StoredAttachment>,
+  settings: TurnSettings,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct StoredAttachment {
+  id: Uid,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  item_id: Option<Uid>,
+  title: String,
+  mime_type: String,
+  /// Where its text is in the message, in bytes.
+  start: usize,
+  end: usize,
 }
 
 impl UserRecord {
@@ -142,53 +176,133 @@ impl UserRecord {
   /// inline rather than a reference to read with a tool, because weak models skip reads, and for a summary a part
   /// left unread is the worst failure; they also work in a chat without tools. Nothing is cut to fit the context: a
   /// summary of part of a text, presented as a summary of all of it, is worse than the backend's error.
+  pub(super) fn new(
+    request_id: String,
+    started_at: i64,
+    text: String,
+    attachments: Vec<ChatAttachment>,
+    settings: TurnSettings,
+  ) -> Self {
+    let (content, _) = render_user_content(&text, &attachments);
+    Self { request_id, started_at, text, attachments, settings, content }
+  }
+
+  /// The message exactly as the model got it.
   pub(super) fn model_content(&self) -> String {
-    let mut parts = self
-      .attachments
-      .iter()
-      .filter(|attachment| !attachment.is_skill())
-      .map(|attachment| {
-        let newline = if attachment.text.ends_with('\n') { "" } else { "\n" };
-        format!(
-          "<attachment name=\"{}\">\n{}{}</attachment>",
-          attachment.title.replace('"', "'"),
-          attachment.text,
-          newline
-        )
-      })
-      .collect::<Vec<_>>();
-    let skills = self
-      .attachments
-      .iter()
-      .filter(|attachment| attachment.is_skill())
-      .map(|skill| {
-        let newline = if skill.text.ends_with('\n') { "" } else { "\n" };
-        format!("<skill name=\"{}\">\n{}{}</skill>", skill.title.replace('"', "'"), skill.text, newline)
-      })
-      .collect::<Vec<_>>();
-    if !skills.is_empty() {
-      parts
-        .insert(0, format!("The user selected these skill instructions for this message:\n\n{}", skills.join("\n\n")));
-    }
-    if !self.text.is_empty() {
-      parts.push(self.text.clone());
-    }
-    parts.join("\n\n")
+    self.content.clone()
   }
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+/// The message and, for each attachment, where its text is in it.
+fn render_user_content(text: &str, attachments: &[ChatAttachment]) -> (String, Vec<(usize, usize)>) {
+  let mut content = String::new();
+  let mut spans = vec![(0, 0); attachments.len()];
+  let mut wrap = |content: &mut String, index: usize, tag: &str| {
+    let attachment = &attachments[index];
+    content.push_str(&format!("<{tag} name=\"{}\">\n", attachment.title.replace('"', "'")));
+    let start = content.len();
+    content.push_str(&attachment.text);
+    spans[index] = (start, content.len());
+    if !attachment.text.ends_with('\n') {
+      content.push('\n');
+    }
+    content.push_str(&format!("</{tag}>"));
+  };
+  let skills = (0..attachments.len()).filter(|&index| attachments[index].is_skill()).collect::<Vec<_>>();
+  if !skills.is_empty() {
+    content.push_str("The user selected these skill instructions for this message:\n\n");
+    for (n, &index) in skills.iter().enumerate() {
+      if n > 0 {
+        content.push_str("\n\n");
+      }
+      wrap(&mut content, index, "skill");
+    }
+  }
+  for index in (0..attachments.len()).filter(|&index| !attachments[index].is_skill()) {
+    if !content.is_empty() {
+      content.push_str("\n\n");
+    }
+    wrap(&mut content, index, "attachment");
+  }
+  if !text.is_empty() {
+    if !content.is_empty() {
+      content.push_str("\n\n");
+    }
+    content.push_str(text);
+  }
+  (content, spans)
+}
+
+impl From<UserRecord> for StoredUserRecord {
+  fn from(user: UserRecord) -> Self {
+    let (_, spans) = render_user_content(&user.text, &user.attachments);
+    let attachments = user
+      .attachments
+      .into_iter()
+      .zip(spans)
+      .map(|(attachment, (start, end))| StoredAttachment {
+        id: attachment.id,
+        item_id: attachment.item_id,
+        title: attachment.title,
+        mime_type: attachment.mime_type,
+        start,
+        end,
+      })
+      .collect();
+    Self {
+      request_id: user.request_id,
+      started_at: user.started_at,
+      text: user.text,
+      content: user.content,
+      attachments,
+      settings: user.settings,
+    }
+  }
+}
+
+impl TryFrom<StoredUserRecord> for UserRecord {
+  type Error = String;
+
+  fn try_from(stored: StoredUserRecord) -> Result<Self, String> {
+    let attachments = stored
+      .attachments
+      .into_iter()
+      .map(|attachment| {
+        let text = stored
+          .content
+          .get(attachment.start..attachment.end)
+          .ok_or_else(|| format!("Attachment '{}' is outside its message.", attachment.id))?
+          .to_owned();
+        Ok(ChatAttachment {
+          id: attachment.id,
+          item_id: attachment.item_id,
+          title: attachment.title,
+          mime_type: attachment.mime_type,
+          size_bytes: text.len(),
+          text,
+        })
+      })
+      .collect::<Result<Vec<_>, String>>()?;
+    Ok(Self {
+      request_id: stored.request_id,
+      started_at: stored.started_at,
+      text: stored.text,
+      attachments,
+      settings: stored.settings,
+      content: stored.content,
+    })
+  }
+}
+
+#[derive(Clone)]
 pub(super) struct ChatAttachment {
   /// A uid made by the client, or by the server for an item in scope, unique within the transcript.
   pub(super) id: Uid,
   /// The item in the chat's scope whose content this is, read when the turn started. None for text the user attached.
-  #[serde(rename = "itemId", default, skip_serializing_if = "Option::is_none")]
   pub(super) item_id: Option<Uid>,
   pub(super) title: String,
-  #[serde(rename = "mimeType")]
   pub(super) mime_type: String,
   /// The UTF-8 length of `text`.
-  #[serde(rename = "sizeBytes")]
   pub(super) size_bytes: usize,
   pub(super) text: String,
 }
@@ -212,29 +326,63 @@ pub(super) enum TurnOutcome {
   Error,
 }
 
+/// Written, and synced, before a model request is sent.
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct RequestRecord {
+  pub(super) request_id: String,
+  /// The model request's number in its turn, from 1.
+  pub(super) number: usize,
+  /// The provider it went to.
+  pub(super) provider: String,
+  /// How many messages it sent: see `TranscriptRecord`.
+  pub(super) messages: usize,
+  /// Whether it sent the chat's tools.
+  pub(super) tools: bool,
+  /// Every other field of the request body, as sent.
+  pub(super) params: Value,
+  pub(super) started_at: i64,
+}
+
+/// A model request's reply. `partial` is what had arrived when a turn was stopped or failed during the request.
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct ResponseRecord {
+  pub(super) request_id: String,
+  pub(super) number: usize,
+  pub(super) ended_at: i64,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub(super) message: Option<ChatHistoryMessage>,
+  #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+  pub(super) partial: bool,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub(super) error: Option<String>,
+}
+
+/// A message the turn added other than the model's: a tool result, or a system message the server added.
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct MessageRecord {
+  pub(super) request_id: String,
+  pub(super) message: ChatHistoryMessage,
+}
+
 /// Written, and synced, when a turn ends, before completion is reported.
 #[derive(Clone, Deserialize, Serialize)]
-pub(super) struct TurnRecord {
-  #[serde(rename = "requestId")]
+#[serde(rename_all = "camelCase")]
+pub(super) struct EndRecord {
   pub(super) request_id: String,
-  /// The assistant and tool messages the turn added to the model history. Empty unless completed.
-  #[serde(default)]
-  pub(super) messages: Vec<ChatHistoryMessage>,
-  /// Activity for the turn dropdown, including partial rounds of an unsuccessful turn.
-  #[serde(default)]
-  pub(super) rounds: Vec<ActivityRound>,
-  /// Unix time in milliseconds.
-  #[serde(rename = "startedAt")]
-  pub(super) started_at: i64,
-  /// Unix time in milliseconds.
-  #[serde(rename = "endedAt")]
-  pub(super) ended_at: i64,
   pub(super) outcome: TurnOutcome,
+  /// Unix time in milliseconds.
+  pub(super) ended_at: i64,
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(super) error: Option<String>,
   /// The last context token count reported during the turn.
-  #[serde(rename = "contextTokens", default, skip_serializing_if = "Option::is_none")]
+  #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(super) context_tokens: Option<ContextTokenCount>,
+  /// How each tool call went, for showing the turn's activity: summaries, durations and previews. Not model input.
+  #[serde(default, skip_serializing_if = "Vec::is_empty")]
+  pub(super) tool_calls: Vec<ActivityToolCall>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -293,10 +441,119 @@ pub(super) struct Transcript {
   pub(super) turns: Vec<TranscriptTurn>,
 }
 
+/// What a turn recorded after its user message, in order.
+#[derive(Clone)]
+pub(super) enum TurnEntry {
+  Request(RequestRecord),
+  Response(ResponseRecord),
+  Message(MessageRecord),
+}
+
 pub(super) struct TranscriptTurn {
   pub(super) user: UserRecord,
+  pub(super) entries: Vec<TurnEntry>,
   /// None while the turn runs, or if the server stopped before the turn ended.
-  pub(super) end: Option<TurnRecord>,
+  pub(super) end: Option<EndRecord>,
+}
+
+impl TranscriptTurn {
+  pub(super) fn completed(&self) -> bool {
+    self.end.as_ref().is_some_and(|end| end.outcome == TurnOutcome::Completed)
+  }
+
+  /// The messages the turn added after its user message, as later requests in it, and later turns, send them.
+  pub(super) fn added_messages(&self) -> Vec<ChatHistoryMessage> {
+    self
+      .entries
+      .iter()
+      .filter_map(|entry| match entry {
+        TurnEntry::Response(response) if !response.partial => response.message.clone(),
+        TurnEntry::Message(message) => Some(message.message.clone()),
+        _ => None,
+      })
+      .collect()
+  }
+
+  /// The answer of a completed turn: its last reply.
+  pub(super) fn assistant_text(&self) -> Option<String> {
+    if !self.completed() {
+      return None;
+    }
+    self.entries.iter().rev().find_map(|entry| match entry {
+      TurnEntry::Response(response) if !response.partial => {
+        response.message.as_ref().filter(|message| message.role == "assistant").and_then(|m| m.content.clone())
+      }
+      _ => None,
+    })
+  }
+
+  /// The turn's activity, for showing it: a round per model request, with its reasoning, answer and tool calls.
+  pub(super) fn rounds(&self) -> Vec<ActivityRound> {
+    let annotations = self.end.as_ref().map(|end| end.tool_calls.as_slice()).unwrap_or_default();
+    let mut rounds: Vec<ActivityRound> = vec![];
+    for entry in &self.entries {
+      match entry {
+        TurnEntry::Request(request) => rounds.push(ActivityRound {
+          number: request.number,
+          reasoning: String::new(),
+          answer: String::new(),
+          tool_calls: vec![],
+          complete: false,
+        }),
+        TurnEntry::Response(response) => {
+          let Some(round) = rounds.iter_mut().rev().find(|round| round.number == response.number) else { continue };
+          let message = response.message.as_ref();
+          round.reasoning = message.and_then(|message| message.reasoning_content.clone()).unwrap_or_default();
+          round.answer = message.and_then(|message| message.content.clone()).unwrap_or_default();
+          round.complete = !response.partial;
+          round.tool_calls = message
+            .and_then(|message| message.tool_calls.as_ref())
+            .into_iter()
+            .flatten()
+            .map(|call| {
+              annotations.iter().find(|annotation| annotation.call_id == call.id).cloned().unwrap_or_else(|| {
+                ActivityToolCall {
+                  call_id: call.id.clone(),
+                  name: call.function.name.clone(),
+                  source: None,
+                  status: ActivityToolCallStatus::Complete,
+                  summary: None,
+                  arguments: Some(call.function.arguments.clone()),
+                  query: None,
+                  url: None,
+                  duration_ms: None,
+                  result_preview: None,
+                }
+              })
+            })
+            .collect();
+        }
+        TurnEntry::Message(_) => {}
+      }
+    }
+    rounds
+  }
+
+  fn records(&self) -> Vec<TranscriptRecord> {
+    let mut records = vec![TranscriptRecord::User(self.user.clone())];
+    records.extend(self.entries.iter().cloned().map(|entry| match entry {
+      TurnEntry::Request(request) => TranscriptRecord::Request(request),
+      TurnEntry::Response(response) => TranscriptRecord::Response(response),
+      TurnEntry::Message(message) => TranscriptRecord::Message(message),
+    }));
+    records.extend(self.end.clone().map(TranscriptRecord::End));
+    records
+  }
+}
+
+fn user_message(user: &UserRecord) -> ChatHistoryMessage {
+  ChatHistoryMessage {
+    role: "user".to_owned(),
+    content: Some(user.model_content()),
+    reasoning_content: None,
+    tool_call_id: None,
+    tool_calls: None,
+  }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
@@ -346,21 +603,42 @@ impl Transcript {
   /// weak models then answered follow-ups from the stubs instead of reading again, and made up what they had read.
   pub(super) fn history(&self) -> Vec<ChatHistoryMessage> {
     let mut messages = vec![];
-    for turn in &self.turns {
-      let Some(end) = &turn.end else { continue };
-      if end.outcome != TurnOutcome::Completed {
-        continue;
-      }
-      messages.push(ChatHistoryMessage {
-        role: "user".to_owned(),
-        content: Some(turn.user.model_content()),
-        reasoning_content: None,
-        tool_call_id: None,
-        tool_calls: None,
-      });
-      messages.extend(end.messages.iter().cloned());
+    for turn in self.turns.iter().filter(|turn| turn.completed()) {
+      messages.push(user_message(&turn.user));
+      messages.extend(turn.added_messages());
     }
     messages
+  }
+
+  /// The messages a recorded model request sent, in the server's form: the chat's system prompt, the history before
+  /// its turn, its turn's user message, then what the turn had added, `count` in all (see `TranscriptRecord`). None
+  /// if there is no such request, or the chat has no fixed setup. Only tests read it so far: it is the format's
+  /// rebuilding rule written as code, checked against what was actually sent.
+  #[cfg_attr(not(test), allow(dead_code))]
+  pub(super) fn request_messages(&self, request_id: &str, number: usize) -> Option<Vec<ChatHistoryMessage>> {
+    let index = self.request_index(request_id)?;
+    let turn = &self.turns[index];
+    let count = turn.entries.iter().find_map(|entry| match entry {
+      TurnEntry::Request(request) if request.number == number => Some(request.messages),
+      _ => None,
+    })?;
+    let mut messages = vec![ChatHistoryMessage {
+      role: "system".to_owned(),
+      content: Some(self.header.setup.as_ref()?.system_prompt.clone()),
+      reasoning_content: None,
+      tool_call_id: None,
+      tool_calls: None,
+    }];
+    for earlier in self.turns[..index].iter().filter(|turn| turn.completed()) {
+      messages.push(user_message(&earlier.user));
+      messages.extend(earlier.added_messages());
+    }
+    messages.push(user_message(&turn.user));
+    messages.extend(turn.added_messages());
+    (count <= messages.len()).then(|| {
+      messages.truncate(count);
+      messages
+    })
   }
 
   /// Whether the content of this scope item is in the model history: attached to the message of a completed turn.
@@ -368,7 +646,7 @@ impl Transcript {
     self
       .turns
       .iter()
-      .filter(|turn| turn.end.as_ref().is_some_and(|end| end.outcome == TurnOutcome::Completed))
+      .filter(|turn| turn.completed())
       .any(|turn| turn.user.attachments.iter().any(|attachment| attachment.item_id.as_deref() == Some(item_id)))
   }
 
@@ -378,13 +656,17 @@ impl Transcript {
   }
 
   fn check(&self, record: &TranscriptRecord) -> InfuResult<()> {
+    let open_turn = |request_id: &str| match self.turns.last() {
+      Some(last) if last.end.is_none() && last.user.request_id == request_id => Ok(()),
+      _ => Err(format!("Record for '{}' is not for the last, running turn.", request_id).into()),
+    };
     match record {
       TranscriptRecord::Header(_) => Err("A transcript header is only allowed on the first line.".into()),
       TranscriptRecord::User(_) => Ok(()),
-      TranscriptRecord::Turn(turn) => match self.turns.last() {
-        Some(last) if last.end.is_none() && last.user.request_id == turn.request_id => Ok(()),
-        _ => Err(format!("Turn record '{}' does not end the last turn.", turn.request_id).into()),
-      },
+      TranscriptRecord::Request(record) => open_turn(&record.request_id),
+      TranscriptRecord::Response(record) => open_turn(&record.request_id),
+      TranscriptRecord::Message(record) => open_turn(&record.request_id),
+      TranscriptRecord::End(record) => open_turn(&record.request_id),
     }
   }
 
@@ -392,8 +674,13 @@ impl Transcript {
     self.check(&record)?;
     match record {
       TranscriptRecord::Header(_) => unreachable!(),
-      TranscriptRecord::User(user) => self.turns.push(TranscriptTurn { user, end: None }),
-      TranscriptRecord::Turn(turn) => self.turns.last_mut().unwrap().end = Some(turn),
+      TranscriptRecord::User(user) => self.turns.push(TranscriptTurn { user, entries: vec![], end: None }),
+      TranscriptRecord::Request(request) => self.turns.last_mut().unwrap().entries.push(TurnEntry::Request(request)),
+      TranscriptRecord::Response(response) => {
+        self.turns.last_mut().unwrap().entries.push(TurnEntry::Response(response))
+      }
+      TranscriptRecord::Message(message) => self.turns.last_mut().unwrap().entries.push(TurnEntry::Message(message)),
+      TranscriptRecord::End(end) => self.turns.last_mut().unwrap().end = Some(end),
     }
     Ok(())
   }
@@ -416,72 +703,30 @@ pub(super) fn parse_transcript(bytes: &[u8]) -> InfuResult<Option<Transcript>> {
     return Ok(None);
   }
   let mut lines = complete[..complete.len() - 1].split(|byte| *byte == b'\n').enumerate();
-  let mut transcript = match lines.next().map(|(_, line)| serde_json::from_slice::<TranscriptRecord>(line)) {
-    Some(Ok(TranscriptRecord::Header(header))) => {
-      if !matches!(header.version, 2 | 3 | TRANSCRIPT_FORMAT_VERSION) {
-        return Err(format!("Unsupported transcript format version {}.", header.version).into());
+  let mut transcript = match lines.next().map(|(_, line)| serde_json::from_slice::<Value>(line)) {
+    Some(Ok(header)) => {
+      let version = header.get("version").and_then(Value::as_u64).unwrap_or(0);
+      if version != u64::from(TRANSCRIPT_FORMAT_VERSION) {
+        return Err(
+          format!("This chat was saved in transcript format {version}, which this version of Infumap can't read.")
+            .into(),
+        );
       }
-      Transcript { header, turns: vec![] }
+      match serde_json::from_value::<TranscriptRecord>(header) {
+        Ok(TranscriptRecord::Header(header)) => Transcript { header, turns: vec![] },
+        Ok(_) => return Err("A transcript must start with a header record.".into()),
+        Err(e) => return Err(format!("Malformed transcript header: {}", e).into()),
+      }
     }
-    Some(Ok(_)) => return Err("A transcript must start with a header record.".into()),
     Some(Err(e)) => return Err(format!("Malformed transcript header: {}", e).into()),
     None => return Ok(None),
   };
   for (index, line) in lines {
-    let record = parse_transcript_record(line, transcript.header.version)
+    let record = serde_json::from_slice::<TranscriptRecord>(line)
       .map_err(|e| format!("Malformed transcript record on line {}: {}", index + 1, e))?;
     transcript.apply(record).map_err(|e| format!("Transcript line {}: {}", index + 1, e))?;
   }
   Ok(Some(transcript))
-}
-
-/// A profile applied before template notes were removed names its note: `"queryNoteId":"<id>"`.
-const LEGACY_QUERY_NOTE_KEY: &[u8] = b"\"queryNoteId\"";
-/// A configuration saved before collections names a scope page: `"scopeId":null` or `"scopeId":"<id>"`.
-const LEGACY_SCOPE_ID_KEY: &[u8] = b"\"scopeId\"";
-
-/// Version 2 has no approval setting. Preserve its conservative behavior without rewriting saved
-/// chats. A live version 2 file can contain new turns too; explicitly recorded policies are retained.
-///
-/// A profile in any version may name a template note, from before prompts replaced them. The reference is dropped
-/// on reading, with no version bump: nothing else changed, so files written since are still version 3. Only lines
-/// that mention it take the slower path through `Value`.
-///
-/// Versions 2 and 3 name a scope page in `scopeId`, which becomes a `scope` (see `upgrade_legacy_scope`). It is
-/// found by its key, not the header's version: a live version 2 or 3 file goes on to get version 4 lines appended.
-fn parse_transcript_record(line: &[u8], version: u32) -> InfuResult<TranscriptRecord> {
-  let mentions = |key: &[u8]| line.windows(key.len()).any(|window| window == key);
-  let legacy_query_note = mentions(LEGACY_QUERY_NOTE_KEY);
-  let legacy_scope_id = mentions(LEGACY_SCOPE_ID_KEY);
-  if version != 2 && !legacy_query_note && !legacy_scope_id {
-    return Ok(serde_json::from_slice(line)?);
-  }
-  let mut record: Value = serde_json::from_slice(line)?;
-  if record.get("type").and_then(Value::as_str) == Some("user") {
-    let settings = record.get_mut("settings").ok_or("Transcript settings are missing.")?;
-    if version == 2 {
-      crate::query_configuration::upgrade_legacy_configuration(
-        settings.get_mut("configuration").ok_or("Transcript configuration is missing.")?,
-      )?;
-      if let Some(profile) = settings.get_mut("appliedProfile").filter(|profile| !profile.is_null()) {
-        crate::query_configuration::upgrade_legacy_configuration(
-          profile.get_mut("configuration").ok_or("Profile configuration is missing.")?,
-        )?;
-      }
-    }
-    if let Some(profile) = settings.get_mut("appliedProfile").and_then(Value::as_object_mut) {
-      profile.remove("queryNoteId");
-    }
-    crate::query_configuration::upgrade_legacy_scope(
-      settings.get_mut("configuration").ok_or("Transcript configuration is missing.")?,
-    )?;
-    if let Some(profile) = settings.get_mut("appliedProfile").filter(|profile| !profile.is_null()) {
-      crate::query_configuration::upgrade_legacy_scope(
-        profile.get_mut("configuration").ok_or("Profile configuration is missing.")?,
-      )?;
-    }
-  }
-  Ok(serde_json::from_value(record)?)
 }
 
 /// Reads a transcript without the chat lock. A record being appended concurrently is an incomplete
@@ -609,11 +854,8 @@ impl LockedTranscript {
       return Err(format!("Transcript '{}' already exists.", self.path.display()).into());
     }
     let mut content = record_line(&TranscriptRecord::Header(header))?;
-    for turn in &source.turns {
-      content.push_str(&record_line(&TranscriptRecord::User(turn.user.clone()))?);
-      if let Some(end) = &turn.end {
-        content.push_str(&record_line(&TranscriptRecord::Turn(end.clone()))?);
-      }
+    for record in source.turns.iter().flat_map(TranscriptTurn::records) {
+      content.push_str(&record_line(&record)?);
     }
     let transcript = parse_transcript(content.as_bytes())?.ok_or("The copied transcript has no header.")?;
     atomic_write(&self.path, content.as_bytes()).await?;
@@ -636,9 +878,22 @@ impl LockedTranscript {
     self.append(TranscriptRecord::User(user)).await
   }
 
+  /// Records a model request of the last turn, before it is sent.
+  pub(super) async fn append_request(&mut self, request: RequestRecord) -> InfuResult<()> {
+    self.append(TranscriptRecord::Request(request)).await
+  }
+
+  pub(super) async fn append_response(&mut self, response: ResponseRecord) -> InfuResult<()> {
+    self.append(TranscriptRecord::Response(response)).await
+  }
+
+  pub(super) async fn append_message(&mut self, message: MessageRecord) -> InfuResult<()> {
+    self.append(TranscriptRecord::Message(message)).await
+  }
+
   /// Ends the last turn, which must have the same request id and must not have ended.
-  pub(super) async fn append_turn(&mut self, turn: TurnRecord) -> InfuResult<()> {
-    self.append(TranscriptRecord::Turn(turn)).await
+  pub(super) async fn append_end(&mut self, end: EndRecord) -> InfuResult<()> {
+    self.append(TranscriptRecord::End(end)).await
   }
 
   async fn append(&mut self, record: TranscriptRecord) -> InfuResult<()> {
@@ -787,6 +1042,7 @@ mod tests {
         version: TRANSCRIPT_FORMAT_VERSION,
         query_item_id: self.query_item_id.clone(),
         created_at: 1,
+        server_version: "test".to_owned(),
         setup: None,
       };
       locked.create(header).await.unwrap();
@@ -794,24 +1050,26 @@ mod tests {
     }
   }
 
-  fn user(request_id: &str, text: &str) -> UserRecord {
-    UserRecord {
-      request_id: request_id.to_owned(),
-      started_at: 10,
-      text: text.to_owned(),
-      attachments: vec![],
-      settings: TurnSettings {
-        configuration: QueryConfiguration {
-          scope: crate::query_configuration::ScopeRef::Everything,
-          model: None,
-          capabilities: vec![],
-          tool_approval: crate::query_configuration::ToolApproval::Automatic,
-        },
-        scope_item_ids: vec![],
-        applied_profile: None,
-        mode: ChatRunMode::Chat,
+  fn settings() -> TurnSettings {
+    TurnSettings {
+      configuration: QueryConfiguration {
+        scope: crate::query_configuration::ScopeRef::Everything,
+        model: None,
+        capabilities: vec![],
+        tool_approval: crate::query_configuration::ToolApproval::Automatic,
       },
+      scope_item_ids: vec![],
+      applied_profile: None,
+      mode: ChatRunMode::Chat,
     }
+  }
+
+  fn user(request_id: &str, text: &str) -> UserRecord {
+    user_with(request_id, text, vec![])
+  }
+
+  fn user_with(request_id: &str, text: &str, attachments: Vec<ChatAttachment>) -> UserRecord {
+    UserRecord::new(request_id.to_owned(), 10, text.to_owned(), attachments, settings())
   }
 
   fn attachment(title: &str, text: &str) -> ChatAttachment {
@@ -835,34 +1093,59 @@ mod tests {
     }
   }
 
-  fn turn(request_id: &str, outcome: TurnOutcome, messages: Vec<ChatHistoryMessage>) -> TurnRecord {
-    TurnRecord {
+  fn request(request_id: &str, number: usize, messages: usize) -> RequestRecord {
+    RequestRecord {
       request_id: request_id.to_owned(),
+      number,
+      provider: "p".to_owned(),
       messages,
-      rounds: vec![ActivityRound {
-        number: 1,
-        reasoning: "thinking".to_owned(),
-        answer: "partial".to_owned(),
-        tool_calls: vec![ActivityToolCall {
-          call_id: "c1".to_owned(),
-          name: "search".to_owned(),
-          source: None,
-          status: ActivityToolCallStatus::Complete,
-          summary: Some("3 results".to_owned()),
-          arguments: Some(serde_json::json!({ "query": "x" })),
-          query: None,
-          url: None,
-          duration_ms: Some(12),
-          result_preview: None,
-        }],
-        complete: outcome == TurnOutcome::Completed,
-      }],
+      tools: false,
+      params: serde_json::json!({ "model": "m" }),
       started_at: 10,
-      ended_at: 20,
+    }
+  }
+
+  fn response(request_id: &str, number: usize, message: ChatHistoryMessage, partial: bool) -> ResponseRecord {
+    ResponseRecord {
+      request_id: request_id.to_owned(),
+      number,
+      ended_at: 15,
+      message: Some(message),
+      partial,
+      error: None,
+    }
+  }
+
+  fn end(request_id: &str, outcome: TurnOutcome) -> EndRecord {
+    EndRecord {
+      request_id: request_id.to_owned(),
       outcome,
+      ended_at: 20,
       error: if outcome == TurnOutcome::Error { Some("backend failed".to_owned()) } else { None },
       context_tokens: None,
+      tool_calls: vec![],
     }
+  }
+
+  /// Records a turn's messages as a run would: a request and its reply for each model message, the others as added
+  /// messages, then the end.
+  async fn finish_turn(
+    locked: &mut LockedTranscript,
+    request_id: &str,
+    outcome: TurnOutcome,
+    messages: Vec<ChatHistoryMessage>,
+  ) {
+    let mut number = 0;
+    for message in messages {
+      if message.role == "assistant" {
+        number += 1;
+        locked.append_request(request(request_id, number, 2)).await.unwrap();
+        locked.append_response(response(request_id, number, message, false)).await.unwrap();
+      } else {
+        locked.append_message(MessageRecord { request_id: request_id.to_owned(), message }).await.unwrap();
+      }
+    }
+    locked.append_end(end(request_id, outcome)).await.unwrap();
   }
 
   fn history_json(transcript: &Transcript) -> Value {
@@ -886,9 +1169,9 @@ mod tests {
     assert!(f.read().await.is_none());
     let mut locked = f.create().await;
     locked.append_user(user("r1", "first")).await.unwrap();
-    locked.append_turn(turn("r1", TurnOutcome::Completed, vec![message("assistant", "answer one")])).await.unwrap();
+    finish_turn(&mut locked, "r1", TurnOutcome::Completed, vec![message("assistant", "answer one")]).await;
     locked.append_user(user("r2", "second")).await.unwrap();
-    locked.append_turn(turn("r2", TurnOutcome::Error, vec![])).await.unwrap();
+    finish_turn(&mut locked, "r2", TurnOutcome::Error, vec![]).await;
     drop(locked);
 
     let transcript = f.read().await.unwrap();
@@ -897,10 +1180,62 @@ mod tests {
     assert_eq!(transcript.turns[1].user.text, "second");
     assert_eq!(transcript.turn_status(0, false), TurnStatus::Completed);
     assert_eq!(transcript.turn_status(1, false), TurnStatus::Error);
-    let end = transcript.turns[1].end.as_ref().unwrap();
-    assert_eq!(end.error.as_deref(), Some("backend failed"));
-    assert_eq!(end.rounds[0].tool_calls[0].duration_ms, Some(12));
-    assert_eq!(end.rounds[0].tool_calls[0].status, ActivityToolCallStatus::Complete);
+    assert_eq!(transcript.turns[0].assistant_text().as_deref(), Some("answer one"));
+    assert_eq!(transcript.turns[1].end.as_ref().unwrap().error.as_deref(), Some("backend failed"));
+  }
+
+  /// The activity shown for a turn comes from its requests and replies, with the tool calls' display details from
+  /// its end. A reply cut short is shown, marked incomplete, but is not history.
+  #[tokio::test]
+  async fn rounds_come_from_requests_and_replies() {
+    let f = Fixture::new();
+    let mut locked = f.create().await;
+    locked.append_user(user("r1", "first")).await.unwrap();
+    let mut calling = message("assistant", "");
+    calling.content = None;
+    calling.reasoning_content = Some("thinking".to_owned());
+    calling.tool_calls = Some(vec![super::super::OpenAiToolCall {
+      id: "c1".to_owned(),
+      tool_type: "function".to_owned(),
+      function: super::super::OpenAiToolCallFunction {
+        name: "search".to_owned(),
+        arguments: serde_json::json!({ "query": "x" }),
+      },
+    }]);
+    locked.append_request(request("r1", 1, 2)).await.unwrap();
+    locked.append_response(response("r1", 1, calling, false)).await.unwrap();
+    locked
+      .append_message(MessageRecord { request_id: "r1".to_owned(), message: message("tool", "3 results") })
+      .await
+      .unwrap();
+    locked.append_request(request("r1", 2, 4)).await.unwrap();
+    locked.append_response(response("r1", 2, message("assistant", "half an ans"), true)).await.unwrap();
+    let mut ended = end("r1", TurnOutcome::Cancelled);
+    ended.tool_calls = vec![ActivityToolCall {
+      call_id: "c1".to_owned(),
+      name: "search".to_owned(),
+      source: None,
+      status: ActivityToolCallStatus::Complete,
+      summary: Some("3 results".to_owned()),
+      arguments: Some(serde_json::json!({ "query": "x" })),
+      query: None,
+      url: None,
+      duration_ms: Some(12),
+      result_preview: None,
+    }];
+    locked.append_end(ended).await.unwrap();
+    drop(locked);
+
+    let turn = &f.read().await.unwrap().turns[0];
+    let rounds = turn.rounds();
+    assert_eq!(rounds.len(), 2);
+    assert_eq!(rounds[0].reasoning, "thinking");
+    assert!(rounds[0].complete);
+    assert_eq!(rounds[0].tool_calls[0].duration_ms, Some(12));
+    assert_eq!(rounds[1].answer, "half an ans");
+    assert!(!rounds[1].complete);
+    assert_eq!(turn.added_messages().len(), 2, "the partial reply is not history");
+    assert!(turn.assistant_text().is_none());
   }
 
   #[tokio::test]
@@ -908,18 +1243,12 @@ mod tests {
     let f = Fixture::new();
     let mut locked = f.create().await;
     locked.append_user(user("r1", "first")).await.unwrap();
-    locked
-      .append_turn(turn(
-        "r1",
-        TurnOutcome::Completed,
-        vec![message("assistant", "calling"), message("tool", "result"), message("assistant", "answer one")],
-      ))
-      .await
-      .unwrap();
+    let r1 = vec![message("assistant", "calling"), message("tool", "result"), message("assistant", "answer one")];
+    finish_turn(&mut locked, "r1", TurnOutcome::Completed, r1).await;
     locked.append_user(user("r2", "cancelled question")).await.unwrap();
-    locked.append_turn(turn("r2", TurnOutcome::Cancelled, vec![])).await.unwrap();
+    finish_turn(&mut locked, "r2", TurnOutcome::Cancelled, vec![]).await;
     locked.append_user(user("r3", "third")).await.unwrap();
-    locked.append_turn(turn("r3", TurnOutcome::Completed, vec![message("assistant", "answer three")])).await.unwrap();
+    finish_turn(&mut locked, "r3", TurnOutcome::Completed, vec![message("assistant", "answer three")]).await;
     drop(locked);
 
     let transcript = f.read().await.unwrap();
@@ -942,25 +1271,25 @@ mod tests {
   async fn attachments_are_kept_and_sent_before_the_text() {
     let f = Fixture::new();
     let mut locked = f.create().await;
-    let mut first = user("r1", "summarize these");
-    first.attachments = vec![attachment("Pasted \"text\"", "line one\nline two\n"), attachment("Notes.md", "# Notes")];
+    let first = user_with(
+      "r1",
+      "summarize these",
+      vec![attachment("Pasted \"text\"", "line one\nline two\n"), attachment("Notes.md", "# Notes")],
+    );
     let first_ids = first.attachments.iter().map(|a| a.id.clone()).collect::<Vec<_>>();
     locked.append_user(first).await.unwrap();
-    locked.append_turn(turn("r1", TurnOutcome::Completed, vec![message("assistant", "summary")])).await.unwrap();
-    let mut failed = user("r2", "");
-    failed.attachments = vec![attachment("Pasted text", "never sent")];
-    locked.append_user(failed).await.unwrap();
-    locked.append_turn(turn("r2", TurnOutcome::Error, vec![])).await.unwrap();
-    let mut only_attachment = user("r3", "");
-    only_attachment.attachments = vec![attachment("Pasted text", "just this")];
-    locked.append_user(only_attachment).await.unwrap();
-    locked.append_turn(turn("r3", TurnOutcome::Completed, vec![message("assistant", "ok")])).await.unwrap();
+    finish_turn(&mut locked, "r1", TurnOutcome::Completed, vec![message("assistant", "summary")]).await;
+    locked.append_user(user_with("r2", "", vec![attachment("Pasted text", "never sent")])).await.unwrap();
+    finish_turn(&mut locked, "r2", TurnOutcome::Error, vec![]).await;
+    locked.append_user(user_with("r3", "", vec![attachment("Pasted text", "just this")])).await.unwrap();
+    finish_turn(&mut locked, "r3", TurnOutcome::Completed, vec![message("assistant", "ok")]).await;
     drop(locked);
 
     let transcript = f.read().await.unwrap();
     assert_eq!(transcript.revision(), 3);
     let attachments = &transcript.turns[0].user.attachments;
     assert_eq!(attachments.iter().map(|a| a.id.clone()).collect::<Vec<_>>(), first_ids);
+    assert_eq!(attachments[0].text, "line one\nline two\n");
     assert_eq!(attachments[1].size_bytes, 7);
     assert!(transcript.has_attachment(&first_ids[1]));
     assert!(!transcript.has_attachment(&new_uid()));
@@ -979,68 +1308,32 @@ mod tests {
     );
   }
 
-  /// Chats saved while profiles had template notes must still open, whatever their version.
+  /// The message is stored as sent, and each attachment's text is a span of it rather than a second copy.
   #[test]
-  fn a_profile_naming_a_template_note_still_reads() {
-    let (query_item_id, profile_id, note_id) = (new_uid(), new_uid(), new_uid());
-    for (version, configuration) in [
-      (2, r#"{"scopeId":null,"model":null,"capabilities":[]}"#),
-      (3, r#"{"toolApproval":"automatic","scopeId":null,"model":null,"capabilities":[]}"#),
-    ] {
-      let header = format!(r#"{{"type":"header","version":{version},"queryItemId":"{query_item_id}","createdAt":1}}"#);
-      let user = format!(
-        r#"{{"type":"user","requestId":"r1","startedAt":1,"text":"q","settings":{{"configuration":{configuration},"appliedProfile":{{"id":"{profile_id}","name":"P","configuration":{configuration},"queryNoteId":"{note_id}"}},"mode":"chat"}}}}"#
-      );
-      let transcript = parse_transcript(format!("{header}\n{user}\n").as_bytes()).unwrap().unwrap();
-      let profile = transcript.turns[0].user.settings.applied_profile.as_ref().unwrap();
-      assert_eq!((profile.id.as_str(), profile.name.as_str()), (profile_id.as_str(), "P"), "version {version}");
-      let line = record_line(&TranscriptRecord::User(transcript.turns[0].user.clone())).unwrap();
-      assert!(!line.contains("queryNoteId"));
-    }
-  }
-
-  /// Chats saved with a scope page id still open. The id is not reused as a collection's.
-  #[test]
-  fn a_scope_page_id_reads_as_an_unavailable_scope() {
-    use crate::query_configuration::ScopeRef;
-    let (query_item_id, profile_id, scope_id) = (new_uid(), new_uid(), new_uid());
-    for version in [2, 3, 4] {
-      let header = format!(r#"{{"type":"header","version":{version},"queryItemId":"{query_item_id}","createdAt":1}}"#);
-      let scoped = format!(r#"{{"toolApproval":"automatic","scopeId":"{scope_id}","model":null,"capabilities":[]}}"#);
-      let unscoped = r#"{"toolApproval":"automatic","scopeId":null,"model":null,"capabilities":[]}"#;
-      let current = r#"{"toolApproval":"automatic","scope":{"kind":"everything"},"model":null,"capabilities":[]}"#;
-      let user = |request_id: &str, configuration: &str, profile_configuration: &str| {
-        format!(
-          r#"{{"type":"user","requestId":"{request_id}","startedAt":1,"text":"q","settings":{{"configuration":{configuration},"appliedProfile":{{"id":"{profile_id}","name":"P","configuration":{profile_configuration}}},"mode":"chat"}}}}"#
-        )
-      };
-      let turn = |request_id: &str| {
-        format!(r#"{{"type":"turn","requestId":"{request_id}","startedAt":1,"endedAt":2,"outcome":"completed"}}"#)
-      };
-      // A file written before collections that a newer server went on appending to.
-      let lines = [header, user("r1", &scoped, unscoped), turn("r1"), user("r2", current, current), turn("r2")];
-      let transcript = parse_transcript(format!("{}\n", lines.join("\n")).as_bytes()).unwrap().unwrap();
-      let settings = |index: usize| &transcript.turns[index].user.settings;
-      assert_eq!(settings(0).configuration.scope, ScopeRef::Unavailable, "version {version}");
-      assert_eq!(settings(0).applied_profile.as_ref().unwrap().configuration.scope, ScopeRef::Everything);
-      assert_eq!(settings(1).configuration.scope, ScopeRef::Everything);
-      let line = record_line(&TranscriptRecord::User(transcript.turns[0].user.clone())).unwrap();
-      assert!(!line.contains("scopeId"));
-    }
-  }
-
-  #[test]
-  fn user_record_without_attachments_parses_and_omits_them() {
-    let line = r#"{"type":"user","requestId":"r1","startedAt":1,"text":"q","settings":{"configuration":{"toolApproval": "automatic", "scope":{"kind":"everything"},"model":null,"capabilities":[]},"appliedProfile":null,"mode":"chat"}}"#;
-    let TranscriptRecord::User(user) = serde_json::from_str::<TranscriptRecord>(line).unwrap() else {
+  fn a_user_record_stores_its_message_once() {
+    let mut skill = attachment("/review", "Check the diff.");
+    skill.mime_type = INLINE_SKILL_SNAPSHOT_MIME_TYPE.to_owned();
+    let user = user_with("r1", "use /review", vec![attachment("notes", "unique attached words"), skill]);
+    let line = record_line(&TranscriptRecord::User(user.clone())).unwrap();
+    assert_eq!(line.matches("unique attached words").count(), 1);
+    let TranscriptRecord::User(read) = serde_json::from_str::<TranscriptRecord>(&line).unwrap() else {
       panic!("expected a user record");
     };
-    assert!(user.attachments.is_empty());
-    assert!(user.settings.scope_item_ids.is_empty());
-    assert_eq!(user.model_content(), "q");
-    let line = record_line(&TranscriptRecord::User(user)).unwrap();
+    assert_eq!(read.model_content(), user.model_content());
+    assert!(read.model_content().starts_with("The user selected these skill instructions for this message:"));
+    assert_eq!(read.attachments[0].text, "unique attached words");
+    assert_eq!(read.attachments[1].text, "Check the diff.");
+
+    let line = record_line(&TranscriptRecord::User(self::user("r2", "q"))).unwrap();
     assert!(!line.contains("attachments"));
     assert!(!line.contains("scopeItemIds"));
+  }
+
+  #[test]
+  fn an_earlier_format_is_refused() {
+    let header = format!(r#"{{"type":"header","version":4,"queryItemId":"{}","createdAt":1}}"#, new_uid());
+    let error = parse_transcript(format!("{header}\n").as_bytes()).err().unwrap();
+    assert!(error.message().contains("transcript format 4"), "{}", error.message());
   }
 
   #[tokio::test]
@@ -1050,7 +1343,7 @@ mod tests {
     locked.append_user(user("r1", "first")).await.unwrap();
     drop(locked);
     let complete = file_len(&f.path()).await;
-    append_raw(&f.path(), b"{\"type\":\"turn\",\"requestId\":\"r1\",\"mess");
+    append_raw(&f.path(), b"{\"type\":\"end\",\"requestId\":\"r1\",\"outc");
 
     let transcript = f.read().await.unwrap();
     assert_eq!(transcript.revision(), 1);
@@ -1058,7 +1351,7 @@ mod tests {
 
     let mut locked = f.lock().await;
     assert_eq!(file_len(&f.path()).await, complete);
-    locked.append_turn(turn("r1", TurnOutcome::Completed, vec![message("assistant", "answer")])).await.unwrap();
+    finish_turn(&mut locked, "r1", TurnOutcome::Completed, vec![message("assistant", "answer")]).await;
     drop(locked);
     let transcript = f.read().await.unwrap();
     assert_eq!(transcript.turn_status(0, false), TurnStatus::Completed);
@@ -1088,7 +1381,7 @@ mod tests {
     let mut locked = f.lock().await;
     assert_eq!(locked.transcript().unwrap().turn_status(0, false), TurnStatus::Interrupted);
     locked.append_user(user("r2", "second")).await.unwrap();
-    locked.append_turn(turn("r2", TurnOutcome::Completed, vec![message("assistant", "answer two")])).await.unwrap();
+    finish_turn(&mut locked, "r2", TurnOutcome::Completed, vec![message("assistant", "answer two")]).await;
     drop(locked);
 
     let transcript = f.read().await.unwrap();
@@ -1115,13 +1408,15 @@ mod tests {
   async fn turn_must_end_the_last_turn() {
     let f = Fixture::new();
     let mut locked = f.create().await;
-    assert!(locked.append_turn(turn("r1", TurnOutcome::Completed, vec![])).await.is_err());
+    assert!(locked.append_end(end("r1", TurnOutcome::Completed)).await.is_err());
     locked.append_user(user("r1", "first")).await.unwrap();
     let len = file_len(&f.path()).await;
-    assert!(locked.append_turn(turn("other", TurnOutcome::Completed, vec![])).await.is_err());
+    assert!(locked.append_end(end("other", TurnOutcome::Completed)).await.is_err());
+    assert!(locked.append_request(request("other", 1, 2)).await.is_err());
     assert_eq!(file_len(&f.path()).await, len);
-    locked.append_turn(turn("r1", TurnOutcome::Completed, vec![])).await.unwrap();
-    assert!(locked.append_turn(turn("r1", TurnOutcome::Completed, vec![])).await.is_err());
+    locked.append_end(end("r1", TurnOutcome::Completed)).await.unwrap();
+    assert!(locked.append_end(end("r1", TurnOutcome::Completed)).await.is_err());
+    assert!(locked.append_request(request("r1", 1, 2)).await.is_err(), "nothing is added to an ended turn");
     drop(locked);
     assert_eq!(f.read().await.unwrap().revision(), 1);
   }
@@ -1137,6 +1432,7 @@ mod tests {
       version: TRANSCRIPT_FORMAT_VERSION,
       query_item_id: f.query_item_id.clone(),
       created_at: 2,
+      server_version: "test".to_owned(),
       setup: None,
     };
     assert!(locked.create(header).await.is_err());
@@ -1159,6 +1455,7 @@ mod tests {
       version: TRANSCRIPT_FORMAT_VERSION,
       query_item_id: orphan_id.clone(),
       created_at: 1,
+      server_version: "test".to_owned(),
       setup: None,
     };
     locked.create(header).await.unwrap();
@@ -1182,9 +1479,9 @@ mod tests {
     let f = Fixture::new();
     let mut locked = f.create().await;
     locked.append_user(user("r1", "first")).await.unwrap();
-    locked.append_turn(turn("r1", TurnOutcome::Completed, vec![message("assistant", "answer one")])).await.unwrap();
+    finish_turn(&mut locked, "r1", TurnOutcome::Completed, vec![message("assistant", "answer one")]).await;
     locked.append_user(user("r2", "second")).await.unwrap();
-    locked.append_turn(turn("r2", TurnOutcome::Cancelled, vec![])).await.unwrap();
+    finish_turn(&mut locked, "r2", TurnOutcome::Cancelled, vec![]).await;
     drop(locked);
     let source = f.read().await.unwrap();
 
@@ -1194,6 +1491,7 @@ mod tests {
       version: TRANSCRIPT_FORMAT_VERSION,
       query_item_id: copy_id.clone(),
       created_at: 5,
+      server_version: "test".to_owned(),
       setup: None,
     };
     copy.create_copy(header.clone(), &source).await.unwrap();

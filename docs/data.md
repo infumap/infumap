@@ -26,7 +26,7 @@ All of these are derived from the items and their original files, and are regene
 
 - They are not in backups, and nothing regenerates them. Losing the data directory loses them. A chat dragged out of the Queries page is moved into the object store as a `.chat` item, and its file here is removed.
 - They are stored as plain text, not encrypted like objects.
-- Each file is JSON Lines: a header, then a record for each message sent and for how its response ended, with the model's messages and the turn's activity. It is appended to and synced as a chat runs.
+- Each file is JSON Lines, appended to and synced as a chat runs. The header holds the chat's fixed setup: its system prompt, tool definitions, scope and tools. Each turn then has a record for your message exactly as the model got it (attachments and skills included, each attachment marked by where its text is), a record for each request to the model written before it is sent (with every field of the request but the messages and tools, and how many messages it sent), each reply, each tool result or message the server added, and the turn's end. From these the exact body of every request can be rebuilt. A reply cut short by a stop or failure is kept, marked partial, and is not sent again. Chats saved in the earlier transcript format can't be opened.
 
 `chats/<query_item_id>.run` holds a deep research run instead, with the same storage caveats. It is JSON Lines too: a
 header with the question, its attachments and setup, then each message the first time the model is sent it, each tool

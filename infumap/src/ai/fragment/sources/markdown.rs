@@ -182,20 +182,28 @@ fn chat_visible_text(bytes: &[u8], item_id: &str) -> InfuResult<Option<String>> 
   use serde_json::Value;
   let text = std::str::from_utf8(bytes).map_err(|e| format!("Chat '{}' is not valid UTF-8: {}", item_id, e))?;
   let mut parts = vec![];
+  // A turn's answer is its last full reply, kept once the turn has ended as completed.
+  let mut answer: Option<String> = None;
   for line in text.lines() {
     let Ok(record) = serde_json::from_str::<Value>(line) else { continue };
     let part = match record.get("type").and_then(Value::as_str) {
-      Some("user") => record.get("text").and_then(Value::as_str),
-      Some("turn") if record.get("outcome").and_then(Value::as_str) == Some("completed") => record
-        .get("messages")
-        .and_then(Value::as_array)
-        .and_then(|messages| messages.last())
-        .filter(|message| message.get("role").and_then(Value::as_str) == Some("assistant"))
-        .and_then(|message| message.get("content"))
-        .and_then(Value::as_str),
+      Some("user") => {
+        answer = None;
+        record.get("text").and_then(Value::as_str).map(str::to_owned)
+      }
+      Some("response") if record.get("partial").and_then(Value::as_bool) != Some(true) => {
+        answer = record
+          .get("message")
+          .filter(|message| message.get("role").and_then(Value::as_str) == Some("assistant"))
+          .and_then(|message| message.get("content"))
+          .and_then(Value::as_str)
+          .map(str::to_owned);
+        None
+      }
+      Some("end") if record.get("outcome").and_then(Value::as_str) == Some("completed") => answer.take(),
       _ => None,
     };
-    if let Some(part) = part.map(str::trim).filter(|part| !part.is_empty()) {
+    if let Some(part) = part.as_deref().map(str::trim).filter(|part| !part.is_empty()) {
       parts.push(part.to_owned());
     }
   }
@@ -354,11 +362,17 @@ mod tests {
   /// out of the chat makes it a searchable text item.
   fn chat_visible_text_is_the_questions_and_completed_answers() {
     let transcript = [
-      r#"{"type":"header","version":1,"queryItemId":"q","createdAt":1}"#,
-      r#"{"type":"user","requestId":"r1","startedAt":1,"text":"How do lifetimes work?","attachments":[{"id":"a","title":"Notes","mimeType":"text/plain","sizeBytes":13,"text":"attached text"}],"settings":{"mode":"chat"}}"#,
-      r#"{"type":"turn","requestId":"r1","messages":[{"role":"assistant","content":"calling","toolCalls":[]},{"role":"tool","content":"fetched page text"},{"role":"assistant","content":"They bound borrows.","reasoningContent":"hidden"}],"rounds":[{"number":1,"reasoning":"thinking","answer":"","toolCalls":[],"complete":true}],"startedAt":1,"endedAt":2,"outcome":"completed"}"#,
-      r#"{"type":"user","requestId":"r2","startedAt":3,"text":"And traits?","settings":{"mode":"chat"}}"#,
-      r#"{"type":"turn","requestId":"r2","messages":[],"rounds":[{"number":1,"reasoning":"","answer":"partial","toolCalls":[],"complete":true}],"startedAt":3,"endedAt":4,"outcome":"cancelled"}"#,
+      r#"{"type":"header","version":5,"queryItemId":"q","createdAt":1}"#,
+      r#"{"type":"user","requestId":"r1","startedAt":1,"text":"How do lifetimes work?","content":"<attachment name=\"Notes\">\nattached text\n</attachment>\n\nHow do lifetimes work?","attachments":[{"id":"a","title":"Notes","mimeType":"text/plain","start":27,"end":40}],"settings":{"mode":"chat"}}"#,
+      r#"{"type":"request","requestId":"r1","number":1,"provider":"p","messages":2,"tools":true,"params":{},"startedAt":1}"#,
+      r#"{"type":"response","requestId":"r1","number":1,"endedAt":1,"message":{"role":"assistant","content":"calling","toolCalls":[]}}"#,
+      r#"{"type":"message","requestId":"r1","message":{"role":"tool","content":"fetched page text"}}"#,
+      r#"{"type":"request","requestId":"r1","number":2,"provider":"p","messages":4,"tools":true,"params":{},"startedAt":1}"#,
+      r#"{"type":"response","requestId":"r1","number":2,"endedAt":2,"message":{"role":"assistant","content":"They bound borrows.","reasoningContent":"hidden"}}"#,
+      r#"{"type":"end","requestId":"r1","endedAt":2,"outcome":"completed"}"#,
+      r#"{"type":"user","requestId":"r2","startedAt":3,"text":"And traits?","content":"And traits?","settings":{"mode":"chat"}}"#,
+      r#"{"type":"response","requestId":"r2","number":1,"endedAt":4,"message":{"role":"assistant","content":"partial"},"partial":true}"#,
+      r#"{"type":"end","requestId":"r2","endedAt":4,"outcome":"cancelled"}"#,
       "not json",
       r#"{"type":"user","requestId":"r3","startedAt":5,"text":"Interrupted question""#,
     ]

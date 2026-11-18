@@ -45,8 +45,9 @@ chat is reloaded and your message is put back in the input for you to send again
 at a time.
 
 To open a chat's transcript as text, select the chat and click **Open text file** in the toolbar. This works directly
-in the Queries page, without keeping the chat as a `.chat` item first. The file contains the recorded JSONL
-transcript, including attachments and model activity. While a response runs, it includes only records saved so far.
+in the Queries page, without keeping the chat as a `.chat` item first. The file is the recorded JSONL transcript:
+everything the model was sent and returned, request by request, so you can see exactly what it was given. While a
+response runs, it includes only records saved so far. See [Data](data.md#chats) for its records.
 
 In the model activity, expand a web search's **Result** to see each result's title, URL and snippet when
 the search provider supplies one. Snippet availability and content vary by provider and result.

@@ -246,8 +246,7 @@ pub(crate) use mcp::chat_tool_servers_from_config;
 pub use research::serve_research_start_route;
 use transcript::{
   ActivityRound, ChatAttachment, ChatSetup, ContextTokenCount, LockedTranscript, TRANSCRIPT_FORMAT_VERSION, Transcript,
-  TranscriptHeader, TurnOutcome, TurnRecord, TurnStatus, UserRecord, chat_is_locked, read_transcript,
-  try_lock_transcript,
+  TranscriptHeader, TurnOutcome, TurnStatus, UserRecord, chat_is_locked, read_transcript, try_lock_transcript,
 };
 
 // A backstop against a model that loops forever, not a budget: a turn reaches it only if something has gone wrong.
@@ -1196,7 +1195,7 @@ pub async fn serve_chat_stream_route(
     let (registration, subscriber) = match registered {
       Ok(registered) => registered,
       Err(message) => {
-        if let Err(e) = turn.end(TurnOutcome::Error, vec![], Some(message.to_owned())).await {
+        if let Err(e) = turn.end(TurnOutcome::Error, Some(message.to_owned())).await {
           warn!("Could not record the failure of chat request '{}': {}", stream_request_id, e);
         }
         return single_chat_stream_event_response(stream_request_id, ChatStreamEventKind::error(message));
@@ -1241,11 +1240,21 @@ pub async fn serve_chat_stream_route(
           }
         }
       };
+      // The run records into the turn as it goes, so the turn is borrowed until the select ends; a cancellation is
+      // handled after it.
+      let run = run_chat_with_tools(config, &db, &session, &request, resources, &progress, live_turn.as_mut());
       let result = tokio::select! {
-        reason = cancellation => {
+        reason = cancellation => Err(reason),
+        result = run => Ok(result),
+      };
+      let result = match result {
+        Err(reason) => {
           let message = match reason {
             Some(runs::RunCancellation::Detached) => {
-              info!("Stopping chat request '{}' for user '{}' after five minutes without a subscriber.", progress.request_id, user_id);
+              info!(
+                "Stopping chat request '{}' for user '{}' after five minutes without a subscriber.",
+                progress.request_id, user_id
+              );
               Some("The chat stopped after five minutes without a connected viewer.".to_owned())
             }
             Some(runs::RunCancellation::Requested) => {
@@ -1253,20 +1262,26 @@ pub async fn serve_chat_stream_route(
               None
             }
             None => {
-              debug!("Cancelling streaming chat request '{}' for user '{}' after the client disconnected.", progress.request_id, user_id);
+              debug!(
+                "Cancelling streaming chat request '{}' for user '{}' after the client disconnected.",
+                progress.request_id, user_id
+              );
               None
             }
           };
           cancel_pending_tool_approvals(&progress.request_id, &user_id);
           if let Some(turn) = live_turn.as_mut() {
-            if let Err(e) = turn.end(TurnOutcome::Cancelled, vec![], message).await {
-              warn!("Could not record the cancellation of chat request '{}' for user '{}': {}", progress.request_id, user_id, e);
+            if let Err(e) = turn.end(TurnOutcome::Cancelled, message).await {
+              warn!(
+                "Could not record the cancellation of chat request '{}' for user '{}': {}",
+                progress.request_id, user_id, e
+              );
             }
           }
           progress.send(ChatStreamEventKind::Cancelled).await;
           return;
         }
-        result = run_chat_with_tools(config, &db, &session, &request, resources, &progress) => result,
+        Ok(result) => result,
       };
       cancel_pending_tool_approvals(&progress.request_id, &user_id);
       let result = match (result, live_turn.as_mut()) {
@@ -1287,10 +1302,13 @@ pub async fn serve_chat_stream_route(
           progress.send(ChatStreamEventKind::final_items(items, &result.assistant_text, result.messages)).await;
         }
         Err(e) => {
-          warn!("An error occurred servicing a streaming chat request '{}' for user '{}': {}.", progress.request_id, user_id, e);
+          warn!(
+            "An error occurred servicing a streaming chat request '{}' for user '{}': {}.",
+            progress.request_id, user_id, e
+          );
           let message = chat_failure_message(e.message());
           if let Some(turn) = live_turn.as_mut().filter(|turn| !turn.ended) {
-            if let Err(e) = turn.end(TurnOutcome::Error, vec![], Some(message.clone())).await {
+            if let Err(e) = turn.end(TurnOutcome::Error, Some(message.clone())).await {
               warn!(
                 "Could not record the failure of chat request '{}' for user '{}': {}",
                 progress.request_id, user_id, e
@@ -1300,14 +1318,16 @@ pub async fn serve_chat_stream_route(
           progress.send(ChatStreamEventKind::error(&message)).await;
         }
       }
-    }).catch_unwind().await;
+    })
+    .catch_unwind()
+    .await;
     if outcome.is_err() {
       error!("Chat worker '{}' for user '{}' panicked.", progress.request_id, user_id);
       cancel_pending_tool_approvals(&progress.request_id, &user_id);
       let message = "The chat worker stopped unexpectedly.";
       let recorded = live_turn.as_ref().is_some_and(|turn| turn.ended);
       if let Some(turn) = live_turn.as_mut().filter(|turn| !turn.ended) {
-        if let Err(e) = turn.end(TurnOutcome::Error, vec![], Some(message.to_owned())).await {
+        if let Err(e) = turn.end(TurnOutcome::Error, Some(message.to_owned())).await {
           warn!("Could not record the failure of chat request '{}' for user '{}': {}", progress.request_id, user_id, e);
         }
       }
@@ -1473,12 +1493,11 @@ async fn recover_chat_run(data_dir: &str, user_id: &Uid, request: &ChatRunContro
 struct LiveChatTurn {
   transcript: LockedTranscript,
   request_id: String,
-  started_at: i64,
-  /// The number of history messages before this turn's user message.
-  history_len: usize,
   /// Filled in by the turn's progress reporter.
   activity: Arc<Mutex<runs::RunState>>,
   ended: bool,
+  /// The number of the last model request recorded, and whether its response has been.
+  last_request: Option<(usize, bool)>,
 }
 
 impl LiveChatTurn {
@@ -1499,40 +1518,112 @@ impl LiveChatTurn {
       .map_or(&[], |turn| &turn.user.attachments)
   }
 
-  async fn end(
+  /// Records a model request before it is sent: everything in its body but the messages and tools, which the
+  /// transcript already holds. Returns its number in the turn.
+  async fn record_request(
     &mut self,
-    outcome: TurnOutcome,
-    messages: Vec<ChatHistoryMessage>,
-    error: Option<String>,
-  ) -> InfuResult<()> {
+    endpoint: &ChatEndpoint,
+    payload: &OpenAiChatCompletionRequest,
+    messages: usize,
+  ) -> InfuResult<usize> {
+    let number = self.last_request.map_or(1, |(number, _)| number + 1);
+    let mut params = serde_json::to_value(payload)?;
+    if let Some(params) = params.as_object_mut() {
+      params.remove("messages");
+      params.remove("tools");
+    }
+    let record = transcript::RequestRecord {
+      request_id: self.request_id.clone(),
+      number,
+      provider: endpoint.label.clone(),
+      messages,
+      tools: !payload.tools.is_empty(),
+      params,
+      started_at: unix_now_millis(),
+    };
+    self.transcript.append_request(record).await?;
+    self.last_request = Some((number, false));
+    Ok(number)
+  }
+
+  async fn record_response(&mut self, number: usize, result: &InfuResult<OpenAiChatMessage>) -> InfuResult<()> {
+    let (message, error) = match result {
+      Ok(message) => (Some(ChatHistoryMessage::from_wire(message)), None),
+      Err(error) => (None, Some(error.message().to_owned())),
+    };
+    let record = transcript::ResponseRecord {
+      request_id: self.request_id.clone(),
+      number,
+      ended_at: unix_now_millis(),
+      message,
+      partial: false,
+      error,
+    };
+    self.transcript.append_response(record).await?;
+    self.last_request = Some((number, true));
+    Ok(())
+  }
+
+  /// Records a message the turn added that isn't a model reply: a tool result, or a system message from the server.
+  async fn record_message(&mut self, message: &OpenAiChatMessage) -> InfuResult<()> {
+    let record = transcript::MessageRecord {
+      request_id: self.request_id.clone(),
+      message: ChatHistoryMessage::from_wire(message),
+    };
+    self.transcript.append_message(record).await
+  }
+
+  /// Ends the turn. A turn stopped or failed during a model request keeps what had arrived of its reply, marked
+  /// partial: it is shown, but never sent again.
+  async fn end(&mut self, outcome: TurnOutcome, error: Option<String>) -> InfuResult<()> {
     let (rounds, context_tokens) = {
       let activity = self.activity.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
       (activity.finished_rounds(), activity.context_tokens())
     };
-    let record = TurnRecord {
+    if outcome != TurnOutcome::Completed
+      && let Some((number, false)) = self.last_request
+      && let Some(round) = rounds.iter().find(|round| round.number == number)
+      && !(round.answer.is_empty() && round.reasoning.is_empty())
+    {
+      let message = ChatHistoryMessage {
+        role: "assistant".to_owned(),
+        content: Some(round.answer.clone()).filter(|answer| !answer.is_empty()),
+        reasoning_content: Some(round.reasoning.clone()).filter(|reasoning| !reasoning.is_empty()),
+        tool_call_id: None,
+        tool_calls: None,
+      };
+      let record = transcript::ResponseRecord {
+        request_id: self.request_id.clone(),
+        number,
+        ended_at: unix_now_millis(),
+        message: Some(message),
+        partial: true,
+        error: None,
+      };
+      self.transcript.append_response(record).await?;
+    }
+    let record = transcript::EndRecord {
       request_id: self.request_id.clone(),
-      messages,
-      rounds,
-      started_at: self.started_at,
-      ended_at: unix_now_millis(),
       outcome,
+      ended_at: unix_now_millis(),
       error,
       context_tokens,
+      tool_calls: rounds.into_iter().flat_map(|round| round.tool_calls).collect(),
     };
-    self.transcript.append_turn(record).await?;
+    self.transcript.append_end(record).await?;
     self.ended = true;
     Ok(())
   }
 
-  /// Records the messages the turn added, before completion is reported. If that fails, the turn is reported as
-  /// failed rather than shown: the transcript is the history, so an answer it does not hold would not be in the next
-  /// turn's history.
+  /// Ends the turn as completed, before completion is reported. If that fails, the turn is reported as failed
+  /// rather than shown: the transcript is the history, so an answer it does not hold would not be in the next turn's.
   async fn end_completed(&mut self, result: ChatRunResult) -> InfuResult<ChatRunResult> {
-    let Some(added) = result.messages.get(self.history_len + 1..).filter(|added| !added.is_empty()) else {
-      return Err("The chat result does not include the new turn.".into());
-    };
+    // A completed turn's answer is its last recorded reply; without one, the next turn's history would lack it.
+    if self.last_request.is_none_or(|(_, replied)| !replied) {
+      return Err("The chat turn has no recorded reply.".into());
+    }
     self
-      .end(TurnOutcome::Completed, added.to_vec(), None)
+      .end(TurnOutcome::Completed, None)
       .await
       .map_err(|e| format!("Could not save the chat turn to its transcript: {}", e))?;
     Ok(result)
@@ -1605,15 +1696,8 @@ fn chat_title_input_messages(transcript: &Transcript) -> Vec<OpenAiChatMessage> 
   };
   for turn in &transcript.turns {
     push("user", &turn.user.text, &mut messages);
-    let answer = turn
-      .end
-      .as_ref()
-      .filter(|end| end.outcome == TurnOutcome::Completed)
-      .and_then(|end| end.messages.last())
-      .filter(|message| message.role == "assistant")
-      .and_then(|message| message.content.as_deref());
-    if let Some(answer) = answer {
-      push("assistant", answer, &mut messages);
+    if let Some(answer) = turn.assistant_text() {
+      push("assistant", &answer, &mut messages);
     }
   }
   messages
@@ -1932,6 +2016,7 @@ async fn continue_persisted_chat(
     version: TRANSCRIPT_FORMAT_VERSION,
     query_item_id: query_item_id.clone(),
     created_at: source.header.created_at,
+    server_version: env!("CARGO_PKG_VERSION").to_owned(),
     setup: source.header.setup.clone(),
   };
   transcript.create_copy(header, &source).await?;
@@ -2244,11 +2329,7 @@ fn load_chat_response(owner_id: &Uid, transcript: Option<&Transcript>, running: 
     .map(|(index, turn)| {
       let status = transcript.turn_status(index, running);
       let end = turn.end.as_ref();
-      let assistant_text = end
-        .filter(|end| end.outcome == TurnOutcome::Completed)
-        .and_then(|end| end.messages.last())
-        .filter(|message| message.role == "assistant")
-        .and_then(|message| message.content.clone());
+      let assistant_text = turn.assistant_text();
       let items = assistant_text.as_deref().map(|text| {
         chat_response_items_json(owner_id, text).get("items").cloned().unwrap_or_else(|| Value::Array(Vec::new()))
       });
@@ -2268,7 +2349,7 @@ fn load_chat_response(owner_id: &Uid, transcript: Option<&Transcript>, running: 
           .collect(),
         assistant_text,
         items,
-        rounds: end.map(|end| end.rounds.clone()).unwrap_or_default(),
+        rounds: turn.rounds(),
       }
     })
     .collect();
@@ -2587,8 +2668,13 @@ async fn start_live_chat_turn(
       Some((started_at, setup)) => (started_at, Some(setup)),
       None => (unix_now_millis(), None),
     };
-    let header =
-      TranscriptHeader { version: TRANSCRIPT_FORMAT_VERSION, query_item_id: query_item_id.clone(), created_at, setup };
+    let header = TranscriptHeader {
+      version: TRANSCRIPT_FORMAT_VERSION,
+      query_item_id: query_item_id.clone(),
+      created_at,
+      server_version: env!("CARGO_PKG_VERSION").to_owned(),
+      setup,
+    };
     transcript.create(header).await.map_err(transcript_error)?;
   }
   let header = transcript.transcript().map(|transcript| &transcript.header);
@@ -2596,14 +2682,12 @@ async fn start_live_chat_turn(
   request.system_prompt = header.and_then(|header| header.setup.as_ref()).map(|setup| setup.system_prompt.clone());
 
   let started_at = unix_now_millis();
-  let user =
-    UserRecord { request_id: request_id.to_owned(), started_at, text, attachments, settings: request.settings.clone() };
+  let user = UserRecord::new(request_id.to_owned(), started_at, text, attachments, request.settings.clone());
   let content = user.model_content();
   let resolved_attachments = LoadChatAttachment::resolved(&user.attachments);
   transcript.append_user(user).await.map_err(transcript_error)?;
 
   let mut messages = transcript.transcript().map(Transcript::history).unwrap_or_default();
-  let history_len = messages.len();
   messages.push(ChatHistoryMessage {
     role: "user".to_owned(),
     content: Some(content),
@@ -2617,7 +2701,7 @@ async fn start_live_chat_turn(
     started_at,
     resolved_attachments,
   )));
-  Ok(LiveChatTurn { transcript, request_id: request_id.to_owned(), started_at, history_len, activity, ended: false })
+  Ok(LiveChatTurn { transcript, request_id: request_id.to_owned(), activity, ended: false, last_request: None })
 }
 
 #[derive(Deserialize)]
@@ -3585,6 +3669,9 @@ async fn execute_chat_tool_round(
   Ok(tool_messages)
 }
 
+/// The chat's tool loop: model rounds until one answers without calling a tool. A live chat's turn records each
+/// request before it is sent, each reply, and each tool result and system message as it is added.
+#[allow(clippy::too_many_arguments)]
 async fn run_chat_stage_with_tools(
   endpoint: &ChatEndpoint,
   db: &Arc<tokio::sync::Mutex<Db>>,
@@ -3595,28 +3682,37 @@ async fn run_chat_stage_with_tools(
   approval_required: &HashSet<String>,
   messages: &mut Vec<OpenAiChatMessage>,
   tools: &[OpenAiToolSpec],
-  llm_turn: &mut usize,
-  tool_rounds: &mut usize,
-  max_tool_rounds: usize,
   tool_context: &ChatToolContext,
   progress: &ChatProgressReporter,
+  mut turn: Option<&mut LiveChatTurn>,
 ) -> InfuResult<()> {
   let mut search_reminder_sent = false;
+  let (mut round, mut tool_rounds) = (1usize, 0usize);
   loop {
-    let completed_round = run_chat_model_round(endpoint, messages, tools, *llm_turn, *tool_rounds, progress).await?;
-    *llm_turn += 1;
+    let payload = chat_completion_payload(endpoint, messages, tools, None);
+    let number = match turn.as_deref_mut() {
+      Some(turn) => Some(turn.record_request(endpoint, &payload, messages.len()).await?),
+      None => None,
+    };
+    progress.model_round_started(round).await;
+    let reply = send_chat_completion(endpoint, &payload, round, progress).await;
+    if let (Some(turn), Some(number)) = (turn.as_deref_mut(), number) {
+      turn.record_response(number, &reply).await?;
+    }
+    let completed_round = completed_model_round(endpoint, reply?, round, tool_rounds)?;
+    round += 1;
 
     if completed_round.tool_calls.is_empty() {
       messages.push(completed_round.assistant_message);
       return Ok(());
     }
-    if *tool_rounds >= max_tool_rounds {
-      return Err(format!("Chat tool loop exceeded maximum tool rounds ({max_tool_rounds}).").into());
+    if tool_rounds >= CHAT_MAX_TOOL_ROUNDS {
+      return Err(format!("Chat tool loop exceeded maximum tool rounds ({CHAT_MAX_TOOL_ROUNDS}).").into());
     }
 
-    *tool_rounds += 1;
+    tool_rounds += 1;
     messages.push(completed_round.assistant_message);
-    let tool_messages = execute_chat_tool_round(
+    let mut added = execute_chat_tool_round(
       db,
       session,
       config,
@@ -3629,12 +3725,17 @@ async fn run_chat_stage_with_tools(
       progress,
     )
     .await?;
-    messages.extend(tool_messages);
     if !search_reminder_sent && tool_context.web_search_reminder_due() {
       // Host guidance follows the complete tool batch so it cannot interrupt tool-call/result pairing.
-      messages.push(OpenAiChatMessage::text("system", CHAT_WEB_SEARCH_REMINDER.to_owned()));
+      added.push(OpenAiChatMessage::text("system", CHAT_WEB_SEARCH_REMINDER.to_owned()));
       search_reminder_sent = true;
     }
+    if let Some(turn) = turn.as_deref_mut() {
+      for message in &added {
+        turn.record_message(message).await?;
+      }
+    }
+    messages.extend(added);
   }
 }
 
@@ -3770,6 +3871,7 @@ async fn run_chat_with_tools(
   request: &ChatRequest,
   resources: ChatResources,
   progress: &ChatProgressReporter,
+  turn: Option<&mut LiveChatTurn>,
 ) -> InfuResult<ChatRunResult> {
   reset_llm_log();
 
@@ -3790,8 +3892,6 @@ async fn run_chat_with_tools(
     ),
   };
   messages.insert(0, OpenAiChatMessage::text("system", system_prompt));
-  let mut llm_turn = 1usize;
-  let mut tool_rounds = 0usize;
   let tool_context = ChatToolContext {
     mode: request.settings.mode,
     model: endpoint.model.clone(),
@@ -3808,11 +3908,9 @@ async fn run_chat_with_tools(
     &approval_required,
     &mut messages,
     &tools,
-    &mut llm_turn,
-    &mut tool_rounds,
-    CHAT_MAX_TOOL_ROUNDS,
     &tool_context,
     progress,
+    turn,
   )
   .await?;
   completed_chat_result(&messages, &endpoint.label)
@@ -5339,12 +5437,38 @@ mod live_chat_tests {
       let mut turn = self.start(&mut request, &format!("r-{text}")).await.ok().unwrap();
       let mut messages = request.messages.clone();
       messages.push(message("assistant", answer));
-      turn.end_completed(ChatRunResult { assistant_text: answer.to_owned(), messages }).await.ok().unwrap();
+      finish(&mut turn, messages, answer).await;
     }
 
     async fn transcript(&self) -> Transcript {
       transcript::read_transcript(&self.data_dir, &self.session.user_id, &self.query_item_id).await.unwrap().unwrap()
     }
+  }
+
+  /// Ends a turn as a run would have recorded it: each model reply after its request, each other message added, then
+  /// the end. `messages` is the turn's history, its user message and what it added.
+  async fn finish(turn: &mut LiveChatTurn, messages: Vec<ChatHistoryMessage>, assistant_text: &str) {
+    let start = messages.iter().rposition(|message| message.role == "user").map_or(0, |index| index + 1);
+    for message in &messages[start..] {
+      if message.role == "assistant" {
+        let number = turn.last_request.map_or(1, |(number, _)| number + 1);
+        let record = transcript::RequestRecord {
+          request_id: turn.request_id.clone(),
+          number,
+          provider: "test".to_owned(),
+          messages: 0,
+          tools: false,
+          params: serde_json::json!({}),
+          started_at: 0,
+        };
+        turn.transcript.append_request(record).await.unwrap();
+        turn.record_response(number, &Ok(message.into_wire("assistant"))).await.unwrap();
+      } else {
+        turn.record_message(&message.into_wire(&message.role)).await.unwrap();
+      }
+    }
+    let result = ChatRunResult { assistant_text: assistant_text.to_owned(), messages };
+    turn.end_completed(result).await.ok().unwrap();
   }
 
   #[tokio::test]
@@ -5373,14 +5497,14 @@ mod live_chat_tests {
     let content = request.messages.last().unwrap().content.clone().unwrap();
     assert!(content.starts_with("<attachment name=\"note\">\n[note]") && content.contains(&note_link), "{content}");
     assert!(content.ends_with("</attachment>\n\nfirst"), "{content}");
-    turn.end(TurnOutcome::Error, vec![], Some("failed".to_owned())).await.unwrap();
+    turn.end(TurnOutcome::Error, Some("failed".to_owned())).await.unwrap();
     drop(turn);
 
     let (mut turn, request) = start(1, "second").await;
     assert_eq!(attached_item_ids(&turn), vec![f.note_id.clone()]);
     let mut messages = request.messages.clone();
     messages.push(message("assistant", "answer"));
-    turn.end_completed(ChatRunResult { assistant_text: "answer".to_owned(), messages }).await.ok().unwrap();
+    finish(&mut turn, messages, "answer").await;
     drop(turn);
 
     let (turn, request) = start(2, "third").await;
@@ -5407,7 +5531,7 @@ mod live_chat_tests {
 
     let mut messages = request.messages.clone();
     messages.extend([message("assistant", "calling"), message("tool", "result"), message("assistant", "answer")]);
-    turn.end_completed(ChatRunResult { assistant_text: "answer".to_owned(), messages }).await.ok().unwrap();
+    finish(&mut turn, messages, "answer").await;
     drop(turn);
 
     let transcript = f.transcript().await;
@@ -5427,7 +5551,7 @@ mod live_chat_tests {
     let mut turn = f.start(&mut request2, "r2").await.ok().unwrap();
     assert_eq!(turn.revision(), 2);
     assert_eq!(contents(&request2.messages), pairs(&[("user", "q1"), ("assistant", "a1"), ("user", "q2")]));
-    turn.end(TurnOutcome::Cancelled, vec![], None).await.unwrap();
+    turn.end(TurnOutcome::Cancelled, None).await.unwrap();
     drop(turn);
 
     let mut request3 = request(&f.query_item_id, 2, "q3");
@@ -5499,18 +5623,33 @@ mod live_chat_tests {
     let (tx, _rx) = mpsc::channel(16);
     let progress =
       ChatProgressReporter { request_id: "r1".to_owned(), chat_id: None, tx, activity: Some(turn.activity.clone()) };
+    let record = transcript::RequestRecord {
+      request_id: "r1".to_owned(),
+      number: 1,
+      provider: "test".to_owned(),
+      messages: 2,
+      tools: true,
+      params: serde_json::json!({}),
+      started_at: 0,
+    };
+    turn.transcript.append_request(record).await.unwrap();
+    turn.last_request = Some((1, false));
     progress.model_round_started(1).await;
     progress.reasoning_delta(1, "thinking".to_owned()).await;
     progress.tool_call_started(1, "c1", "search", serde_json::json!({ "text": "x" })).await;
-    turn.end(TurnOutcome::Cancelled, vec![], None).await.unwrap();
+    turn.end(TurnOutcome::Cancelled, None).await.unwrap();
     drop(turn);
 
+    // The reply cut short by the stop is kept, marked partial: shown, but not history.
     let transcript = f.transcript().await;
-    let rounds = &transcript.turns[0].end.as_ref().unwrap().rounds;
+    let turn = &transcript.turns[0];
+    let rounds = turn.rounds();
     assert_eq!(rounds.len(), 1);
     assert_eq!(rounds[0].reasoning, "thinking");
-    assert!(rounds[0].complete);
-    assert_eq!(rounds[0].tool_calls[0].status, transcript::ActivityToolCallStatus::Running);
+    assert!(!rounds[0].complete);
+    assert!(turn.added_messages().is_empty());
+    let tool_calls = &turn.end.as_ref().unwrap().tool_calls;
+    assert_eq!(tool_calls[0].status, transcript::ActivityToolCallStatus::Running);
   }
 
   impl Fixture {
@@ -5541,12 +5680,12 @@ mod live_chat_tests {
     turn.activity.lock().unwrap().apply(&ChatStreamEventKind::context_tokens(1234, true));
     let mut messages = request1.messages.clone();
     messages.push(message("assistant", "# Heading\n\nThe answer."));
-    turn.end_completed(ChatRunResult { assistant_text: "The answer.".to_owned(), messages }).await.ok().unwrap();
+    finish(&mut turn, messages, "The answer.").await;
     drop(turn);
 
     let mut request2 = request(&f.query_item_id, 1, "q2");
     let mut turn = f.start(&mut request2, "r2").await.ok().unwrap();
-    turn.end(TurnOutcome::Error, vec![], Some("backend failed".to_owned())).await.unwrap();
+    turn.end(TurnOutcome::Error, Some("backend failed".to_owned())).await.unwrap();
     drop(turn);
 
     let mut request3 = request(&f.query_item_id, 2, "q3");
@@ -5607,7 +5746,7 @@ mod live_chat_tests {
     let mut turn = f.start(&mut request, "r1").await.ok().unwrap();
     let mut messages = request.messages.clone();
     messages.push(message("assistant", "a summary"));
-    turn.end_completed(ChatRunResult { assistant_text: "a summary".to_owned(), messages }).await.ok().unwrap();
+    finish(&mut turn, messages, "a summary").await;
     drop(turn);
 
     let json = serde_json::json!({ "queryItemId": f.query_item_id }).to_string();
@@ -5657,7 +5796,7 @@ mod live_chat_tests {
     assert_eq!(contents(&request1.messages), pairs(&[("user", first_content)]));
     let mut messages = request1.messages.clone();
     messages.push(message("assistant", "a summary"));
-    turn.end_completed(ChatRunResult { assistant_text: "a summary".to_owned(), messages }).await.ok().unwrap();
+    finish(&mut turn, messages, "a summary").await;
     drop(turn);
 
     let transcript = f.transcript().await;
@@ -5692,7 +5831,7 @@ mod live_chat_tests {
     let mut turn = f.start(&mut first, "r1").await.ok().unwrap();
     let mut messages = first.messages.clone();
     messages.push(message("assistant", "a1"));
-    turn.end_completed(ChatRunResult { assistant_text: "a1".to_owned(), messages }).await.ok().unwrap();
+    finish(&mut turn, messages, "a1").await;
     drop(turn);
 
     let with = |change: &dyn Fn(&mut ChatAttachmentRequest)| {
@@ -5741,7 +5880,7 @@ mod live_chat_tests {
     let mut turn = f.start(&mut request, "r1").await.ok().unwrap();
     let mut messages = request.messages.clone();
     messages.push(message("assistant", "a summary"));
-    turn.end_completed(ChatRunResult { assistant_text: "a summary".to_owned(), messages }).await.ok().unwrap();
+    finish(&mut turn, messages, "a summary").await;
     drop(turn);
 
     let transcript = f.transcript().await;
@@ -5753,12 +5892,8 @@ mod live_chat_tests {
 
   #[test]
   fn titles_from_prompts_and_model_replies() {
-    let user = |text: &str| UserRecord {
-      request_id: "r".to_owned(),
-      started_at: 0,
-      text: text.to_owned(),
-      attachments: vec![],
-      settings: TurnSettings {
+    let user = |text: &str| {
+      let settings = TurnSettings {
         configuration: QueryConfiguration {
           scope: crate::query_configuration::ScopeRef::Everything,
           model: None,
@@ -5768,7 +5903,8 @@ mod live_chat_tests {
         scope_item_ids: vec![],
         applied_profile: None,
         mode: ChatRunMode::Chat,
-      },
+      };
+      UserRecord::new("r".to_owned(), 0, text.to_owned(), vec![], settings)
     };
     assert_eq!(title_from_prompt(&user("  how do   rust lifetimes work? ")), "how do rust");
     assert_eq!(title_from_prompt(&user("   ")), "Chat");
@@ -5788,7 +5924,7 @@ mod live_chat_tests {
     f.complete_turn(0, "first question", "first answer").await;
     let mut request2 = request(&f.query_item_id, 1, "failed question");
     let mut turn = f.start(&mut request2, "r2").await.ok().unwrap();
-    turn.end(TurnOutcome::Error, vec![], Some("failed".to_owned())).await.unwrap();
+    turn.end(TurnOutcome::Error, Some("failed".to_owned())).await.unwrap();
     drop(turn);
     let long = "x".repeat(CHAT_TITLE_INPUT_MAX_CHARS);
     f.complete_turn(2, &long, "late answer").await;
@@ -5812,7 +5948,7 @@ mod live_chat_tests {
     let result = ChatRunResult { assistant_text: "a".to_owned(), messages: request.messages.clone() };
     assert!(turn.end_completed(result).await.is_err());
     assert!(!turn.ended);
-    turn.end(TurnOutcome::Error, vec![], Some("failed".to_owned())).await.unwrap();
+    turn.end(TurnOutcome::Error, Some("failed".to_owned())).await.unwrap();
     drop(turn);
     let transcript = f.transcript().await;
     assert_eq!(transcript.turn_status(0, false), transcript::TurnStatus::Error);
@@ -5928,7 +6064,8 @@ mod live_chat_tests {
       let mut turn =
         start_live_chat_turn(&f.db, &f.session, &mut request, &request_id, None, new_chat).await.ok().unwrap();
       let progress = ChatProgressReporter::for_live_run(request_id, f.query_item_id.clone(), turn.activity.clone());
-      let result = run_chat_with_tools(config.clone(), &f.db, &f.session, &request, resources, &progress).await;
+      let result =
+        run_chat_with_tools(config.clone(), &f.db, &f.session, &request, resources, &progress, Some(&mut turn)).await;
       turn.end_completed(result.unwrap()).await.ok().unwrap();
     }
 
@@ -5945,6 +6082,32 @@ mod live_chat_tests {
     }
     assert!(bodies[0]["tools"].as_array().is_some_and(|tools| !tools.is_empty()));
     assert_eq!(bodies[2]["messages"].as_array().unwrap().last().unwrap()["content"], "q3");
+
+    // Every request body can be rebuilt exactly from the transcript: its messages from the records, converted as the
+    // provider gets them, the chat's tools, and the request's other fields.
+    let transcript = f.transcript().await;
+    let setup = transcript.header.setup.clone().unwrap();
+    let endpoint = backend::resolve_chat_endpoint(
+      &config,
+      &crate::query_configuration::ChatModelSelection {
+        backend: "test".to_owned(),
+        model: Some("default".to_owned()),
+        reasoning_effort: None,
+      },
+    )
+    .await
+    .unwrap();
+    for (body, text) in bodies.iter().zip(["q1", "q2", "q3"]) {
+      let messages = transcript.request_messages(&format!("r-{text}"), 1).unwrap();
+      let wire = explicit_wire_messages(&messages, true).unwrap();
+      let payload = chat_completion_payload(&endpoint, &wire, &setup.tools, None);
+      let request = transcript.turns.iter().find(|turn| turn.user.request_id == format!("r-{text}")).unwrap();
+      let Some(transcript::TurnEntry::Request(record)) = request.entries.first() else { panic!("expected a request") };
+      let mut rebuilt = record.params.clone();
+      rebuilt["messages"] = serde_json::to_value(&payload.messages).unwrap();
+      rebuilt["tools"] = serde_json::to_value(&payload.tools).unwrap();
+      assert_eq!(&rebuilt, body, "request for {text}");
+    }
 
     // The setup is fixed: another scope or set of tools is refused before anything is recorded.
     let setup = saved_setup().await.unwrap();
@@ -5970,12 +6133,13 @@ mod live_chat_tests {
     let f = fixture().await;
     let mut first = request(&f.query_item_id, 0, "q1");
     let mut turn = f.start(&mut first, "r1").await.ok().unwrap();
-    let mut wire = vec![OpenAiChatMessage::text("system", "prompt".to_owned())];
-    wire.extend(explicit_wire_messages(&first.messages, true).unwrap());
-    wire.push(OpenAiChatMessage::text("assistant", "searching".to_owned()));
-    wire.push(OpenAiChatMessage::text("system", CHAT_WEB_SEARCH_REMINDER.to_owned()));
-    wire.push(OpenAiChatMessage::text("assistant", "a1".to_owned()));
-    turn.end_completed(completed_chat_result(&wire, "test").unwrap()).await.ok().unwrap();
+    let mut messages = first.messages.clone();
+    messages.extend([
+      message("assistant", "searching"),
+      message("system", CHAT_WEB_SEARCH_REMINDER),
+      message("assistant", "a1"),
+    ]);
+    finish(&mut turn, messages.clone(), "a1").await;
     drop(turn);
 
     let mut second = request(&f.query_item_id, 1, "q2");
@@ -5985,7 +6149,7 @@ mod live_chat_tests {
     assert_eq!(roles, ["user", "assistant", "system", "assistant", "user"]);
     assert_eq!(
       sent[..4].iter().map(|m| m.content.clone()).collect::<Vec<_>>(),
-      wire[1..].iter().map(|m| m.content.clone()).collect::<Vec<_>>()
+      messages.iter().map(|m| m.content.clone()).collect::<Vec<_>>()
     );
     // A chat without a transcript can't add system messages through its client-sent history.
     assert_eq!(explicit_wire_messages(&second.messages, false).unwrap().len(), 4);

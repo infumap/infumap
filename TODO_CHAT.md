@@ -319,5 +319,21 @@ One action, "start a chat with this attached", available from any item's toolbar
    read-only, model/effort/approval stay editable; a missing tool source warns instead of blocking. Chats without a
    stored setup (older transcripts) keep the old behaviour. Still open: the deep-research report request sends no
    tools (goes with step 2); route and UI not yet exercised by hand.
-4. Chat transcript redesign.
+4. **Done.** Chat transcript redesign (format 5; earlier transcripts and `.chat` items are refused, not converted).
+   As built, against the design above:
+   - Header: version, query item, created-at, server version, and the fixed setup (system prompt, tool definitions
+     and targets, scope, tools). Tools are in the setup rather than separate tool-set records: a chat has one set.
+   - User record: the message exactly as sent, with each attachment's text as a span of it (stored once).
+   - Request record per model call, written before sending: turn, number, provider, message count, whether tools were
+     sent, every other body field. Response record per reply (`partial` for one cut short by a stop or failure,
+     shown but never history). Message record per tool result or server-added system message, written as produced.
+     End record: outcome, error, context tokens, and the tool calls' display details (summary, duration, preview).
+   - No stored `rounds`: the activity shown is derived from requests, replies and those details.
+     `Transcript::request_messages` rebuilds a request's messages; a test rebuilds every request body of a three-turn
+     chat and compares it with what the model server received.
+   - Composer settings: not moved. With scope and tools in the fixed setup, what a turn's settings still vary in
+     (model, effort, approval) is what the turn used, so no item format change was needed. The applied profile is
+     still recorded per turn.
+   - Not done: approval decisions as events (the tool result says a call was denied); the server version per
+     request (only in the header).
 5. Chat about an item.

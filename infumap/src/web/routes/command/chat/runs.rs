@@ -124,13 +124,9 @@ impl RunSnapshot {
       Some(TurnOutcome::Error) => (ActivityPhase::Error, "Chat failed"),
       None => (ActivityPhase::Interrupted, "Chat interrupted"),
     };
-    let result = if let Some(end) = end.filter(|end| end.outcome == TurnOutcome::Completed) {
-      let text = end
-        .messages
-        .last()
-        .filter(|message| message.role == "assistant")
-        .and_then(|message| message.content.clone())
-        .ok_or("The saved chat response has no assistant text.")?;
+    let rounds = turn.rounds();
+    let result = if turn.completed() {
+      let text = turn.assistant_text().ok_or("The saved chat response has no assistant text.")?;
       let items =
         chat_response_items_json(owner_id, &text).get("items").cloned().unwrap_or_else(|| Value::Array(vec![]));
       Some(RunResult { text, items })
@@ -140,7 +136,7 @@ impl RunSnapshot {
     let answer_preview = result
       .as_ref()
       .map(|result| result.text.clone())
-      .unwrap_or_else(|| end.and_then(|end| end.rounds.last()).map(|round| round.answer.clone()).unwrap_or_default());
+      .unwrap_or_else(|| rounds.last().map(|round| round.answer.clone()).unwrap_or_default());
     Ok(Self {
       revision: index + 1,
       resolved_attachments: LoadChatAttachment::resolved(&turn.user.attachments),
@@ -149,7 +145,7 @@ impl RunSnapshot {
       activity: ActivitySnapshot {
         phase,
         status_text: status_text.to_owned(),
-        rounds: end.map(|end| end.rounds.clone()).unwrap_or_default(),
+        rounds,
         answer_preview,
         context_tokens: end.and_then(|end| end.context_tokens),
       },

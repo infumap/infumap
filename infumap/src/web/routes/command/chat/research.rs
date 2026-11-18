@@ -393,8 +393,7 @@ pub(super) async fn start_research_run(
   let scope = resources.infumap_data.as_ref().and_then(InfumapData::scope);
   let attachments = message_attachments(db, session, &request, &text, attachments, scope, None).await?;
   let started_at = unix_now_millis();
-  let user =
-    UserRecord { request_id: request_id.to_owned(), started_at, text, attachments, settings: request.settings.clone() };
+  let user = UserRecord::new(request_id.to_owned(), started_at, text, attachments, request.settings.clone());
   let header = RunHeader {
     version: RUN_LOG_VERSION,
     query_item_id: query_item_id.clone(),
