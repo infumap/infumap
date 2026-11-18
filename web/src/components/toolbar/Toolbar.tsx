@@ -435,8 +435,10 @@ export const Toolbar: Component = () => {
 
         <Index each={titleSpecs()}>{tSpec =>
           <>
-            {/* spacer before title text */}
-            <div class="relative border-b grow-0"
+            {/* spacer before title text. Nothing but the last title may shrink: a last title wider than the space
+                left over would otherwise take some of its overflow out of the earlier titles, and their right edges
+                would no longer line up with the list page dividers below them. */}
+            <div class="relative border-b grow-0 shrink-0"
               style={`width: ${tSpec().lPosPx == 0 ? '5' : (tSpec().hasFocus ? '7' : '6')}px; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
                 `${tSpec().bg}` +
                 (tSpec().lPosPx != 0 ? `border-left-width: ${tSpec().hasFocus ? '2' : '1'}px; border-left-color: ${tSpec().hasFocus ? tSpec().borderColor : BORDER_COLOR}; ` : '') +
@@ -454,7 +456,7 @@ export const Toolbar: Component = () => {
             </div>
 
             <div id={`toolbarTitleDiv-${tSpec().idx}`}
-              class={`p-[3px] inline-block border-b grow-0 overflow-hidden whitespace-nowrap ${tSpec().canEdit ? "cursor-text" : "cursor-pointer"}`}
+              class={`p-[3px] inline-block border-b grow-0 ${tSpec().rPosPx > 0 ? "shrink-0" : ""} overflow-hidden whitespace-nowrap ${tSpec().canEdit ? "cursor-text" : "cursor-pointer"}`}
               contentEditable={tSpec().canEdit}
               spellcheck={false}
               onFocus={(ev) => { ev.currentTarget.spellcheck = tSpec().canEdit; }}
@@ -474,7 +476,7 @@ export const Toolbar: Component = () => {
             {/* A sibling, not inside the title, which is contentEditable. Its width comes out of a nested title's
                 width so the titles stay aligned with the list columns below them. */}
             <Show when={tSpec().isCollection}>
-              <div class="inline-block border-b grow-0 whitespace-nowrap"
+              <div class="inline-block border-b grow-0 shrink-0 whitespace-nowrap"
                 style={`font-size: 22px; width: ${TOOLBAR_COLLECTION_GLYPH_WIDTH_PX}px; border-bottom-color: ${LIGHT_BORDER_COLOR}; ` +
                   `${tSpec().bg} ` +
                   `border-top-color: ${tSpec().borderColor};` +
