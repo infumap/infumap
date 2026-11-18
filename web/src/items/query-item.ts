@@ -25,6 +25,7 @@ import { ArrangeAlgorithm, type ArrangeAlgorithm as ArrangeAlgorithmType } from 
 import type { SearchItem, SearchMeasurable } from "./search-item";
 import type { TextItem } from "./text-item";
 import { PinnedTo, type ItemTypeMixin } from "./base/item";
+import { SearchFlags } from "./base/flags-item";
 import {
   SearchFns,
   asSearchItem,
@@ -90,7 +91,13 @@ export function setChatPersistPreview(queryItemId: Uid, preview: TextItem | null
 }
 
 export function queryIconClass(queryItem: QueryItem): string {
+  if (isQueryResearchRun(queryItem)) { return "bi-binoculars"; }
   return queryItem.pinnedTo == PinnedTo.Top ? "fas fa-search" : "far fa-comment";
+}
+
+/** Whether a query item holds a deep research run rather than a chat. The server sets the flag when a run starts. */
+export function isQueryResearchRun(queryItem: QueryItem): boolean {
+  return ((queryItem.flags ?? 0) & SearchFlags.ResearchRun) != 0;
 }
 
 export function asQueryItem(item: ItemTypeMixin): QueryItem {

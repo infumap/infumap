@@ -165,8 +165,7 @@ async fn archive_used_query_entry(
       return Err("The query item is not in the user's Queries page.".into());
     }
   }
-  let transcript = read_transcript(data_dir, &session.user_id, id).await?;
-  let Some(first_turn) = transcript.as_ref().and_then(|t| t.turns.first()) else {
+  let Some(first_user) = first_user_record(data_dir, &session.user_id, id).await? else {
     return Ok(false);
   };
   let mut item = {
@@ -185,13 +184,21 @@ async fn archive_used_query_entry(
     item.pinned_to = None;
   }
   if was_untitled {
-    item.title = Some(title_from_prompt(&first_turn.user));
+    item.title = Some(title_from_prompt(&first_user));
   }
   if was_pinned || was_untitled {
     let json = serde_json::to_string(&item.to_api_json()?)?;
     super::item_ops::update_item_for_server(db, &json, &Some(session.clone())).await?;
   }
   Ok(true)
+}
+
+/// The first message of a query item's chat, or the question of its research run. None before either starts.
+async fn first_user_record(data_dir: &str, user_id: &Uid, query_item_id: &Uid) -> InfuResult<Option<UserRecord>> {
+  if let Some(transcript) = read_transcript(data_dir, user_id, query_item_id).await? {
+    return Ok(transcript.turns.into_iter().next().map(|turn| turn.user));
+  }
+  Ok(research::read_run(data_dir, user_id, query_item_id).await?.map(|run| run.header.user))
 }
 
 async fn add_empty_query_entry(
@@ -236,7 +243,7 @@ pub(super) use container_fragments::{
 };
 use markdown::chat_response_items_json;
 pub(crate) use mcp::chat_tool_servers_from_config;
-pub use research::{serve_research_load_route, serve_research_start_route};
+pub use research::serve_research_start_route;
 use transcript::{
   ActivityRound, ChatAttachment, ChatSetup, ContextTokenCount, LockedTranscript, TRANSCRIPT_FORMAT_VERSION, Transcript,
   TranscriptHeader, TurnOutcome, TurnRecord, TurnStatus, UserRecord, chat_is_locked, read_transcript,
@@ -1621,6 +1628,35 @@ fn chat_title_input_messages(transcript: &Transcript) -> Vec<OpenAiChatMessage> 
   messages
 }
 
+/// A research run's title, from its question alone: it is generated when the run starts, before there is a report.
+async fn generate_research_title(
+  config: &Config,
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  session: &Session,
+  query_item_id: &Uid,
+  user: &UserRecord,
+) -> InfuResult<String> {
+  let derived = title_from_prompt(user);
+  let current = db.lock().await.item.get(query_item_id)?.title.clone().unwrap_or_default();
+  if !current.is_empty() && current != derived {
+    return Ok(current);
+  }
+  let selection = user.settings.configuration.model.as_ref().ok_or("The run has no model selection.")?;
+  let endpoint = resolve_chat_endpoint(config, selection).await?;
+  let question = user.text.chars().take(CHAT_TITLE_INPUT_MAX_CHARS).collect::<String>();
+  let messages =
+    vec![OpenAiChatMessage::text("user", question), OpenAiChatMessage::text("user", CHAT_TITLE_PROMPT.to_owned())];
+  let progress = ChatProgressReporter::unobserved(new_chat_request_id());
+  let round = run_chat_model_round(&endpoint, &messages, &[], 1, 0, &progress).await?;
+  let title = round
+    .assistant_message
+    .content
+    .as_deref()
+    .and_then(title_from_model_response)
+    .ok_or("The model did not reply with a title.")?;
+  super::item_ops::set_item_title_if_unchanged(db, &session.user_id, query_item_id, &current, &title).await
+}
+
 /// Gives a live chat a generated title, if its title is still the one derived from its first prompt (or none), and
 /// returns its title afterwards. A title set any other way is kept, including one set while the title is generated.
 async fn generate_live_chat_title(
@@ -1630,6 +1666,9 @@ async fn generate_live_chat_title(
   query_item_id: &Uid,
 ) -> InfuResult<String> {
   let data_dir = live_chat_data_dir(db, session, query_item_id).await?;
+  if let Some(run) = research::read_run(&data_dir, &session.user_id, query_item_id).await? {
+    return generate_research_title(config, db, session, query_item_id, &run.header.user).await;
+  }
   let transcript =
     read_transcript(&data_dir, &session.user_id, query_item_id).await?.ok_or("The chat has no turns.")?;
   let first_turn = transcript.turns.first().ok_or("The chat has no turns.")?;
@@ -2108,6 +2147,9 @@ struct LoadChatResponse {
   /// setups were fixed.
   setup: Option<LoadChatSetup>,
   turns: Vec<LoadChatTurn>,
+  /// Set for a research run, which loads as a chat of one turn: its question, then its report.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  research: Option<research::LoadResearch>,
 }
 
 #[derive(Serialize)]
@@ -2190,6 +2232,7 @@ fn load_chat_response(owner_id: &Uid, transcript: Option<&Transcript>, running: 
       context_tokens: None,
       setup: None,
       turns: vec![],
+      research: None,
     };
   };
   let turns = transcript
@@ -2234,6 +2277,7 @@ fn load_chat_response(owner_id: &Uid, transcript: Option<&Transcript>, running: 
     context_tokens: transcript.turns.iter().rev().find_map(|turn| turn.end.as_ref().and_then(|end| end.context_tokens)),
     setup: transcript.header.setup.as_ref().map(LoadChatSetup::from),
     turns,
+    research: None,
   }
 }
 
@@ -2247,6 +2291,14 @@ pub(super) async fn handle_load_chat(
 ) -> InfuResult<Option<String>> {
   let session = session_maybe.as_ref().ok_or("Session is required to load a chat.")?;
   let request: LoadChatRequest = serde_json::from_str(json_data)?;
+  if let Some(query_item_id) = &request.query_item_id {
+    let data_dir = live_chat_data_dir(db, session, query_item_id).await?;
+    if let Some(run) = research::read_run(&data_dir, &session.user_id, query_item_id).await? {
+      let running = chat_is_locked(&session.user_id, query_item_id);
+      let response = research::load_chat_response(&session.user_id, run, running);
+      return Ok(Some(serde_json::to_string(&response)?));
+    }
+  }
   let (transcript, running) = read_chat_for_load(db, object_store, session, &request).await?;
   let response = load_chat_response(&session.user_id, transcript.as_ref(), running);
   debug!("Executed 'load-chat' command for user '{}'.", session.user_id);
@@ -6034,6 +6086,14 @@ mod live_chat_tests {
     }
     assert_eq!(of_type("tool_set").len(), 1, "one tool set, recorded once");
     assert_eq!(of_type("response").len(), 3);
+
+    // It loads as a chat of one turn, for the chat view: the question, then the report.
+    let loaded = serde_json::to_value(research::load_chat_response(&f.session.user_id, run, false)).unwrap();
+    assert_eq!(loaded["turns"][0]["text"], "what is new?");
+    assert_eq!(loaded["turns"][0]["status"], "completed");
+    assert_eq!(loaded["turns"][0]["assistantText"], "answer 3");
+    assert_eq!(loaded["setup"]["mode"], "deep_research");
+    assert_eq!(loaded["research"]["stages"].as_array().unwrap().len(), 3);
 
     // A run is never restarted: the same request ID gets the saved run, another is refused.
     match research::start_research_run(config.clone(), &f.db, &f.session, request("run-1"), "run-1").await {

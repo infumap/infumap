@@ -18,6 +18,19 @@ lose it, and you can keep a chat in your item tree, continue it later, or copy p
 A chat records every message you send and how each response ended. A response you stop, or that fails, is shown
 with a note saying so, and is left out of what the model sees from then on.
 
+## Deep research
+
+Choosing **Deep research** in New Query starts a research run instead of a chat. The model researches your question
+with the selected scope and tools, reviews what it found, and writes a report. A run is listed with the earlier
+chats, marked with binoculars, and named the same way.
+
+- **A run keeps going without you.** You can leave the page or close the browser; it continues on the server and is
+  there when you come back. It stops on its own after an hour. **Stop** ends it early.
+- **Its view shows the stages** (Research › Review › Report) and the activity, as for a chat response, then the
+  report.
+- **A run can't be continued.** Its question, scope, tools and model are fixed. To ask something else, start a new
+  run or chat from New Query.
+
 If you send a message in a chat that changed elsewhere since you last loaded it, for example in another tab, the
 chat is reloaded and your message is put back in the input for you to send again. Only one response runs in a chat
 at a time.
@@ -48,10 +61,9 @@ and chooses the default; click the default's house icon again to go back to the 
 Deleting the default does the same. Saving or managing profiles leaves other chats and their recorded turns
 unchanged.
 
-A chat's **Scope**, **Tools** and Chat / Deep research mode are fixed by its first message. They shape what the
-model is told at the start of every request, and keeping them fixed lets the model's server reuse its work on
-the earlier conversation instead of processing it again on each message. To use a different scope, tools or
-mode, start a new chat. In an existing chat these controls show the chat's setup and can't be changed, and
+A chat's **Scope** and **Tools** are fixed by its first message. They shape what the model is told at the start of
+every request, and keeping them fixed lets the model's server reuse its work on the earlier conversation instead
+of processing it again on each message. To use a different scope or tools, start a new chat. In an existing chat these controls show the chat's setup and can't be changed, and
 profiles can be saved from it but not applied to it.
 
 **Model**, reasoning effort and **Tool approvals** can still change in an existing chat, from the next message.

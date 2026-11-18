@@ -462,6 +462,8 @@ export interface LoadChatResponse {
   /** Null before the first turn, and in a chat started before setups were fixed. */
   setup: QueryChatFixedSetup | null,
   turns: Array<LoadChatTurn>,
+  /** Set for a research run, which loads as a chat of one turn: its question, then its report. */
+  research?: { strategy: string, stages: Array<{ name: string, startedAt: number }> },
 }
 
 export interface ContinueChatResponse {
@@ -980,6 +982,7 @@ async function streamChatCommand(
   onConnectionChange?: (state: ChatStreamConnectionState) => void,
   control?: ChatStreamControl,
   resumeOnly = false,
+  startPath = "/chat/stream",
 ): Promise<ChatResponse> {
   // Serialize once: profile edits and attachment changes while reconnecting must not change the operation.
   const startBody = JSON.stringify(payload);
@@ -1035,7 +1038,7 @@ async function streamChatCommand(
       try {
         connectionChanged(failures == 0 ? "connecting" : "reconnecting");
         await sendChatStream(
-          cancelling ? "/chat/cancel" : accepted && queryItemId != null ? "/chat/resume" : "/chat/stream",
+          cancelling ? "/chat/cancel" : accepted && queryItemId != null ? "/chat/resume" : startPath,
           accepted && queryItemId != null ? resumeBody : startBody,
           requestId,
           queryItemId,
@@ -1530,6 +1533,17 @@ export const server = {
     control?: ChatStreamControl,
   ): Promise<ChatResponse> => {
     return streamChatCommand(payload, onEvent, signal, onConnectionChange, control);
+  },
+
+  /** Starts a research run on a fresh query item. Following and stopping it use the chat routes. */
+  researchStream: async (
+    payload: ChatRequest,
+    onEvent: (event: ChatStreamEvent) => void,
+    signal?: AbortSignal,
+    onConnectionChange?: (state: ChatStreamConnectionState) => void,
+    control?: ChatStreamControl,
+  ): Promise<ChatResponse> => {
+    return streamChatCommand(payload, onEvent, signal, onConnectionChange, control, false, "/research/start");
   },
 
   resumeChatStream: async (

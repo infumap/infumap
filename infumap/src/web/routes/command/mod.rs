@@ -98,7 +98,7 @@ pub(crate) use chat::{
 pub use chat::{
   remove_orphan_chat_transcripts, serve_chat_cancel_route, serve_chat_continue_route, serve_chat_models_route,
   serve_chat_persist_route, serve_chat_resume_route, serve_chat_stream_route, serve_chat_title_route,
-  serve_chat_tool_approval_route, serve_chat_tool_route, serve_research_load_route, serve_research_start_route,
+  serve_chat_tool_approval_route, serve_chat_tool_route, serve_research_start_route,
 };
 pub use item_ops::add_item_for_user;
 

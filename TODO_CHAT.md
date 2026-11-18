@@ -275,8 +275,9 @@ One action, "start a chat with this attached", available from any item's toolbar
    model server and checks each request extends the one before.
 2. Deep research out of chat, in slices, each usable on its own:
    1. **Done.** Research run on the server (`chat/research.rs`). `POST /research/start` takes a chat request body on
-      a fresh query item in the Queries page and returns the live stream; `POST /research/load` returns question,
-      setup, stages and, when ended, outcome, report and activity. Following, stopping and tool approvals reuse
+      a fresh query item in the Queries page and returns the live stream. A run loads through `load-chat` as a chat of
+      one turn (question, then report) with a `research` field naming its stages; the separate `/research/load` route
+      was dropped as a duplicate. Following, stopping and tool approvals reuse
       `/chat/resume`, `/chat/cancel` and `/chat/tool-approval` (same run registry; saved-run recovery reads run logs).
       Runs don't stop without a viewer (`RunState::without_detach_timeout`); the budget is the tool-round ceiling and
       an hour of wall time. The log is `chats/<id>.run`: header, messages as sent (first time each is sent), tool sets
@@ -286,8 +287,13 @@ One action, "start a chat with this attached", available from any item's toolbar
       existing flags, so no item format change or migration. Chat messages to a run's query item are refused; deleting
       the item or orphan cleanup removes the log. Not yet: HTTP routes exercised by hand; `tool_choice: "none"` checked
       against llama-server (does it keep tools in the rendered prompt?).
-   2. **Runs in the UI.** New Query's Deep research creates a run, not a chat. Runs in the Queries list with status;
-      the run view (running / done / stopped or failed).
+   2. **Done.** Runs in the UI. New Query's Deep research starts a run (`server.researchStream`); in an existing chat
+      it still goes through the chat until step 4. Runs show binoculars in the Queries list (`isQueryResearchRun`, the
+      item flag, set locally at once and by the server). The run view is the chat view with the input area's contents
+      swapped, same geometry: stages (Research › Review › Report) in the profile row, a read-only status line and Stop
+      in the input row, the setup read-only. Stages come from the load response and the stream's stage status texts.
+      Checked in a browser against a fake model: start, running, done with title, reload, resume mid-run, stop. Not
+      done: a running/finished status marker on list rows (only the icon); `Keep` of a run (step 3) is unhandled.
    3. **Actions on a finished run.** Keep (report as a document page with the run log attached), Chat about this
       report (new chat with it attached; needs "Chat about an item"), Run again (New Query filled with the same
       question and setup).

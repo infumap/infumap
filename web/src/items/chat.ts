@@ -39,7 +39,8 @@ import {
   updateQueryConfiguration,
 } from "./query-configuration-state";
 import { clearQueryChatCompletedActivityUi } from "./query-chat-activity-ui";
-import type { QueryChatFixedSetup } from "./query-configuration";
+import type { QueryChatFixedSetup, QueryResearchState } from "./query-configuration";
+import { SearchFlags } from "./base/flags-item";
 import { queryConfigurationUnavailableReason, refreshQueryConfigurationAvailability } from "./query-configuration-availability";
 import {
   ChatStreamControl,
@@ -1092,14 +1093,17 @@ function addQueryChatOutcomeNote(store: StoreContextModel, queryItem: QueryItem,
   }));
 }
 
-export function queryChatOutcomeText(status: LoadChatTurn["status"], error: string | null): string | null {
+/** `subject` is "Response" for a chat's turn and "Research" for a research run. */
+export function queryChatOutcomeText(
+  status: LoadChatTurn["status"], error: string | null, subject: "Response" | "Research" = "Response",
+): string | null {
   switch (status) {
     case "cancelled":
-      return "Response stopped.";
+      return `${subject} stopped.`;
     case "error":
-      return error == null || error.trim() == "" ? "Response failed." : `Response failed: ${error}`;
+      return error == null || error.trim() == "" ? `${subject} failed.` : `${subject} failed: ${error}`;
     case "interrupted":
-      return "Response interrupted: the server stopped while it was running.";
+      return `${subject} interrupted: the server stopped while it was running.`;
     case "running":
       return "A response is still running, in another window or tab. Reopen this chat to see it.";
     case "completed":
@@ -1222,6 +1226,9 @@ async function submitQueryChatTurn(
     return false;
   }
   const expectedRevision = getQueryRuntime(store, queryItem).chat.revision;
+  // Deep research from New Query starts a research run, which is not a chat and can't be continued.
+  const research = deepResearch && expectedRevision == 0 && getQueryRuntime(store, queryItem).chat.fixedSetup == null;
+  if (research) { markQueryResearchRun(store, queryItem, { stages: [], status: "running" }); }
   // The server has the attachments only once the turn is accepted; until then, and after, they open from here.
   for (const attachment of attachments) {
     seedChatAttachmentContent({ chat: { queryItemId: queryItem.id }, attachmentId: attachment.id }, attachment.text);
@@ -1241,6 +1248,7 @@ async function submitQueryChatTurn(
   return followQueryChatRun(store, queryItem, requestId, {
     submission: {
       userTurnRootId: userTurnRoot.id,
+      research,
       payload: {
         requestId, queryItemId: queryItem.id, expectedRevision, text,
         attachments: attachments.length > 0
@@ -1259,7 +1267,7 @@ async function followQueryChatRun(
   queryItem: QueryItem,
   requestId: Uid,
   options: {
-    submission?: { payload: ChatRequest, userTurnRootId: Uid },
+    submission?: { payload: ChatRequest, userTurnRootId: Uid, research?: boolean },
     turn?: LoadChatTurn,
     cancellationRequested?: boolean,
   },
@@ -1345,6 +1353,7 @@ async function followQueryChatRun(
       if (event.type == "context_tokens") {
         setQueryChatContextTokens(store, queryItem, event.tokens, event.exact);
       }
+      if (event.type == "status") { noteQueryResearchStage(store, queryItem, event.text); }
       applyQueryChatStreamEvent(queryItem.id, event);
     };
     const onConnectionChange = (connectionState: ChatStreamConnectionState) => {
@@ -1354,9 +1363,11 @@ async function followQueryChatRun(
         setQueryChatStreamingState(queryItem.id, { ...current, connectionState });
       }
     };
-    const response = options.submission != null
-      ? await server.chatStream(options.submission.payload, onEvent, controller.signal, onConnectionChange, control)
-      : await server.resumeChatStream(queryItem.id, requestId, onEvent, controller.signal, onConnectionChange, control);
+    const response = options.submission?.research == true
+      ? await server.researchStream(options.submission.payload, onEvent, controller.signal, onConnectionChange, control)
+      : options.submission != null
+        ? await server.chatStream(options.submission.payload, onEvent, controller.signal, onConnectionChange, control)
+        : await server.resumeChatStream(queryItem.id, requestId, onEvent, controller.signal, onConnectionChange, control);
     if (!isCurrent()) { return true; }
 
     flushBufferedChatTextDeltas(queryItem.id, requestId);
@@ -1372,6 +1383,7 @@ async function followQueryChatRun(
       startedAt: finalStreamingState.startedAt,
       completedAt: finalStreamingState.endedAt ?? Date.now(),
     });
+    setQueryResearchStatus(store, queryItem, "completed");
     requestArrange(store, "query-chat-assistant-turn");
     return true;
   } catch (e) {
@@ -1387,13 +1399,15 @@ async function followQueryChatRun(
     const current = chatStreamingStateByQueryId.get(queryItem.id);
     if (current?.requestId == requestId && current.phase == "cancelled") {
       clearStreamingStateOnExit = false;
-      addQueryChatOutcomeNote(store, queryItem, queryChatOutcomeText("cancelled", null)!);
+      setQueryResearchStatus(store, queryItem, "cancelled");
+      addQueryChatOutcomeNote(store, queryItem, queryChatOutcomeText("cancelled", null, outcomeSubject(store, queryItem))!);
       return true;
     }
     const message = e instanceof Error ? e.message : String(e);
     if (!accepted && options.submission != null && e instanceof ChatSubmissionRejectedError) {
       // The server refused the turn before recording it, for example because another response is running.
       console.warn("Chat message was not recorded:", message);
+      if (options.submission.research == true) { unmarkQueryResearchRun(store, queryItem); }
       removeQueryChatRoot(store, queryItem, options.submission.userTurnRootId);
       showChatMessage(store, message, TransientMessageType.Error);
       void refreshQueryConfigurationAvailability(store);
@@ -1417,7 +1431,8 @@ async function followQueryChatRun(
       }
       clearStreamingStateOnExit = false;
     }
-    addQueryChatOutcomeNote(store, queryItem, queryChatOutcomeText("error", message)!);
+    setQueryResearchStatus(store, queryItem, "error");
+    addQueryChatOutcomeNote(store, queryItem, queryChatOutcomeText("error", message, outcomeSubject(store, queryItem))!);
     return true;
   } finally {
     controller.abort();
@@ -1446,6 +1461,53 @@ async function followQueryChatRun(
       updateQueryRuntime(store, queryItem, runtime => ({ ...runtime, chat: { ...runtime.chat, requestId: null } }));
     }
   }
+}
+
+/**
+ * The server sets the item's research flag when a run starts; setting it here too shows the run as one at once.
+ * A run that is refused before it starts is unmarked again.
+ */
+function markQueryResearchRun(store: StoreContextModel, queryItem: QueryItem, research: QueryResearchState): void {
+  const item = itemState.get(queryItem.id);
+  if (item != null && isQueryItem(item)) { item.flags |= SearchFlags.ResearchRun; }
+  updateQueryRuntime(store, queryItem, current => ({ ...current, chat: { ...current.chat, research } }));
+}
+
+function unmarkQueryResearchRun(store: StoreContextModel, queryItem: QueryItem): void {
+  const item = itemState.get(queryItem.id);
+  if (item != null && isQueryItem(item)) { item.flags &= ~SearchFlags.ResearchRun; }
+  updateQueryRuntime(store, queryItem, current => ({ ...current, chat: { ...current.chat, research: null } }));
+}
+
+function outcomeSubject(store: StoreContextModel, queryItem: QueryItem): "Response" | "Research" {
+  return getQueryRuntime(store, queryItem).chat.research == null ? "Response" : "Research";
+}
+
+function setQueryResearchStatus(
+  store: StoreContextModel, queryItem: QueryItem, status: QueryResearchState["status"],
+): void {
+  updateQueryRuntime(store, queryItem, current => current.chat.research == null ? current
+    : { ...current, chat: { ...current.chat, research: { ...current.chat.research, status } } });
+}
+
+/**
+ * The stage a run's status text announces. These are the texts the standard strategy sends as each stage starts
+ * (`run_standard_strategy` in the server's `research.rs`); the run's load response names its stages directly.
+ */
+const RESEARCH_STAGE_BY_STATUS: Record<string, string> = {
+  "Researching sources": "research",
+  "Reviewing evidence": "review",
+  "Writing research report": "report",
+};
+
+function noteQueryResearchStage(store: StoreContextModel, queryItem: QueryItem, statusText: string): void {
+  const stage = RESEARCH_STAGE_BY_STATUS[statusText];
+  if (stage == null) { return; }
+  updateQueryRuntime(store, queryItem, current => {
+    const research = current.chat.research;
+    if (research == null || research.stages.includes(stage)) { return current; }
+    return { ...current, chat: { ...current.chat, research: { ...research, stages: [...research.stages, stage] } } };
+  });
 }
 
 const queryChatLoads = new Map<Uid, Promise<void>>();
@@ -1548,6 +1610,10 @@ function applyLoadedQueryChat(
         contextTokens: response.contextTokens?.tokens ?? null,
         contextTokensExact: response.contextTokens?.exact ?? false,
         fixedSetup: response.setup,
+        research: response.research == null ? null : {
+          stages: response.research.stages.map(stage => stage.name),
+          status: response.turns[0]?.status ?? "interrupted",
+        },
       },
     }));
     if (response.turns.length == 0) {
@@ -1565,7 +1631,7 @@ function applyLoadedQueryChat(
           completedAt: turn.endedAt ?? turn.startedAt,
         });
       } else if (turn.status != "running") {
-        const outcome = queryChatOutcomeText(turn.status, turn.error);
+        const outcome = queryChatOutcomeText(turn.status, turn.error, outcomeSubject(store, queryItem));
         if (outcome != null) {
           addQueryChatOutcomeNote(store, queryItem, outcome);
         }
@@ -1638,6 +1704,7 @@ export function clearQueryChat(store: StoreContextModel, queryItem: QueryItem): 
       contextTokens: null,
       contextTokensExact: false,
       fixedSetup: null,
+      research: null,
     },
   }));
   clearQueryChatStreamingState(queryItem.id);

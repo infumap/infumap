@@ -84,6 +84,7 @@ import {
   getQueryRuntime,
   getQueryText,
   queryIconClass,
+  isQueryResearchRun,
   querySearchResultsFooterHostId,
   registerQuerySearchLoadMoreHandler,
   setQuerySearchArrangeAlgorithm,
@@ -145,6 +146,13 @@ const QUERY_SEARCH_ARRANGE_OPTIONS = [
   { arrangeAlgorithm: ArrangeAlgorithm.Catalog, label: "catalog" },
   { arrangeAlgorithm: ArrangeAlgorithm.Grid, label: "grid" },
 ] as const;
+/** The standard research strategy's stages, as the server names them. */
+const RESEARCH_STAGES = [
+  { name: "research", label: "Research" },
+  { name: "review", label: "Review" },
+  { name: "report", label: "Report" },
+] as const;
+const RESEARCH_SETUP_FIXED = "A research run's setup is fixed. Use Deep research in New Query to start another.";
 /**
  * Deep research is a third entry here rather than a separate toggle: it is a choice about what the
  * send does, which is what this selector already expresses.
@@ -188,6 +196,9 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const [deepResearch, setDeepResearch] = createSignal(false);
   /** A chat's mode is fixed by its first message; before that, the draft's choice. */
   const fixedChatSetup = () => getQueryRuntime(store, queryItem()).chat.fixedSetup;
+  /** A research run shows its stages and status where a chat has its input: it can't be continued. */
+  const researchState = () => getQueryRuntime(store, queryItem()).chat.research;
+  const isResearchRun = () => isQueryResearchRun(queryItem()) || researchState() != null;
   const effectiveDeepResearch = () => {
     const fixed = fixedChatSetup();
     return fixed != null ? fixed.mode == "deep_research" : deepResearch();
@@ -1338,7 +1349,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       return phase != null && queryChatActivityIsRunning(phase);
     };
     const chatRequestActive = queryRequestActive;
-    const chatSettingsDisabled = () => chatRequestActive() || queryProfileBlockedReason() != null;
+    const chatSettingsDisabled = () => chatRequestActive() || queryProfileBlockedReason() != null || isResearchRun();
     const chatRequestCanCancel = () => getQueryRuntime(store, queryItem()).chat.requestId != null && activityIsRunning();
     const stopPending = () => activityIsRunning() && liveChatActivity()?.cancellationRequested == true;
     const stop = (ev: Event) => {
@@ -1460,15 +1471,40 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           onKeyDown={stop}
           onKeyUp={stop}>
           <div style={`height: ${QUERY_PROFILE_ROW_HEIGHT_PX}px; margin-bottom: ${QUERY_PROFILE_ROW_GAP_PX}px;`}>
-            <QueryProfileBar queryItem={queryItem} searchMode={() => false} disabled={chatRequestActive}
-              blockedReason={queryProfileBlockedReason} />
+            <Show when={!isResearchRun()} fallback={renderResearchStages()}>
+              <QueryProfileBar queryItem={queryItem} searchMode={() => false} disabled={chatRequestActive}
+                blockedReason={queryProfileBlockedReason} />
+            </Show>
           </div>
           <Show when={hasDraftAttachmentRow()}>
             <div style={`margin-bottom: ${QUERY_DRAFT_ATTACHMENTS_ROW_GAP_PX}px;`}>
               {renderDraftAttachments()}
             </div>
           </Show>
+          <Show when={isResearchRun()}>
+            <div class="flex items-end"
+              style={`height: ${chatTextareaHeightPx()}px; gap: ${QUERY_WORKSPACE_CONTROLS_GAP_PX}px;`}>
+              <div class="flex min-w-0 grow items-center rounded-xs border border-[#ccc] bg-neutral-50 px-2.5 text-neutral-600"
+                style={`height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px; font-size: 14px;`}
+                role="status">
+                <span class="min-w-0 truncate">{researchStatusText()}</span>
+              </div>
+              <Show when={chatRequestCanCancel()}>
+                <button
+                  class="flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
+                  style={`width: ${QUERY_CHAT_SEND_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
+                  type="button"
+                  title={stopPending() ? "Waiting for the server to confirm Stop" : "Stop research"}
+                  aria-label={stopPending() ? "Stopping" : "Stop research"}
+                  disabled={stopPending()}
+                  onClick={() => cancelQueryChatRequest(queryItem().id)}>
+                  <i class="fa fa-stop" />
+                </button>
+              </Show>
+            </div>
+          </Show>
           <div class="flex items-end"
+            classList={{ hidden: isResearchRun() }}
             style={`height: ${chatTextareaHeightPx()}px; gap: ${QUERY_WORKSPACE_CONTROLS_GAP_PX}px;`}>
             <QuerySkillSuggestionList suggestions={chatSkillSuggestions} anchor={() => chatTextarea} onChoose={chooseChatSkill} />
             <div
@@ -1565,7 +1601,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 onMouseDown={ev => ev.stopPropagation()} onKeyDown={ev => ev.stopPropagation()}>
                 <For each={QUERY_INPUT_MODE_OPTIONS.filter(option => option.value != "search")}>{option => {
                   const selected = () => (option.value == "deep-research") == effectiveDeepResearch();
-                  const fixedReason = () => fixedChatSetup() == null ? null
+                  const fixedReason = () => isResearchRun() ? RESEARCH_SETUP_FIXED
+                    : fixedChatSetup() == null ? null
                     : "Fixed by this chat's first message. Start a new chat to change it.";
                   return <button type="button" role="radio" aria-checked={selected()} aria-label={option.label}
                     title={fixedReason() == null ? option.label : `${option.label}. ${fixedReason()}`}
@@ -1581,13 +1618,53 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 queryItem={queryItem} disabled={chatSettingsDisabled} inUse={() => queryChatUsesInfumapData(store, queryItem())} note={chatSettingsNote} />
               <QueryModelPicker queryItem={queryItem} disabled={chatSettingsDisabled} note={chatSettingsNote} />
               <QueryToolsPicker queryItem={queryItem} locked={chatSettingsDisabled} note={chatSettingsNote}
-                lockedReason={queryProfileBlockedReason() ?? "Wait for the current response to finish."} />
+                lockedReason={isResearchRun() ? RESEARCH_SETUP_FIXED
+                  : queryProfileBlockedReason() ?? "Wait for the current response to finish."} />
             </div>
           </div>
         </div>
       </div>
     );
   };
+
+  const researchStageStates = () => {
+    const research = researchState();
+    const status = research?.status ?? "running";
+    const reached = Math.max(-1, ...(research?.stages ?? []).map(name => RESEARCH_STAGES.findIndex(stage => stage.name == name)));
+    return RESEARCH_STAGES.map((stage, index) => ({
+      ...stage,
+      state: status == "completed" || index < reached ? "done"
+        : index == reached ? (status == "running" ? "active" : "stopped")
+        : "pending",
+    }));
+  };
+  const researchStatusText = () => {
+    switch (researchState()?.status ?? "running") {
+      case "running": return "Researching in the background. You can leave; the run continues.";
+      case "completed": return "Research complete. A research run can't be continued.";
+      case "cancelled": return "Research stopped.";
+      case "error": return "Research failed.";
+      case "interrupted": return "The server stopped before this research run finished.";
+    }
+  };
+  const renderResearchStages = () =>
+    <div class="flex h-full min-w-0 items-center gap-2 text-[12px] text-control-text" role="list" aria-label="Research stages">
+      <span class="flex shrink-0 items-center gap-1.5 font-medium text-neutral-700"><i class="bi-binoculars" />Deep research</span>
+      <For each={researchStageStates()}>{(stage, index) => <>
+        <Show when={index() > 0}><i class="bi-chevron-right shrink-0 text-[9px] text-neutral-400" aria-hidden="true" /></Show>
+        <span role="listitem" class="flex shrink-0 items-center gap-1"
+          classList={{ "text-neutral-400": stage.state == "pending", "text-neutral-800": stage.state == "active" }}
+          aria-label={`${stage.label}: ${stage.state}`}>
+          <i class={{
+            done: "bi-check-circle text-[11px]",
+            active: "fa fa-circle-notch fa-spin text-[10px]",
+            stopped: "bi-x-circle text-[11px]",
+            pending: "bi-circle text-[11px]",
+          }[stage.state]} />
+          {stage.label}
+        </span>
+      </>}</For>
+    </div>;
 
   const renderSearchWorkspace = () => {
     const showDiscardButton = () => hasSubmittedQuery();

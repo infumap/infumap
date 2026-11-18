@@ -19,7 +19,7 @@
 import { EMPTY_VEID, Veid } from "../layout/visual-element";
 import { BooleanSignal, InfuSignal, NumberSignal, createBooleanSignal, createInfuSignal, createNumberSignal } from "../util/signals";
 import type { SearchResult } from "../server";
-import { EVERYTHING_SCOPE, cloneQueryConfiguration, snapshotQueryProfile, type InitialQuerySetup, type QueryChatFixedSetup, type QueryConfiguration, type QueryProfile } from "../items/query-configuration";
+import { EVERYTHING_SCOPE, cloneQueryConfiguration, snapshotQueryProfile, type InitialQuerySetup, type QueryChatFixedSetup, type QueryConfiguration, type QueryProfile, type QueryResearchState } from "../items/query-configuration";
 import type { ArrangeAlgorithm } from "../items/page-item";
 import type { Uid } from "../util/uid";
 
@@ -97,6 +97,8 @@ export interface QueryRuntime {
     contextTokensExact: boolean,
     /** Set by the chat's first turn, after which scope, tools and mode can't change. */
     fixedSetup: QueryChatFixedSetup | null,
+    /** Set when the query holds a research run rather than a chat. */
+    research: QueryResearchState | null,
   },
 }
 
@@ -203,6 +205,7 @@ export function makePerItemStore(
         contextTokens: null,
         contextTokensExact: false,
         fixedSetup: null,
+        research: null,
       },
     };
   };

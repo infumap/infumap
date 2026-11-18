@@ -595,98 +595,56 @@ async fn run_standard_strategy(
   Ok(report)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct LoadResearchRequest {
-  query_item_id: Uid,
-}
-
+/// What a research run adds to its `load-chat` response.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct LoadResearchResponse {
-  request_id: String,
+pub(super) struct LoadResearch {
   strategy: String,
-  question: String,
-  attachments: Vec<LoadChatAttachment>,
-  settings: configuration::TurnSettings,
-  created_at: i64,
-  /// Whether the worker is still running. Follow it with `/chat/resume`.
-  running: bool,
   stages: Vec<StageRecord>,
-  #[serde(skip_serializing_if = "Option::is_none")]
-  end: Option<LoadResearchEnd>,
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct LoadResearchEnd {
-  outcome: TurnOutcome,
-  ended_at: i64,
-  #[serde(skip_serializing_if = "Option::is_none")]
-  error: Option<String>,
-  #[serde(skip_serializing_if = "Option::is_none")]
-  report: Option<String>,
-  #[serde(skip_serializing_if = "Option::is_none")]
-  items: Option<Value>,
-  rounds: Vec<ActivityRound>,
-}
-
-/// POST {queryItemId}: the run's question, setup, stages and, once it has ended, its outcome and report.
-pub async fn serve_research_load_route(
-  db: &Arc<tokio::sync::Mutex<Db>>,
-  request: Request<hyper::body::Incoming>,
-) -> Response<BoxBody<Bytes, hyper::Error>> {
-  use hyper::StatusCode;
-  if request.method() == "OPTIONS" {
-    return cors_response();
-  }
-  let Some(session) = get_and_validate_session(&request, db).await else {
-    return chat_tool_error_response(StatusCode::FORBIDDEN, "A valid Infumap session is required.");
+/// A run in the shape of a chat of one turn: the question, then the report. The chat view then shows it, follows it
+/// with `/chat/resume` and stops it with `/chat/cancel`, as it does a chat's running turn. `running` is whether its
+/// worker still holds the chat lock.
+pub(super) fn load_chat_response(owner_id: &Uid, run: SavedRun, running: bool) -> LoadChatResponse {
+  let end = run.end.as_ref();
+  let status = match end.map(|end| end.outcome) {
+    Some(TurnOutcome::Completed) => TurnStatus::Completed,
+    Some(TurnOutcome::Cancelled) => TurnStatus::Cancelled,
+    Some(TurnOutcome::Error) => TurnStatus::Error,
+    None if running => TurnStatus::Running,
+    None => TurnStatus::Interrupted,
   };
-  let request: LoadResearchRequest = match incoming_json_with_limit(request, CHAT_TOOL_REQUEST_MAX_BYTES).await {
-    Ok(request) => request,
-    Err(_) => return chat_tool_error_response(StatusCode::BAD_REQUEST, "Invalid research load request."),
-  };
-  if !is_uid(&request.query_item_id) {
-    return chat_tool_error_response(StatusCode::BAD_REQUEST, "A query item ID is required.");
-  }
-  let Ok(data_dir) = live_chat_data_dir(db, &session, &request.query_item_id).await else {
-    return not_found_response();
-  };
-  let run = match read_run(&data_dir, &session.user_id, &request.query_item_id).await {
-    Ok(Some(run)) => run,
-    Ok(None) => return not_found_response(),
-    Err(e) => {
-      warn!("Could not read research run '{}' for user '{}': {}", request.query_item_id, session.user_id, e);
-      return chat_tool_error_response(StatusCode::INTERNAL_SERVER_ERROR, "Could not read the research run.");
-    }
-  };
-  json_response(&load_response(&session.user_id, run))
-}
-
-fn load_response(owner_id: &Uid, run: SavedRun) -> LoadResearchResponse {
-  let running = run.end.is_none()
-    && runs::find(owner_id, &run.header.query_item_id, &run.header.request_id).is_some_and(|run| !run.is_finished());
-  let end = run.end.map(|end| LoadResearchEnd {
-    items: end.report.as_deref().map(|report| {
-      chat_response_items_json(owner_id, report).get("items").cloned().unwrap_or_else(|| Value::Array(vec![]))
-    }),
-    outcome: end.outcome,
-    ended_at: end.ended_at,
-    error: end.error,
-    report: end.report,
-    rounds: end.rounds,
+  let report = end.and_then(|end| end.report.clone());
+  let items = report.as_deref().map(|report| {
+    chat_response_items_json(owner_id, report).get("items").cloned().unwrap_or_else(|| Value::Array(vec![]))
   });
-  let user = run.header.user;
-  LoadResearchResponse {
-    request_id: run.header.request_id,
-    strategy: run.header.strategy,
+  let user = &run.header.user;
+  let settings = &user.settings;
+  let turn = LoadChatTurn {
+    request_id: run.header.request_id.clone(),
+    text: user.text.clone(),
+    status,
+    started_at: run.header.created_at,
+    ended_at: end.map(|end| end.ended_at),
+    error: end.and_then(|end| end.error.clone()),
     attachments: user.attachments.iter().filter(|attachment| !attachment.is_inline_skill()).map(Into::into).collect(),
-    question: user.text,
-    settings: user.settings,
-    created_at: run.header.created_at,
+    assistant_text: report,
+    items,
+    rounds: end.map(|end| end.rounds.clone()).unwrap_or_default(),
+  };
+  LoadChatResponse {
+    revision: 1,
     running,
-    stages: run.stages,
-    end,
+    last_settings: Some(settings.clone()),
+    context_tokens: end.and_then(|end| end.context_tokens),
+    setup: Some(LoadChatSetup {
+      scope: settings.configuration.scope.clone(),
+      scope_item_ids: settings.scope_item_ids.clone(),
+      capabilities: settings.configuration.capabilities.clone(),
+      mode: settings.mode,
+    }),
+    turns: vec![turn],
+    research: Some(LoadResearch { strategy: run.header.strategy, stages: run.stages }),
   }
 }

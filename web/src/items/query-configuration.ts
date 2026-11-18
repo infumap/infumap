@@ -134,6 +134,12 @@ export type ChatRunMode = "chat" | "deep_research";
  * model is sent at the start of every request, so changing them would make the provider's cache miss; to change them,
  * start a new chat. The model, its reasoning effort and tool approval can still change.
  */
+/** A research run as its view shows it: the stages it has reached, by name, and how it stands. */
+export interface QueryResearchState {
+  stages: Array<string>,
+  status: "running" | "completed" | "cancelled" | "error" | "interrupted",
+}
+
 export interface QueryChatFixedSetup {
   scope: ScopeRef,
   scopeItemIds: Array<Uid>,
