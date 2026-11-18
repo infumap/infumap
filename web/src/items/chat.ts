@@ -637,7 +637,7 @@ export function queryChatContextTokenDisplay(
   queryItem: QueryItem,
   draftText: string,
   draftAttachments: Array<ChatDraftAttachment> = [],
-): { label: string, exact: boolean } | null {
+): { tokens: number, label: string, exact: boolean } | null {
   const draft = draftText.trim();
   const stored = getQueryRuntime(store, queryItem).chat;
   const useStored = stored.contextTokens != null && draft == "" && draftAttachments.length == 0;
@@ -651,6 +651,7 @@ export function queryChatContextTokenDisplay(
   }
   const formatted = tokens.toLocaleString("en-US");
   return {
+    tokens,
     label: exact ? `${formatted} tokens` : `~${formatted} tokens`,
     exact,
   };

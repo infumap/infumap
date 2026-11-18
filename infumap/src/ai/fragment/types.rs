@@ -20,7 +20,7 @@ pub enum FragmentSourceKind {
 }
 
 impl FragmentSourceKind {
-  pub(super) fn as_str(&self) -> &'static str {
+  pub fn as_str(&self) -> &'static str {
     match self {
       FragmentSourceKind::ImageContents => IMAGE_CONTENTS_SOURCE_KIND,
       FragmentSourceKind::ImageDocumentContents => IMAGE_DOCUMENT_SOURCE_KIND,

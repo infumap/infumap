@@ -14,21 +14,111 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! The content of items chosen as a chat's scope, attached to the message of the turn in which each is first in scope,
-//! as pasted text is. Telling the model to start by reading them was not enough: weak models skip reads, or read the
-//! first fragment and answer as if they had read it all. Each item is read once, when its turn starts, and stays in
-//! the history from then on, so a later edit to it is not seen unless the model reads it again with the tools.
+//! Snapshots of item text for chat messages. A pasted reference prepares an attachment before sending, independent of
+//! retrieval scope. The older item-scope protocol attaches each item the first time it is in scope. Models can skip
+//! tool reads or answer after the first fragment, so both paths send the text with the message.
 //!
 //! A note or data item is its whole text. A page or table is its listing, then the whole text of each note the
 //! listing cuts short and each data item in it. Pages and tables inside it are listed but not read, so choosing a
-//! large tree does not fill the context; the tools read them. An item too large to attach is not cut, since a summary
-//! of part of it, presented as a summary of all of it, is worse than none: its attachment says to read it with the
-//! tools instead.
+//! large tree does not fill the context. Oversized text is rejected for pasted references. The older protocol returns
+//! a note about tool reads in place of the attachment's body.
 
 use super::container_fragments::{self, Access};
 use super::transcript::ChatAttachment;
 use super::*;
-use crate::ai::fragment::read_item_fragments;
+use crate::ai::fragment::sources::{
+  is_local_text_copy_item, load_pdf_markdown_artifact, read_or_create_local_text_copy,
+};
+use crate::ai::fragment::{CHAT_SOURCE_KIND, FragmentSourceKind, read_item_fragments};
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct DraftItemAttachment {
+  title: String,
+  mime_type: String,
+  text: String,
+}
+
+/// A snapshot the user explicitly attached. Read access is independent of the chat's retrieval scope.
+pub(super) async fn draft_item_attachment(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  object_store: Arc<object::ObjectStore>,
+  session: &Session,
+  item_id: &Uid,
+) -> Result<DraftItemAttachment, String> {
+  let access = Access { user_id: &session.user_id, scope: None };
+  let (item, data_dir, encryption_key) = {
+    let db = db.lock().await;
+    let item = db
+      .item
+      .get(item_id)
+      .ok()
+      .filter(|item| access.can_read(&db, item))
+      .and_then(|item| access.content(&db, item))
+      .ok_or("No readable item matches that link or ID.")?;
+    let user = db.user.get(&session.user_id).ok_or("Could not read the item.")?;
+    (item.clone(), db.item.data_dir().to_owned(), user.object_encryption_key.clone())
+  };
+  let title = container_fragments::item_label(&item).replace(char::is_control, " ");
+  let unreadable = || format!("Could not read the text of {title}.");
+  let no_text = || format!("{title} has no readable text to attach.");
+  let mime_type = item.mime_type.as_deref().unwrap_or("");
+  let (text, mime_type) = match item.item_type {
+    ItemType::Note => (container_fragments::note_text(&item), "text/markdown"),
+    ItemType::Page | ItemType::Table | ItemType::Composite => {
+      let listing = container_attachment_text(db, &access, &item.id).await.map_err(|_| unreadable())?;
+      (
+        format!(
+          "This listing covers the direct contents. Nested pages and tables are listed by reference.\n\n{listing}"
+        ),
+        "text/markdown",
+      )
+    }
+    ItemType::Text | ItemType::File if mime_type.starts_with("text/") => {
+      if item.file_size_bytes.is_some_and(|bytes| bytes > CHAT_ATTACHMENT_MAX_BYTES as i64) {
+        return Err(format!("{title} is larger than the 1 MB attachment limit."));
+      }
+      let bytes = if is_local_text_copy_item(&item) {
+        read_or_create_local_text_copy(&data_dir, object_store, &item, &encryption_key, "text file").await
+      } else {
+        object::get(object_store, item.owner_id.clone(), item.id.clone(), &encryption_key).await
+      }
+      .map_err(|_| unreadable())?;
+      (String::from_utf8(bytes).map_err(|_| no_text())?, mime_type)
+    }
+    ItemType::File if mime_type == "application/pdf" => {
+      let text = load_pdf_markdown_artifact(&data_dir, &item.owner_id, &item.id)
+        .await
+        .map_err(|_| unreadable())?
+        .ok_or_else(no_text)?;
+      (text, "text/markdown")
+    }
+    ItemType::Image | ItemType::Search | ItemType::Text
+      if item.item_type != ItemType::Text || mime_type == CHAT_TRANSCRIPT_MIME_TYPE =>
+    {
+      let mut fragments = read_item_fragments(&data_dir, &item.owner_id, &item.id).await.map_err(|_| no_text())?;
+      if ![
+        CHAT_SOURCE_KIND,
+        FragmentSourceKind::ImageContents.as_str(),
+        FragmentSourceKind::ImageDocumentContents.as_str(),
+      ]
+      .contains(&fragments.source_kind.as_str())
+      {
+        return Err(no_text());
+      }
+      fragments.records.sort_by_key(|record| record.ordinal);
+      (fragments.records.into_iter().map(|record| record.text).collect::<Vec<_>>().join("\n\n"), "text/markdown")
+    }
+    _ => return Err(no_text()),
+  };
+  if text.trim().is_empty() || text.contains('\0') {
+    return Err(no_text());
+  }
+  if text.len() > CHAT_ATTACHMENT_MAX_BYTES {
+    return Err(format!("{title} has more than 1 MB of text and cannot be attached in full."));
+  }
+  Ok(DraftItemAttachment { title, mime_type: mime_type.to_owned(), text })
+}
 
 /// Attachments for the items in `item_ids` that are still readable, in order.
 pub(super) async fn scope_item_attachments(
@@ -70,20 +160,27 @@ async fn item_attachment_text(
     let (heading, location, text) = item_text(db, access, item_id).await?;
     return Some((title, format!("{heading}{location}\n{}", body_or_none(&text))));
   }
-  let text = match container_fragments::whole_container(db, access, item_id).await {
-    Ok((listing, untold_item_ids)) => {
-      let mut parts = vec![listing];
-      for untold_item_id in untold_item_ids {
-        // The listing gives each item's location, so only its heading is repeated.
-        if let Some((heading, _, text)) = item_text(db, access, &untold_item_id).await {
-          parts.push(format!("{heading}\n{}", body_or_none(&text)));
-        }
-      }
-      parts.join("\n\n")
-    }
+  let text = match container_attachment_text(db, access, item_id).await {
+    Ok(text) => text,
     Err(e) => format!("{} could not be read: {}", title, e.message()),
   };
   Some((title, text))
+}
+
+async fn container_attachment_text(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  access: &Access<'_>,
+  item_id: &Uid,
+) -> InfuResult<String> {
+  let (listing, untold_item_ids) = container_fragments::whole_container(db, access, item_id).await?;
+  let mut parts = vec![listing];
+  for untold_item_id in untold_item_ids {
+    // The listing gives each item's location, so only its heading is repeated.
+    if let Some((heading, _, text)) = item_text(db, access, &untold_item_id).await {
+      parts.push(format!("{heading}\n{}", body_or_none(&text)));
+    }
+  }
+  Ok(parts.join("\n\n"))
 }
 
 /// The heading, location and text of a note or data item. The text is empty for an item without any, such as an image

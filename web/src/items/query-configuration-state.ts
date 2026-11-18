@@ -4,16 +4,17 @@
 */
 
 import type { StoreContextModel } from "../store/StoreProvider";
-import type { Uid } from "../util/uid";
 import { getQueryRuntime, updateQueryRuntime, type QueryItem } from "./query-item";
 import {
   cloneQueryConfiguration,
   queryConfigurationsEqual,
+  scopeRefCollectionId,
   snapshotQueryProfile,
   type ChatRunMode,
   type QueryChatSettings,
   type QueryConfiguration,
   type QueryProfile,
+  type ScopeRef,
 } from "./query-configuration";
 
 /** Editing affects the next turn. Loading and active requests own the current turn's settings. */
@@ -97,10 +98,17 @@ export function setQueryConfigurationCapability(
   updateQueryConfiguration(store, queryItem, { capabilities: [...capabilities] });
 }
 
-/** Changes only this query's next turn. Duplicates are dropped, keeping the first. */
-export function updateQueryScopeItemIds(store: StoreContextModel, queryItem: QueryItem, scopeItemIds: Array<Uid>): void {
+/** An explicit collection choice replaces a retired item limit for the next turn. */
+export function setQueryChatScope(store: StoreContextModel, queryItem: QueryItem, scope: ScopeRef): void {
   assertQueryConfigurationEditable(store, queryItem);
-  updateQueryRuntime(store, queryItem, current => ({ ...current, scopeItemIds: [...new Set(scopeItemIds)] }));
+  if (!initializeQueryConfiguration(store, queryItem)) {
+    throw new Error("The default query profile has not loaded yet.");
+  }
+  updateQueryRuntime(store, queryItem, current => ({
+    ...current,
+    configuration: cloneQueryConfiguration({ ...current.configuration, scope }),
+    scopeItemIds: scopeRefCollectionId(scope) != null ? [] : current.scopeItemIds,
+  }));
 }
 
 /** The saved profile this query's setup came from, as it is saved now. Null once that profile is deleted. */
@@ -144,6 +152,7 @@ export function snapshotQueryChatSettings(
   return {
     configuration: cloneQueryConfiguration(runtime.configuration),
     appliedProfile: runtime.appliedProfile == null ? null : snapshotQueryProfile(runtime.appliedProfile),
+    // Turns with Infumap off retain the old limit so re-enabling the tools still requires a collection choice.
     scopeItemIds: [...runtime.scopeItemIds],
     mode,
   };

@@ -43,7 +43,7 @@ import { ItemType } from "../../items/base/item";
 import { VisualElement_Desktop } from "../VisualElement";
 import { VisualElement_DesktopShadowLayer } from "../VisualElementShadow";
 import { VesCache } from "../../layout/ves-cache";
-import { FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_GLOBAL_APP_OVERLAY, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
+import { FONT_SIZE_PX, LINE_HEIGHT_PX, NOTE_PADDING_PX, Z_INDEX_LOCAL_OVERLAY } from "../../constants";
 import {
   desktopPopupIconTextIndentPx,
   getTextStyleForNote,
@@ -125,6 +125,7 @@ import {
 import { MOUSE_RIGHT } from "../../input/mouse_down";
 import { enterSearchResultsMaybe } from "../../input/key";
 import {
+  CHAT_ATTACHMENTS_MAX_COUNT,
   CHAT_ATTACHMENT_FILE_ACCEPT,
   CHAT_ITEM_DROP_ATTRIBUTE,
   ChatDraftAttachment,
@@ -133,6 +134,8 @@ import {
   estimateChatAttachmentTokens,
   fileAttachment,
   itemAttachment,
+  pastedChatItemId,
+  pastedItemAttachment,
   pastedTextAttachment,
   pastedTextIsAttachment,
   registerChatItemDropTarget,
@@ -140,18 +143,6 @@ import {
 import { clearExternalUploadHover, dataTransferContainsFiles } from "../../upload";
 import { formatBytes } from "../../util/item-metadata";
 import type { QueryInputMode } from "../../store/StoreProvider_General";
-import {
-  addQueryScopeItem,
-  describeQueryScopeItems,
-  parseQueryScopeItemInput,
-  queryScopeItemIds,
-  queryScopeItemResolved,
-  queryScopeItemTitle,
-  rememberQueryScopeItemTitle,
-  removeQueryScopeItem,
-} from "../../items/query-scope";
-import { ItemCandidatesPopup, createItemCandidateSearch } from "../library/ItemCandidates";
-import type { Uid } from "../../util/uid";
 
 const normalizeSearchText = (text: string): string =>
   text.replace(/\u200B/g, "").trim();
@@ -180,12 +171,9 @@ const QUERY_CHAT_ACTIVITY_EXPANDED_TOP_INSET_PX = 12;
 const QUERY_CHAT_SEND_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
 const QUERY_DRAFT_ATTACHMENTS_ROW_HEIGHT_PX = 30;
 const QUERY_DRAFT_ATTACHMENTS_ROW_GAP_PX = 6;
-const QUERY_SCOPE_ITEMS_ROW_HEIGHT_PX = 30;
-const QUERY_SCOPE_ITEMS_ROW_GAP_PX = 6;
 /**
  * Attach and prompts sit at the start of the settings row under the message rather than beside it, so a message that
- * wraps uses the full width instead of being indented under the buttons all the way down. Attach shows a paperclip
- * because a "+" in that row already adds items to the scope.
+ * wraps uses the full width instead of being indented under the buttons all the way down.
  */
 const QUERY_COMPOSER_ACTION_BUTTON_APPEARANCE = {
   class: "flex h-[22px] w-[26px] shrink-0 cursor-pointer items-center justify-center rounded-md border border-control-border bg-white text-control-text hover:bg-control-hover disabled:cursor-default disabled:opacity-50",
@@ -205,8 +193,11 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const [chatText, setChatText] = createSignal("");
   /** Attachments of the message being written, in the chat composer or in the query input in chat mode. */
   const [draftAttachments, setDraftAttachments] = createSignal<Array<ChatDraftAttachment>>([]);
-  /** Whether the input for adding items to the chat's scope is shown. */
-  const [scopeEntryOpen, setScopeEntryOpen] = createSignal(false);
+  const [pendingItemAttachments, setPendingItemAttachments] = createSignal(0);
+  const [itemAttachmentError, setItemAttachmentError] = createSignal<string | null>(null);
+  let itemAttachmentQueue = Promise.resolve();
+  let attachmentDraftGeneration = 0;
+  onCleanup(() => { attachmentDraftGeneration++; });
   const [deepResearch, setDeepResearch] = createSignal(false);
   const [isSendingChat, setIsSendingChat] = createSignal(false);
   const [queryTextareaHeightPx, setQueryTextareaHeightPx] = createSignal(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX);
@@ -230,8 +221,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   let queryProfileBar: HTMLDivElement | undefined;
   let queryAttachButton: HTMLButtonElement | undefined;
   let queryPromptsButton: HTMLButtonElement | undefined;
-  let queryScopeAddButton: HTMLButtonElement | undefined;
-  let scopeItemInput: HTMLInputElement | undefined;
   let chatTextarea: HTMLTextAreaElement | undefined;
   let attachFileInput: HTMLInputElement | undefined;
   let chatActivityBody: HTMLDivElement | undefined;
@@ -247,21 +236,10 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const liveChatActivity = () => chatStreamingStateForQuery(queryItem().id);
   const chatStreamingRequestId = createMemo(() => liveChatActivity()?.requestId ?? null);
   const chatContextTokens = () => queryChatContextTokenDisplay(store, queryItem(), chatText(), draftAttachments());
-  const draftAttachmentsRowPx = () => draftAttachments().length > 0
+  const hasDraftAttachmentRow = () => draftAttachments().length > 0 || pendingItemAttachments() > 0 || itemAttachmentError() != null;
+  const draftAttachmentsRowPx = () => hasDraftAttachmentRow()
     ? QUERY_DRAFT_ATTACHMENTS_ROW_HEIGHT_PX + QUERY_DRAFT_ATTACHMENTS_ROW_GAP_PX
     : 0;
-  const scopeItems = () => queryScopeItemIds(store, queryItem());
-  /** In the chat composer, or the query input in chat mode, while adding items or once there are any. */
-  const scopeItemsRowShown = () =>
-    (isChatMode() || selectedInputMode() == "chat") && (scopeEntryOpen() || scopeItems().length > 0);
-  const scopeItemsRowPx = () => scopeItemsRowShown()
-    ? QUERY_SCOPE_ITEMS_ROW_HEIGHT_PX + QUERY_SCOPE_ITEMS_ROW_GAP_PX
-    : 0;
-  createEffect(() => {
-    // Titles of items added by id, or restored with the chat, are not known here.
-    const itemIds = scopeItems();
-    if (itemIds.length > 0) { void describeQueryScopeItems(itemIds); }
-  });
   const chatActivityHeaderVisible = () => liveChatActivity() != null && chatActivityPanelHeightPx() > 0;
   const chatActivityContentRevision = createMemo(() => {
     const live = liveChatActivity();
@@ -287,7 +265,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         QUERY_CHAT_SETTINGS_HEIGHT_PX +
         chatTextareaHeightPx() +
         draftAttachmentsRowPx() +
-        scopeItemsRowPx() +
         QUERY_CHAT_TRANSCRIPT_COMPOSER_GAP_PX / 2;
       return Math.max(
         headersPx,
@@ -299,7 +276,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       QUERY_CHAT_SETTINGS_HEIGHT_PX +
       chatTextareaHeightPx() +
       draftAttachmentsRowPx() +
-      scopeItemsRowPx() +
       QUERY_CHAT_TRANSCRIPT_COMPOSER_GAP_PX;
     const availablePx = Math.max(0, boundsPx().h - reservedWithoutActivityPx - 80);
     const preferredPx = Math.max(QUERY_CHAT_ACTIVITY_MIN_HEIGHT_PX, Math.round(boundsPx().h * 0.34));
@@ -344,6 +320,17 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   /** Search mode hides the mode selector, so a submit from there always refines the search. */
   const selectedInputMode = (): QueryInputMode =>
     isSearchMode() ? "search" : (isChatHistoryEntry() ? "chat" : store.general.queryInputMode());
+  const draftAttachmentContextWarning = () => {
+    const attachments = draftAttachments();
+    if (attachments.length == 0) { return null; }
+    const selection = getQueryRuntime(store, queryItem()).configuration.model;
+    const limit = store.general.chatBackends()?.backends.find(backend => backend.id == selection?.backend)
+      ?.models.find(model => model.id == selection?.model)?.contextLength;
+    if (limit == null || limit <= 0) { return null; }
+    const draft = isChatMode() ? chatText() : isEditing() ? queryInputText() : queryText();
+    const tokens = queryChatContextTokenDisplay(store, queryItem(), draft, attachments)?.tokens ?? 0;
+    return tokens >= limit ? "This draft may exceed the model’s context window." : null;
+  };
   const configurationUnavailableReason = () => {
     // Search sends an unavailable collection anyway and finds nothing; the scope control says why.
     if (selectedInputMode() == "search") { return null; }
@@ -432,65 +419,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     }, 1500);
   };
 
-  const scopeItemsInUse = () => queryChatUsesInfumapData(store, queryItem());
-  const scopeItemsLocked = () => queryRequestActive() || queryProfileBlockedReason() != null;
-  const scopeItemCandidates = createItemCandidateSearch({
-    anchor: () => scopeItemInput,
-    onPick: candidate => {
-      rememberQueryScopeItemTitle(candidate.id, candidate.title);
-      addScopeItem(candidate.id);
-    },
-  });
-
-  /** Clears the input once the item is added, so the next can be typed. */
-  const addScopeItem = (itemId: Uid) => {
-    try {
-      const reason = addQueryScopeItem(store, queryItem(), itemId);
-      if (reason != null) {
-        showTransientMessage(reason, TransientMessageType.Error);
-        return;
-      }
-      if (scopeItemInput) { scopeItemInput.value = ""; }
-    } catch (error) {
-      showTransientMessage(error instanceof Error ? error.message : String(error), TransientMessageType.Error);
-    }
-  };
-
-  const removeScopeItem = (itemId: Uid) => {
-    try {
-      removeQueryScopeItem(store, queryItem(), itemId);
-    } catch (error) {
-      showTransientMessage(error instanceof Error ? error.message : String(error), TransientMessageType.Error);
-    }
-  };
-
-  const openScopeEntry = () => {
-    setScopeEntryOpen(true);
-    // The input exists once the row is drawn.
-    window.requestAnimationFrame(() => scopeItemInput?.focus());
-  };
-
-  const closeScopeEntry = () => {
-    scopeItemCandidates.close();
-    setScopeEntryOpen(false);
-    if (isChatMode()) { chatTextarea?.focus(); } else { focusQueryInputControl(); }
-  };
-
-  /** Enter without a candidate chosen: the input is an id or link. Enter in an empty input closes it. */
-  const commitScopeItemInput = () => {
-    const text = scopeItemInput?.value ?? "";
-    if (text.trim() == "") {
-      closeScopeEntry();
-      return;
-    }
-    const parsed = parseQueryScopeItemInput(text);
-    if ("error" in parsed) {
-      showTransientMessage(parsed.error, TransientMessageType.Error);
-      return;
-    }
-    addScopeItem(parsed.itemId);
-  };
-
   const setQuerySearchArrangeAlgorithmForItem = (arrangeAlgorithm: ArrangeAlgorithm) => {
     const nextArrangeAlgorithm = arrangeAlgorithm == ArrangeAlgorithm.Grid
       ? ArrangeAlgorithm.Grid
@@ -530,7 +458,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   };
 
   const startChat = async (editingElMaybe?: HTMLElement | null) => {
-    if (queryRequestActive()) {
+    if (queryRequestActive() || pendingItemAttachments() > 0) {
       return;
     }
     const unavailable = configurationUnavailableReason();
@@ -547,6 +475,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     activeSearchRequestSerial++;
     setSearchingSerial(null);
     setDraftAttachments([]);
+    setItemAttachmentError(null);
     const useDeepResearch = deepResearch();
     let recorded = false;
     try {
@@ -608,7 +537,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     queryDiscardButton.focus();
   };
 
-  type QueryControlName = "mode" | "attach" | "prompts" | "input" | "send" | "discard" | "scope" | "scopeAdd" | "model" | "tools" | `profile:${number}`;
+  type QueryControlName = "mode" | "attach" | "prompts" | "input" | "send" | "discard" | "scope" | "model" | "tools" | `profile:${number}`;
 
   const queryProfileButtons = () => Array.from(queryProfileBar?.querySelectorAll<HTMLButtonElement>("button:not([disabled])") ?? []).filter(button => button.isConnected);
 
@@ -621,7 +550,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       case "send": return querySendButton;
       case "discard": return queryDiscardButton;
       case "scope": return queryScopeButton;
-      case "scopeAdd": return queryScopeAddButton;
       case "model": return queryModelButton;
       case "tools": return queryToolsButton;
       default: return undefined;
@@ -634,7 +562,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     if (hasSubmittedQuery()) { controls.push("discard"); }
     if (selectedInputMode() == "chat") { controls.push("attach", "prompts"); }
     if (queryScopeButton?.isConnected && !queryScopeButton.disabled) { controls.push("scope"); }
-    if (queryScopeAddButton?.isConnected && !queryScopeAddButton.disabled) { controls.push("scopeAdd"); }
     if (selectedInputMode() == "chat") {
       if (queryModelButton?.isConnected && !queryModelButton.disabled) { controls.push("model"); }
       if (queryToolsButton?.isConnected && !queryToolsButton.disabled) { controls.push("tools"); }
@@ -735,6 +662,10 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     setMoreButtonHost(null);
     setChatText("");
     setDraftAttachments([]);
+    attachmentDraftGeneration++;
+    itemAttachmentQueue = Promise.resolve();
+    setPendingItemAttachments(0);
+    setItemAttachmentError(null);
     setDeepResearch(false);
     setChatTextareaHeightPx(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX);
     store.overlay.autoFocusSearchInput.set(false);
@@ -828,9 +759,46 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     window.setTimeout(() => chatTextarea?.focus(), 0);
   };
 
-  /** A long paste becomes an attachment of the message, not part of its text. */
-  const attachPastedText = (ev: ClipboardEvent) => {
+  const attachmentLimitReached = () => draftAttachments().length + pendingItemAttachments() >= CHAT_ATTACHMENTS_MAX_COUNT;
+  const attachmentLimitMessage = `A message can have at most ${CHAT_ATTACHMENTS_MAX_COUNT} attachments.`;
+  const addDraftAttachment = (attachment: ChatDraftAttachment) => {
+    if (attachmentLimitReached()) {
+      setItemAttachmentError(attachmentLimitMessage);
+      return;
+    }
+    setDraftAttachments(current => [...current, attachment]);
+  };
+
+  const attachPastedContent = (ev: ClipboardEvent) => {
     const text = ev.clipboardData?.getData("text/plain") ?? "";
+    const itemId = pastedChatItemId(text);
+    const userId = store.user.getUserMaybe()?.userId;
+    if (itemId != null && userId != null) {
+      ev.preventDefault();
+      if (attachmentLimitReached()) {
+        setItemAttachmentError(attachmentLimitMessage);
+        return;
+      }
+      if (pendingItemAttachments() == 0) { setItemAttachmentError(null); }
+      const generation = attachmentDraftGeneration;
+      const queryId = queryItem().id;
+      const isCurrent = () => generation == attachmentDraftGeneration && queryId == queryItem().id &&
+        userId == store.user.getUserMaybe()?.userId;
+      setPendingItemAttachments(count => count + 1);
+      // Preserve paste order, and keep Enter from submitting a prompt while its attachment is still loading.
+      itemAttachmentQueue = itemAttachmentQueue.then(async () => {
+        const attachment = isCurrent() ? await pastedItemAttachment(itemId, userId) : null;
+        if (generation != attachmentDraftGeneration) { return; }
+        setPendingItemAttachments(count => count - 1);
+        if (attachment == null || !isCurrent()) { return; }
+        if (typeof attachment == "string") {
+          setItemAttachmentError(attachment);
+        } else {
+          addDraftAttachment(attachment);
+        }
+      });
+      return;
+    }
     if (!pastedTextIsAttachment(text)) {
       return;
     }
@@ -840,7 +808,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       showTransientMessage(attachment, TransientMessageType.Error);
       return;
     }
-    setDraftAttachments([...draftAttachments(), attachment]);
+    addDraftAttachment(attachment);
   };
 
   /** Adds text files to the message being written, one at a time, so each is checked against those before it. */
@@ -851,7 +819,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         showTransientMessage(attachment, TransientMessageType.Error);
         continue;
       }
-      setDraftAttachments([...draftAttachments(), attachment]);
+      addDraftAttachment(attachment);
     }
   };
 
@@ -863,7 +831,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           showTransientMessage(attachment, TransientMessageType.Error);
           return;
         }
-        setDraftAttachments([...draftAttachments(), attachment]);
+        addDraftAttachment(attachment);
       });
     });
     onCleanup(unregister);
@@ -970,7 +938,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const sendChatMessage = async () => {
     const value = chatText();
     const attachments = draftAttachments();
-    if (queryRequestActive() || (value.trim() == "" && attachments.length == 0)) {
+    if (queryRequestActive() || pendingItemAttachments() > 0 || (value.trim() == "" && attachments.length == 0)) {
       focusChatTextareaSoon();
       return;
     }
@@ -978,6 +946,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     if (unavailable != null) { showTransientMessage(unavailable, TransientMessageType.Error); return; }
     setChatText("");
     setDraftAttachments([]);
+    setItemAttachmentError(null);
     resizeChatTextareaSoon();
     setIsSendingChat(true);
     const useDeepResearch = deepResearch();
@@ -1157,7 +1126,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     if (!isChatMode()) {
       return;
     }
-    const nextHeightPx = chatTextareaHeightPx() + draftAttachmentsRowPx() + scopeItemsRowPx();
+    const nextHeightPx = chatTextareaHeightPx() + draftAttachmentsRowPx();
     if (getQueryRuntime(store, queryItem()).chat.composerHeightPx == nextHeightPx) {
       return;
     }
@@ -1325,106 +1294,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const desktopTextIndentPx = () => desktopPopupIconTextIndentPx(desktopSizeBl().w);
 
   /** The attachments of the message being written, as chips, each of which can be removed or inserted as text. */
-  /** Items chosen as the chat's scope, and the input for adding more. Unlike attachments, nothing is sent from them. */
-  const renderScopeItemsRow = () => (
-    <div class="flex items-center overflow-x-auto overflow-y-hidden text-control-text"
-      classList={{ "opacity-60": !scopeItemsInUse() }}
-      style={`height: ${QUERY_SCOPE_ITEMS_ROW_HEIGHT_PX}px; gap: 6px; font-size: 13px; line-height: 20px;`}
-      title={scopeItemsInUse()
-        ? "Infumap search is limited to these items and everything inside them."
-        : "Not used: Infumap tools are off."}
-      onMouseDown={ev => ev.stopPropagation()}
-      onMouseUp={ev => ev.stopPropagation()}
-      onClick={ev => ev.stopPropagation()}>
-      <span class="flex shrink-0 items-center gap-1" style="font-size: 12px;">
-        <i class="bi-funnel" />Search limited to
-      </span>
-      <For each={scopeItems()}>{itemId =>
-        <div class="flex min-w-0 shrink-0 items-center rounded-xs border pl-2.5"
-          classList={{
-            "border-neutral-300 bg-neutral-100 text-neutral-800": queryScopeItemResolved(itemId),
-            "border-amber-400 bg-amber-50 text-amber-800": !queryScopeItemResolved(itemId),
-          }}
-          style="height: 24px; max-width: 240px;"
-          title={queryScopeItemResolved(itemId)
-            ? `${queryScopeItemTitle(itemId)}\n${itemId}`
-            : `This item no longer exists and will be left out.\n${itemId}`}>
-          <span class="min-w-0 truncate">{queryScopeItemTitle(itemId)}</span>
-          <button type="button"
-            class="flex h-full w-6 shrink-0 cursor-pointer items-center justify-center rounded-r-xs text-neutral-500 hover:text-black disabled:cursor-default disabled:opacity-50"
-            title="Remove"
-            aria-label={`Remove ${queryScopeItemTitle(itemId)} from the scope`}
-            disabled={scopeItemsLocked()}
-            onMouseDown={ev => ev.preventDefault()}
-            onClick={ev => { ev.stopPropagation(); removeScopeItem(itemId); }}>
-            <i class="bi-x" />
-          </button>
-        </div>
-      }</For>
-      <Show when={scopeEntryOpen()}>
-        <input ref={scopeItemInput} type="text" spellcheck={false}
-          class="min-w-[200px] grow rounded-xs border border-[#999] bg-white px-2 text-black outline-hidden focus:border-blue-500"
-          style="height: 24px; font-size: 13px; user-select: text;"
-          placeholder="Search titles, or paste an item link"
-          aria-label="Add an item to the scope"
-          disabled={scopeItemsLocked()}
-          onInput={ev => scopeItemCandidates.search(ev.currentTarget.value)}
-          onPaste={ev => {
-            // A link pasted on its own is added at once.
-            if (ev.currentTarget.value.trim() != "") { return; }
-            const parsed = parseQueryScopeItemInput(ev.clipboardData?.getData("text/plain") ?? "");
-            if ("itemId" in parsed) {
-              ev.preventDefault();
-              addScopeItem(parsed.itemId);
-            }
-          }}
-          onKeyDown={ev => {
-            ev.stopPropagation();
-            if (scopeItemCandidates.keyDown(ev) || ev.isComposing) { return; }
-            if (ev.key == "Enter") {
-              ev.preventDefault();
-              commitScopeItemInput();
-            } else if (ev.key == "Escape") {
-              ev.preventDefault();
-              closeScopeEntry();
-            }
-          }}
-          onKeyUp={ev => ev.stopPropagation()}
-          onBlur={ev => {
-            scopeItemCandidates.close();
-            if (ev.currentTarget.value.trim() == "") { setScopeEntryOpen(false); }
-          }} />
-      </Show>
-      {/* Above the input: the chat composer is at the bottom of the page. */}
-      <ItemCandidatesPopup search={scopeItemCandidates}
-        class="border border-neutral-400 rounded bg-white shadow-sm py-[3px] overflow-hidden"
-        style={`position: fixed; left: ${scopeItemCandidates.anchorBoundsPx()?.x ?? 0}px; ` +
-          `bottom: ${window.innerHeight - (scopeItemCandidates.anchorBoundsPx()?.top ?? 0) + 2}px; ` +
-          `width: ${Math.max(320, scopeItemCandidates.anchorBoundsPx()?.width ?? 0)}px; z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY + 1};`} />
-    </div>
-  );
-
-  /** Beside the scope picker, while the chat uses Infumap tools. */
-  const renderScopeAddButton = () => (
-    <Show when={scopeItemsInUse() && (isChatMode() || selectedInputMode() == "chat")}>
-      <button ref={el => { queryScopeAddButton = el; }} type="button"
-        class="flex h-[22px] w-[22px] shrink-0 cursor-pointer items-center justify-center rounded-md border border-control-border bg-white text-control-text hover:bg-control-hover disabled:cursor-default disabled:opacity-50"
-        style="font-size: 12px;"
-        title="Limit Infumap search to chosen items"
-        aria-label="Limit Infumap search to chosen items"
-        disabled={scopeItemsLocked()}
-        onMouseDown={ev => ev.stopPropagation()}
-        onMouseUp={ev => ev.stopPropagation()}
-        onClick={ev => { ev.stopPropagation(); openScopeEntry(); }}
-        onKeyDown={ev => {
-          ev.stopPropagation();
-          if (ev.key == "Tab" && !isChatMode()) { handleQueryControlTab(ev, "scopeAdd"); }
-        }}>
-        <i class="bi-plus-lg" />
-      </button>
-    </Show>
-  );
-
   const renderDraftAttachments = () => {
     const stopMouse = (ev: MouseEvent) => {
       // Keeps the focus, and the caret, in the input.
@@ -1437,6 +1306,19 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         onMouseDown={stopMouse}
         onMouseUp={stopMouse}
         onClick={(ev) => ev.stopPropagation()}>
+        <Show when={pendingItemAttachments() > 0}>
+          <span role="status" class="shrink-0 text-xs text-neutral-600">Reading item…</span>
+        </Show>
+        <Show when={itemAttachmentError()}>{message =>
+          <div class="flex max-w-full shrink-0 items-center gap-1 text-xs text-red-700" title={message()}>
+            <span role="alert" class="truncate">{message()}</span>
+            <button type="button" aria-label="Dismiss attachment error" class="shrink-0 px-1"
+              onClick={() => setItemAttachmentError(null)}><i class="bi-x-lg" /></button>
+          </div>
+        }</Show>
+        <Show when={draftAttachmentContextWarning()}>{message =>
+          <span role="status" class="max-w-full shrink-0 truncate text-xs text-amber-700" title={message()}>{message()}</span>
+        }</Show>
         <For each={draftAttachments()}>{attachment => {
           const tokens = estimateChatAttachmentTokens([attachment]).toLocaleString("en-US");
           return (
@@ -1485,7 +1367,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     );
     const contentLeftPx = () => Math.max(0, Math.round((boundsPx().w - contentWidthPx()) / 2));
     const wrapperHeightPx = () => QUERY_PROFILE_ROW_HEIGHT_PX + QUERY_PROFILE_ROW_GAP_PX +
-      chatTextareaHeightPx() + draftAttachmentsRowPx() + scopeItemsRowPx() + QUERY_CHAT_SETTINGS_HEIGHT_PX;
+      chatTextareaHeightPx() + draftAttachmentsRowPx() + QUERY_CHAT_SETTINGS_HEIGHT_PX;
     const activityBottomPx = () =>
       QUERY_CHAT_COMPOSER_BOTTOM_PX + wrapperHeightPx() + QUERY_CHAT_TRANSCRIPT_COMPOSER_GAP_PX / 2;
     const activityIsRunning = () => {
@@ -1620,12 +1502,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             <QueryProfileBar queryItem={queryItem} searchMode={() => false} disabled={chatRequestActive}
               blockedReason={queryProfileBlockedReason} />
           </div>
-          <Show when={scopeItemsRowShown()}>
-            <div style={`margin-bottom: ${QUERY_SCOPE_ITEMS_ROW_GAP_PX}px;`}>
-              {renderScopeItemsRow()}
-            </div>
-          </Show>
-          <Show when={draftAttachments().length > 0}>
+          <Show when={hasDraftAttachmentRow()}>
             <div style={`margin-bottom: ${QUERY_DRAFT_ATTACHMENTS_ROW_GAP_PX}px;`}>
               {renderDraftAttachments()}
             </div>
@@ -1655,7 +1532,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                   resizeChatTextarea(el);
                 }}
                 onKeyDown={chatKeyDown}
-                onPaste={attachPastedText}
+                onPaste={attachPastedContent}
                 onMouseDown={stop}
                 onMouseUp={stop}
                 onClick={stop} />
@@ -1668,7 +1545,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               aria-label={stopPending() ? "Stopping" : chatRequestCanCancel() ? "Stop generating" : (deepResearch() ? "Start deep research" : "Send")}
               disabled={chatRequestActive()
                 ? !chatRequestCanCancel() || stopPending()
-                : configurationUnavailableReason() != null || (chatText().trim() == "" && draftAttachments().length == 0)}
+                : pendingItemAttachments() > 0 || configurationUnavailableReason() != null ||
+                  (chatText().trim() == "" && draftAttachments().length == 0)}
               onClick={() => {
                 if (chatRequestCanCancel()) {
                   cancelQueryChatRequest(queryItem().id);
@@ -1747,9 +1625,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 }}</For>
               </div>
               <QueryScopePicker
-                queryItem={queryItem} disabled={chatSettingsDisabled} inUse={() => queryChatUsesInfumapData(store, queryItem())} note={chatSettingsNote}
-                usesScopeItems={() => true} />
-              {renderScopeAddButton()}
+                queryItem={queryItem} disabled={chatSettingsDisabled} inUse={() => queryChatUsesInfumapData(store, queryItem())} note={chatSettingsNote} />
               <QueryModelPicker queryItem={queryItem} disabled={chatSettingsDisabled} note={chatSettingsNote} />
               <QueryToolsPicker queryItem={queryItem} locked={chatSettingsDisabled} note={chatSettingsNote}
                 lockedReason={queryProfileBlockedReason() ?? "Wait for the current response to finish."} />
@@ -1786,7 +1662,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       store.history.getFocusPathMaybe() == vePath();
     const initialControlsTopPx = () => {
       const aboveInputPx = QUERY_PROFILE_ROW_HEIGHT_PX + QUERY_PROFILE_ROW_GAP_PX +
-        (showDraftAttachments() ? draftAttachmentsRowPx() : 0) + scopeItemsRowPx();
+        (showDraftAttachments() ? draftAttachmentsRowPx() : 0);
       const groupHeightPx = aboveInputPx + queryTextareaHeightPx() +
         QUERY_WORKSPACE_SETTINGS_ROW_GAP_PX + QUERY_WORKSPACE_SETTINGS_ROW_HEIGHT_PX;
       const preferredTopPx = Math.round(boundsPx().h * 0.45 - aboveInputPx - queryTextareaHeightPx() / 2);
@@ -1794,7 +1670,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       return Math.max(0, Math.min(maxTopPx, preferredTopPx));
     };
     /** Attachments are for a chat; a search ignores them, but they stay for a chat started later. */
-    const showDraftAttachments = () => selectedInputMode() == "chat" && draftAttachments().length > 0;
+    const showDraftAttachments = () => selectedInputMode() == "chat" && hasDraftAttachmentRow();
     const renderQueryControls = () => <>
       {/* Search uses only the scope, so search results have no profile row. New Query keeps the row's height while
           Search is selected, so switching modes does not move the input. */}
@@ -1804,13 +1680,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             blockedReason={queryProfileBlockedReason}
             beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())}
             barRef={el => { queryProfileBar = el; }} onTabKey={handleQueryProfileTab} />
-        </div>
-      </Show>
-      <Show when={scopeItemsRowShown()}>
-        <div
-          style={`width: ${inputShellWidthPx()}px; margin-bottom: ${QUERY_SCOPE_ITEMS_ROW_GAP_PX}px; ` +
-            `margin-left: ${showModeSelector() ? QUERY_WORKSPACE_MODE_SELECTOR_WIDTH_PX + QUERY_WORKSPACE_CONTROLS_GAP_PX : 0}px;`}>
-          {renderScopeItemsRow()}
         </div>
       </Show>
       <Show when={showDraftAttachments()}>
@@ -1908,7 +1777,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               onBlur={() => setQueryInputFocused(false)}
               onPaste={(ev) => {
                 if (selectedInputMode() == "chat" && isEditing()) {
-                  attachPastedText(ev);
+                  attachPastedContent(ev);
                 }
               }}
               onInput={(ev) => {
@@ -1923,7 +1792,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               type="button"
               title={configurationUnavailableReason() ?? sendButtonTitle()}
               aria-label={sendButtonTitle()}
-              disabled={queryRequestActive() || configurationUnavailableReason() != null || (selectedInputMode() == "chat" && !canEdit())}
+              disabled={queryRequestActive() || configurationUnavailableReason() != null ||
+                (selectedInputMode() == "chat" && (!canEdit() || pendingItemAttachments() > 0))}
               onMouseDown={(ev) => {
                 ev.preventDefault();
                 ev.stopPropagation();
@@ -2032,11 +1902,9 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           queryItem={queryItem} disabled={queryRequestActive}
           inUse={() => selectedInputMode() == "search" || queryChatUsesInfumapData(store, queryItem())}
           searchScope={() => selectedInputMode() == "search"}
-          usesScopeItems={() => selectedInputMode() == "chat"}
           beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())}
           onChange={() => { if (isSearchMode()) { void runSearch(); } }}
           buttonRef={el => { queryScopeButton = el; }} onTabKey={ev => handleQueryControlTab(ev, "scope")} />
-        {renderScopeAddButton()}
         <Show when={selectedInputMode() == "chat"}>
           <QueryModelPicker queryItem={queryItem} disabled={queryRequestActive}
             beforeChange={() => setQueryText(store, queryItem(), readQueryTextFromDom())}

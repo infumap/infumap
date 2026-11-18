@@ -19,9 +19,10 @@
 import { createSignal } from "solid-js";
 import { MAX_CLIPBOARD_TEXT_BYTES } from "../input/text_clipboard_create";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
-import type { LoadChatAttachment } from "../server";
+import { itemIdFromInfumapUrl } from "../layout/navigation";
+import { server, type LoadChatAttachment } from "../server";
 import { Vector } from "../util/geometry";
-import { newUid, Uid } from "../util/uid";
+import { isUid, newUid, Uid } from "../util/uid";
 import { Item } from "./base/item";
 import { asNoteItem, isNote } from "./note-item";
 import { fetchTextItemContent } from "./text-document";
@@ -46,6 +47,34 @@ const PASTE_ATTACHMENT_MIN_LINES = 40;
 const PASTED_TEXT_TITLE = "Pasted text";
 
 const encoder = new TextEncoder();
+
+/** One item reference on its own can be pasted as a message attachment. */
+export function pastedChatItemId(text: string): Uid | null {
+  const trimmed = text.trim();
+  if (isUid(trimmed)) { return trimmed; }
+  if (/\s/.test(trimmed)) { return null; }
+  const linked = itemIdFromInfumapUrl(trimmed);
+  if (linked != null) { return linked; }
+
+  try {
+    const url = new URL(trimmed);
+    if ((url.protocol != "http:" && url.protocol != "https:") || url.host != window.location.host) { return null; }
+    const id = url.pathname.replace(/^\/+|\/+$/g, "");
+    return isUid(id) ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function pastedItemAttachment(itemId: Uid, userId: Uid): Promise<ChatDraftAttachment | string> {
+  try {
+    const result = await server.prepareChatItemAttachment(itemId, userId);
+    return "error" in result ? result.error : { id: newUid(), ...result };
+  } catch (error) {
+    console.error("Could not load the chat item attachment:", error);
+    return "Could not read the item to attach it.";
+  }
+}
 
 export function chatAttachmentSizeBytes(text: string): number {
   return encoder.encode(text).byteLength;

@@ -19,18 +19,12 @@
 import { createSignal } from "solid-js";
 import { CollectionSummary, ListCollectionsResponse, ScopeItemDescription, server } from "../server";
 import { StoreContextModel } from "../store/StoreProvider";
-import { Uid, isUid } from "../util/uid";
+import type { Uid } from "../util/uid";
 import { itemState } from "../store/ItemState";
-import { itemIdFromInfumapUrl } from "../layout/navigation";
 import { asLinkItem, isLink } from "./link-item";
 import { asTitledItem, isTitledItem } from "./base/titled-item";
 import { QueryItem, getQueryRuntime } from "./query-item";
-import { updateQueryConfiguration, updateQueryScopeItemIds } from "./query-configuration-state";
 import { ScopeRef, scopeRefCollectionId } from "./query-configuration";
-
-/** The most items a chat can be limited to, as the server allows. */
-export const MAX_QUERY_SCOPE_ITEMS = 32;
-
 
 const [collectionList, setCollectionList] = createSignal<ListCollectionsResponse | null>(null);
 const [collectionListError, setCollectionListError] = createSignal<string | null>(null);
@@ -109,43 +103,10 @@ export function queryScope(store: StoreContextModel, queryItem: QueryItem): Scop
   return getQueryRuntime(store, queryItem).configuration.scope;
 }
 
-export function setQueryScope(store: StoreContextModel, queryItem: QueryItem, scope: ScopeRef): void {
-  updateQueryConfiguration(store, queryItem, { scope });
-}
-
-/** Items chosen in the chat as its scope. While there are any, they are used in place of the scope. */
-export function queryScopeItemIds(store: StoreContextModel, queryItem: QueryItem): Array<Uid> {
-  return getQueryRuntime(store, queryItem).scopeItemIds;
-}
-
-/** Adds an item to the end. Returns why it was not added, or null. Adding one already there changes nothing. */
-export function addQueryScopeItem(store: StoreContextModel, queryItem: QueryItem, itemId: Uid): string | null {
-  const current = queryScopeItemIds(store, queryItem);
-  if (current.includes(itemId)) { return null; }
-  if (current.length >= MAX_QUERY_SCOPE_ITEMS) { return `At most ${MAX_QUERY_SCOPE_ITEMS} items can be in scope.`; }
-  updateQueryScopeItemIds(store, queryItem, [...current, itemId]);
-  return null;
-}
-
-export function removeQueryScopeItem(store: StoreContextModel, queryItem: QueryItem, itemId: Uid): void {
-  updateQueryScopeItemIds(store, queryItem, queryScopeItemIds(store, queryItem).filter(id => id != itemId));
-}
-
-/** Removing the items restores the selected scope. */
-export function clearQueryScopeItems(store: StoreContextModel, queryItem: QueryItem): void {
-  updateQueryScopeItemIds(store, queryItem, []);
-}
-
-// Titles of items picked from search candidates, shown until the server describes them.
-const [scopeItemTitles, setScopeItemTitles] = createSignal<ReadonlyMap<Uid, string>>(new Map());
 // The server's descriptions of items chosen as scopes, for every query. Items are edited elsewhere, so these are
-// fetched again whenever a scope picker opens.
+// refreshed whenever the picker opens on a chat with an old item limit.
 const [scopeItemDescriptions, setScopeItemDescriptions] = createSignal<ReadonlyMap<Uid, ScopeItemDescription>>(new Map());
 const scopeItemDescriptionRequests = new Set<Uid>();
-
-export function rememberQueryScopeItemTitle(itemId: Uid, title: string): void {
-  setScopeItemTitles(new Map(scopeItemTitles()).set(itemId, title));
-}
 
 /**
  * Fetches descriptions of the items, or of those not yet described unless `refresh`. A failure leaves the titles
@@ -167,11 +128,6 @@ export async function describeQueryScopeItems(itemIds: Array<Uid>, refresh: bool
   }
 }
 
-/** False once the server reports the item would be left out of the scope; true while that is not known. */
-export function queryScopeItemResolved(itemId: Uid): boolean {
-  return scopeItemDescriptions().get(itemId)?.resolved ?? true;
-}
-
 /** A link shows its target's title. An item whose title is not known here shows the start of its id. */
 export function queryScopeItemTitle(itemId: Uid): string {
   const description = scopeItemDescriptions().get(itemId);
@@ -179,33 +135,10 @@ export function queryScopeItemTitle(itemId: Uid): string {
     if (!description.resolved) { return "Missing item"; }
     return description.title ?? `untitled ${description.itemType}`;
   }
-  const remembered = scopeItemTitles().get(itemId);
-  if (remembered != null) { return remembered; }
   let item = itemState.get(itemId);
   if (item != null && isLink(item)) { item = itemState.get(asLinkItem(item).linkTo); }
   const title = item != null && isTitledItem(item) ? asTitledItem(item).title.trim() : "";
   return title != "" ? title : `Item ${itemId.slice(0, 8)}…`;
-}
-
-/** "3 items", for labels. */
-export function queryScopeItemsLabel(count: number): string {
-  return `${count} item${count == 1 ? "" : "s"}`;
-}
-
-/** An id, an infumap:// link, or a URL of an item on this host, as pasted or typed. */
-export function parseQueryScopeItemInput(text: string): { itemId: Uid } | { error: string } {
-  const trimmed = text.trim();
-  if (isUid(trimmed)) { return { itemId: trimmed }; }
-  const linked = itemIdFromInfumapUrl(trimmed);
-  if (linked != null) { return { itemId: linked }; }
-  try {
-    const url = new URL(trimmed);
-    const id = url.pathname.replace(/^\/+|\/+$/g, "");
-    if ((url.protocol == "http:" || url.protocol == "https:") && isUid(id)) {
-      return url.host == window.location.host ? { itemId: id } : { error: "Items on another Infumap host cannot be in scope." };
-    }
-  } catch (_e) { }
-  return { error: "Choose an item from the list, or paste an item link or id." };
 }
 
 /**

@@ -251,6 +251,9 @@ pub async fn serve_command_route(
     "describe-scope-items" => scope::handle_describe_scope_items(db, &request.json_data, &session_maybe).await,
     "query-profiles" => query_profiles::handle_query_profiles(config, db, &request.json_data, &session_maybe).await,
     "load-chat" => chat::handle_load_chat(db, object_store.clone(), &request.json_data, &session_maybe).await,
+    "prepare-chat-item-attachment" => {
+      chat::handle_prepare_chat_item_attachment(db, object_store.clone(), &request.json_data, &session_maybe).await
+    }
     "load-chat-attachment" => {
       chat::handle_load_chat_attachment(db, object_store.clone(), &request.json_data, &session_maybe).await
     }

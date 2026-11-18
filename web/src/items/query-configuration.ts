@@ -130,6 +130,7 @@ export interface QueryChatSettings {
    * in place of `configuration.scope`, which stays selected for when they are removed. Not part of the
    * configuration, so profiles never carry them. The server omits an empty list.
    */
+  /** Previous item limit retained until the user chooses a collection. */
   scopeItemIds?: Array<Uid>,
   appliedProfile: QueryProfile | null,
   mode: ChatRunMode,

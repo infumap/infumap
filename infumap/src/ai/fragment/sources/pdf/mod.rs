@@ -22,7 +22,7 @@ mod splitting;
 mod types;
 
 use chunking::build_pdf_fragment_inputs;
-use loader::load_pdf_markdown_artifact;
+pub use loader::load_pdf_markdown_artifact;
 
 pub(super) const PDF_FRAGMENT_MIN_CHARS: usize = 500;
 pub(super) const PDF_FRAGMENT_SOFT_LIMIT_CHARS: usize = 1400;

@@ -83,8 +83,8 @@ recent edits (see [Data](data.md)). What the model reads stays in the chat for t
 long chat with many reads can outgrow a small model's context, and then fails with "The conversation is too long for
 the model's context window." To see what the model sees, run the same tools with [`infumap tool`](cli.md#tool).
 
-To point a chat at particular items, [choose them](scopes.md#limiting-a-chat-to-chosen-items). The model then gets
-their content without having to read it first, and its tools are limited to them.
+To give a chat particular items as input, attach them to your message. For example, paste a report's item ID, then
+ask for a summary. Use [Scope](scopes.md#choosing-a-scope) to choose which collection the Infumap tools can search.
 
 ## Prompts
 
@@ -125,6 +125,10 @@ There are several ways to attach text:
 - **Paste it.** A paste of 4,000 characters or more, or 40 lines or more, becomes an attachment named "Pasted text".
   A shorter paste goes into the message as usual. To put an attachment's text into the message after all, use its
   insert-as-text button; × removes it.
+- **Paste an item ID or link** on its own. The composer shows the item as a named attachment. Notes and text files
+  attach their full text. PDFs attach their extracted text when available, and images attach their generated
+  descriptions. A page, table or composite attaches a listing of its direct contents, with nested pages and tables
+  shown as references. An item you cannot read or whose text is unavailable shows an error above the input.
 - **Pick files** with the + button next to the input, or **drop files** from your computer onto the input. Any
   UTF-8 text file can be attached, named by its file name. A Markdown file (`.md`) opens as Markdown.
 - **Drag a text item or a note** from your items onto the input. Its content is attached as it is now; later edits
@@ -133,9 +137,9 @@ There are several ways to attach text:
 You can attach in the chat input, and in New Query when Chat or Deep research is selected. A message can be
 attachments alone, with no text.
 
-Attachments are text only: PDFs, images and other binary files are refused. A message can have up to 10, of up to
-1 MB each. Nothing checks that they fit the model's context; a message too large for it fails like any other, with
-the model's error.
+Attachments contain text. The file picker accepts UTF-8 text files. A message can have up to 10 attachments, of up to
+1 MB each. If the model reports its context limit and the estimated draft plus chat history reaches it, the composer
+shows a warning. The model determines whether the full request fits.
 
 The model gets the whole text of each attachment, before your message, and it stays in what the model sees for the
 rest of the chat. Large attachments use up context in every later turn.

@@ -120,26 +120,12 @@ move or delete. A scope page whose links were all includes can become a collecti
 collection**, since its links are already the members. Its **Exclude** page is not a member and is
 ignored. For an exclusion, make a separate collection of what to hide and choose **Except** beside it.
 
-## Limiting a chat to chosen items
+### Chats with item limits from earlier versions
 
-A chat or deep research can be limited to particular items without defining a scope. With Infumap tools on, click **+**
-beside the **Scope** control, then search titles or paste an item's link or id. The items are shown above the input,
-after **Search limited to**. Up to 32 can be chosen, from this Infumap host only. Profiles don't save them.
-
-Chosen items are used in place of the selected scope, which applies again once they are removed: with × on each, or
-**Clear** in the scope picker. Search and reading are limited to each item and everything inside it. Choosing a link
-means choosing the item it points to. A chosen item that no longer exists is left out, and if none remain the chat
-can't send until you change them.
-
-The model is also given each chosen item's content, with the message of the first turn in which the item is in scope:
-
-- A note is its whole text, and a file or image is the whole of the text extracted from it.
-- A page or table is its listing, plus the whole text of each note the listing cuts short and each file or image in it.
-  Pages and tables inside it are listed but not read. The model can read those with its tools.
-- An item with more than 1 MB of this content isn't included. The model is told to read it with its tools instead.
-
-This content stays in what the model sees for the rest of the chat, so large items use up context in every later turn.
-A later edit to an item isn't seen unless the model reads it again.
+If an earlier chat used **Search limited to** with individual items, open **Scope** to see its previous items and
+choose a collection before sending with Infumap tools enabled. You can also continue with Infumap tools off and
+choose a collection later. Previously attached content stays in the conversation. To include a specific item in a new
+message, paste its ID or link into the chat input. See [Attaching text](chats.md#attaching-text).
 
 ## What a scope does not do
 

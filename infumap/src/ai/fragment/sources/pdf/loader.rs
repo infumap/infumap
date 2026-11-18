@@ -10,11 +10,7 @@ use super::super::read_json_if_exists;
 
 const MARKDOWN_CONTENT_MIME_TYPE: &str = "text/markdown";
 
-pub(super) async fn load_pdf_markdown_artifact(
-  data_dir: &str,
-  user_id: &str,
-  item_id: &str,
-) -> InfuResult<Option<String>> {
+pub async fn load_pdf_markdown_artifact(data_dir: &str, user_id: &str, item_id: &str) -> InfuResult<Option<String>> {
   let Some(manifest) = load_pdf_text_manifest(data_dir, user_id, item_id).await? else {
     return Ok(None);
   };

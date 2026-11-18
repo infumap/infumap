@@ -5,7 +5,7 @@ import type { Uid } from "../util/uid";
 import type { ChatModelSelection, QueryConfiguration, ScopeRef } from "./query-configuration";
 import { queryModelRouteLabel, queryProviderLabel } from "./query-configuration-labels";
 import {
-  queryCollectionsError, queryCollectionsLoading, queryScopeCollection, queryScopeEmptyText, queryScopeItemResolved,
+  queryCollectionsError, queryCollectionsLoading, queryScopeCollection, queryScopeEmptyText,
   queryScopeName, queryScopeUnavailableText, refreshQueryCollections,
 } from "./query-scope";
 
@@ -67,10 +67,9 @@ function queryScopeIssues(scope: ScopeRef): ResourceIssue[] {
   return empty == null ? [] : [{ resource: "scope", status: "warning", subject: queryScopeName(scope), message: empty }];
 }
 
-/**
- * Reports facts from discovery without substituting or deleting any saved resource. In a chat, items chosen as its
- * scope replace the selected scope, so that scope's issues are inactive while there are any. Search ignores them.
- */
+export const RETIRED_CHAT_SCOPE_MESSAGE = "This chat used an item limit. Choose a collection in Scope or turn off Infumap tools to continue.";
+
+/** Reports availability without substituting a saved resource. */
 export function queryConfigurationIssues(
   store: StoreContextModel,
   configuration: QueryConfiguration,
@@ -81,16 +80,8 @@ export function queryConfigurationIssues(
   const scopeActive = mode == "search" || (configuration.capabilities.includes("infumap_data") && scopeItemIds.length == 0);
   issues.push(...queryScopeIssues(configuration.scope).map(issue => ({ ...issue, active: scopeActive })));
   if (mode == "chat" && scopeItemIds.length > 0) {
-    // The server leaves out items that do not resolve, and refuses a chat whose items all fail to.
-    const missing = scopeItemIds.filter(id => !queryScopeItemResolved(id)).length;
-    const active = configuration.capabilities.includes("infumap_data");
-    if (missing == scopeItemIds.length) {
-      issues.push({ resource: "scope", status: "unavailable", active, subject: "Scope items",
-        message: "None of the items in scope exist any more. Remove them or add others." });
-    } else if (missing > 0) {
-      issues.push({ resource: "scope", status: "warning", active, subject: "Scope items",
-        message: `${missing} of the items in scope no longer ${missing == 1 ? "exists" : "exist"} and will be left out.` });
-    }
+    issues.push({ resource: "scope", status: "unavailable", active: configuration.capabilities.includes("infumap_data"),
+      subject: "Previous item limit", message: RETIRED_CHAT_SCOPE_MESSAGE });
   }
   issues.push(...queryModelIssues(store, configuration.model).map(issue => ({ ...issue, active: mode == "chat" })));
   for (const id of new Set(configuration.capabilities)) {

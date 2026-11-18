@@ -592,6 +592,7 @@ const COMMAND_DESCRIBE_SCOPE_ITEMS = "describe-scope-items";
 const COMMAND_QUERY_PROFILES = "query-profiles";
 const COMMAND_LOAD_CHAT = "load-chat";
 const COMMAND_LOAD_CHAT_ATTACHMENT = "load-chat-attachment";
+const COMMAND_PREPARE_CHAT_ITEM_ATTACHMENT = "prepare-chat-item-attachment";
 const COMMAND_ENSURE_QUERY_ENTRY = "ensure-query-entry";
 const COMMAND_GET_BACKLINKS = "get-backlinks";
 const COMMAND_LINK_TARGET_CANDIDATES = "link-target-candidates";
@@ -651,6 +652,9 @@ function getCommandDescription(command: string, payload: any): { description: st
       break;
     case COMMAND_DESCRIBE_SCOPE_ITEMS:
       description = "Loading scope items";
+      break;
+    case COMMAND_PREPARE_CHAT_ITEM_ATTACHMENT:
+      description = "Reading item for chat attachment";
       break;
     case COMMAND_QUERY_PROFILES:
       description = payload.operation == "list" ? "Loading query profiles" : "Saving query profiles";
@@ -1489,6 +1493,12 @@ export const server = {
   ): Promise<string> => {
     return constructCommandPromise(null, COMMAND_LOAD_CHAT_ATTACHMENT, { ...chat, attachmentId }, null)
       .then((response: { text: string }) => response.text);
+  },
+
+  prepareChatItemAttachment: async (
+    itemId: Uid, expectedUserId: Uid,
+  ): Promise<{ title: string, mimeType: string, text: string } | { error: string }> => {
+    return constructCommandPromise(null, COMMAND_PREPARE_CHAT_ITEM_ATTACHMENT, { itemId, expectedUserId }, null);
   },
 
   /** The user's links and notes that refer to an item they own. Local items only: backlinks are not tracked across servers. */

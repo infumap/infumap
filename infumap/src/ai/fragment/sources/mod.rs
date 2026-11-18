@@ -22,7 +22,7 @@ pub use markdown::{
   build_text_fragment_artifact, is_local_text_copy_item, read_local_text_copy, read_or_create_local_text_copy,
   write_local_text_copy,
 };
-pub use pdf::{build_pdf_fragment_artifact, pdf_fragment_source_for_item};
+pub use pdf::{build_pdf_fragment_artifact, load_pdf_markdown_artifact, pdf_fragment_source_for_item};
 pub use title::{ItemTitleFragment, item_title_fragment_for_item};
 
 fn single_fragment_source(source_kind: FragmentSourceKind, text: String) -> FragmentSource {

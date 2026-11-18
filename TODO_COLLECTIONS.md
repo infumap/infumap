@@ -73,8 +73,8 @@ Not expressible, deliberately:
 - **Several exclusions.** Use one collection whose members are all the subtrees to hide. Members are subtrees, so
   this needs no collection composition.
 
-Items chosen in a chat (up to 32, see `MAX_SCOPE_ITEMS`) are unchanged. While a chat has any, they are used in
-place of its scope reference.
+Chat attachments are independent of retrieval scope. Pasting a standalone item ID or link attaches its readable
+text. A chat that previously used an item limit must choose a collection or turn off Infumap tools to continue.
 
 ## Replacing scope pages
 

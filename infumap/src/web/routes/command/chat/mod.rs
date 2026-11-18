@@ -2157,6 +2157,31 @@ const CHAT_ATTACHMENTS_MAX_COUNT: usize = 10;
 const CHAT_ATTACHMENT_MAX_BYTES: usize = 1024 * 1024;
 const CHAT_ATTACHMENT_TITLE_MAX_CHARS: usize = 200;
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PrepareChatItemAttachmentRequest {
+  item_id: Uid,
+  expected_user_id: Uid,
+}
+
+pub(super) async fn handle_prepare_chat_item_attachment(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  object_store: Arc<object::ObjectStore>,
+  json_data: &str,
+  session_maybe: &Option<Session>,
+) -> InfuResult<Option<String>> {
+  let session = session_maybe.as_ref().ok_or("Session is required to attach an item.")?;
+  let request: PrepareChatItemAttachmentRequest = serde_json::from_str(json_data)?;
+  if request.expected_user_id != session.user_id || !is_uid(&request.item_id) {
+    return Err("Invalid chat item attachment request.".into());
+  }
+  let response = match scope_attachments::draft_item_attachment(db, object_store, session, &request.item_id).await {
+    Ok(attachment) => serde_json::to_string(&attachment)?,
+    Err(message) => serde_json::json!({ "error": message }).to_string(),
+  };
+  Ok(Some(response))
+}
+
 /// Checks the attachments of a chat request, and makes their transcript records. Ids are checked against each other
 /// here, and against the transcript once it is locked.
 fn chat_attachments_from_request(attachments: Vec<ChatAttachmentRequest>) -> Result<Vec<ChatAttachment>, String> {
