@@ -479,6 +479,10 @@ export let MouseActionState = {
     const compositePath = mouseActionState.activeCompositeElementMaybe;
     MouseActionState.setActiveElementPath(compositePath);
     mouseActionState.startActiveElementParent = VeFns.parentPath(compositePath);
+    // Mouse down recorded the composite as the one a member was being taken out of. The whole composite moves
+    // instead, so it must not be cleaned up (deleted or collapsed) as an emptied source on mouse up: once dropped
+    // as an attachment, its parent isn't a container and that cleanup panics.
+    mouseActionState.startCompositeItem = null;
     return true;
   },
 
