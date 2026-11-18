@@ -82,7 +82,8 @@ pub(super) struct TranscriptHeader {
   /// that item's id.
   #[serde(rename = "queryItemId")]
   pub(super) query_item_id: Uid,
-  /// Unix time in milliseconds.
+  /// When the chat started, in Unix milliseconds. The system prompt gives this date on every turn. A chat continued
+  /// from a saved `.chat` item keeps the start of the chat it continues.
   #[serde(rename = "createdAt")]
   pub(super) created_at: i64,
 }
@@ -255,7 +256,6 @@ pub(super) enum ActivityToolCallStatus {
 }
 
 pub(super) struct Transcript {
-  #[allow(dead_code)] // Read only by tests until Continue rewrites the header.
   pub(super) header: TranscriptHeader,
   pub(super) turns: Vec<TranscriptTurn>,
 }

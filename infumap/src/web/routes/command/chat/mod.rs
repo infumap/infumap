@@ -344,6 +344,9 @@ struct ChatRequest {
   /// A query item in the Queries page whose transcript holds the chat.
   #[serde(rename = "queryItemId", default)]
   query_item_id: Option<Uid>,
+  /// When a live chat started, from its transcript, filled in when its turn starts. None for a chat without one.
+  #[serde(skip)]
+  chat_started_at: Option<i64>,
   /// For a new live turn: the transcript revision the client last saw. Existing request IDs recover their turn
   /// before this revision or the submitted settings/text are checked again.
   #[serde(rename = "expectedRevision", default)]
@@ -666,6 +669,8 @@ fn new_chat_request_id() -> String {
 #[derive(Clone)]
 struct ChatProgressReporter {
   request_id: String,
+  /// The query item of a live chat, so the LLM log can compare a turn's requests with the previous turn's.
+  chat_id: Option<Uid>,
   /// Direct output for one-shot streams. Live runs publish through their shared state instead.
   tx: mpsc::Sender<Result<Frame<Bytes>, hyper::Error>>,
   /// Activity collection and subscriber delivery share one ordering lock for a live run.
@@ -676,11 +681,11 @@ impl ChatProgressReporter {
   fn unobserved(request_id: String) -> Self {
     let (tx, rx) = mpsc::channel(1);
     drop(rx);
-    Self { request_id, tx, activity: None }
+    Self { request_id, chat_id: None, tx, activity: None }
   }
 
-  fn for_live_run(request_id: String, activity: Arc<Mutex<runs::RunState>>) -> Self {
-    Self { activity: Some(activity), ..Self::unobserved(request_id) }
+  fn for_live_run(request_id: String, chat_id: Uid, activity: Arc<Mutex<runs::RunState>>) -> Self {
+    Self { chat_id: Some(chat_id), activity: Some(activity), ..Self::unobserved(request_id) }
   }
 
   async fn send(&self, kind: ChatStreamEventKind) {
@@ -770,10 +775,9 @@ impl OpenAiChatMessage {
     Self { reasoning_content: None, ..self.clone() }
   }
 
-  /// Some llama.cpp chat templates only permit a system/developer message at the start. Deep
-  /// research adds private stage instructions later in the conversation, where they are
-  /// semantically new user turns. Keep them as system messages internally so they are omitted
-  /// from persisted chat history, but send them to llama-server with a role its templates accept.
+  /// Some llama.cpp chat templates only permit a system/developer message at the start. Messages the server adds
+  /// later (the web-search reminder, deep research's stage instructions) stay system messages internally, so they
+  /// are told apart from what the user wrote, but are sent to llama-server with a role its templates accept.
   fn for_llama_server(&self, is_first: bool) -> Self {
     let mut message = self.clone();
     if !is_first && message.role.eq_ignore_ascii_case("system") {
@@ -1160,7 +1164,11 @@ pub async fn serve_chat_stream_route(
       }
     };
     (
-      ChatProgressReporter::for_live_run(stream_request_id, turn.activity.clone()),
+      ChatProgressReporter::for_live_run(
+        stream_request_id,
+        request.query_item_id.clone().unwrap(),
+        turn.activity.clone(),
+      ),
       Some(registration),
       chat_stream_response(subscriber),
     )
@@ -1168,7 +1176,7 @@ pub async fn serve_chat_stream_route(
     // Calls without a live transcript retain their connection-scoped lifetime.
     let (tx, rx) = mpsc::channel(16);
     (
-      ChatProgressReporter { request_id: stream_request_id, tx, activity: None },
+      ChatProgressReporter { request_id: stream_request_id, chat_id: None, tx, activity: None },
       None,
       chat_stream_response(ReceiverStream::new(rx)),
     )
@@ -1833,10 +1841,11 @@ async fn continue_persisted_chat(
   let query_item_id = new_uid();
   let mut transcript =
     try_lock_transcript(&data_dir, user_id, &query_item_id).await?.ok_or("The new chat's transcript is locked.")?;
+  // The continued chat is the same conversation, so its system prompt keeps the date it started.
   let header = TranscriptHeader {
     version: TRANSCRIPT_FORMAT_VERSION,
     query_item_id: query_item_id.clone(),
-    created_at: unix_now_millis(),
+    created_at: source.header.created_at,
   };
   transcript.create_copy(header, &source).await?;
   let mut source_ids =
@@ -2412,6 +2421,7 @@ async fn start_live_chat_turn(
     };
     transcript.create(header).await.map_err(transcript_error)?;
   }
+  request.chat_started_at = transcript.transcript().map(|transcript| transcript.header.created_at);
 
   let started_at = unix_now_millis();
   let user =
@@ -2689,7 +2699,7 @@ fn single_chat_stream_event_response(
 ) -> Response<BoxBody<Bytes, hyper::Error>> {
   let (tx, rx) = mpsc::channel::<Result<Frame<Bytes>, hyper::Error>>(1);
   tokio::spawn(async move {
-    let reporter = ChatProgressReporter { request_id, tx, activity: None };
+    let reporter = ChatProgressReporter { request_id, chat_id: None, tx, activity: None };
     reporter.send(event).await;
   });
   chat_stream_response(ReceiverStream::new(rx))
@@ -2742,14 +2752,20 @@ fn message_reasoning_chars(message: &OpenAiChatMessage) -> usize {
   message.reasoning_content.as_deref().map(text_char_count).unwrap_or(0)
 }
 
-fn explicit_wire_messages(messages: &[ChatHistoryMessage]) -> InfuResult<Vec<OpenAiChatMessage>> {
+/// System messages in a live chat's history are ones the server added during earlier turns, and are sent again as they
+/// were (see `chat_history_from_wire_messages`). A chat without a transcript sends its history from the client, and
+/// system messages from the client are ignored.
+fn explicit_wire_messages(
+  messages: &[ChatHistoryMessage],
+  from_transcript: bool,
+) -> InfuResult<Vec<OpenAiChatMessage>> {
   let mut wire_messages = Vec::with_capacity(messages.len());
   for (index, message) in messages.iter().enumerate() {
     let role = message.role.trim().to_lowercase();
-    if role == "system" {
+    if role == "system" && !from_transcript {
       continue;
     }
-    if role != "user" && role != "assistant" && role != "tool" {
+    if role != "system" && role != "user" && role != "assistant" && role != "tool" {
       return Err(format!("Chat history message {} has unsupported role '{}'.", index, message.role).into());
     }
     if role == "tool" && message.tool_call_id.as_deref().unwrap_or("").trim().is_empty() {
@@ -2760,22 +2776,35 @@ fn explicit_wire_messages(messages: &[ChatHistoryMessage]) -> InfuResult<Vec<Ope
   Ok(wire_messages)
 }
 
+/// Everything after the system prompt, which is rebuilt for each turn. System messages the server added during the
+/// turn, such as the web-search reminder, are kept and sent again on later turns exactly as this turn sent them.
+/// Dropping them made every later turn diverge from what the provider had cached at the first one, so the turn's
+/// tool results, usually most of the prompt, were processed again on the next turn.
 fn chat_history_from_wire_messages(messages: &[OpenAiChatMessage]) -> Vec<ChatHistoryMessage> {
-  messages
-    .iter()
-    .filter(|message| !message.role.eq_ignore_ascii_case("system"))
-    .map(ChatHistoryMessage::from_wire)
-    .collect()
+  let start = usize::from(messages.first().is_some_and(|message| message.role.eq_ignore_ascii_case("system")));
+  messages[start..].iter().map(ChatHistoryMessage::from_wire).collect()
 }
 
-fn chat_utc_today_line() -> String {
-  let now = OffsetDateTime::now_utc();
-  format!("Today is {}, {:04}-{:02}-{:02} (UTC).", now.weekday(), now.year(), u8::from(now.month()), now.day())
+/// The date a chat started, not today's. The system prompt is the start of every request, so a date that moved on
+/// would rewrite the whole prompt on the first turn of each new day and the provider's prompt cache would no longer
+/// match any of it. A chat continued days later is therefore told when it started, not what day it is now.
+fn chat_start_date_line(started_at_ms: Option<i64>) -> String {
+  let date = started_at_ms
+    .and_then(|ms| OffsetDateTime::from_unix_timestamp_nanos(i128::from(ms) * 1_000_000).ok())
+    .unwrap_or_else(OffsetDateTime::now_utc);
+  format!(
+    "This chat started on {}, {:04}-{:02}-{:02} (UTC).",
+    date.weekday(),
+    date.year(),
+    u8::from(date.month()),
+    date.day()
+  )
 }
 
 /// The database is read for the titles of items chosen as the scope.
 fn chat_system_prompt(
   db: &Db,
+  chat_started_at: Option<i64>,
   infumap_data: Option<&InfumapData>,
   has_plugin_tools: bool,
   mode: ChatRunMode,
@@ -2823,7 +2852,7 @@ fn chat_system_prompt(
     parts.push(CHAT_DEEP_RESEARCH_SYSTEM_PROMPT);
   }
   parts.push(CHAT_SYSTEM_PROMPT_CLOSING);
-  format!("{}\n\n{}", chat_utc_today_line(), parts.join("\n\n"))
+  format!("{}\n\n{}", chat_start_date_line(chat_started_at), parts.join("\n\n"))
 }
 
 fn chat_failure_message(message: &str) -> String {
@@ -2948,41 +2977,84 @@ fn append_llm_json_log_section<T: Serialize>(title: &str, value: &T) {
   append_llm_log_section(title, &body);
 }
 
-/// The messages of the last logged request, by request id, so the next request in the same run can log only what
-/// changed. Concurrent runs replace each other's entry, which only costs a full log.
-/// Request id, LLM turn, and the messages as sent.
-type LoggedLlmMessages = (String, usize, Vec<Value>);
+/// The last logged request of a chat, so the next request can be compared with it: within a run, to log only what
+/// changed; on the next turn, to say whether the provider's prompt cache still covers the earlier prompt. Keyed by
+/// the chat's query item, or by the request for a chat without one. Only the most recently logged chats are kept;
+/// a chat that dropped out is logged in full without a comparison.
+const LOGGED_LLM_REQUEST_CHATS: usize = 16;
 
-fn last_logged_llm_messages() -> &'static Mutex<Option<LoggedLlmMessages>> {
-  static LAST: OnceLock<Mutex<Option<LoggedLlmMessages>>> = OnceLock::new();
-  LAST.get_or_init(|| Mutex::new(None))
+struct LoggedLlmRequest {
+  chat_id: String,
+  request_id: String,
+  llm_turn: usize,
+  messages: Vec<Value>,
+  tools: Value,
+}
+
+fn last_logged_llm_requests() -> &'static Mutex<Vec<LoggedLlmRequest>> {
+  static LAST: OnceLock<Mutex<Vec<LoggedLlmRequest>>> = OnceLock::new();
+  LAST.get_or_init(|| Mutex::new(Vec::new()))
 }
 
 /// The request as logged. Tool schemas are the same every round and rarely worth reading, so only their names are
-/// kept. Messages already logged unchanged by the previous request of the same run are replaced by a marker; if an
-/// earlier message differs, the marker says so, since the prompt was rewritten and the provider's cache stops there.
-fn llm_request_log_value(payload: &OpenAiChatCompletionRequest, request_id: &str, llm_turn: usize) -> Value {
+/// kept, with a note if they changed. Within a run, messages already logged unchanged by the previous request are
+/// replaced by a marker. The first request of a run is logged in full, since the log starts over for each run, with
+/// a `cache` note comparing it with the last request of the chat's previous turn. Either way, if an earlier message
+/// differs, the log says so: the prompt was rewritten and the provider's cache stops there.
+fn llm_request_log_value(
+  payload: &OpenAiChatCompletionRequest,
+  chat_id: &str,
+  request_id: &str,
+  llm_turn: usize,
+) -> Value {
   let mut value = serde_json::to_value(payload).unwrap_or(Value::Null);
-  if let Some(tools) = value.get_mut("tools") {
+  let tools = value.get("tools").cloned().unwrap_or(Value::Null);
+  if let Some(logged_tools) = value.get_mut("tools") {
     let names = payload.tools.iter().map(|tool| tool.function.name.as_str()).collect::<Vec<_>>();
-    *tools = Value::String(format!("<omitted: {}>", names.join(", ")));
+    *logged_tools = Value::String(format!("<omitted: {}>", names.join(", ")));
   }
   let messages = value.get("messages").and_then(Value::as_array).cloned().unwrap_or_default();
-  let mut last = last_logged_llm_messages().lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-  if let Some((_, last_turn, last_messages)) = last.as_ref().filter(|(id, _, _)| id == request_id) {
-    let same = messages.iter().zip(last_messages).take_while(|(message, last)| message == last).count();
+  let mut logged = last_logged_llm_requests().lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+  let previous = logged.iter().position(|previous| previous.chat_id == chat_id).map(|index| logged.remove(index));
+  if let Some(previous) = previous {
+    let same = messages.iter().zip(&previous.messages).take_while(|(message, last)| message == last).count();
+    let same_run = previous.request_id == request_id;
+    let since =
+      if same_run { format!("request {}", previous.llm_turn) } else { "the previous turn's last request".to_owned() };
+    let rewritten = same < previous.messages.len();
+    let tools_changed = previous.tools != tools;
+    let mut notes = vec![];
     if same > 0 {
-      let unchanged = format!("messages 0–{} unchanged since request {last_turn}", same - 1);
-      let marker = if same < last_messages.len() {
-        format!("<{unchanged}; message {same} onwards differs, so the prompt was rewritten and the cache stops here>")
-      } else {
-        format!("<{unchanged}>")
-      };
-      let logged = std::iter::once(Value::String(marker)).chain(messages[same..].iter().cloned()).collect();
-      value["messages"] = Value::Array(logged);
+      notes.push(format!("messages 0–{} unchanged since {since}", same - 1));
+    }
+    if tools_changed {
+      notes.push(format!(
+        "tool definitions differ from {since}; most templates put them before the messages, so the cache stops at the start"
+      ));
+    }
+    if rewritten {
+      notes.push(format!("message {same} onwards differs, so the prompt was rewritten and the cache stops here"));
+    } else if !same_run && !tools_changed {
+      notes.push(format!("this request extends {since}, so a cache still holding that request covers all of it"));
+    }
+    let note = notes.join("; ");
+    if same_run && same > 0 {
+      let marker = std::iter::once(Value::String(format!("<{note}>")));
+      value["messages"] = Value::Array(marker.chain(messages[same..].iter().cloned()).collect());
+    } else if !notes.is_empty() {
+      value["cache"] = Value::String(note);
     }
   }
-  *last = Some((request_id.to_owned(), llm_turn, messages));
+  if logged.len() >= LOGGED_LLM_REQUEST_CHATS {
+    logged.remove(0);
+  }
+  logged.push(LoggedLlmRequest {
+    chat_id: chat_id.to_owned(),
+    request_id: request_id.to_owned(),
+    llm_turn,
+    messages,
+    tools,
+  });
   value
 }
 
@@ -3485,7 +3557,7 @@ async fn run_chat_with_tools(
   reset_llm_log();
 
   let ChatResources { endpoint, infumap_data, mcp_tools, name_map, approval_required } = resources;
-  let mut messages = explicit_wire_messages(&request.messages)?;
+  let mut messages = explicit_wire_messages(&request.messages, request.query_item_id.is_some())?;
   if messages.is_empty() {
     return Err("Chat request did not contain any message text.".into());
   }
@@ -3494,7 +3566,13 @@ async fn run_chat_with_tools(
     0,
     OpenAiChatMessage::text(
       "system",
-      chat_system_prompt(&*db.lock().await, infumap_data.as_ref(), !mcp_tools.is_empty(), request.settings.mode),
+      chat_system_prompt(
+        &*db.lock().await,
+        request.chat_started_at,
+        infumap_data.as_ref(),
+        !mcp_tools.is_empty(),
+        request.settings.mode,
+      ),
     ),
   );
   let tools = chat_tool_specs(uses_infumap_data, &mcp_tools);
@@ -4358,7 +4436,8 @@ async fn chat_completion(
   };
   if *LLM_LOG_ENABLED {
     append_llm_request_metrics_log(llm_turn, messages, tools);
-    let logged_request = llm_request_log_value(&payload, &progress.request_id, llm_turn);
+    let chat_id = progress.chat_id.as_deref().unwrap_or(&progress.request_id);
+    let logged_request = llm_request_log_value(&payload, chat_id, &progress.request_id, llm_turn);
     append_llm_json_log_section(&format!("LLM REQUEST {}", llm_turn), &logged_request);
   }
   progress.context_tokens(approx_request_tokens(messages, tools), false).await;
@@ -4689,35 +4768,69 @@ mod tests {
     assert_eq!(result, expected);
   }
 
-  #[test]
-  fn logged_requests_show_only_new_messages_and_flag_rewrites() {
-    let request = |texts: &[&str]| OpenAiChatCompletionRequest {
+  fn log_request(texts: &[&str], tools: Vec<OpenAiToolSpec>) -> OpenAiChatCompletionRequest {
+    OpenAiChatCompletionRequest {
       model: "m".to_owned(),
       messages: texts.iter().map(|text| OpenAiChatMessage::text("user", (*text).to_owned())).collect(),
       stream: true,
       stream_options: None,
-      tools: vec![get_fragment_tool_spec()],
+      tools,
       reasoning: None,
       reasoning_effort: None,
-    };
-    let run = new_uid();
-    let first = llm_request_log_value(&request(&["a", "b"]), &run, 1);
+    }
+  }
+
+  #[test]
+  fn logged_requests_show_only_new_messages_and_flag_rewrites() {
+    let request = |texts: &[&str]| log_request(texts, vec![get_fragment_tool_spec()]);
+    let (chat, run) = (new_uid(), new_uid());
+    let first = llm_request_log_value(&request(&["a", "b"]), &chat, &run, 1);
     assert_eq!(first["messages"].as_array().unwrap().len(), 2, "the first request is logged in full");
     assert_eq!(first["tools"], "<omitted: infumap_get_fragment>");
+    assert!(first.get("cache").is_none());
 
-    let grown = llm_request_log_value(&request(&["a", "b", "c"]), &run, 2);
+    let grown = llm_request_log_value(&request(&["a", "b", "c"]), &chat, &run, 2);
     assert_eq!(grown["messages"][0], "<messages 0–1 unchanged since request 1>");
     assert_eq!(grown["messages"][1]["content"], "c");
 
-    let rewritten = llm_request_log_value(&request(&["a", "x", "c", "d"]), &run, 3);
+    let rewritten = llm_request_log_value(&request(&["a", "x", "c", "d"]), &chat, &run, 3);
     assert_eq!(
       rewritten["messages"][0],
       "<messages 0–0 unchanged since request 2; message 1 onwards differs, so the prompt was rewritten and the cache stops here>"
     );
     assert_eq!(rewritten["messages"].as_array().unwrap().len(), 4);
 
-    let other_run = llm_request_log_value(&request(&["a", "x", "c", "d", "e"]), &new_uid(), 1);
-    assert_eq!(other_run["messages"].as_array().unwrap().len(), 5, "another run starts in full");
+    let other_chat = llm_request_log_value(&request(&["a", "x", "c", "d", "e"]), &new_uid(), &new_uid(), 1);
+    assert_eq!(other_chat["messages"].as_array().unwrap().len(), 5, "another chat starts in full");
+    assert!(other_chat.get("cache").is_none());
+  }
+
+  #[test]
+  fn a_turns_first_request_is_logged_in_full_and_compared_with_the_previous_turn() {
+    let request = |texts: &[&str]| log_request(texts, vec![get_fragment_tool_spec()]);
+    let chat = new_uid();
+    llm_request_log_value(&request(&["s", "q1"]), &chat, "r1", 1);
+    llm_request_log_value(&request(&["s", "q1", "a1"]), &chat, "r1", 2);
+
+    let extends = llm_request_log_value(&request(&["s", "q1", "a1", "a2", "q2"]), &chat, "r2", 1);
+    assert_eq!(extends["messages"].as_array().unwrap().len(), 5, "a new run is logged in full");
+    assert_eq!(
+      extends["cache"],
+      "messages 0–2 unchanged since the previous turn's last request; this request extends the previous turn's last \
+       request, so a cache still holding that request covers all of it"
+    );
+
+    let rewritten = llm_request_log_value(&request(&["s2", "q1", "a1", "a2", "q2", "a3", "q3"]), &chat, "r3", 1);
+    assert_eq!(rewritten["messages"].as_array().unwrap().len(), 7);
+    assert_eq!(rewritten["cache"], "message 0 onwards differs, so the prompt was rewritten and the cache stops here");
+
+    let other_tools = log_request(&["s2", "q1", "a1", "a2", "q2", "a3", "q3", "a4", "q4"], vec![search_tool_spec()]);
+    let retooled = llm_request_log_value(&other_tools, &chat, "r4", 1);
+    assert_eq!(
+      retooled["cache"],
+      "messages 0–6 unchanged since the previous turn's last request; tool definitions differ from the previous turn's \
+       last request; most templates put them before the messages, so the cache stops at the start"
+    );
   }
 
   #[test]
@@ -4762,9 +4875,9 @@ mod tests {
     let f = fixture().await;
     let (scoped, unscoped) = (f.infumap_data(true).await, f.infumap_data(false).await);
     let db = f.db.lock().await;
-    let scoped = chat_system_prompt(&db, Some(&scoped), false, ChatRunMode::Chat);
+    let scoped = chat_system_prompt(&db, None, Some(&scoped), false, ChatRunMode::Chat);
     assert!(scoped.contains("only see the collection \"Work\""));
-    let unscoped = chat_system_prompt(&db, Some(&unscoped), false, ChatRunMode::DeepResearch);
+    let unscoped = chat_system_prompt(&db, None, Some(&unscoped), false, ChatRunMode::DeepResearch);
     assert!(!unscoped.contains("only see the collection"));
     assert!(!unscoped.contains("limited the Infumap tools"));
   }
@@ -4774,7 +4887,7 @@ mod tests {
     let f = fixture().await;
     let db = f.db.lock().await;
     let scope = resolve_item_scope(&db, &f.session.user_id, &[f.x.clone(), f.link_to_b.clone()]).unwrap();
-    let prompt = chat_system_prompt(&db, Some(&InfumapData { scope: Some(scope) }), false, ChatRunMode::Chat);
+    let prompt = chat_system_prompt(&db, None, Some(&InfumapData { scope: Some(scope) }), false, ChatRunMode::Chat);
     let b = db.item.get(&f.link_to_b).unwrap().link_to.clone().unwrap();
     assert!(
       prompt.contains(&format!(
@@ -5196,7 +5309,8 @@ mod live_chat_tests {
     let mut request = request(&f.query_item_id, 0, "q1");
     let mut turn = f.start(&mut request, "r1").await.ok().unwrap();
     let (tx, _rx) = mpsc::channel(16);
-    let progress = ChatProgressReporter { request_id: "r1".to_owned(), tx, activity: Some(turn.activity.clone()) };
+    let progress =
+      ChatProgressReporter { request_id: "r1".to_owned(), chat_id: None, tx, activity: Some(turn.activity.clone()) };
     progress.model_round_started(1).await;
     progress.reasoning_delta(1, "thinking".to_owned()).await;
     progress.tool_call_started(1, "c1", "search", serde_json::json!({ "text": "x" })).await;
@@ -5514,5 +5628,120 @@ mod live_chat_tests {
     let transcript = f.transcript().await;
     assert_eq!(transcript.turn_status(0, false), transcript::TurnStatus::Error);
     assert!(transcript.history().is_empty());
+  }
+
+  /// Records each request body and answers it with "answer N" in a stream, as llama-server does.
+  async fn fake_model_server() -> (reqwest::Url, Arc<Mutex<Vec<Value>>>) {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = reqwest::Url::parse(&format!("http://{}/v1/chat/completions", listener.local_addr().unwrap())).unwrap();
+    let bodies = Arc::new(Mutex::new(Vec::new()));
+    let recorded = bodies.clone();
+    tokio::spawn(async move {
+      while let Ok((mut socket, _)) = listener.accept().await {
+        let recorded = recorded.clone();
+        tokio::spawn(async move {
+          let mut buffer = Vec::new();
+          let mut chunk = [0u8; 8192];
+          let header_end = loop {
+            let read = socket.read(&mut chunk).await.unwrap();
+            if read == 0 {
+              return;
+            }
+            buffer.extend_from_slice(&chunk[..read]);
+            if let Some(index) = buffer.windows(4).position(|window| window == b"\r\n\r\n") {
+              break index + 4;
+            }
+          };
+          let headers = String::from_utf8_lossy(&buffer[..header_end]).to_lowercase();
+          let length = headers
+            .lines()
+            .find_map(|line| line.strip_prefix("content-length:"))
+            .map_or(0, |value| value.trim().parse::<usize>().unwrap());
+          while buffer.len() < header_end + length {
+            let read = socket.read(&mut chunk).await.unwrap();
+            if read == 0 {
+              break;
+            }
+            buffer.extend_from_slice(&chunk[..read]);
+          }
+          let body: Value = serde_json::from_slice(&buffer[header_end..header_end + length]).unwrap();
+          let answer = {
+            let mut recorded = recorded.lock().unwrap();
+            recorded.push(body);
+            format!("answer {}", recorded.len())
+          };
+          let content = serde_json::json!({ "choices": [{ "index": 0, "delta": { "content": answer } }] });
+          let stop = serde_json::json!({ "choices": [{ "index": 0, "delta": {}, "finish_reason": "stop" }] });
+          let response = format!(
+            "HTTP/1.1 200 OK\r\ncontent-type: text/event-stream\r\nconnection: close\r\n\r\n\
+             data: {content}\n\ndata: {stop}\n\ndata: [DONE]\n\n"
+          );
+          socket.write_all(response.as_bytes()).await.unwrap();
+          socket.shutdown().await.ok();
+        });
+      }
+    });
+    (url, bodies)
+  }
+
+  /// Every request a chat sends must start with everything the request before it sent, across turns too, or the
+  /// provider's prompt cache stops matching and the history is processed again. Deep research is used because it adds
+  /// system messages part-way through a turn, which later turns must send again.
+  #[tokio::test]
+  async fn every_request_extends_the_one_before_it_across_turns() {
+    let f = fixture().await;
+    let (url, bodies) = fake_model_server().await;
+    for (revision, text) in ["q1", "q2"].into_iter().enumerate() {
+      let mut request = request(&f.query_item_id, revision, text);
+      request.settings.mode = ChatRunMode::DeepResearch;
+      let request_id = format!("r-{text}");
+      let mut turn = f.start(&mut request, &request_id).await.ok().unwrap();
+      let resources = ChatResources {
+        endpoint: ChatEndpoint {
+          adapter: ChatAdapter::LlamaCpp,
+          label: "test".to_owned(),
+          url: url.clone(),
+          api_key: None,
+          model: "m".to_owned(),
+          reasoning: ChatReasoning::ModelDefault,
+          connect_timeout: Duration::from_secs(5),
+          read_timeout: Duration::from_secs(5),
+        },
+        infumap_data: None,
+        mcp_tools: vec![],
+        name_map: HashMap::new(),
+        approval_required: HashSet::new(),
+      };
+      let progress = ChatProgressReporter::for_live_run(request_id, f.query_item_id.clone(), turn.activity.clone());
+      let result =
+        run_chat_with_tools(Arc::new(Config::default()), &f.db, &f.session, &request, resources, &progress).await;
+      turn.end_completed(result.unwrap()).await.ok().unwrap();
+    }
+
+    let bodies = bodies.lock().unwrap().clone();
+    assert_eq!(bodies.len(), 6, "research, review and report requests in each turn");
+    for pair in bodies.windows(2) {
+      let earlier = pair[0]["messages"].as_array().unwrap();
+      let later = pair[1]["messages"].as_array().unwrap();
+      assert!(
+        later.len() > earlier.len() && later[..earlier.len()] == earlier[..],
+        "{later:#?}\ndoes not extend\n{earlier:#?}"
+      );
+      assert_eq!(pair[0].get("tools"), pair[1].get("tools"));
+    }
+    let second_turn = bodies[3]["messages"].as_array().unwrap();
+    assert_eq!(second_turn.last().unwrap()["content"], "q2");
+    let stage_prompts = second_turn.iter().filter(|message| {
+      let content = message["content"].as_str().unwrap_or_default();
+      content == CHAT_DEEP_RESEARCH_REVIEW_PROMPT || content == CHAT_DEEP_RESEARCH_FINAL_PROMPT
+    });
+    assert_eq!(stage_prompts.count(), 2, "the first turn's stage instructions are sent again");
+  }
+
+  #[test]
+  fn the_system_prompt_gives_the_date_the_chat_started() {
+    assert_eq!(chat_start_date_line(Some(0)), "This chat started on Thursday, 1970-01-01 (UTC).");
+    assert_eq!(chat_start_date_line(Some(1_779_148_800_000)), "This chat started on Tuesday, 2026-05-19 (UTC).");
   }
 }

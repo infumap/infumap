@@ -1,6 +1,7 @@
 # Chat: fixed setup, cache-stable prompts, transcript redesign
 
-Design direction from discussion (2026-11-18), not yet implemented, except "Optional profiles" (done, 035a76c6).
+Design direction from discussion (2026-11-18). Done: "Optional profiles" (035a76c6) and step 1 of "Suggested order"
+(cache fixes that don't depend on the redesign).
 Back/forward compatibility of transcripts and saved `.chat` items is **not** a constraint: aim for the ideal design.
 
 ## Goals
@@ -262,8 +263,11 @@ One action, "start a chat with this attached", available from any item's toolbar
 
 ## Suggested order
 
-1. Cache fixes that don't depend on the redesign: system prompt fixed at the first turn with the start date; keep
-   system messages added during a turn in history. Add the cross-turn prefix test.
+1. **Done.** Cache fixes that don't depend on the redesign: the system prompt dates from the chat's start (header
+   `createdAt`; a continued chat keeps its source's); system messages added during a turn are kept in history and
+   sent again; the LLM log compares a turn's first request with the previous turn's last (messages and tool
+   definitions); `every_request_extends_the_one_before_it_across_turns` runs two deep-research turns against a fake
+   model server and checks each request extends the one before.
 2. Deep research out of chat: research runs in the Queries list, run log, run view, Keep / Chat about this report /
    Run again, background jobs; the current pipeline as the first strategy. Removes the mode from chat. `ask_user`
    after that, once the pause plumbing is shared.

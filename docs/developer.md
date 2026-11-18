@@ -177,3 +177,7 @@ This will start a vite development server listening on port `3000`, serving the 
 Set `INFUMAP_LLM_LOG=1` before starting the server to write each chat run's requests, responses and full tool results
 to `/tmp/llm.txt`. The file starts over for every message sent. The run's first request holds the whole conversation;
 later requests show messages already logged as `<messages 0–N unchanged since request K>`.
+
+Each request should extend the one before it, including the previous turn's last request, so the provider's prompt
+cache keeps matching. The log says when one doesn't: the marker, or for a turn's first request a `cache` field, notes
+when an earlier message or the tool definitions changed, which is where the cache stops.
