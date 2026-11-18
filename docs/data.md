@@ -28,6 +28,11 @@ All of these are derived from the items and their original files, and are regene
 - They are stored as plain text, not encrypted like objects.
 - Each file is JSON Lines: a header, then a record for each message sent and for how its response ended, with the model's messages and the turn's activity. It is appended to and synced as a chat runs.
 
+`chats/<query_item_id>.run` holds a deep research run instead, with the same storage caveats. It is JSON Lines too: a
+header with the question, its attachments and setup, then each message the first time the model is sent it, each tool
+set once, each request to the model (recorded before it is sent) with its other fields, each response, the stages as
+they start, and the end with the report. Together they give the exact body of every request the run made.
+
 Search fragments for these chats are generated locally from their transcripts, without uploading objects. They
 contain user messages and completed assistant answers, excluding reasoning and tool exchanges. They are refreshed
 after completed turns and checked against the transcript at startup. Saved `.chat` items use the same visible-text

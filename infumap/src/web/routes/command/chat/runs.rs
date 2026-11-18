@@ -93,25 +93,25 @@ pub(super) enum RunCancellation {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct RunSnapshot {
-  revision: usize,
+  pub(super) revision: usize,
   /// The initial snapshot can arrive before, or replace, the turn-accepted event.
   #[serde(skip_serializing_if = "Vec::is_empty")]
-  resolved_attachments: Vec<LoadChatAttachment>,
-  started_at: i64,
-  ended_at: Option<i64>,
+  pub(super) resolved_attachments: Vec<LoadChatAttachment>,
+  pub(super) started_at: i64,
+  pub(super) ended_at: Option<i64>,
   #[serde(flatten)]
-  activity: ActivitySnapshot,
+  pub(super) activity: ActivitySnapshot,
   /// These call IDs, rather than historical activity statuses, determine which approval controls are active.
-  pending_approvals: Vec<String>,
-  cancellation_requested: bool,
-  error_message: Option<String>,
-  result: Option<RunResult>,
+  pub(super) pending_approvals: Vec<String>,
+  pub(super) cancellation_requested: bool,
+  pub(super) error_message: Option<String>,
+  pub(super) result: Option<RunResult>,
 }
 
 #[derive(Serialize)]
-struct RunResult {
-  text: String,
-  items: Value,
+pub(super) struct RunResult {
+  pub(super) text: String,
+  pub(super) items: Value,
 }
 
 impl RunSnapshot {
@@ -172,6 +172,8 @@ pub(super) struct RunState {
   subscribers: HashMap<u64, mpsc::Sender<StreamFrame>>,
   next_subscriber_id: u64,
   detached_since: Option<Instant>,
+  /// A chat turn stops after a while without a viewer. A research run is a background job and does not.
+  cancel_when_detached: bool,
   cancellation: Option<RunCancellation>,
   changed: Arc<Notify>,
 }
@@ -187,9 +189,14 @@ impl RunState {
       subscribers: HashMap::new(),
       next_subscriber_id: 0,
       detached_since: Some(Instant::now()),
+      cancel_when_detached: true,
       cancellation: None,
       changed: Arc::new(Notify::new()),
     }
+  }
+
+  pub(super) fn without_detach_timeout(self) -> Self {
+    Self { cancel_when_detached: false, ..self }
   }
 
   pub(super) fn apply(&mut self, event: &ChatStreamEventKind) {
@@ -320,7 +327,7 @@ impl ChatRun {
         if let Some(reason) = state.cancellation {
           return reason;
         }
-        state.detached_since.map(|since| since + DETACH_GRACE)
+        state.detached_since.filter(|_| state.cancel_when_detached).map(|since| since + DETACH_GRACE)
       };
       match deadline {
         Some(deadline) => {

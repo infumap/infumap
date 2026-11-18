@@ -617,6 +617,32 @@ pub(super) async fn set_item_title_if_unchanged(
   Ok(title.to_owned())
 }
 
+/// Sets flag bits on an item the user owns, and tells clients, as for a client's update.
+pub(super) async fn set_item_flags(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  user_id: &Uid,
+  item_id: &Uid,
+  flags: i64,
+) -> InfuResult<()> {
+  let mut db = db.lock().await;
+  let mut item = db.item.get(item_id)?.clone();
+  if &item.owner_id != user_id {
+    return Err(format!("User '{}' does not own item '{}'.", user_id, item_id).into());
+  }
+  let current = item.flags.unwrap_or(0);
+  if current & flags == flags {
+    return Ok(());
+  }
+  item.flags = Some(current | flags);
+  db.item.update(&item).await?;
+  let mut deltas_by_container = HashMap::new();
+  if let Some(container_id) = maybe_container_id_for_child_item(&item) {
+    merge_container_delta(&mut deltas_by_container, &container_id, build_child_upsert_delta(&db, &item)?);
+  }
+  flush_container_sync_changes(&mut db, user_id, deltas_by_container, HashSet::new());
+  Ok(())
+}
+
 /// An update requested by a client.
 pub(super) async fn handle_update_item(
   db: &Arc<tokio::sync::Mutex<Db>>,

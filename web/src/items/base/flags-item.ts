@@ -111,6 +111,8 @@ export enum CompositeFlags {
 
 export enum SearchFlags {
   None = 0x000,
+  // A query item in the Queries page holding a deep research run rather than a chat. Set by the server.
+  ResearchRun = 0x001,
 }
 
 export enum PageFlags {

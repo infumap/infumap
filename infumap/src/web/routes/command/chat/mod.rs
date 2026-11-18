@@ -223,6 +223,7 @@ pub(crate) mod configuration;
 mod container_fragments;
 mod markdown;
 mod mcp;
+mod research;
 mod runs;
 mod scope_attachments;
 mod search_results;
@@ -235,6 +236,7 @@ pub(super) use container_fragments::{
 };
 use markdown::chat_response_items_json;
 pub(crate) use mcp::chat_tool_servers_from_config;
+pub use research::{serve_research_load_route, serve_research_start_route};
 use transcript::{
   ActivityRound, ChatAttachment, ChatSetup, ContextTokenCount, LockedTranscript, TRANSCRIPT_FORMAT_VERSION, Transcript,
   TranscriptHeader, TurnOutcome, TurnRecord, TurnStatus, UserRecord, chat_is_locked, read_transcript,
@@ -877,6 +879,9 @@ struct OpenAiChatCompletionRequest {
   reasoning: Option<OpenAiReasoning>,
   #[serde(skip_serializing_if = "Option::is_none")]
   reasoning_effort: Option<&'static str>,
+  /// "none" keeps the tool definitions in the prompt, so the provider's cache still matches, while asking for no calls.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  tool_choice: Option<&'static str>,
 }
 
 /// OpenRouter's unified reasoning control.
@@ -1108,6 +1113,19 @@ pub async fn serve_chat_stream_route(
     }
     // Read without the chat lock: the header never changes once written, and a chat started meanwhile in another
     // tab is caught by the revision check when the turn starts.
+    match research::read_run(&data_dir, &session.user_id, query_item_id).await {
+      Ok(None) => {}
+      Ok(Some(_)) => {
+        return single_chat_stream_event_response(
+          stream_request_id,
+          ChatStreamEventKind::error("This query is a research run, which can't be continued."),
+        );
+      }
+      Err(e) => {
+        warn!("Could not read the research run '{}' for user '{}': {}", query_item_id, session.user_id, e);
+        return chat_tool_error_response(hyper::StatusCode::INTERNAL_SERVER_ERROR, "Could not read the chat.");
+      }
+    }
     fixed_setup = match transcript::read_transcript(&data_dir, &session.user_id, query_item_id).await {
       Ok(transcript) => transcript.and_then(|transcript| transcript.header.setup),
       Err(e) => {
@@ -1412,6 +1430,18 @@ fn chat_busy_response() -> Response<BoxBody<Bytes, hyper::Error>> {
 }
 
 async fn recover_chat_run(data_dir: &str, user_id: &Uid, request: &ChatRunControlRequest) -> InfuResult<SavedChatRun> {
+  // A research run's worker holds the chat lock from before its log exists until after its end is saved.
+  if let Some(run) = research::read_run(data_dir, user_id, &request.query_item_id).await? {
+    if run.header.request_id != request.request_id {
+      return Ok(SavedChatRun::Missing);
+    }
+    let running =
+      runs::find(user_id, &request.query_item_id, &request.request_id).is_some_and(|run| !run.is_finished());
+    if running || (run.end.is_none() && transcript::chat_is_locked(user_id, &request.query_item_id)) {
+      return Ok(SavedChatRun::Busy);
+    }
+    return Ok(SavedChatRun::Snapshot(research::snapshot(user_id, &run)));
+  }
   // End records are immutable and synced before publication, so old completed requests can recover even while
   // a later turn holds the chat lock. A missing or unfinished record needs a locked reread to rule out startup.
   if let Some(transcript) = read_transcript(data_dir, user_id, &request.query_item_id).await? {
@@ -2379,6 +2409,60 @@ fn chat_attachments_from_request(attachments: Vec<ChatAttachmentRequest>) -> Res
 /// Starts a turn of a live chat: checks the query item and the expected revision, records the user message, and
 /// replaces the request's messages with the history from the transcript. On failure, returns the event to send.
 /// `scope` is the run's resolved scope, if it uses Infumap data.
+/// A new user message's attachments in the order the model gets them: the selected skills, then items in scope not
+/// already in the chat's history, then the user's own attachments.
+async fn message_attachments(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  session: &Session,
+  request: &ChatRequest,
+  text: &str,
+  mut attachments: Vec<ChatAttachment>,
+  scope: Option<&ResolvedScope>,
+  existing: Option<&Transcript>,
+) -> Result<Vec<ChatAttachment>, ChatStreamEventKind> {
+  let error = |message: &str| ChatStreamEventKind::error(message);
+  if request.has_skills() {
+    let ids = request.selected_skill_ids(text).map_err(|message| error(&message))?;
+    let skills = read_skills(&*db.lock().await, &session.user_id, &ids).map_err(|e| error(&e.message()))?;
+    let mut skills = skills
+      .into_iter()
+      .enumerate()
+      .map(|(index, (title, text))| {
+        let (title, mime_type) = match request.skill_mentions.get(index) {
+          Some(selection) => (selection.mention.clone(), transcript::INLINE_SKILL_SNAPSHOT_MIME_TYPE),
+          None => (title, transcript::SKILL_SNAPSHOT_MIME_TYPE),
+        };
+        ChatAttachment {
+          id: new_uid(),
+          item_id: None,
+          title,
+          mime_type: mime_type.to_owned(),
+          size_bytes: text.len(),
+          text,
+        }
+      })
+      .collect::<Vec<_>>();
+    skills.append(&mut attachments);
+    attachments = skills;
+  }
+  // Items chosen as the scope go before the user's own attachments, the first time each is in scope. One whose turn
+  // did not complete is not in the history, so it is attached again.
+  if let Some(scope) = scope
+    && let Some(item_ids) = scope_items_to_attach(&scope.source)
+  {
+    let new_item_ids = item_ids
+      .iter()
+      .filter(|item_id| !existing.is_some_and(|existing| existing.has_item_in_history(item_id)))
+      .cloned()
+      .collect::<Vec<_>>();
+    let mut scope_attachments =
+      scope_attachments::scope_item_attachments(db, &session.user_id, scope, &new_item_ids).await;
+    scope_attachments.append(&mut attachments);
+    attachments = scope_attachments;
+  }
+  Ok(attachments)
+}
+
 async fn start_live_chat_turn(
   db: &Arc<tokio::sync::Mutex<Db>>,
   session: &Session,
@@ -2393,8 +2477,7 @@ async fn start_live_chat_turn(
     return Err(error("A chat request with a query item id must not include messages."));
   }
   let text = request.text.as_deref().map(str::trim).unwrap_or("").to_owned();
-  let mut attachments =
-    chat_attachments_from_request(std::mem::take(&mut request.attachments)).map_err(|e| error(&e))?;
+  let attachments = chat_attachments_from_request(std::mem::take(&mut request.attachments)).map_err(|e| error(&e))?;
   if text.is_empty() && attachments.is_empty() && !request.has_skills() {
     return Err(error("Chat request did not contain any message text."));
   }
@@ -2429,46 +2512,8 @@ async fn start_live_chat_turn(
   {
     return Err(error("An attachment of this message is already in the chat."));
   }
-  if request.has_skills() {
-    let ids = request.selected_skill_ids(&text).map_err(|message| error(&message))?;
-    let skills = read_skills(&*db.lock().await, &session.user_id, &ids).map_err(|e| error(&e.message()))?;
-    let mut skills = skills
-      .into_iter()
-      .enumerate()
-      .map(|(index, (title, text))| {
-        let (title, mime_type) = match request.skill_mentions.get(index) {
-          Some(selection) => (selection.mention.clone(), transcript::INLINE_SKILL_SNAPSHOT_MIME_TYPE),
-          None => (title, transcript::SKILL_SNAPSHOT_MIME_TYPE),
-        };
-        ChatAttachment {
-          id: new_uid(),
-          item_id: None,
-          title,
-          mime_type: mime_type.to_owned(),
-          size_bytes: text.len(),
-          text,
-        }
-      })
-      .collect::<Vec<_>>();
-    skills.append(&mut attachments);
-    attachments = skills;
-  }
-  // Items chosen as the scope go before the user's own attachments, the first time each is in scope. One whose turn
-  // did not complete is not in the history, so it is attached again.
-  if let Some(scope) = scope
-    && let Some(item_ids) = scope_items_to_attach(&scope.source)
-  {
-    let existing = transcript.transcript();
-    let new_item_ids = item_ids
-      .iter()
-      .filter(|item_id| !existing.is_some_and(|existing| existing.has_item_in_history(item_id)))
-      .cloned()
-      .collect::<Vec<_>>();
-    let mut scope_attachments =
-      scope_attachments::scope_item_attachments(db, &session.user_id, scope, &new_item_ids).await;
-    scope_attachments.append(&mut attachments);
-    attachments = scope_attachments;
-  }
+  let attachments =
+    message_attachments(db, session, request, &text, attachments, scope, transcript.transcript()).await?;
   if transcript.transcript().is_none() {
     let (created_at, setup) = match new_chat {
       Some((started_at, setup)) => (started_at, Some(setup)),
@@ -3296,8 +3341,17 @@ async fn run_chat_model_round(
   progress: &ChatProgressReporter,
 ) -> InfuResult<CompletedChatModelRound> {
   progress.model_round_started(round).await;
+  let assistant_message = chat_completion(endpoint, messages, tools, round, progress).await?;
+  completed_model_round(endpoint, assistant_message, round, tool_rounds_completed)
+}
 
-  let mut assistant_message = chat_completion(endpoint, messages, tools, round, progress).await?;
+/// Checks a model's reply and extracts the tool calls to run.
+fn completed_model_round(
+  endpoint: &ChatEndpoint,
+  mut assistant_message: OpenAiChatMessage,
+  round: usize,
+  tool_rounds_completed: usize,
+) -> InfuResult<CompletedChatModelRound> {
   let response_role = assistant_message.role.trim();
   if response_role.is_empty() {
     assistant_message.role = "assistant".to_owned();
@@ -4493,16 +4547,17 @@ async fn chat_completion(
   llm_turn: usize,
   progress: &ChatProgressReporter,
 ) -> InfuResult<OpenAiChatMessage> {
-  let backend_label = endpoint.label.as_str();
-  let url = &endpoint.url;
+  send_chat_completion(endpoint, &chat_completion_payload(endpoint, messages, tools, None), llm_turn, progress).await
+}
 
-  let client = reqwest::ClientBuilder::new()
-    .redirect(reqwest::redirect::Policy::none())
-    .connect_timeout(endpoint.connect_timeout)
-    .read_timeout(endpoint.read_timeout)
-    .build()
-    .map_err(|e| format!("Could not build {} HTTP client: {}", backend_label, reqwest_error_for_log(&e)))?;
-  let payload = OpenAiChatCompletionRequest {
+/// The request body exactly as it is sent: messages in the form the provider gets them, and its own fields.
+fn chat_completion_payload(
+  endpoint: &ChatEndpoint,
+  messages: &[OpenAiChatMessage],
+  tools: &[OpenAiToolSpec],
+  tool_choice: Option<&'static str>,
+) -> OpenAiChatCompletionRequest {
+  OpenAiChatCompletionRequest {
     model: endpoint.model.clone(),
     messages: match endpoint.adapter {
       ChatAdapter::LlamaCpp => {
@@ -4527,15 +4582,34 @@ async fn chat_completion(
         ChatReasoning::Effort(effort) => Some(effort),
       }
     },
-  };
+    tool_choice,
+  }
+}
+
+async fn send_chat_completion(
+  endpoint: &ChatEndpoint,
+  payload: &OpenAiChatCompletionRequest,
+  llm_turn: usize,
+  progress: &ChatProgressReporter,
+) -> InfuResult<OpenAiChatMessage> {
+  let backend_label = endpoint.label.as_str();
+  let url = &endpoint.url;
+  let (messages, tools) = (&payload.messages, &payload.tools);
+
+  let client = reqwest::ClientBuilder::new()
+    .redirect(reqwest::redirect::Policy::none())
+    .connect_timeout(endpoint.connect_timeout)
+    .read_timeout(endpoint.read_timeout)
+    .build()
+    .map_err(|e| format!("Could not build {} HTTP client: {}", backend_label, reqwest_error_for_log(&e)))?;
   if *LLM_LOG_ENABLED {
     append_llm_request_metrics_log(llm_turn, messages, tools);
     let chat_id = progress.chat_id.as_deref().unwrap_or(&progress.request_id);
-    let logged_request = llm_request_log_value(&payload, chat_id, &progress.request_id, llm_turn);
+    let logged_request = llm_request_log_value(payload, chat_id, &progress.request_id, llm_turn);
     append_llm_json_log_section(&format!("LLM REQUEST {}", llm_turn), &logged_request);
   }
   progress.context_tokens(approx_request_tokens(messages, tools), false).await;
-  let mut request = client.post(url.clone()).header(reqwest::header::ACCEPT, "text/event-stream").json(&payload);
+  let mut request = client.post(url.clone()).header(reqwest::header::ACCEPT, "text/event-stream").json(payload);
   if let Some(api_key) = endpoint.api_key.as_deref() {
     request = request.bearer_auth(api_key);
   }
@@ -4871,6 +4945,7 @@ mod tests {
       tools,
       reasoning: None,
       reasoning_effort: None,
+      tool_choice: None,
     }
   }
 
@@ -5784,6 +5859,20 @@ mod live_chat_tests {
     (url, bodies)
   }
 
+  /// A server configuration with one provider, `test`, at the fake model server.
+  fn fake_provider_config(url: &reqwest::Url) -> Arc<config::Config> {
+    let base_url = url.as_str().strip_suffix("/chat/completions").unwrap();
+    Arc::new(
+      config::Config::builder()
+        .add_source(config::File::from_str(
+          &format!("[[chat_providers]]\nid = \"test\"\nurl = \"{base_url}\"\ndiscover_models = false"),
+          config::FileFormat::Toml,
+        ))
+        .build()
+        .unwrap(),
+    )
+  }
+
   /// Every request a chat sends must start with everything the request before it sent, across turns too, or the
   /// provider's prompt cache stops matching and the history is processed again. Each turn goes through the route's
   /// steps: the first fixes the chat's setup, later ones send it unchanged. Deep research is used because it adds
@@ -5792,16 +5881,7 @@ mod live_chat_tests {
   async fn every_request_extends_the_one_before_it_across_turns() {
     let f = fixture().await;
     let (url, bodies) = fake_model_server().await;
-    let base_url = url.as_str().strip_suffix("/chat/completions").unwrap();
-    let config = Arc::new(
-      config::Config::builder()
-        .add_source(config::File::from_str(
-          &format!("[[chat_providers]]\nid = \"test\"\nurl = \"{base_url}\"\ndiscover_models = false"),
-          config::FileFormat::Toml,
-        ))
-        .build()
-        .unwrap(),
-    );
+    let config = fake_provider_config(&url);
     let chat_request = |revision: usize, text: &str, mode: &str| -> ChatRequest {
       serde_json::from_value(serde_json::json!({
         "queryItemId": f.query_item_id, "expectedRevision": revision, "text": text,
@@ -5880,5 +5960,90 @@ mod live_chat_tests {
   fn the_system_prompt_gives_the_date_the_chat_started() {
     assert_eq!(chat_start_date_line(Some(0)), "This chat started on Thursday, 1970-01-01 (UTC).");
     assert_eq!(chat_start_date_line(Some(1_779_148_800_000)), "This chat started on Tuesday, 2026-05-19 (UTC).");
+  }
+
+  /// A research run goes through its three stages in the background, recording each request before it is sent.
+  /// Each request extends the one before it, the report request included: it keeps the tools and asks for no calls.
+  #[tokio::test]
+  async fn a_research_run_records_what_the_model_was_given() {
+    let f = fixture().await;
+    let (url, bodies) = fake_model_server().await;
+    let config = fake_provider_config(&url);
+    let request = |request_id: &str| -> ChatRequest {
+      serde_json::from_value(serde_json::json!({
+        "requestId": request_id, "queryItemId": f.query_item_id, "text": "what is new?",
+        "configuration": {
+          "toolApproval": "automatic", "scope": { "kind": "everything" },
+          "model": { "backend": "test", "model": "default", "reasoningEffort": null },
+          "capabilities": ["infumap_data"],
+        },
+        "appliedProfile": null, "mode": "chat",
+      }))
+      .unwrap()
+    };
+    let subscriber =
+      research::start_research_run(config.clone(), &f.db, &f.session, request("run-1"), "run-1").await.ok().unwrap();
+    // The run doesn't need a viewer.
+    drop(subscriber);
+    let mut run = None;
+    for _ in 0..200 {
+      run = research::read_run(&f.data_dir, &f.session.user_id, &f.query_item_id).await.unwrap();
+      if run.as_ref().is_some_and(|run| run.end.is_some()) {
+        break;
+      }
+      tokio::time::sleep(Duration::from_millis(25)).await;
+    }
+    let run = run.unwrap();
+    let end = run.end.as_ref().unwrap();
+    assert_eq!(end.outcome, TurnOutcome::Completed, "{:?}", end.error);
+    assert_eq!(end.report.as_deref(), Some("answer 3"));
+    assert_eq!(
+      run.stages.iter().map(|stage| stage.name.as_str()).collect::<Vec<_>>(),
+      ["research", "review", "report"]
+    );
+    assert!(run.header.user.settings.mode == ChatRunMode::DeepResearch);
+    let flags = f.db.lock().await.item.get(&f.query_item_id).unwrap().flags.unwrap_or(0);
+    assert_eq!(flags & research::RESEARCH_RUN_FLAG, research::RESEARCH_RUN_FLAG);
+
+    let bodies = bodies.lock().unwrap().clone();
+    assert_eq!(bodies.len(), 3);
+    for pair in bodies.windows(2) {
+      let earlier = pair[0]["messages"].as_array().unwrap();
+      let later = pair[1]["messages"].as_array().unwrap();
+      assert!(later.len() > earlier.len() && later[..earlier.len()] == earlier[..]);
+      assert_eq!(pair[0]["tools"], pair[1]["tools"], "the report request keeps the tools");
+    }
+    assert!(bodies[0]["tools"].as_array().is_some_and(|tools| !tools.is_empty()));
+    assert_eq!(bodies[2]["tool_choice"], "none");
+    assert!(bodies[1].get("tool_choice").is_none());
+
+    // The log holds each request body: its messages, its tool set and its other fields.
+    let log =
+      tokio::fs::read_to_string(research::run_log_path(&f.data_dir, &f.session.user_id, &f.query_item_id).unwrap())
+        .await
+        .unwrap();
+    let records = log.lines().map(|line| serde_json::from_str::<Value>(line).unwrap()).collect::<Vec<_>>();
+    let of_type = |kind: &str| records.iter().filter(|record| record["type"] == kind).cloned().collect::<Vec<_>>();
+    let messages = of_type("message");
+    for (body, request) in bodies.iter().zip(of_type("request")) {
+      let count = request["messages"].as_u64().unwrap() as usize;
+      let logged = messages[..count].iter().map(|record| record["message"].clone()).collect::<Vec<_>>();
+      assert_eq!(&logged, body["messages"].as_array().unwrap());
+      assert_eq!(request["params"]["model"], body["model"]);
+      assert_eq!(request["params"].get("tool_choice"), body.get("tool_choice"));
+    }
+    assert_eq!(of_type("tool_set").len(), 1, "one tool set, recorded once");
+    assert_eq!(of_type("response").len(), 3);
+
+    // A run is never restarted: the same request ID gets the saved run, another is refused.
+    match research::start_research_run(config.clone(), &f.db, &f.session, request("run-1"), "run-1").await {
+      Err(ChatStreamEventKind::Snapshot { .. }) => {}
+      _ => panic!("expected the saved run"),
+    }
+    let refused = research::start_research_run(config, &f.db, &f.session, request("run-2"), "run-2").await;
+    assert!(error_message(refused.err().unwrap()).starts_with("This query already has a research run"));
+    // Resume and stop find it through the chat routes' recovery.
+    let control = ChatRunControlRequest { query_item_id: f.query_item_id.clone(), request_id: "run-1".to_owned() };
+    assert!(matches!(recover_chat_run(&f.data_dir, &f.session.user_id, &control).await, Ok(SavedChatRun::Snapshot(_))));
   }
 }

@@ -535,6 +535,11 @@ fn chat_lock(user_id: &Uid, query_item_id: &Uid) -> Arc<tokio::sync::Mutex<()>> 
 }
 
 /// Whether the chat lock is held: a turn is running, or, briefly, a persist or delete.
+/// The chat lock, if it is free, for a run that keeps no transcript.
+pub(super) fn try_lock_chat(user_id: &Uid, query_item_id: &Uid) -> Option<OwnedMutexGuard<()>> {
+  chat_lock(user_id, query_item_id).try_lock_owned().ok()
+}
+
 pub(super) fn chat_is_locked(user_id: &Uid, query_item_id: &Uid) -> bool {
   let locks = chat_locks().lock().unwrap_or_else(|poisoned| poisoned.into_inner());
   let key = (user_id.clone(), query_item_id.clone());
@@ -681,6 +686,7 @@ pub(super) async fn remove_transcript_unless_locked(
   };
   remove_file_if_present(&path).await?;
   remove_file_if_present(&path.with_extension("sources.json")).await?;
+  remove_file_if_present(&path.with_extension(super::research::RUN_LOG_EXTENSION)).await?;
   Ok(true)
 }
 
@@ -712,7 +718,12 @@ pub(super) async fn remove_orphan_transcripts(
       }
       continue;
     }
-    let Some(query_item_id) = name.strip_suffix(".chat").filter(|id| is_uid(id)).map(str::to_owned) else {
+    let query_item_id = name
+      .strip_suffix(".chat")
+      .or_else(|| name.strip_suffix(&format!(".{}", super::research::RUN_LOG_EXTENSION)))
+      .filter(|id| is_uid(id))
+      .map(str::to_owned);
+    let Some(query_item_id) = query_item_id else {
       continue;
     };
     if !is_live(&query_item_id) && remove_transcript_unless_locked(data_dir, user_id, &query_item_id).await? {

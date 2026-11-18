@@ -273,9 +273,27 @@ One action, "start a chat with this attached", available from any item's toolbar
    sent again; the LLM log compares a turn's first request with the previous turn's last (messages and tool
    definitions); `every_request_extends_the_one_before_it_across_turns` runs two deep-research turns against a fake
    model server and checks each request extends the one before.
-2. Deep research out of chat: research runs in the Queries list, run log, run view, Keep / Chat about this report /
-   Run again, background jobs; the current pipeline as the first strategy. Removes the mode from chat. `ask_user`
-   after that, once the pause plumbing is shared.
+2. Deep research out of chat, in slices, each usable on its own:
+   1. **Done.** Research run on the server (`chat/research.rs`). `POST /research/start` takes a chat request body on
+      a fresh query item in the Queries page and returns the live stream; `POST /research/load` returns question,
+      setup, stages and, when ended, outcome, report and activity. Following, stopping and tool approvals reuse
+      `/chat/resume`, `/chat/cancel` and `/chat/tool-approval` (same run registry; saved-run recovery reads run logs).
+      Runs don't stop without a viewer (`RunState::without_detach_timeout`); the budget is the tool-round ceiling and
+      an hour of wall time. The log is `chats/<id>.run`: header, messages as sent (first time each is sent), tool sets
+      by hash, request records written before sending (stage, depends-on, message count, tool set, other body
+      fields), responses, stages, end with report and activity. The report request keeps the tools with
+      `tool_choice: "none"`. A run is marked with `SearchFlags.ResearchRun` (0x001) on its query item: the item's
+      existing flags, so no item format change or migration. Chat messages to a run's query item are refused; deleting
+      the item or orphan cleanup removes the log. Not yet: HTTP routes exercised by hand; `tool_choice: "none"` checked
+      against llama-server (does it keep tools in the rendered prompt?).
+   2. **Runs in the UI.** New Query's Deep research creates a run, not a chat. Runs in the Queries list with status;
+      the run view (running / done / stopped or failed).
+   3. **Actions on a finished run.** Keep (report as a document page with the run log attached), Chat about this
+      report (new chat with it attached; needs "Chat about an item"), Run again (New Query filled with the same
+      question and setup).
+   4. **Deep research removed from chat.** The mode leaves the chat input and `ChatSetup`, with the deep-research
+      prompts and code paths in chat.
+   5. **Later:** `ask_user`, on the approval-pause mechanism.
 3. **Done.** Fixed setup per chat. The first turn writes a `ChatSetup` into the transcript header: system prompt and
    tool definitions as sent, how each server tool is called, scope, scope items, capabilities, mode. Later turns send
    the stored prompt and tools, refuse other scope/tools/mode (`prepare_chat_resources`), and don't need tool servers
