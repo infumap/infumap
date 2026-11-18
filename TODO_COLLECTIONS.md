@@ -129,14 +129,15 @@ Its picker presents:
 1. **Here:** collections ranked by how deep their nearest common ancestor with the current root page is, deepest
    first. Collections whose only common ancestor is the home page are left to All. The current root page is the
    page navigated to; focus in an embedded page or popup does not change it.
-2. **All collections:** find a collection by name or home path across the account.
+2. **All collections:** the rest, after a divider, with no headings and none of Here repeated. A filter (from 7
+   collections) searches all of them as one list.
 
 The server keeps the list of the account's collections, which All needs anyway. Here is computed by walking up from
 each collection, never down from the current page, so a collection in an optional subfolder (Northstar /
 Collections / Key sources, while browsing Financials) ranks near the top with no organization metadata and no
 descendant scan.
 
-Each entry shows its name, home path and direct-member count. Clicking an entry enters collection mode for it and
+Each entry is one line: the name, its direct-member count in brackets, then the home path dimmed (no icon, no header text). Clicking an entry enters collection mode for it and
 leaves the user where they are, since curating happens from the current location. While in the mode, clicking
 another entry switches the destination. Names need not be globally unique; paths disambiguate duplicates.
 

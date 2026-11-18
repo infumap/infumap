@@ -43,6 +43,17 @@ export function QueryPickerPopover(props: PopoverProps) {
     queueMicrotask(() => { if (button?.isConnected) { button.focus(); } });
   };
   const updateAnchor = () => setAnchor(button?.getBoundingClientRect() ?? null);
+  // A right click means Back in Infumap, and over a picker it closes it, as a press outside it does. The panel is
+  // portalled outside the app's main div, so the app's own handling (and its suppression of the browser menu) does not
+  // reach it. Shift+right-click in the filter field keeps the browser's menu, as in the app's text editors.
+  const panelMouseDown = (ev: MouseEvent) => {
+    ev.stopPropagation();
+    if (ev.button == 2 && !(ev.shiftKey && ev.target instanceof HTMLInputElement)) { close(); }
+  };
+  const suppressContextMenu = (ev: MouseEvent) => {
+    if (ev.shiftKey && ev.target instanceof HTMLInputElement) { return; }
+    ev.preventDefault();
+  };
 
   createEffect(() => {
     if (props.disabled && open()) { close(); }
@@ -130,10 +141,12 @@ export function QueryPickerPopover(props: PopoverProps) {
     <Show when={open()}>
       <Portal mount={document.body}>
         <div class="fixed inset-0" style={`z-index: ${Z_INDEX_GLOBAL_APP_OVERLAY};`}
-          onMouseDown={ev => { ev.stopPropagation(); close(); }} onClick={stopQueryPickerEvent} />
+          onMouseDown={ev => { ev.stopPropagation(); close(); }} onClick={stopQueryPickerEvent}
+          onContextMenu={suppressContextMenu} />
         <div ref={panel} tabindex={-1} role="dialog" aria-modal="true" aria-label={props.ariaLabel}
           class={`fixed flex flex-col overflow-hidden ${DIALOG_SURFACE_CLASS}`}
-          style={panelStyle()} onMouseDown={stopQueryPickerEvent} onMouseUp={stopQueryPickerEvent}
+          style={panelStyle()} onMouseDown={panelMouseDown} onMouseUp={stopQueryPickerEvent}
+          onContextMenu={suppressContextMenu}
           onClick={stopQueryPickerEvent} onKeyDown={panelKeyDown} onKeyUp={stopQueryPickerEvent}>
           {props.children(close)}
         </div>
