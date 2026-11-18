@@ -24,6 +24,10 @@ import { server, type ChatSkillMention, type ContinueChatResponse } from "../ser
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import type { ChatDraftAttachment } from "./chat-attachment";
+import { createSignal } from "solid-js";
+import { ensureQueryConfigurationReady, updateQueryConfiguration } from "./query-configuration-state";
+import type { QueryConfiguration } from "./query-configuration";
+import { newUid } from "../util/uid";
 import { asContainerItem, isContainer } from "./base/container-item";
 import type { Uid } from "../util/uid";
 import { ensureQueryItemUnderQueries, navigateToQueries } from "../layout/navigation";
@@ -285,4 +289,85 @@ async function applyContinuedChat(
 /** Whether a query item is a chat in the Queries history rather than New Query. */
 export function isQueryChatHistoryEntry(store: StoreContextModel, queryItem: QueryItem): boolean {
   return isLiveQueryChat(store, queryItem) && queryItem.pinnedTo != PinnedTo.Top;
+}
+
+/** What New Query is filled with by an action elsewhere, such as Run again on a research run. */
+export interface NewQueryDraft {
+  text: string,
+  attachments: Array<ChatDraftAttachment>,
+  deepResearch: boolean,
+}
+
+// Draft attachments and the Deep research choice live in New Query's component, so they are handed over here and
+// taken by it when it next renders.
+const [pendingNewQueryDraft, setPendingNewQueryDraft] = createSignal<{ queryItemId: Uid, draft: NewQueryDraft } | null>(null);
+
+/** The draft waiting for this New Query, once: taking it clears it. */
+export function takePendingNewQueryDraft(queryItemId: Uid): NewQueryDraft | null {
+  const pending = pendingNewQueryDraft();
+  if (pending == null || pending.queryItemId != queryItemId) { return null; }
+  setPendingNewQueryDraft(null);
+  return pending.draft;
+}
+
+/** Fills New Query with a draft, and the given scope, model and tools, and shows it. */
+export async function openNewQueryWith(
+  store: StoreContextModel,
+  draft: NewQueryDraft,
+  configuration: Partial<QueryConfiguration> | null = null,
+): Promise<void> {
+  const user = store.user.getUserMaybe();
+  if (user == null) { return; }
+  if (store.history.currentPageVeid()?.itemId != user.queriesPageId) {
+    await navigateToQueries(store);
+  }
+  const queryItemId = await ensureQueryItemUnderQueries(store, user.queriesPageId);
+  const item = queryItemId == null ? null : itemState.get(queryItemId);
+  if (queryItemId == null || item == null || !isQueryItem(item)) { throw new Error("Could not open New Query."); }
+  const queryItem = asQueryItem(item);
+  if (configuration != null) {
+    await ensureQueryConfigurationReady(store, queryItem);
+    updateQueryConfiguration(store, queryItem, configuration);
+  }
+  store.perItem.setSearchQuery(queryItem.id, draft.text);
+  store.general.setQueryInputMode("chat");
+  setPendingNewQueryDraft({ queryItemId, draft });
+  store.perItem.setSelectedListPageItem(
+    { itemId: user.queriesPageId, linkIdMaybe: null },
+    { itemId: queryItemId, linkIdMaybe: null },
+  );
+  arrangeNow(store, "query-new-query-filled");
+}
+
+/** A finished research run's report as an attachment of a new chat, in New Query. */
+export async function chatAboutResearchReport(store: StoreContextModel, runItem: QueryItem): Promise<void> {
+  const turn = (await server.loadChat(runItem.id)).turns[0];
+  if (turn?.assistantText == null) { throw new Error("This research run has no report."); }
+  const title = runItem.title.trim() == "" ? "Research report" : runItem.title;
+  await openNewQueryWith(store, {
+    text: "",
+    attachments: [{ id: newUid(), title: `${title}.md`, mimeType: "text/markdown", text: turn.assistantText }],
+    deepResearch: false,
+  });
+}
+
+/**
+ * New Query filled as a research run was started: its question, its own attachments (not items read from its scope,
+ * which a new run reads again, nor skills, whose mentions stay in the question), and its scope, model and tools.
+ */
+export async function runResearchAgain(store: StoreContextModel, runItem: QueryItem): Promise<void> {
+  const loaded = await server.loadChat(runItem.id);
+  const turn = loaded.turns[0];
+  if (turn == null) { throw new Error("This research run has no question."); }
+  const own = turn.attachments.filter(attachment => attachment.itemId == null && attachment.skill != true);
+  const attachments = await Promise.all(own.map(async attachment => ({
+    id: newUid(),
+    title: attachment.title,
+    mimeType: attachment.mimeType,
+    text: await server.loadChatAttachment({ queryItemId: runItem.id }, attachment.id),
+  })));
+  const settings = loaded.lastSettings?.configuration;
+  await openNewQueryWith(store, { text: turn.text, attachments, deepResearch: true }, settings == null ? null : {
+    scope: settings.scope, model: settings.model, capabilities: settings.capabilities, toolApproval: settings.toolApproval,
+  });
 }

@@ -294,9 +294,15 @@ One action, "start a chat with this attached", available from any item's toolbar
       in the input row, the setup read-only. Stages come from the load response and the stream's stage status texts.
       Checked in a browser against a fake model: start, running, done with title, reload, resume mid-run, stop. Not
       done: a running/finished status marker on list rows (only the icon); `Keep` of a run (step 3) is unhandled.
-   3. **Actions on a finished run.** Keep (report as a document page with the run log attached), Chat about this
-      report (new chat with it attached; needs "Chat about an item"), Run again (New Query filled with the same
-      question and setup).
+   3. **Done.** Actions on a finished run. Keep is the chat gesture, dragging the run out of the Queries page: the
+      report becomes `<title>.md` (a Markdown text item, opened as a document) where it is dropped, with the run log
+      attached as `<title>.run` (`application/x-infumap-research-run`, not indexed); the query item and the data
+      directory's log are removed. A run without a report can't be kept. Chat about report and Run again are buttons
+      in the run view; both fill New Query (`openNewQueryWith`, with a pending draft for the attachments and Deep
+      research choice, which live in New Query's component). Chat about report attaches the report as a draft
+      attachment; it doesn't use a general "Chat about an item" action yet. Run again restores question, own
+      attachments (`load-chat` now marks scope items and skills), scope, model, tools and approval; skill mentions
+      come back as plain text, without their skill selection. Checked in a browser.
    4. **Deep research removed from chat.** The mode leaves the chat input and `ChatSetup`, with the deep-research
       prompts and code paths in chat.
    5. **Later:** `ask_user`, on the approval-pause mechanism.

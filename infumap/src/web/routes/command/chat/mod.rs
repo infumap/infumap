@@ -1773,6 +1773,9 @@ async fn persist_live_chat(
 ) -> InfuResult<String> {
   let query_item_id = &request.query_item_id;
   let data_dir = live_chat_data_dir(db, session, query_item_id).await?;
+  if research::read_run(&data_dir, &session.user_id, query_item_id).await?.is_some() {
+    return research::persist_research_run(config, db, object_store, image_cache, session, request, &data_dir).await;
+  }
   let current_title = {
     let db = db.lock().await;
     let item = db.item.get(query_item_id)?;
@@ -2200,6 +2203,12 @@ struct LoadChatAttachment {
   mime_type: String,
   #[serde(rename = "sizeBytes")]
   size_bytes: usize,
+  /// The item in scope this was read from. Absent for text the user attached.
+  #[serde(rename = "itemId", skip_serializing_if = "Option::is_none")]
+  item_id: Option<Uid>,
+  /// A snapshot of a selected skill, shown as Markdown.
+  #[serde(skip_serializing_if = "std::ops::Not::not")]
+  skill: bool,
 }
 
 impl From<&ChatAttachment> for LoadChatAttachment {
@@ -2209,6 +2218,8 @@ impl From<&ChatAttachment> for LoadChatAttachment {
       title: attachment.title.clone(),
       mime_type: if attachment.is_skill() { "text/markdown".to_owned() } else { attachment.mime_type.clone() },
       size_bytes: attachment.size_bytes,
+      item_id: attachment.item_id.clone(),
+      skill: attachment.is_skill(),
     }
   }
 }
@@ -2348,6 +2359,20 @@ pub(super) async fn handle_load_chat_attachment(
 ) -> InfuResult<Option<String>> {
   let session = session_maybe.as_ref().ok_or("Session is required to load a chat attachment.")?;
   let request: LoadChatAttachmentRequest = serde_json::from_str(json_data)?;
+  if let Some(query_item_id) = &request.chat.query_item_id {
+    let data_dir = live_chat_data_dir(db, session, query_item_id).await?;
+    if let Some(run) = research::read_run(&data_dir, &session.user_id, query_item_id).await? {
+      let text = run
+        .header
+        .user
+        .attachments
+        .into_iter()
+        .find(|attachment| attachment.id == request.attachment_id)
+        .map(|attachment| attachment.text)
+        .ok_or_else(|| format!("Attachment '{}' was not found in the research run.", request.attachment_id))?;
+      return Ok(Some(serde_json::to_string(&LoadChatAttachmentResponse { text })?));
+    }
+  }
   let (transcript, _) = read_chat_for_load(db, object_store, session, &request.chat).await?;
   let text = transcript
     .iter()
@@ -6100,10 +6125,48 @@ mod live_chat_tests {
       Err(ChatStreamEventKind::Snapshot { .. }) => {}
       _ => panic!("expected the saved run"),
     }
-    let refused = research::start_research_run(config, &f.db, &f.session, request("run-2"), "run-2").await;
+    let refused = research::start_research_run(config.clone(), &f.db, &f.session, request("run-2"), "run-2").await;
     assert!(error_message(refused.err().unwrap()).starts_with("This query already has a research run"));
     // Resume and stop find it through the chat routes' recovery.
     let control = ChatRunControlRequest { query_item_id: f.query_item_id.clone(), request_id: "run-1".to_owned() };
     assert!(matches!(recover_chat_run(&f.data_dir, &f.session.user_id, &control).await, Ok(SavedChatRun::Snapshot(_))));
+
+    // Keeping it, by dropping it outside the Queries page, makes its report a Markdown item with the log attached.
+    let home_id = f.db.lock().await.user.get(&f.session.user_id).unwrap().home_page_id.clone();
+    let template = serde_json::json!({
+      "itemType": "text", "ownerId": f.session.user_id, "id": new_uid(), "parentId": home_id,
+      "relationshipToParent": "child", "groupId": null, "pinnedTo": null, "creationDate": 0, "lastModifiedDate": 0,
+      "dateTime": 0, "ordering": [128], "title": ".chat", "spatialPositionGr": { "x": 0, "y": 0 },
+      "spatialWidthGr": GRID_SIZE * 4, "flags": 0, "emoji": null, "iconMode": null, "originalCreationDate": 0,
+      "mimeType": null, "fileSizeBytes": 0,
+    });
+    let persist =
+      ChatPersistRequest { query_item_id: f.query_item_id.clone(), item: template.as_object().unwrap().clone() };
+    let cache_dir = format!("{}/image-cache", f.data_dir);
+    let image_cache = crate::storage::cache::new(&cache_dir, 10).await.unwrap();
+    let kept = research::persist_research_run(
+      &config,
+      &f.db,
+      f.object_store.clone(),
+      image_cache,
+      &f.session,
+      &persist,
+      &f.data_dir,
+    )
+    .await
+    .unwrap();
+    let kept: Value = serde_json::from_str(&kept).unwrap();
+    let report_id = kept["item"]["id"].as_str().unwrap().to_owned();
+    assert_eq!(kept["attachments"].as_array().unwrap().len(), 1);
+    let db = f.db.lock().await;
+    let report = db.item.get(&report_id).unwrap();
+    assert_eq!(report.mime_type.as_deref(), Some("text/markdown"));
+    assert!(report.title.as_deref().unwrap().ends_with(".md"));
+    let attachments = db.item.get_attachments(&report_id).unwrap();
+    assert_eq!(attachments.len(), 1);
+    assert_eq!(attachments[0].mime_type.as_deref(), Some(research::RESEARCH_RUN_MIME_TYPE));
+    assert!(db.item.get(&f.query_item_id).is_err(), "the run's query item is gone");
+    drop(db);
+    assert!(research::read_run(&f.data_dir, &f.session.user_id, &f.query_item_id).await.unwrap().is_none());
   }
 }

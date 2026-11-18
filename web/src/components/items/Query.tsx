@@ -102,6 +102,9 @@ import {
   isQueryChatHistoryEntry,
   runQuerySearch,
   startQueryChat,
+  chatAboutResearchReport,
+  runResearchAgain,
+  takePendingNewQueryDraft,
 } from "../../items/query";
 import {
   cancelQueryChatRequest,
@@ -152,6 +155,7 @@ const RESEARCH_STAGES = [
   { name: "review", label: "Review" },
   { name: "report", label: "Report" },
 ] as const;
+const RESEARCH_ACTION_CLASS = "flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xs border border-[#999] bg-white px-3 text-[13px] text-black hover:bg-control-hover";
 const RESEARCH_SETUP_FIXED = "A research run's setup is fixed. Use Deep research in New Query to start another.";
 /**
  * Deep research is a third entry here rather than a separate toggle: it is a choice about what the
@@ -199,6 +203,17 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   /** A research run shows its stages and status where a chat has its input: it can't be continued. */
   const researchState = () => getQueryRuntime(store, queryItem()).chat.research;
   const isResearchRun = () => isQueryResearchRun(queryItem()) || researchState() != null;
+  // Run again and Chat about this report fill New Query from another view.
+  createEffect(() => {
+    const draft = takePendingNewQueryDraft(queryItem().id);
+    if (draft == null) { return; }
+    setDraftAttachments(draft.attachments);
+    setDeepResearch(draft.deepResearch);
+  });
+  const researchAction = (action: typeof runResearchAgain) => {
+    void action(store, queryItem()).catch(error =>
+      showTransientMessage(error instanceof Error ? error.message : String(error), TransientMessageType.Error));
+  };
   const effectiveDeepResearch = () => {
     const fixed = fixedChatSetup();
     return fixed != null ? fixed.mode == "deep_research" : deepResearch();
@@ -1489,6 +1504,22 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 role="status">
                 <span class="min-w-0 truncate">{researchStatusText()}</span>
               </div>
+              <Show when={researchState()?.status == "completed"}>
+                <button type="button" class={RESEARCH_ACTION_CLASS}
+                  style={`height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
+                  title="Start a chat with this report attached"
+                  onClick={() => researchAction(chatAboutResearchReport)}>
+                  <i class="far fa-comments" />Chat about report
+                </button>
+              </Show>
+              <Show when={researchState() != null && researchState()!.status != "running" && !chatRequestCanCancel()}>
+                <button type="button" class={RESEARCH_ACTION_CLASS}
+                  style={`height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
+                  title="Fill New Query with this question, scope, model and tools"
+                  onClick={() => researchAction(runResearchAgain)}>
+                  <i class="bi-arrow-repeat" />Run again
+                </button>
+              </Show>
               <Show when={chatRequestCanCancel()}>
                 <button
                   class="flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
@@ -1641,7 +1672,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const researchStatusText = () => {
     switch (researchState()?.status ?? "running") {
       case "running": return "Researching in the background. You can leave; the run continues.";
-      case "completed": return "Research complete. A research run can't be continued.";
+      case "completed": return "Research complete. Drag it out of the Queries page to keep the report.";
       case "cancelled": return "Research stopped.";
       case "error": return "Research failed.";
       case "interrupted": return "The server stopped before this research run finished.";

@@ -41,7 +41,7 @@ import { NoteFns, asNoteItem, isNote } from "../items/note-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
 import { NoteFlags } from "../items/base/flags-item";
 import { isPlaceholder, PlaceholderFns } from "../items/placeholder-item";
-import { asQueryItem, isQueryItem, isQuerySearchResultsPage, setChatPersistPreview } from "../items/query-item";
+import { asQueryItem, isQueryItem, isQueryResearchRun, isQuerySearchResultsPage, setChatPersistPreview } from "../items/query-item";
 import { TableFns, asTableItem, isTable } from "../items/table-item";
 import { newOrderingAtBeginning, newOrderingAtEnd, newOrderingBetween } from "../util/ordering";
 import { arrangeNow, requestArrange } from "../layout/arrange";
@@ -541,6 +541,8 @@ function enqueueChatPersistIfDropped(ops: Array<MovePersistOperation>, store: St
   }
 
   const queryItem = asQueryItem(item);
+  // A research run is kept as its report, a Markdown item, with the run's log attached.
+  const research = isQueryResearchRun(queryItem);
   const chatItem = TextFns.create(item.ownerId, item.parentId, item.relationshipToParent, ".chat", new Uint8Array(item.ordering));
   chatItem.spatialPositionGr = { ...queryItem.spatialPositionGr };
   chatItem.dateTime = item.dateTime;
@@ -548,17 +550,20 @@ function enqueueChatPersistIfDropped(ops: Array<MovePersistOperation>, store: St
   chatItem.pinnedTo = item.pinnedTo;
   const chatItemObject = ItemFns.toObject(chatItem);
   // Until the server replies, the chat is drawn as this item: the title is the server's unless it generates one now.
-  chatItem.title = `${queryItem.title.trim() == "" ? "Chat" : queryItem.title}.chat`;
-  chatItem.mimeType = CHAT_TRANSCRIPT_MIME_TYPE;
+  chatItem.title = research
+    ? `${queryItem.title.trim() == "" ? "Research" : queryItem.title}.md`
+    : `${queryItem.title.trim() == "" ? "Chat" : queryItem.title}.chat`;
+  chatItem.mimeType = research ? "text/markdown" : CHAT_TRANSCRIPT_MIME_TYPE;
   setChatPersistPreview(queryItem.id, chatItem);
   chatOperationHandlesDraggedItem = true;
   ops.push({
     apply: async () => {
-      let response: { item: object };
+      let response: { item: object, attachments?: Array<object> };
       try {
         response = await server.persistChat(queryItem.id, chatItemObject);
       } catch (e) {
-        throw new MoveRejectedError(e instanceof Error ? e.message : "Couldn't keep the chat");
+        throw new MoveRejectedError(e instanceof Error ? e.message
+          : research ? "Couldn't keep the research run" : "Couldn't keep the chat");
       } finally {
         setChatPersistPreview(queryItem.id, null);
       }
@@ -578,6 +583,9 @@ function enqueueChatPersistIfDropped(ops: Array<MovePersistOperation>, store: St
         // parent, including the drop target, before adding the persisted text item there.
         itemState.removeDeletedItems([queryItem.id]);
         itemState.add(ItemFns.fromObject(response.item, null));
+        for (const attachment of response.attachments ?? []) {
+          itemState.add(ItemFns.fromObject(attachment, null));
+        }
         requestArrange(store, "chat-persisted");
       } catch (e) {
         console.error("The chat was persisted, but showing it failed:", e);

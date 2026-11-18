@@ -439,6 +439,10 @@ export interface LoadChatAttachment {
   title: string,
   mimeType: string,
   sizeBytes: number,
+  /** The item in scope this was read from. Absent for text the user attached. */
+  itemId?: Uid,
+  /** A snapshot of a selected skill. */
+  skill?: boolean,
 }
 
 export interface LoadChatTurn {
@@ -1577,7 +1581,8 @@ export const server = {
    * Moves an earlier chat into the item tree as a `.chat` text item, created from `chatItem`, placed where the chat was
    * dropped; the server sets its id, title, MIME type and data. Deletes the chat's query item. Returns the new item.
    */
-  persistChat: async (queryItemId: Uid, chatItem: object): Promise<{ item: object }> => {
+  /** For a research run, `item` is its report, and `attachments` holds its log, attached to it. */
+  persistChat: async (queryItemId: Uid, chatItem: object): Promise<{ item: object, attachments?: Array<object> }> => {
     const fetchResult = await localFetch("/chat/persist", {
       method: "POST",
       headers: { "Accept": "application/json", "Content-Type": "application/json" },

@@ -31,6 +31,15 @@ chats, marked with binoculars, and named the same way.
 - **A run can't be continued.** Its question, scope, tools and model are fixed. To ask something else, start a new
   run or chat from New Query.
 
+When a run has finished:
+
+- **Keep it** by dragging it out of the Queries page, as you would a chat. Its report becomes a Markdown item where you
+  drop it, with the run's log attached: a record of everything the model was given, for checking how the report came
+  about. A run that was stopped or failed has no report to keep; delete it instead.
+- **Chat about report** opens New Query in Chat with the report attached, for follow-up questions.
+- **Run again** fills New Query with the same question, your own attachments, scope, model and tools, ready to change
+  and send. Items read from the scope are read again when it runs.
+
 If you send a message in a chat that changed elsewhere since you last loaded it, for example in another tab, the
 chat is reloaded and your message is put back in the input for you to send again. Only one response runs in a chat
 at a time.

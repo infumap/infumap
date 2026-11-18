@@ -622,7 +622,8 @@ pub(super) mod test_db {
         queries_page_id: new_uid(),
         default_page_width_bl: 60,
         default_page_natural_aspect: 2.0,
-        object_encryption_key: String::new(),
+        // Tests that add items with content store them encrypted.
+        object_encryption_key: crate::util::crypto::generate_key(),
         query_profiles: None,
       };
       db.user.add(user.clone()).await.unwrap();
