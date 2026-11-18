@@ -61,7 +61,8 @@
 # The cache directory. Contains images and favicons subdirectories.
 #cache_dir = "~/.infumap/cache"
 
-# Optional URL for the Infumap GPU tools service.
+# Optional URL for the Infumap GPU tools service. Its image extraction model is
+# also offered for chat, as the provider "GPU tools".
 #gpu_tools_url = "http://127.0.0.1:8787"
 
 # Reverse geocoding service URL for GPS-tagged images.

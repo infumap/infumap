@@ -70,7 +70,13 @@ When configured and reported by `/gpu-tools`, the web server uses these services
 
 Search is local and lexical. Full-user searches use BM25-backed title and search-fragment indexes; no embedding service is required.
 
-Chat requires at least one provider speaking the OpenAI Chat Completions protocol. Configure providers
+When the GPU gateway reports a `chat` endpoint, Infumap also offers the model it uses for image
+extraction for chat, as the provider "GPU tools", with no further configuration. It is a small model,
+mainly useful for trying chat without an external provider. Chat requests share the GPU with
+background extraction, so replies are slower while images or PDFs are being processed. A configured
+provider with the id `gpu_tools` replaces it.
+
+Other chat providers must speak the OpenAI Chat Completions protocol. Configure providers
 as an array of inline tables. Each has a stable `id`, which is also its display label,
 an API base `url` including its version path, and an optional `api_key`:
 

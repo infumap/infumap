@@ -96,11 +96,14 @@ Model selection:
 
 Default llama-server runtime flags:
 
-- `IMAGE_TAGGING_LLAMA_CTX` default `8192`
+- `IMAGE_TAGGING_LLAMA_CTX` default `65536`, sized for Infumap chat, which
+  shares this llama-server through the gateway
 - `IMAGE_TAGGING_LLAMA_BATCH_SIZE` default `2048`
 - `IMAGE_TAGGING_LLAMA_UBATCH_SIZE` default `512`
 - `IMAGE_TAGGING_LLAMA_NGL` default `all` when `nvidia-smi` is present, else `0`
 - `IMAGE_TAGGING_LLAMA_FLASH_ATTN` default `auto` when `nvidia-smi` is present
+- `IMAGE_TAGGING_LLAMA_CACHE_TYPE_K` and `IMAGE_TAGGING_LLAMA_CACHE_TYPE_V`
+  default `q8_0` when flash attention is enabled, else llama-server's `f16`
 - `IMAGE_TAGGING_LLAMA_IMAGE_MIN_TOKENS` optional pass-through to `llama-server`
 - `IMAGE_TAGGING_LLAMA_IMAGE_MAX_TOKENS` optional pass-through to `llama-server`
 - `IMAGE_TAGGING_LLAMA_REASONING` default `off`
@@ -140,7 +143,7 @@ IMAGE_TAGGING_LLAMA_EXTRA_ARGS='--chat-template-kwargs {"enable_thinking":false}
 Pass extra flags straight through to `llama-server`:
 
 ```bash
-IMAGE_TAGGING_LLAMA_EXTRA_ARGS="--jinja --no-mmap" ./tools/gpu/image_extract/run.sh
+IMAGE_TAGGING_LLAMA_EXTRA_ARGS="--no-mmap" ./tools/gpu/image_extract/run.sh
 ```
 
 ## Endpoints

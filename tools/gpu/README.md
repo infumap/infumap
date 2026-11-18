@@ -31,6 +31,11 @@ By default the gateway listens on `127.0.0.1:8787` and forwards:
   extraction, advertised as `pdf_extract_native`; it never performs OCR and
   rejects documents whose native text is unusable or incomplete
 - `/pdf-extract/jobs` as the gateway-owned async PDF extraction job API
+- `/llm/v1/chat/completions` to the `llama-server` started by `image_extract`,
+  advertised as `chat`, so Infumap can offer the image extraction model for
+  chat without further configuration. `/llm/v1/models` lists it with the
+  context `llama-server` was started with. Chat requests do not take the global
+  GPU lock described below
 
 Ordinary PDF uploads and the existing async job API retain OCR fallback. The
 native-only endpoint shares their GPU serialization and conversion watchdog,
@@ -112,6 +117,8 @@ Optional environment variables:
 - `GPU_GATEWAY_PDF_EXTRACT_JOB_RESULT_RETENTION_SECS`
 - `GPU_IMAGE_EXTRACT_UPSTREAM_URL`
 - `GPU_PDF_EXTRACT_UPSTREAM_URL`
+- `GPU_LLM_UPSTREAM_URL`, defaulting to `IMAGE_TAGGING_LLAMA_SERVER_URL`, or
+  `IMAGE_TAGGING_LLAMA_HOST` and `IMAGE_TAGGING_LLAMA_PORT`
 - `IMAGE_TAGGING_WORKER_SLOT_WAIT_TIMEOUT_SECS`
 - `TEXT_EXTRACTION_WORKER_SLOT_WAIT_TIMEOUT_SECS`
 - `TEXT_EXTRACTION_CONVERSION_TIMEOUT_SECS`

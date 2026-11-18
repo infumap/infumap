@@ -61,6 +61,9 @@ DEFAULT_PDF_CONVERSION_TIMEOUT_SECS = 60.0 * 60.0
 MAX_PDF_CONVERSION_TIMEOUT_SECS = PDF_EXTRACT_JOB_UPSTREAM_READ_WRITE_TIMEOUT_SECS
 # Covers the upload to pdf_extract and its response after the watchdog fires.
 PDF_CONVERSION_LEASE_MARGIN_SECS = 5.0 * 60.0
+LLM_SERVICE_NAME = "llm"
+LLM_PUBLIC_BASE_PATH = "/llm/v1"
+LLM_MODELS_REQUEST_TIMEOUT_SECS = 30.0
 
 
 def env_float(name: str, default: float) -> float:
@@ -322,6 +325,18 @@ def upstream_base_url(name: str, default_host: str, default_port: int) -> str:
     return f"http://{default_host}:{default_port}"
 
 
+def llama_server_upstream_url() -> str:
+    # The same variables image_extract uses to find its llama-server, so the
+    # combined launcher needs no extra configuration.
+    for name in ("GPU_LLM_UPSTREAM_URL", "IMAGE_TAGGING_LLAMA_SERVER_URL"):
+        configured = os.environ.get(name, "").strip()
+        if configured:
+            return configured.rstrip("/")
+    host = os.environ.get("IMAGE_TAGGING_LLAMA_HOST", "").strip() or "127.0.0.1"
+    port = os.environ.get("IMAGE_TAGGING_LLAMA_PORT", "").strip() or "18080"
+    return f"http://{host}:{port}"
+
+
 def service_registry() -> dict[str, ServiceProxy]:
     services = [
         ServiceProxy(
@@ -342,6 +357,18 @@ def service_registry() -> dict[str, ServiceProxy]:
                 8790,
             ),
             upstream_read_write_timeout_secs=PDF_EXTRACT_UPSTREAM_READ_WRITE_TIMEOUT_SECS,
+        ),
+        # Infumap chat, served by the llama-server that image_extract uses.
+        # Chat bypasses the global lock: a PDF conversion can hold it for hours,
+        # and the model is resident anyway, so chat only competes for compute.
+        # llama-server queues chat behind image tagging on its single slot.
+        ServiceProxy(
+            service_name=LLM_SERVICE_NAME,
+            public_paths=(f"{LLM_PUBLIC_BASE_PATH}/chat/completions",),
+            upstream_base_url=llama_server_upstream_url(),
+            upstream_path_overrides={f"{LLM_PUBLIC_BASE_PATH}/chat/completions": "/v1/chat/completions"},
+            health_paths=("/health",),
+            uses_global_gpu_lock=False,
         ),
     ]
     return {service.service_name: service for service in services}
@@ -389,6 +416,16 @@ def gpu_tools_endpoints() -> list[dict[str, Any]]:
             "path": "/pdf-extract-native",
             "service": "pdf_extract",
             "description": "Extract complete native PDF text as Markdown without OCR; reject unreadable text.",
+        },
+        {
+            "id": "chat",
+            "method": "POST",
+            "path": LLM_PUBLIC_BASE_PATH,
+            "service": LLM_SERVICE_NAME,
+            "description": (
+                "Base URL of an OpenAI-compatible Chat Completions API (chat/completions and models) "
+                "served by the image extraction model."
+            ),
         },
         {
             "id": "pdf_extract_jobs",
@@ -817,6 +854,63 @@ async def healthz(request: Request) -> JSONResponse:
             "services": service_statuses,
         },
     )
+
+
+def llm_context_tokens(props_response: httpx.Response | None) -> int | None:
+    if props_response is None or not props_response.is_success:
+        return None
+    try:
+        props = props_response.json()
+    except ValueError:
+        return None
+    settings = props.get("default_generation_settings") if isinstance(props, dict) else None
+    n_ctx = settings.get("n_ctx") if isinstance(settings, dict) else None
+    return n_ctx if isinstance(n_ctx, int) and not isinstance(n_ctx, bool) and n_ctx > 0 else None
+
+
+@app.get(f"{LLM_PUBLIC_BASE_PATH}/models")
+async def llm_models(request: Request) -> JSONResponse:
+    """llama-server's model list with the context it actually allocated.
+
+    llama-server's own /v1/models reports only the context the model was trained
+    with (262k for Qwen3.5), not the -c it was started with, which Infumap uses
+    to warn before a draft exceeds the context window.
+    """
+    service = SERVICES[LLM_SERVICE_NAME]
+    client = proxy_client(request)
+    timeout = upstream_timeout(LLM_MODELS_REQUEST_TIMEOUT_SECS)
+    models_result, props_result = await asyncio.gather(
+        client.get(f"{service.upstream_base_url}/v1/models", timeout=timeout),
+        client.get(f"{service.upstream_base_url}/props", timeout=timeout),
+        return_exceptions=True,
+    )
+    if isinstance(models_result, BaseException):
+        raise HTTPException(
+            status_code=503,
+            detail=f"Upstream GPU service '{LLM_SERVICE_NAME}' is unavailable: {models_result}",
+        )
+    if not models_result.is_success:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Upstream GPU service '{LLM_SERVICE_NAME}' returned HTTP {models_result.status_code} for its models.",
+        )
+    try:
+        upstream_models = models_result.json().get("data")
+    except (ValueError, AttributeError):
+        upstream_models = None
+    if not isinstance(upstream_models, list):
+        raise HTTPException(status_code=502, detail="llama-server returned an invalid model list.")
+    context_tokens = llm_context_tokens(None if isinstance(props_result, BaseException) else props_result)
+    models: list[dict[str, Any]] = []
+    for upstream_model in upstream_models:
+        model_id = upstream_model.get("id") if isinstance(upstream_model, dict) else None
+        if not isinstance(model_id, str) or not model_id.strip():
+            continue
+        model: dict[str, Any] = {"id": model_id, "object": "model", "owned_by": "infumap-gpu-tools"}
+        if context_tokens is not None:
+            model["context_length"] = context_tokens
+        models.append(model)
+    return JSONResponse(content={"object": "list", "data": models})
 
 
 @app.post("/pdf-extract/jobs")

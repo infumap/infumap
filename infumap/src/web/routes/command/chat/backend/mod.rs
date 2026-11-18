@@ -25,12 +25,15 @@ use std::time::Duration;
 mod catalog;
 mod provider;
 use super::mcp::{self, ChatToolServerInfo};
+use crate::ai::gpu_tools::{GPU_TOOL_CHAT, resolve_configured_gpu_tool_url};
 use catalog::model_catalog;
 pub use provider::{ChatAdapter, ChatProvider, chat_providers_from_config};
 
 const REASONING_EFFORT_NONE: &str = "none";
 const REASONING_EFFORTS: &[&str] = &[REASONING_EFFORT_NONE, "minimal", "low", "medium", "high", "xhigh", "max"];
 pub const OPENROUTER_APP_TITLE: &str = "Infumap";
+const GPU_TOOLS_PROVIDER_ID: &str = "gpu_tools";
+const GPU_TOOLS_PROVIDER_LABEL: &str = "GPU tools";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ChatReasoning {
@@ -67,10 +70,67 @@ pub struct ChatEndpoint {
   pub read_timeout: Duration,
 }
 
-fn selected_provider(config: &Config, selection: &ChatModelSelection) -> InfuResult<ChatProvider> {
-  chat_providers_from_config(config)?.into_iter().find(|provider| provider.id == selection.backend).ok_or_else(|| {
-    format!("Provider '{}' is not configured on this server. Choose another provider.", selection.backend).into()
-  })
+/// The model the GPU tools service runs for image extraction is offered for chat whenever
+/// `gpu_tools_url` is set, so an installation without a configured provider can still chat.
+enum GpuToolsChat {
+  /// No GPU tools URL, a service without chat, or a configured provider with the same ID.
+  Absent,
+  Available(ChatProvider),
+  Unavailable(String),
+}
+
+async fn gpu_tools_chat(config: &Config, configured: &[ChatProvider]) -> GpuToolsChat {
+  // A configured provider with this ID is an explicit choice, and replaces the built-in one.
+  if configured.iter().any(|provider| provider.id == GPU_TOOLS_PROVIDER_ID) {
+    return GpuToolsChat::Absent;
+  }
+  match resolve_configured_gpu_tool_url(config, GPU_TOOL_CHAT).await {
+    Ok(None) => GpuToolsChat::Absent,
+    Ok(Some(mut base_url)) => {
+      // Endpoint paths resolve relative to the base, which therefore needs a trailing slash.
+      let path = format!("{}/", base_url.path().trim_end_matches('/'));
+      base_url.set_path(&path);
+      GpuToolsChat::Available(ChatProvider {
+        id: GPU_TOOLS_PROVIDER_ID.to_owned(),
+        base_url,
+        api_key: None,
+        adapter: ChatAdapter::LlamaCpp,
+        model_name: None,
+        // llama-server runs with reasoning off for image extraction.
+        reasoning_efforts: Vec::new(),
+      })
+    }
+    Err(error) => {
+      warn!("Could not discover GPU tools chat: {}", error);
+      GpuToolsChat::Unavailable("Could not reach the GPU tools service.".to_owned())
+    }
+  }
+}
+
+/// Configured providers, followed by the GPU tools model when it is available.
+async fn chat_providers(config: &Config) -> InfuResult<Vec<ChatProvider>> {
+  let mut providers = chat_providers_from_config(config)?;
+  if let GpuToolsChat::Available(provider) = gpu_tools_chat(config, &providers).await {
+    providers.push(provider);
+  }
+  Ok(providers)
+}
+
+async fn selected_provider(config: &Config, selection: &ChatModelSelection) -> InfuResult<ChatProvider> {
+  let configured = chat_providers_from_config(config)?;
+  if let Some(provider) = configured.iter().find(|provider| provider.id == selection.backend) {
+    return Ok(provider.clone());
+  }
+  if selection.backend == GPU_TOOLS_PROVIDER_ID {
+    match gpu_tools_chat(config, &configured).await {
+      GpuToolsChat::Available(provider) => return Ok(provider),
+      GpuToolsChat::Unavailable(reason) => {
+        return Err(format!("{GPU_TOOLS_PROVIDER_LABEL} is unavailable. {reason} Choose another provider.").into());
+      }
+      GpuToolsChat::Absent => {}
+    }
+  }
+  Err(format!("Provider '{}' is not configured on this server. Choose another provider.", selection.backend).into())
 }
 
 fn provider_endpoint(provider: &ChatProvider, selection: &ChatModelSelection) -> InfuResult<ChatEndpoint> {
@@ -96,12 +156,15 @@ fn provider_endpoint(provider: &ChatProvider, selection: &ChatModelSelection) ->
     model: model.to_owned(),
     reasoning: selection.requested_reasoning()?,
     connect_timeout: Duration::from_secs(30),
-    read_timeout: Duration::from_secs(if provider.adapter == ChatAdapter::Openrouter { 300 } else { 120 }),
+    // On the modest GPUs GPU tools targets, the first token of a long prompt can take minutes.
+    read_timeout: Duration::from_secs(
+      if provider.adapter == ChatAdapter::Openrouter || provider.id == GPU_TOOLS_PROVIDER_ID { 300 } else { 120 },
+    ),
   })
 }
 
-pub fn resolve_chat_endpoint(config: &Config, selection: &ChatModelSelection) -> InfuResult<ChatEndpoint> {
-  provider_endpoint(&selected_provider(config, selection)?, selection)
+pub async fn resolve_chat_endpoint(config: &Config, selection: &ChatModelSelection) -> InfuResult<ChatEndpoint> {
+  provider_endpoint(&selected_provider(config, selection).await?, selection)
 }
 
 /// Fresh metadata validates the exact selection. Failed discovery or a stale catalog cannot
@@ -110,7 +173,7 @@ pub async fn resolve_validated_chat_endpoint(
   config: &Config,
   selection: &ChatModelSelection,
 ) -> InfuResult<ChatEndpoint> {
-  let provider = selected_provider(config, selection)?;
+  let provider = selected_provider(config, selection).await?;
   let endpoint = provider_endpoint(&provider, selection)?;
   let Ok(catalog) = model_catalog(&provider).await else {
     return Ok(endpoint);
@@ -142,6 +205,8 @@ struct ChatBackendInfo {
   id: String,
   label: String,
   available: bool,
+  #[serde(rename = "unavailableReason", skip_serializing_if = "Option::is_none")]
+  unavailable_reason: Option<String>,
   models: Vec<catalog::ChatModelInfo>,
   #[serde(rename = "modelsError", skip_serializing_if = "Option::is_none")]
   models_error: Option<String>,
@@ -156,29 +221,49 @@ pub struct ChatBackendsResponse {
   tool_servers: Vec<ChatToolServerInfo>,
 }
 
+async fn backend_info(provider: &ChatProvider, label: &str) -> ChatBackendInfo {
+  let (models, models_error) = match model_catalog(provider).await {
+    Ok(catalog) => (
+      (*catalog.models).clone(),
+      if catalog.fresh { None } else { Some("Could not refresh the model list; showing a saved catalog.".to_owned()) },
+    ),
+    Err(error) => {
+      warn!("Could not load models for '{}': {}", provider.id, error);
+      (Vec::new(), Some("Could not load the model list.".to_owned()))
+    }
+  };
+  ChatBackendInfo {
+    id: provider.id.clone(),
+    label: label.to_owned(),
+    available: true,
+    unavailable_reason: None,
+    models,
+    models_error,
+  }
+}
+
 pub async fn chat_backends(config: &Config) -> ChatBackendsResponse {
   let providers = chat_providers_from_config(config).unwrap_or_else(|error| {
     warn!("Could not read chat providers: {}", error);
     Vec::new()
   });
-  let catalogs = futures_util::future::join_all(providers.iter().map(|provider| async move {
-    let (models, models_error) = match model_catalog(provider).await {
-      Ok(catalog) => (
-        (*catalog.models).clone(),
-        if catalog.fresh {
-          None
-        } else {
-          Some("Could not refresh the model list; showing a saved catalog.".to_owned())
-        },
-      ),
-      Err(error) => {
-        warn!("Could not load models for '{}': {}", provider.id, error);
-        (Vec::new(), Some("Could not load the model list.".to_owned()))
-      }
-    };
-    ChatBackendInfo { id: provider.id.clone(), label: provider.id.clone(), available: true, models, models_error }
-  }));
-  let (backends, tool_servers) = tokio::join!(catalogs, mcp::tool_server_catalog(config));
+  let catalogs = futures_util::future::join_all(providers.iter().map(|provider| backend_info(provider, &provider.id)));
+  let gpu_tools = async {
+    match gpu_tools_chat(config, &providers).await {
+      GpuToolsChat::Absent => None,
+      GpuToolsChat::Available(provider) => Some(backend_info(&provider, GPU_TOOLS_PROVIDER_LABEL).await),
+      GpuToolsChat::Unavailable(reason) => Some(ChatBackendInfo {
+        id: GPU_TOOLS_PROVIDER_ID.to_owned(),
+        label: GPU_TOOLS_PROVIDER_LABEL.to_owned(),
+        available: false,
+        unavailable_reason: Some(reason),
+        models: Vec::new(),
+        models_error: None,
+      }),
+    }
+  };
+  let (mut backends, gpu_tools, tool_servers) = tokio::join!(catalogs, gpu_tools, mcp::tool_server_catalog(config));
+  backends.extend(gpu_tools);
   ChatBackendsResponse { backends, infumap_tools: super::infumap_tool_specs(), tool_servers }
 }
 
@@ -188,7 +273,7 @@ pub(crate) async fn default_query_configuration(
   config: &Config,
 ) -> InfuResult<crate::query_configuration::QueryConfiguration> {
   let mut model = None;
-  for provider in chat_providers_from_config(config)? {
+  for provider in chat_providers(config).await? {
     match model_catalog(&provider).await {
       Ok(catalog) => {
         if let Some(first) = catalog.models.first() {
@@ -251,16 +336,18 @@ model_name = "qwen"
     assert_eq!(default_query_configuration(&config("")).await.unwrap().model, None);
   }
 
-  #[test]
-  fn an_explicit_request_is_never_substituted() {
+  #[tokio::test]
+  async fn an_explicit_request_is_never_substituted() {
     let config = config(TWO_PROVIDERS);
-    let endpoint = resolve_chat_endpoint(&config, &selection("b", Some("qwen"))).unwrap();
+    let endpoint = resolve_chat_endpoint(&config, &selection("b", Some("qwen"))).await.unwrap();
     assert_eq!((endpoint.label.as_str(), endpoint.model.as_str()), ("b", "qwen"));
     assert_eq!(endpoint.url.as_str(), "http://127.0.0.1:8081/v1/chat/completions");
-    assert!(resolve_chat_endpoint(&config, &selection("c", Some("qwen"))).is_err());
+    assert!(resolve_chat_endpoint(&config, &selection("c", Some("qwen"))).await.is_err());
     // The provider's configured model is not used in place of another or a missing one.
-    assert!(resolve_chat_endpoint(&config, &selection("b", Some("default"))).is_err());
-    assert!(resolve_chat_endpoint(&config, &selection("b", None)).is_err());
+    assert!(resolve_chat_endpoint(&config, &selection("b", Some("default"))).await.is_err());
+    assert!(resolve_chat_endpoint(&config, &selection("b", None)).await.is_err());
+    // Without a GPU tools URL there is no built-in GPU tools provider.
+    assert!(resolve_chat_endpoint(&config, &selection(GPU_TOOLS_PROVIDER_ID, Some("m"))).await.is_err());
   }
 
   #[test]

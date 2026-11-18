@@ -38,10 +38,17 @@ readonly DEFAULT_MMPROJ_FILE="mmproj-BF16.gguf"
 readonly DEFAULT_LLAMA_EXTRA_ARGS=""
 
 readonly LLAMA_BIN_OVERRIDE="${IMAGE_TAGGING_LLAMA_BIN:-}"
-readonly LLAMA_CTX="${IMAGE_TAGGING_LLAMA_CTX:-8192}"
+# Infumap chat also uses this llama-server through the gateway, and needs far more
+# context than image tagging. Qwen3.5 keeps a KV cache in only 8 of its 32
+# layers, so 64k with a q8_0 cache costs about 1 GiB, against 256 MiB for the
+# previous 8k at f16. llama-server allocates the whole cache up front, so there
+# is no way to give chat requests a larger context than image requests.
+readonly LLAMA_CTX="${IMAGE_TAGGING_LLAMA_CTX:-65536}"
 readonly LLAMA_BATCH_SIZE="${IMAGE_TAGGING_LLAMA_BATCH_SIZE:-2048}"
 readonly LLAMA_UBATCH_SIZE="${IMAGE_TAGGING_LLAMA_UBATCH_SIZE:-512}"
 readonly LLAMA_PARALLEL="1"
+readonly LLAMA_CACHE_TYPE_K_OVERRIDE="${IMAGE_TAGGING_LLAMA_CACHE_TYPE_K:-}"
+readonly LLAMA_CACHE_TYPE_V_OVERRIDE="${IMAGE_TAGGING_LLAMA_CACHE_TYPE_V:-}"
 readonly LLAMA_IMAGE_MIN_TOKENS="${IMAGE_TAGGING_LLAMA_IMAGE_MIN_TOKENS:-}"
 readonly LLAMA_IMAGE_MAX_TOKENS="${IMAGE_TAGGING_LLAMA_IMAGE_MAX_TOKENS:-}"
 readonly LLAMA_REASONING="${IMAGE_TAGGING_LLAMA_REASONING:-off}"
@@ -251,6 +258,20 @@ effective_llama_flash_attn() {
     printf '%s\n' ""
 }
 
+# A quantized V cache requires flash attention, which is only enabled by default
+# on NVIDIA and Metal. Elsewhere keep llama-server's f16 default.
+effective_llama_cache_type() {
+    local override="$1"
+    if [ -n "$override" ]; then
+        printf '%s\n' "$override"
+        return 0
+    fi
+    case "$(effective_llama_flash_attn)" in
+        "" | off | 0 | false) printf '%s\n' "" ;;
+        *) printf '%s\n' "q8_0" ;;
+    esac
+}
+
 ensure_local_llama_server() {
     if [ -n "$LLAMA_BIN_OVERRIDE" ]; then
         [ -x "$LLAMA_BIN_OVERRIDE" ] || fail "IMAGE_TAGGING_LLAMA_BIN is not executable: $LLAMA_BIN_OVERRIDE"
@@ -449,6 +470,8 @@ if [ "$MANAGE_LLAMA_SERVER" = "1" ]; then
 
     readonly EFFECTIVE_LLAMA_NGL="$(effective_llama_ngl)"
     readonly EFFECTIVE_LLAMA_FLASH_ATTN="$(effective_llama_flash_attn)"
+    readonly EFFECTIVE_LLAMA_CACHE_TYPE_K="$(effective_llama_cache_type "$LLAMA_CACHE_TYPE_K_OVERRIDE")"
+    readonly EFFECTIVE_LLAMA_CACHE_TYPE_V="$(effective_llama_cache_type "$LLAMA_CACHE_TYPE_V_OVERRIDE")"
 
     echo "llama-server binary: $LLAMA_SERVER_BIN"
     echo "Model path: $MODEL_PATH"
@@ -459,6 +482,8 @@ if [ "$MANAGE_LLAMA_SERVER" = "1" ]; then
     echo "llama parallel slots: $LLAMA_PARALLEL"
     echo "llama n-gpu-layers: $EFFECTIVE_LLAMA_NGL"
     echo "llama flash-attn: ${EFFECTIVE_LLAMA_FLASH_ATTN:-<unset>}"
+    echo "llama cache type k: ${EFFECTIVE_LLAMA_CACHE_TYPE_K:-<unset>}"
+    echo "llama cache type v: ${EFFECTIVE_LLAMA_CACHE_TYPE_V:-<unset>}"
     echo "llama image min tokens: ${LLAMA_IMAGE_MIN_TOKENS:-<unset>}"
     echo "llama image max tokens: ${LLAMA_IMAGE_MAX_TOKENS:-<unset>}"
     echo "llama reasoning: ${LLAMA_REASONING:-<unset>}"
@@ -474,12 +499,23 @@ if [ "$MANAGE_LLAMA_SERVER" = "1" ]; then
         -np "$LLAMA_PARALLEL"
         --host "$LLAMA_HOST"
         --port "$LLAMA_PORT"
+        # Chat tool calls need the model's Jinja chat template.
+        --jinja
+        # Infumap chat saves the model ID reported by /v1/models in query
+        # profiles, so it must not depend on where the GGUF is cached.
+        --alias "$LLAMA_MODEL_NAME"
     )
     if [ "$EFFECTIVE_LLAMA_NGL" != "0" ]; then
         llama_cmd+=(-ngl "$EFFECTIVE_LLAMA_NGL")
     fi
     if [ -n "$EFFECTIVE_LLAMA_FLASH_ATTN" ]; then
         llama_cmd+=(-fa "$EFFECTIVE_LLAMA_FLASH_ATTN")
+    fi
+    if [ -n "$EFFECTIVE_LLAMA_CACHE_TYPE_K" ]; then
+        llama_cmd+=(-ctk "$EFFECTIVE_LLAMA_CACHE_TYPE_K")
+    fi
+    if [ -n "$EFFECTIVE_LLAMA_CACHE_TYPE_V" ]; then
+        llama_cmd+=(-ctv "$EFFECTIVE_LLAMA_CACHE_TYPE_V")
     fi
     if [ -n "$LLAMA_IMAGE_MIN_TOKENS" ]; then
         llama_cmd+=(--image-min-tokens "$LLAMA_IMAGE_MIN_TOKENS")

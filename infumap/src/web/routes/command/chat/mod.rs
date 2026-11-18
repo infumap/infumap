@@ -1583,7 +1583,7 @@ async fn generate_live_chat_title(
     .last()
     .and_then(|turn| turn.user.settings.configuration.model.as_ref())
     .ok_or("The chat has no model selection.")?;
-  let endpoint = resolve_chat_endpoint(config, selection)?;
+  let endpoint = resolve_chat_endpoint(config, selection).await?;
   let mut messages = chat_title_input_messages(&transcript);
   messages.push(OpenAiChatMessage::text("user", CHAT_TITLE_PROMPT.to_owned()));
   let progress = ChatProgressReporter::unobserved(new_chat_request_id());

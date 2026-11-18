@@ -15,6 +15,8 @@ pub const GPU_TOOL_IMAGE_EXTRACT: &str = "image_extract";
 pub const GPU_TOOL_PDF_EXTRACT: &str = "pdf_extract";
 pub const GPU_TOOL_PDF_EXTRACT_JOBS: &str = "pdf_extract_jobs";
 pub const GPU_TOOL_PDF_EXTRACT_CAPTION_ONLY: &str = "pdf_extract_caption_only";
+/// Base URL of an OpenAI-compatible Chat Completions API served by the image extraction model.
+pub const GPU_TOOL_CHAT: &str = "chat";
 
 const DISCOVERY_PATH: &str = "/gpu-tools";
 const DISCOVERY_REQUEST_TIMEOUT_SECS: u64 = 10;
