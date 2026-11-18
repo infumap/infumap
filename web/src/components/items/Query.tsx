@@ -126,21 +126,14 @@ import { MOUSE_RIGHT } from "../../input/mouse_down";
 import { enterSearchResultsMaybe } from "../../input/key";
 import {
   CHAT_ATTACHMENTS_MAX_COUNT,
-  CHAT_ATTACHMENT_FILE_ACCEPT,
-  CHAT_ITEM_DROP_ATTRIBUTE,
   ChatDraftAttachment,
   chatAttachmentSizeBytes,
-  chatItemDropHover,
   estimateChatAttachmentTokens,
-  fileAttachment,
-  itemAttachment,
   pastedChatItemId,
   pastedItemAttachment,
   pastedTextAttachment,
   pastedTextIsAttachment,
-  registerChatItemDropTarget,
 } from "../../items/chat-attachment";
-import { clearExternalUploadHover, dataTransferContainsFiles } from "../../upload";
 import { formatBytes } from "../../util/item-metadata";
 import type { QueryInputMode } from "../../store/StoreProvider_General";
 
@@ -172,10 +165,9 @@ const QUERY_CHAT_SEND_BUTTON_WIDTH_PX = QUERY_WORKSPACE_CONTROLS_HEIGHT_PX;
 const QUERY_DRAFT_ATTACHMENTS_ROW_HEIGHT_PX = 30;
 const QUERY_DRAFT_ATTACHMENTS_ROW_GAP_PX = 6;
 /**
- * Attach and prompts sit at the start of the settings row under the message rather than beside it, so a message that
- * wraps uses the full width instead of being indented under the buttons all the way down.
+ * The prompts button sits in the settings row below the message so wrapped text can use the full input width.
  */
-const QUERY_COMPOSER_ACTION_BUTTON_APPEARANCE = {
+const QUERY_PROMPTS_BUTTON_APPEARANCE = {
   class: "flex h-[22px] w-[26px] shrink-0 cursor-pointer items-center justify-center rounded-md border border-control-border bg-white text-control-text hover:bg-control-hover disabled:cursor-default disabled:opacity-50",
   style: "font-size: 13px; line-height: 18px;",
 };
@@ -219,10 +211,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   let queryModelButton: HTMLButtonElement | undefined;
   let queryToolsButton: HTMLButtonElement | undefined;
   let queryProfileBar: HTMLDivElement | undefined;
-  let queryAttachButton: HTMLButtonElement | undefined;
   let queryPromptsButton: HTMLButtonElement | undefined;
   let chatTextarea: HTMLTextAreaElement | undefined;
-  let attachFileInput: HTMLInputElement | undefined;
   let chatActivityBody: HTMLDivElement | undefined;
   let activeSearchRequestSerial = 0;
   let chatRequestWasActive = false;
@@ -537,7 +527,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     queryDiscardButton.focus();
   };
 
-  type QueryControlName = "mode" | "attach" | "prompts" | "input" | "send" | "discard" | "scope" | "model" | "tools" | `profile:${number}`;
+  type QueryControlName = "mode" | "prompts" | "input" | "send" | "discard" | "scope" | "model" | "tools" | `profile:${number}`;
 
   const queryProfileButtons = () => Array.from(queryProfileBar?.querySelectorAll<HTMLButtonElement>("button:not([disabled])") ?? []).filter(button => button.isConnected);
 
@@ -545,7 +535,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     if (control.startsWith("profile:")) { return queryProfileButtons()[Number(control.slice("profile:".length))]; }
     switch (control) {
       case "mode": return queryModeButtons[selectedInputModeOption()];
-      case "attach": return queryAttachButton;
       case "prompts": return queryPromptsButton;
       case "send": return querySendButton;
       case "discard": return queryDiscardButton;
@@ -560,7 +549,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     const controls: Array<QueryControlName> = isSearchMode() ? ["input", "send"] : ["mode", "input", "send"];
     controls.unshift(...queryProfileButtons().map((_, index): QueryControlName => `profile:${index}`));
     if (hasSubmittedQuery()) { controls.push("discard"); }
-    if (selectedInputMode() == "chat") { controls.push("attach", "prompts"); }
+    if (selectedInputMode() == "chat") { controls.push("prompts"); }
     if (queryScopeButton?.isConnected && !queryScopeButton.disabled) { controls.push("scope"); }
     if (selectedInputMode() == "chat") {
       if (queryModelButton?.isConnected && !queryModelButton.disabled) { controls.push("model"); }
@@ -578,12 +567,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       queryProfileButtons()[Number(control.slice("profile:".length))]?.focus();
     } else if (control == "mode") {
       focusModeSelector();
-    } else if (control == "attach") {
-      if (queryAttachButton == null || queryAttachButton.disabled) {
-        focusQueryInputControl();
-      } else {
-        queryAttachButton.focus();
-      }
     } else if (control == "input") {
       focusQueryInputControl();
     } else if (control == "send") {
@@ -810,71 +793,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     }
     addDraftAttachment(attachment);
   };
-
-  /** Adds text files to the message being written, one at a time, so each is checked against those before it. */
-  const attachFiles = async (files: Array<File>) => {
-    for (const file of files) {
-      const attachment = await fileAttachment(draftAttachments(), file);
-      if (typeof attachment == "string") {
-        showTransientMessage(attachment, TransientMessageType.Error);
-        continue;
-      }
-      addDraftAttachment(attachment);
-    }
-  };
-
-  createEffect(() => {
-    // Items dragged onto the composer are attached (`attachDroppedItemToChatMaybe` in mouse_up.ts).
-    const unregister = registerChatItemDropTarget(vePath(), (item) => {
-      void itemAttachment(draftAttachments(), item).then(attachment => {
-        if (typeof attachment == "string") {
-          showTransientMessage(attachment, TransientMessageType.Error);
-          return;
-        }
-        addDraftAttachment(attachment);
-      });
-    });
-    onCleanup(unregister);
-  });
-  /** An item is being moved over this composer, and dropping it would attach its content. */
-  const itemDropHover = () => store.anItemIsMoving.get() && chatItemDropHover() == vePath();
-
-  const openAttachFilePicker = () => {
-    attachFileInput?.click();
-  };
-
-  /**
-   * Claims a file drag over the message being written, so the page under it neither shows where the files would go
-   * nor refuses them, which would prevent the drop (e.g. on the queries workspace, which items can't be added to).
-   */
-  const dragOverFilesToAttach = (ev: DragEvent) => {
-    if (!dataTransferContainsFiles(ev.dataTransfer)) {
-      return;
-    }
-    ev.preventDefault();
-    ev.stopPropagation();
-    ev.dataTransfer.dropEffect = "copy";
-    clearExternalUploadHover(store);
-  };
-
-  /** Files dropped on the message being written are attached to it, not uploaded to the page under it. */
-  const dropFilesToAttach = (ev: DragEvent) => {
-    if (!dataTransferContainsFiles(ev.dataTransfer)) {
-      return;
-    }
-    ev.preventDefault();
-    ev.stopPropagation();
-    clearExternalUploadHover(store);
-    void attachFiles(Array.from(ev.dataTransfer.files));
-  };
-
-  const renderAttachFileInput = () =>
-    <input ref={attachFileInput} type="file" multiple accept={CHAT_ATTACHMENT_FILE_ACCEPT} class="hidden"
-      onChange={(ev) => {
-        const files = Array.from(ev.currentTarget.files ?? []);
-        ev.currentTarget.value = "";
-        void attachFiles(files);
-      }} />;
 
   const removeDraftAttachment = (attachment: ChatDraftAttachment) => {
     setDraftAttachments(draftAttachments().filter(a => a.id != attachment.id));
@@ -1382,7 +1300,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       if (ev instanceof MouseEvent && ev.button == MOUSE_RIGHT) {
         return;
       }
-      // An item moved here ends its move in mouse_up.ts, which attaches it (`attachDroppedItemToChatMaybe`).
+      // Let the desktop finish an item move if the pointer is released over the composer.
       if (ev.type == "mouseup" && store.anItemIsMoving.get()) {
         return;
       }
@@ -1490,9 +1408,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           class="absolute pointer-events-auto"
           style={`left: ${contentLeftPx()}px; bottom: ${QUERY_CHAT_COMPOSER_BOTTOM_PX}px; ` +
             `width: ${contentWidthPx()}px; height: ${wrapperHeightPx()}px; z-index: ${Z_INDEX_LOCAL_OVERLAY};`}
-          {...{ [CHAT_ITEM_DROP_ATTRIBUTE]: vePath() }}
-          onDragOver={dragOverFilesToAttach}
-          onDrop={dropFilesToAttach}
           onMouseDown={stop}
           onMouseUp={stop}
           onClick={stop}
@@ -1511,9 +1426,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
             style={`height: ${chatTextareaHeightPx()}px; gap: ${QUERY_WORKSPACE_CONTROLS_GAP_PX}px;`}>
             <QueryPromptSuggestionList suggestions={chatPromptSuggestions} anchor={() => chatTextarea} onChoose={chooseChatSlashPrompt} />
             <div
-              class="min-w-0 grow overflow-hidden rounded-xs border bg-white"
-              classList={{ "border-[#999]": !itemDropHover(), "border-blue-500": itemDropHover() }}
-              style={`height: ${chatTextareaHeightPx()}px;` + (itemDropHover() ? " box-shadow: 0 0 0 2px rgb(59 130 246 / 0.35);" : "")}>
+              class="min-w-0 grow overflow-hidden rounded-xs border border-[#999] bg-white"
+              style={`height: ${chatTextareaHeightPx()}px;`}>
               <textarea
                 ref={chatTextarea}
                 data-query-chat-composer
@@ -1560,21 +1474,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           <div
             class="flex items-center gap-3 text-control-text"
             style={`height: ${QUERY_CHAT_SETTINGS_HEIGHT_PX}px;`}>
-            <div class="flex shrink-0 items-center gap-2">
-              {renderAttachFileInput()}
-              <button
-                class={QUERY_COMPOSER_ACTION_BUTTON_APPEARANCE.class}
-                style={QUERY_COMPOSER_ACTION_BUTTON_APPEARANCE.style}
-                type="button"
-                title="Attach text files"
-                aria-label="Attach text files"
-                disabled={chatRequestActive()}
-                onClick={openAttachFilePicker}>
-                <i class="bi-paperclip" />
-              </button>
-              <QueryPromptPicker disabled={chatRequestActive} onChoose={insertPromptText}
-                buttonAppearance={QUERY_COMPOSER_ACTION_BUTTON_APPEARANCE} />
-            </div>
+            <QueryPromptPicker disabled={chatRequestActive} onChoose={insertPromptText}
+              buttonAppearance={QUERY_PROMPTS_BUTTON_APPEARANCE} />
             <Show when={!chatActivityHeaderVisible() && chatContextTokens()}>
               {(display) =>
                 <span
@@ -1752,10 +1653,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
           </div>
         </Show>
         <div ref={queryInputShell}
-          class="border rounded-xs bg-white overflow-hidden"
-          classList={{ "border-[#999]": !itemDropHover(), "border-blue-500": itemDropHover() }}
-          style={`width: ${inputShellWidthPx()}px; height: ${queryTextareaHeightPx()}px;` +
-            (itemDropHover() ? " box-shadow: 0 0 0 2px rgb(59 130 246 / 0.35);" : "")}
+          class="border border-[#999] rounded-xs bg-white overflow-hidden"
+          style={`width: ${inputShellWidthPx()}px; height: ${queryTextareaHeightPx()}px;`}
           onMouseDown={queryInputMouseDown}>
           <div class="relative flex items-end h-full overflow-hidden pl-2.5 pr-[4px]"
             style="font-size: 16px;">
@@ -1863,39 +1762,10 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
         onMouseUp={(ev) => ev.stopPropagation()}
         onClick={(ev) => ev.stopPropagation()}>
         <Show when={selectedInputMode() == "chat"}>
-          <div class="mr-auto flex shrink-0 items-center gap-2">
-            {renderAttachFileInput()}
-            <button
-              ref={queryAttachButton}
-              class={QUERY_COMPOSER_ACTION_BUTTON_APPEARANCE.class}
-              style={QUERY_COMPOSER_ACTION_BUTTON_APPEARANCE.style}
-              type="button"
-              title="Attach text files"
-              aria-label="Attach text files"
-              disabled={queryRequestActive() || !canEdit()}
-              onMouseDown={(ev) => {
-                ev.preventDefault();
-                ev.stopPropagation();
-              }}
-              onMouseUp={(ev) => {
-                ev.preventDefault();
-                ev.stopPropagation();
-              }}
-              onClick={(ev) => {
-                ev.stopPropagation();
-                openAttachFilePicker();
-              }}
-              onKeyDown={(ev) => {
-                ev.stopPropagation();
-                if (ev.key == "Tab") {
-                  handleQueryControlTab(ev, "attach");
-                }
-              }}>
-              <i class="bi-paperclip" />
-            </button>
+          <div class="mr-auto shrink-0">
             <QueryPromptPicker disabled={() => queryRequestActive() || !canEdit()} onChoose={insertPromptText}
               buttonRef={el => { queryPromptsButton = el; }} onTabKey={ev => handleQueryControlTab(ev, "prompts")}
-              buttonAppearance={QUERY_COMPOSER_ACTION_BUTTON_APPEARANCE} />
+              buttonAppearance={QUERY_PROMPTS_BUTTON_APPEARANCE} />
           </div>
         </Show>
         <QueryScopePicker
@@ -1933,18 +1803,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                 `top: ${isSearchMode()
                   ? QUERY_WORKSPACE_TOP_INSET_PX
                   : initialControlsTopPx()}px; ` +
-                `width: ${controlsWidthPx()}px;`}
-              {...{ [CHAT_ITEM_DROP_ATTRIBUTE]: selectedInputMode() == "chat" ? vePath() : undefined }}
-              onDragOver={(ev) => {
-                if (selectedInputMode() == "chat") {
-                  dragOverFilesToAttach(ev);
-                }
-              }}
-              onDrop={(ev) => {
-                if (selectedInputMode() == "chat") {
-                  dropFilesToAttach(ev);
-                }
-              }}>
+                `width: ${controlsWidthPx()}px;`}>
               {renderQueryControls()}
             </div>
           </div>

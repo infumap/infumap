@@ -102,11 +102,11 @@ In the chat input, or in New Query with Chat or Deep research selected, there ar
 - **Type `/`** as the first character of the message, then some of the prompt's name or text. ↑ and ↓ choose,
   Enter replaces the message with the prompt, and Esc hides the list. The list only appears while something
   matches, so a message that happens to start with `/` can still be sent.
-- **Click the prompts button** next to +, type to filter if you like, and choose one. It goes in where the cursor
-  is.
+- **Click the prompts button** below the input, type to filter if you like, and choose one. It goes in where the
+  cursor is.
 
-Either way, the prompt only fills the input: edit it or send it as it is. Prompts work with attachments, so to
-summarize something new, drop it onto the input, then type `/sum` in the input and press Enter twice.
+After inserting a prompt, you can edit it before sending. To summarize an item with a prompt,
+paste its item ID into the input, type `/sum`, then press Enter to insert the prompt and Enter again to send.
 
 A prompt's formatting comes with it as Markdown: a heading note becomes a `#` heading, a bullet `- item`, a code note
 a fenced block, and the notes of a composite are separated by blank lines. Edit a prompt on the Prompts page, which
@@ -120,26 +120,21 @@ Prompts page, or link to it from there.
 
 Long text, such as a video transcript to summarize, can be attached to a message instead of filling it. Each
 attachment is shown above the input, with its size and an estimate of its tokens, and is sent with the message.
-There are several ways to attach text:
 
-- **Paste it.** A paste of 4,000 characters or more, or 40 lines or more, becomes an attachment named "Pasted text".
+- **Paste text.** A paste of 4,000 characters or more, or 40 lines or more, becomes an attachment named "Pasted text".
   A shorter paste goes into the message as usual. To put an attachment's text into the message after all, use its
   insert-as-text button; × removes it.
 - **Paste an item ID or link** on its own. The composer shows the item as a named attachment. Notes and text files
   attach their full text. PDFs attach their extracted text when available, and images attach their generated
   descriptions. A page, table or composite attaches a listing of its direct contents, with nested pages and tables
   shown as references. An item you cannot read or whose text is unavailable shows an error above the input.
-- **Pick files** with the + button next to the input, or **drop files** from your computer onto the input. Any
-  UTF-8 text file can be attached, named by its file name. A Markdown file (`.md`) opens as Markdown.
-- **Drag a text item or a note** from your items onto the input. Its content is attached as it is now; later edits
-  to the item don't change the attachment. The item stays where it was.
 
 You can attach in the chat input, and in New Query when Chat or Deep research is selected. A message can be
 attachments alone, with no text.
 
-Attachments contain text. The file picker accepts UTF-8 text files. A message can have up to 10 attachments, of up to
-1 MB each. If the model reports its context limit and the estimated draft plus chat history reaches it, the composer
-shows a warning. The model determines whether the full request fits.
+A message can have up to 10 attachments, of up to 1 MB each. If the model reports its context limit and the
+estimated draft plus chat history reaches it, the composer shows a warning. The model determines whether the full
+request fits.
 
 The model gets the whole text of each attachment, before your message, and it stays in what the model sees for the
 rest of the chat. Large attachments use up context in every later turn.
