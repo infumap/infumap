@@ -30,7 +30,7 @@ import { makeUserStore, UserStoreContextModel } from "./StoreProvider_User";
 import { makeHistoryStore, HistoryStoreContextModel } from "./StoreProvider_History";
 import { OverlayStoreContextModel, makeOverlayStore } from "./StoreProvider_Overlay";
 import { PerItemStoreContextModel, makePerItemStore } from "./StoreProvider_PerItem";
-import { clearQueryPrompts } from "../items/query-prompt";
+import { clearQuerySkills } from "../items/query-skill";
 import { clearQueryCollections } from "../items/query-scope";
 import { clearQueryChatSessions } from "../items/chat";
 import { PerVeStoreContextModel, makePerVeStore } from "./StoreProvider_PerVe";
@@ -196,7 +196,7 @@ export function StoreProvider(props: StoreContextProps) {
     general.queryProfiles.clear();
     clearQueryCollections();
     clearCollectionMode();
-    clearQueryPrompts();
+    clearQuerySkills();
     perVe.clear();
     find.clear();
     dockWidthPx.set(INITIAL_DOCK_WIDTH_BL * NATURAL_BLOCK_SIZE_PX.w);

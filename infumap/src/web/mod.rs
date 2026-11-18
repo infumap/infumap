@@ -337,7 +337,7 @@ pub async fn start_server_controlled(
     // Finish loading every account before startup edits append to any item log.
     for user_id in all_user_ids {
       if ensure_prompts_page(&mut db, &user_id).await? {
-        info!("Created prompts page for user '{}'.", user_id);
+        info!("Created Skills page for user '{}'.", user_id);
       }
       // Default page creation appends directly through ItemDb without sync deltas; include those writes too.
       let loaded_epoch = db.item.loaded_log_epoch_for_user(&user_id);

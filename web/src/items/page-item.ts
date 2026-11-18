@@ -23,7 +23,7 @@ import { BoundingBox, cloneBoundingBox, cloneDimensions, Dimensions, isInside, V
 import { currentUnixTimeSeconds, panic } from '../util/lang';
 import { EMPTY_UID, newUid, UMBRELLA_PAGE_UID, Uid, SOLO_ITEM_HOLDER_PAGE_UID } from '../util/uid';
 import { AttachmentsItem, AttachmentsMixin, calcGeometryOfAttachmentItemImpl, calcSpatialAttachmentHitboxBoundsPx } from './base/attachments-item';
-import { itemCanEdit, normalizeItemCapabilities } from './base/capabilities-item';
+import { itemCanEdit, itemCanEditChildren, normalizeItemCapabilities } from './base/capabilities-item';
 import { ContainerItem, asContainerItem, isContainer } from './base/container-item';
 import { Item, ItemTypeMixin, ItemType } from './base/item';
 import { TitledItem } from './base/titled-item';
@@ -228,17 +228,12 @@ function isRenderableListPageSelectedVeid(veid: Veid): boolean {
 }
 
 /**
- * The children of list page page that have no row in it: the scopes, prompts and search status pages in the queries
- * page, which leaves it a list of queries. They are reached from the scope and prompt pickers and from icons on an
- * empty query instead. Scopes are sometimes used to keep material out of answers, and a row made them more
- * discoverable than they should be. Prompts were opened from a chat by selecting their row, so right click then left
- * the queries page instead of returning to the chat; the pickers' Edit links navigate to them, so right click goes
- * back. Links to these pages still have rows.
+ * The search status pages are opened from the empty query. Skills has its own pinned row in the list.
  */
 function listPageHiddenChildIds(store: StoreContextModel, page: PageItem): ReadonlyArray<Uid> {
   const user = store.user.getUserMaybe();
   return user != null && page.id == user.queriesPageId
-    ? [user.promptsPageId, user.searchAttentionPageId, user.searchProcessingPageId]
+    ? [user.searchAttentionPageId, user.searchProcessingPageId]
     : [];
 }
 
@@ -1421,6 +1416,13 @@ export const PageFns = {
       return;
     }
     const isRenderedEmbeddedInteractive = !!(visualElement.flags & VisualElementFlags.EmbeddedInteractiveRoot);
+    const user = store.user.getUserMaybe();
+    if (user != null && visualElement.displayItem.id == user.promptsPageId &&
+        visualElement.actualLinkItemMaybe == null && (visualElement.flags & VisualElementFlags.LineItem) &&
+        visualElement.parentPath != null && VeFns.veidFromPath(visualElement.parentPath).itemId == user.queriesPageId) {
+      switchToPage(store, VeFns.actualVeidFromVe(visualElement), true, false, false);
+      return;
+    }
     if (handleListPageLineItemClickMaybe(visualElement, store)) { return; }
     if (isRenderedEmbeddedInteractive && (hitboxFlags & HitboxFlags.ContentEditable)) {
       PageFns.handleEditTitleClick(visualElement, store, undefined, true);
@@ -2024,7 +2026,7 @@ export const PageFns = {
    */
   listPageAcceptsPins: (store: StoreContextModel, page: Item): boolean => {
     if (!isPage(page) || asPageItem(page).arrangeAlgorithm != ArrangeAlgorithm.List) { return false; }
-    if (page.clientOnly === true || !itemCanEdit(page)) { return false; }
+    if (page.clientOnly === true || !itemCanEditChildren(page)) { return false; }
     const user = store.user.getUserMaybe();
     return user != null && page.id != user.queriesPageId && page.id != user.trashPageId && page.id != user.dockPageId;
   },

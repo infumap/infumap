@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { itemCanEdit, itemCanMove } from "../items/base/capabilities-item";
+import { itemCanEdit, itemCanEditChildren, itemCanMove } from "../items/base/capabilities-item";
 import { asContainerItem, isContainer } from "../items/base/container-item";
 import { itemCanAcceptManualChildren } from "../items/base/flags-item";
 import type { Item } from "../items/base/item";
@@ -28,15 +28,15 @@ import { itemState } from "../store/ItemState";
 import type { StoreContextModel } from "../store/StoreProvider";
 
 /** Owned by the signed in user, saved on this server, and editable: the server accepts new children and changes. */
-export function locallyEditable(store: StoreContextModel, item: Item | null): item is Item {
+export function locallyEditable(store: StoreContextModel, item: Item | null, allowsEdit = itemCanEdit): item is Item {
   return item != null && item.origin == null && item.clientOnly !== true &&
-    item.ownerId == store.user.getUserMaybe()?.userId && itemCanEdit(item);
+    item.ownerId == store.user.getUserMaybe()?.userId && allowsEdit(item);
 }
 
 export function structuralTextContainerIsEditable(store: StoreContextModel, containerVe: VisualElement): boolean {
   const container = itemState.get(containerVe.displayItem.id);
-  return locallyEditable(store, container) && isContainer(container) &&
-    itemCanEdit(containerVe.displayItem) && containerVe.actualLinkItemMaybe == null &&
+  return locallyEditable(store, container, itemCanEditChildren) && isContainer(container) &&
+    itemCanEditChildren(containerVe.displayItem) && containerVe.actualLinkItemMaybe == null &&
     itemCanAcceptManualChildren(container);
 }
 

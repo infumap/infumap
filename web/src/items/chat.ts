@@ -865,15 +865,15 @@ function addLocalQueryAttachment(
   return attachmentItem;
 }
 
-/** The server attaches the items in scope to the message when it accepts the turn; they go before the user's own. */
-function addScopeAttachmentsToLocalUserTurn(
+/** Items read by the server go before the user's pasted attachments. */
+function addResolvedAttachmentsToLocalUserTurn(
   store: StoreContextModel, queryItem: QueryItem, compositeId: Uid, attachments: Array<LoadChatAttachment>,
 ): void {
   if (attachments.length == 0 || itemState.get(compositeId) == null) { return; }
   for (const attachment of [...attachments].reverse()) {
     addLocalQueryAttachment(queryItem, compositeId, itemState.newOrderingAtBeginningOfChildren(compositeId), attachment);
   }
-  requestArrange(store, "query-chat-scope-attachments");
+  requestArrange(store, "query-chat-resolved-attachments");
 }
 
 function prepareReturnedItem(item: Item, clientOnly: boolean): void {
@@ -1158,8 +1158,9 @@ export async function submitQueryChatMessage(
   rawText: string,
   deepResearch: boolean = false,
   attachments: Array<ChatDraftAttachment> = [],
+  skillIds: Array<Uid> = [],
 ): Promise<boolean> {
-  if (rawText.trim() == "" && attachments.length == 0) { return true; }
+  if (rawText.trim() == "" && attachments.length == 0 && skillIds.length == 0) { return true; }
   const chat = getQueryRuntime(store, queryItem).chat;
   if (chat.requestId != null || chat.runningElsewhere || activeQueryChatRequestByQueryId.has(queryItem.id)) {
     showChatMessage(store, "A response is already running in this chat.", TransientMessageType.Info);
@@ -1170,7 +1171,7 @@ export async function submitQueryChatMessage(
   const generation = queryChatGenerations.get(queryItem.id) ?? 0;
   updateQueryRuntime(store, queryItem, current => ({ ...current, chat: { ...current.chat, requestId } }));
   try {
-    return await submitQueryChatTurn(store, queryItem, requestId, rawText, deepResearch, attachments);
+    return await submitQueryChatTurn(store, queryItem, requestId, rawText, deepResearch, attachments, skillIds);
   } finally {
     if ((store.user.getUserMaybe()?.userId ?? null) == accountId &&
         (queryChatGenerations.get(queryItem.id) ?? 0) == generation &&
@@ -1187,6 +1188,7 @@ async function submitQueryChatTurn(
   rawText: string,
   deepResearch: boolean,
   attachments: Array<ChatDraftAttachment>,
+  skillIds: Array<Uid>,
 ): Promise<boolean> {
   const text = rawText.trim();
   const accountId = store.user.getUserMaybe()?.userId ?? null;
@@ -1240,6 +1242,7 @@ async function submitQueryChatTurn(
         attachments: attachments.length > 0
           ? attachments.map(({ id, title, mimeType, text }) => ({ id, title, mimeType, text }))
           : undefined,
+        skillIds: skillIds.length > 0 ? skillIds : undefined,
         ...settings,
       },
     },
@@ -1281,8 +1284,13 @@ async function followQueryChatRun(
     controller.signal.throwIfAborted();
   };
   let accepted = false;
+  let resolvedAttachmentsAdded = false;
   const firstTurnArchive: { promise: Promise<void> | null } = { promise: null };
-  const acceptTurn = (revision: number) => {
+  const acceptTurn = (revision: number, attachments: Array<LoadChatAttachment> = []) => {
+    if (!resolvedAttachmentsAdded && options.submission != null && attachments.length > 0) {
+      addResolvedAttachmentsToLocalUserTurn(store, queryItem, options.submission.userTurnRootId, attachments);
+      resolvedAttachmentsAdded = true;
+    }
     const firstAcceptance = !accepted;
     accepted = true;
     setQueryChatRevision(store, queryItem, revision);
@@ -1311,14 +1319,11 @@ async function followQueryChatRun(
     const onEvent = (event: ChatStreamEvent) => {
       requireCurrent();
       if (event.type == "turn_accepted") {
-        if (!accepted && options.submission != null) {
-          addScopeAttachmentsToLocalUserTurn(store, queryItem, options.submission.userTurnRootId, event.scopeAttachments ?? []);
-        }
-        acceptTurn(event.revision);
+        acceptTurn(event.revision, event.scopeAttachments);
         return;
       }
       if (event.type == "snapshot") {
-        acceptTurn(event.snapshot.revision);
+        acceptTurn(event.snapshot.revision, event.snapshot.resolvedAttachments);
         const context = event.snapshot.contextTokens;
         if (context != null) { setQueryChatContextTokens(store, queryItem, context.tokens, context.exact); }
       }

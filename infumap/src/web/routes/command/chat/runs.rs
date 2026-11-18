@@ -37,7 +37,10 @@ use tokio::time::{Instant, Sleep, sleep, sleep_until};
 use super::activity::{ActivityPhase, ActivitySnapshot, ChatActivity};
 use super::markdown::chat_response_items_json;
 use super::transcript::{ActivityRound, ContextTokenCount, Transcript, TurnOutcome};
-use super::{ChatStreamEventKind, cancel_pending_tool_approvals, chat_stream_event_bytes, pending_tool_approval_ids};
+use super::{
+  ChatStreamEventKind, LoadChatAttachment, cancel_pending_tool_approvals, chat_stream_event_bytes,
+  pending_tool_approval_ids,
+};
 
 const SUBSCRIBER_QUEUE_CAPACITY: usize = 64;
 const DETACH_GRACE: Duration = Duration::from_secs(5 * 60);
@@ -91,6 +94,9 @@ pub(super) enum RunCancellation {
 #[serde(rename_all = "camelCase")]
 pub(super) struct RunSnapshot {
   revision: usize,
+  /// The initial snapshot can arrive before, or replace, the turn-accepted event.
+  #[serde(skip_serializing_if = "Vec::is_empty")]
+  resolved_attachments: Vec<LoadChatAttachment>,
   started_at: i64,
   ended_at: Option<i64>,
   #[serde(flatten)]
@@ -137,6 +143,7 @@ impl RunSnapshot {
       .unwrap_or_else(|| end.and_then(|end| end.rounds.last()).map(|round| round.answer.clone()).unwrap_or_default());
     Ok(Self {
       revision: index + 1,
+      resolved_attachments: LoadChatAttachment::resolved(&turn.user.attachments),
       started_at: turn.user.started_at,
       ended_at: end.map(|end| end.ended_at),
       activity: ActivitySnapshot {
@@ -159,6 +166,7 @@ impl RunSnapshot {
 pub(super) struct RunState {
   activity: ChatActivity,
   revision: usize,
+  resolved_attachments: Vec<LoadChatAttachment>,
   started_at: i64,
   finished: bool,
   subscribers: HashMap<u64, mpsc::Sender<StreamFrame>>,
@@ -169,10 +177,11 @@ pub(super) struct RunState {
 }
 
 impl RunState {
-  pub(super) fn new(revision: usize, started_at: i64) -> Self {
+  pub(super) fn new(revision: usize, started_at: i64, resolved_attachments: Vec<LoadChatAttachment>) -> Self {
     Self {
       activity: ChatActivity::default(),
       revision,
+      resolved_attachments,
       started_at,
       finished: false,
       subscribers: HashMap::new(),
@@ -253,6 +262,7 @@ impl ChatRun {
       .collect();
     let snapshot = RunSnapshot {
       revision: state.revision,
+      resolved_attachments: state.resolved_attachments.clone(),
       started_at: state.started_at,
       ended_at: None,
       activity,

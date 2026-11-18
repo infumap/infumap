@@ -18,7 +18,7 @@
 
 import { GRID_SIZE } from "../constants";
 import { Item, ItemType } from "../items/base/item";
-import { itemCanEdit } from "../items/base/capabilities-item";
+import { itemCanEditChildren } from "../items/base/capabilities-item";
 import { itemCanAcceptManualChildren } from "../items/base/flags-item";
 import { PositionalItem } from "../items/base/positional-item";
 import { ContainerItem } from "../items/base/container-item";
@@ -128,7 +128,7 @@ function addNewItemForCreation(store: StoreContextModel, newItem: PositionalItem
 }
 
 function itemAllowsNewChild(item: Item | null): boolean {
-  return item != null && item.clientOnly !== true && itemCanEdit(item) && itemCanAcceptManualChildren(item);
+  return item != null && item.clientOnly !== true && itemCanEditChildren(item) && itemCanAcceptManualChildren(item);
 }
 
 export function parentChainAllowsNewChild(parentId: Uid): boolean {

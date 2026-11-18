@@ -183,8 +183,7 @@ pub fn default_query_item(owner_id: &str, queries_page_id: &Uid, query_item_id: 
   item
 }
 
-/// The prompts page is derived from the user id, rather than stored on the user record, so that existing users could be
-/// given one without a user log migration.
+/// Skills keeps the former Prompts page ID so existing links and items keep their placement.
 ///
 /// Earlier versions also had a Scopes page, derived from `b"infumap-scopes-page-id-v1"`. Collections replaced it.
 /// Existing ones are left as ordinary pages; that domain must not be reused for another page.
@@ -200,10 +199,11 @@ fn queries_subpage_id(domain: &[u8], user_id: &str) -> Uid {
   hasher.finalize().iter().take(16).map(|byte| format!("{:02x}", byte)).collect()
 }
 
-/// The name of the Prompts page if `id` is `user_id`'s. It is pinned to the bottom of the queries page, and cannot be
-/// deleted, converted or moved out of it.
+const SKILLS_PAGE_TITLE: &str = "Skills";
+
+/// The name of the system page pinned to the bottom of Queries.
 pub fn queries_subpage_name(user_id: &str, id: &str) -> Option<&'static str> {
-  (id == prompts_page_id(user_id)).then_some("Prompts")
+  (id == prompts_page_id(user_id)).then_some(SKILLS_PAGE_TITLE)
 }
 
 pub fn is_queries_subpage_item(item: &Item) -> bool {
@@ -213,7 +213,14 @@ pub fn is_queries_subpage_item(item: &Item) -> bool {
 }
 
 pub fn default_prompts_page(owner_id: &str, queries_page_id: &Uid, ordering: Vec<u8>, natural_aspect: f64) -> Item {
-  default_queries_subpage(owner_id, queries_page_id, prompts_page_id(owner_id), "Prompts", ordering, natural_aspect)
+  default_queries_subpage(
+    owner_id,
+    queries_page_id,
+    prompts_page_id(owner_id),
+    SKILLS_PAGE_TITLE,
+    ordering,
+    natural_aspect,
+  )
 }
 
 fn default_queries_subpage(
@@ -256,17 +263,36 @@ fn default_queries_subpage(
   item
 }
 
-/// Adds the prompts page to the end of the user's queries page if it does not exist yet. Returns true if it was
-/// created.
+/// Places Skills at the end of Queries, keeping the original page ID and its children.
 pub async fn ensure_prompts_page(db: &mut Db, user_id: &Uid) -> InfuResult<bool> {
   let prompts_page_id = prompts_page_id(user_id);
-  if db.item.get(&prompts_page_id).is_ok() {
-    return Ok(false);
-  }
-
   let user = db.user.get(user_id).ok_or(format!("Unknown user '{}'.", user_id))?;
   let queries_page_id = user.queries_page_id.clone();
   let natural_aspect = user.default_page_natural_aspect;
+  if let Ok(page) = db.item.get(&prompts_page_id) {
+    let bottom = db
+      .item
+      .get_children(&queries_page_id)?
+      .into_iter()
+      .filter(|item| item.id != page.id && item.pinned_to == Some(PinnedTo::Bottom));
+    let later_pins = bottom
+      .filter(|item| (&item.ordering, &item.id) >= (&page.ordering, &page.id))
+      .map(|item| item.ordering.clone())
+      .collect::<Vec<_>>();
+    if page.title.as_deref() != Some(SKILLS_PAGE_TITLE)
+      || page.arrange_algorithm != Some(ArrangeAlgorithm::List)
+      || !later_pins.is_empty()
+    {
+      let mut page = page.clone();
+      page.title = Some(SKILLS_PAGE_TITLE.to_owned());
+      page.arrange_algorithm = Some(ArrangeAlgorithm::List);
+      if !later_pins.is_empty() {
+        page.ordering = new_ordering_at_end(later_pins);
+      }
+      db.item.update(&page).await?;
+    }
+    return Ok(false);
+  }
   let ordering =
     new_ordering_at_end(db.item.get_children(&queries_page_id)?.iter().map(|item| item.ordering.clone()).collect());
   db.item.add(default_prompts_page(user_id, &queries_page_id, ordering, natural_aspect)).await?;

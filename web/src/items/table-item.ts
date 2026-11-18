@@ -31,7 +31,7 @@ import {
   calcSpatialAttachmentStripWidthPx,
   isAttachmentsItem
 } from "./base/attachments-item";
-import { itemCanEdit, normalizeItemCapabilities } from "./base/capabilities-item";
+import { itemCanEdit, itemCanEditChildren, normalizeItemCapabilities } from "./base/capabilities-item";
 import { ContainerItem } from "./base/container-item";
 import { itemCanAcceptManualChildren } from "./base/flags-item";
 import { Item, ItemTypeMixin, ItemType } from "./base/item";
@@ -177,7 +177,7 @@ async function columnAttachmentParents(
     let ancestor: Item | null = parent;
     while (ancestor != null) {
       if (isPage(ancestor)) {
-        if (ancestor.clientOnly === true || !itemCanEdit(ancestor) || !itemCanAcceptManualChildren(ancestor)) {
+        if (ancestor.clientOnly === true || !itemCanEditChildren(ancestor) || !itemCanAcceptManualChildren(ancestor)) {
           return null;
         }
         break;
@@ -706,7 +706,7 @@ export const TableFns = {
     let ancestor: Item | null = tableItem;
     while (ancestor != null) {
       if (ancestor.itemType == ItemType.Page) {
-        if (ancestor.clientOnly === true || !itemCanEdit(ancestor) || !itemCanAcceptManualChildren(ancestor)) {
+        if (ancestor.clientOnly === true || !itemCanEditChildren(ancestor) || !itemCanAcceptManualChildren(ancestor)) {
           return false;
         }
         break;

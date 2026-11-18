@@ -19,7 +19,7 @@
 import { createSignal } from "solid-js";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { ItemType, type Item } from "../items/base/item";
-import { itemCanEdit, itemCanMove } from "../items/base/capabilities-item";
+import { itemCanEdit, itemCanEditChildren, itemCanMove } from "../items/base/capabilities-item";
 import { asContainerItem, isContainer } from "../items/base/container-item";
 import { itemState } from "../store/ItemState";
 import type { StoreContextModel } from "../store/StoreProvider";
@@ -233,7 +233,7 @@ export function makeEditorHistory(getStore: () => StoreContextModel) {
         const parent = parentChange ? (forward ? parentChange.after : parentChange.before) : snapshot(target.data.parentId);
         if (!parent || (isStructural && (parent.origin != null || parent.data.ownerId !== store.user.getUserMaybe()?.userId))) { return false; }
         const liveParent = itemState.get(target.data.parentId);
-        if (liveParent && !itemCanEdit(liveParent)) { return false; }
+        if (liveParent && !itemCanEditChildren(liveParent)) { return false; }
       }
     }
     return true;

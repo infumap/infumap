@@ -18,7 +18,7 @@
 
 import { GRID_SIZE, LINE_HEIGHT_PX } from "../constants";
 import { asAttachmentsItem, attachmentAnchorRightPxForVe, attachmentBlockSizePxForVe, calcSpatialAttachmentInsertIndex, isAttachmentsItem } from "../items/base/attachments-item";
-import { itemCanCopy, itemCanEdit, itemCanMove } from "../items/base/capabilities-item";
+import { itemCanCopy, itemCanEditChildren, itemCanMove } from "../items/base/capabilities-item";
 import { itemCanAcceptManualChildren } from "../items/base/flags-item";
 import type { Item } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
@@ -702,7 +702,7 @@ function pageCanHostLiveMovingItem(pageVe: VisualElement): boolean {
   }
   const page = asPageItem(pageVe.displayItem);
   return page.clientOnly !== true &&
-    itemCanEdit(page) &&
+    itemCanEditChildren(page) &&
     itemCanAcceptManualChildren(page) &&
     !!(pageVe.flags & VisualElementFlags.ShowChildren) &&
     pageVe.childAreaBoundsPx != null &&

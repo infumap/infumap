@@ -206,7 +206,7 @@ pub async fn approve_pending(
         return json_response(&ApprovePendingUserResponse { success: false, err: Some(REASON_SERVER.to_owned()) });
       }
       if let Err(e) = ensure_prompts_page(&mut db, &pending_user.id).await {
-        error!("Error adding default prompts page: {}", e);
+        error!("Error adding Skills page: {}", e);
         return json_response(&ApprovePendingUserResponse { success: false, err: Some(REASON_SERVER.to_owned()) });
       }
       for item_key in db.item.all_loaded_items().into_iter().filter(|item_key| item_key.user_id == pending_user.id) {

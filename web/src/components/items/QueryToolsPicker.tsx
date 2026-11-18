@@ -101,7 +101,7 @@ export function QueryToolsPicker(props: ToolsPickerProps) {
         <fieldset class="border-b border-chrome-line px-3 py-2" disabled={locked()}>
           <legend class="px-0 pt-2 text-[12px] font-medium text-neutral-600">Tool approvals</legend>
           <For each={[
-            { value: "automatic" as ToolApproval, label: "Automatic", description: "Run tools automatically. Ask before external requests when Infumap tools are enabled or the chat contains attachments." },
+            { value: "automatic" as ToolApproval, label: "Automatic", description: "Run tools automatically. Ask before external requests when the chat uses Infumap tools, attachments or skills." },
             { value: "always_ask" as ToolApproval, label: "Always ask", description: "Ask before every tool call, including Infumap retrieval." },
           ]}>{option => <label class="flex cursor-pointer items-start gap-2 py-1 text-[13px]">
             <input type="radio" name={`tool-approval-${props.queryItem().id}`} class="mt-1 accent-neutral-700"

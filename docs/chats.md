@@ -59,11 +59,11 @@ setup can be tried as selected; the server rejects unavailable resources rather 
 others. A missing scope is harmless in Chat while Infumap tools are off.
 
 In **Tools → Tool approvals**, choose **Automatic** to run tools automatically while asking before
-external requests when Infumap tools are enabled or the chat contains attachments. Choose
+external requests when the chat uses Infumap tools, attachments or skills. Choose
 **Always ask** to approve every tool call. Some tool sources always require approval. Prompts show
 the tool source and full arguments; **Deny request** lets the model continue without that call.
 These rules apply to both Chat and Deep research, using the current Infumap setting without tracking
-earlier retrieval after tools are disabled. Retained attachments still require external approval.
+earlier retrieval after tools are disabled. Retained attachments and skill instructions still require external approval.
 For sensitive text pasted directly into a message, select Always ask. Existing profiles and older
 chats retain Always ask after upgrading.
 
@@ -86,35 +86,20 @@ the model's context window." To see what the model sees, run the same tools with
 To give a chat particular items as input, attach them to your message. For example, paste a report's item ID, then
 ask for a summary. Use [Scope](scopes.md#choosing-a-scope) to choose which collection the Infumap tools can search.
 
-## Prompts
+## Skills
 
-Text you send often, such as "Summarize the attached", can be kept as a prompt and put into a message without
-typing it. Prompts live in the **Prompts** page. It belongs to the Queries page but isn't listed there: open it
-with **Edit prompts** in the list of prompts (see below). It is created automatically and cannot be moved or deleted,
-but it can be renamed.
+Skills give the model reusable instructions. Open **Skills** at the bottom of **Queries** and create a page
+with the **Document** arrangement directly inside it. The page title is the skill's name. Write the instructions
+in the document body. Existing notes and composites from the former Prompts page stay where they are.
 
-Each note directly inside Prompts is a prompt, and so is each composite, which is what longer text pasted as Markdown
-becomes. A link to a note or composite kept elsewhere is a prompt too. Anything else on the page is ignored. Prompts
-are listed in the order the page shows them, each named by the first line of its first note.
+In Chat or Deep research, type `/` at the start of any line in the composer, then type part of a skill name.
+Use ↑ and ↓ to choose, Enter to add it, or Esc to dismiss the picker. You can also click a result. The skill
+appears as a removable chip above the input. Add your request and any attachments, then send.
 
-In the chat input, or in New Query with Chat or Deep research selected, there are two ways to use one:
-
-- **Type `/`** as the first character of the message, then some of the prompt's name or text. ↑ and ↓ choose,
-  Enter replaces the message with the prompt, and Esc hides the list. The list only appears while something
-  matches, so a message that happens to start with `/` can still be sent.
-- **Click the prompts button** below the input, type to filter if you like, and choose one. It goes in where the
-  cursor is.
-
-After inserting a prompt, you can edit it before sending. To summarize an item with a prompt,
-paste its item ID into the input, type `/sum`, then press Enter to insert the prompt and Enter again to send.
-
-A prompt's formatting comes with it as Markdown: a heading note becomes a `#` heading, a bullet `- item`, a code note
-a fenced block, and the notes of a composite are separated by blank lines. Edit a prompt on the Prompts page, which
-**Edit prompts** opens. Right click there returns to the chat. The next use has the new text; messages already written
-are unchanged. A prompt over 64 KB is listed but can't be inserted.
-
-Profiles could once name a template note that filled an empty input. They no longer can; put such a note on the
-Prompts page, or link to it from there.
+Infumap reads the document when the message is sent and passes its Markdown body to the model as instructions
+alongside your message. The chat keeps a copy of the instructions it received. Edits to the document apply the
+next time you use the skill. A message can use up to 10 skills with up to 1 MB of instructions in total. The model's
+context limit still applies.
 
 ## Attaching text
 

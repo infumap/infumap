@@ -90,6 +90,7 @@ mod prompts;
 mod query_profiles;
 mod scope;
 mod search;
+mod skills;
 
 pub(crate) use chat::{
   chat_providers_from_config, chat_tool_servers_from_config, serve_live_chat_file, validate_chat_backend_config,
@@ -248,6 +249,7 @@ pub async fn serve_command_route(
     "collection-add" => collections::handle_collection_add(db, &request.json_data, &session_maybe).await,
     "collection-remove" => collections::handle_collection_remove(db, &request.json_data, &session_maybe).await,
     "list-prompts" => prompts::handle_list_prompts(db, &session_maybe).await,
+    "list-skills" => skills::handle_list_skills(db, &session_maybe).await,
     "describe-scope-items" => scope::handle_describe_scope_items(db, &request.json_data, &session_maybe).await,
     "query-profiles" => query_profiles::handle_query_profiles(config, db, &request.json_data, &session_maybe).await,
     "load-chat" => chat::handle_load_chat(db, object_store.clone(), &request.json_data, &session_maybe).await,
@@ -711,7 +713,7 @@ fn queries_page_arrange_algorithm_allowed(item: &Item) -> bool {
   item.arrange_algorithm.as_ref() == Some(&ArrangeAlgorithm::List)
 }
 
-/// The prompts page may be renamed or rearranged, but must stay pinned to the bottom of the queries page.
+/// Protects a system page's placement even during a server update.
 fn queries_subpage_update_disallowed(old_item: &Item, new_item: &Item) -> bool {
   old_item.item_type != new_item.item_type
     || old_item.parent_id != new_item.parent_id
@@ -730,7 +732,14 @@ fn item_to_api_json_map_with_capabilities(
   if is_queries_page_query_item(db, item) && is_unpinned(item) {
     // An earlier chat can be dragged, to the trash only; the update guard rejects any other move.
     item_json.insert(String::from("capabilities"), non_resizable_item_capabilities_json());
-  } else if is_queries_page_query_item(db, item) || is_queries_subpage_item(item) {
+  } else if is_queries_subpage_item(item) {
+    item_json.insert(
+      String::from("capabilities"),
+      serde_json::json!({
+        "edit": false, "move": false, "resize": false, "editChildren": true,
+      }),
+    );
+  } else if is_queries_page_query_item(db, item) {
     item_json.insert(String::from("capabilities"), non_movable_item_capabilities_json());
   }
   if is_queries_page_query_item(db, item) {

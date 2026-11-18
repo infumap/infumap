@@ -493,6 +493,34 @@ pub(super) fn container_outline(db: &Db, access: &Access, container_id: &Uid) ->
   Ok(renderer.outline(heading, location, container, units))
 }
 
+/// The document's Markdown body, without its title, location or fragment metadata.
+pub(in crate::web::routes::command) fn document_body_markdown(
+  db: &Db,
+  access: &Access,
+  page: &Item,
+  max_bytes: usize,
+) -> InfuResult<String> {
+  let mut renderer = Renderer::new(db, access);
+  renderer.document_byte_limit = Some(max_bytes);
+  renderer.active.insert(page.id.clone());
+  let mut body = String::new();
+  let counts = HashMap::new();
+  for child in renderer.children(page)? {
+    let mut pieces = Pieces::default();
+    renderer.document_block(child, 0, &mut pieces)?;
+    let block = pieces.render(&counts);
+    if block.trim().is_empty() {
+      continue;
+    }
+    if !body.is_empty() {
+      body.push_str("\n\n");
+    }
+    renderer.check_document_bytes(body.len().saturating_add(block.len()))?;
+    body.push_str(&block);
+  }
+  Ok(body)
+}
+
 /// The group's page, if the chat can read it, and the members it can read, if they are still a group.
 pub(super) fn group_members<'a>(db: &'a Db, access: &Access, group_id: &Uid) -> Option<(&'a Item, Vec<&'a Item>)> {
   let page = db.item.get(&db.item.group_container_id(group_id)?).ok().filter(|page| access.can_read(db, page))?;
@@ -1269,6 +1297,8 @@ struct Renderer<'a, 'b> {
   untold_item_ids: Vec<Uid>,
   /// Labels search results: pages and tables give their fragment counts, rather than their items or rows.
   search_labels: bool,
+  /// Full Markdown exports include table cells. Tool fragments keep a link to the table instead.
+  document_byte_limit: Option<usize>,
   /// Pages and tables whose fragment counts the labels need.
   container_item_ids: HashSet<Uid>,
   /// A search's stemmed words: a result's attachments are shown only when their titles hold one.
@@ -1287,6 +1317,7 @@ impl<'a, 'b> Renderer<'a, 'b> {
       data_item_ids: HashSet::new(),
       untold_item_ids: Vec::new(),
       search_labels: false,
+      document_byte_limit: None,
       container_item_ids: HashSet::new(),
       query_terms: Vec::new(),
       placements: 0,
@@ -1301,6 +1332,13 @@ impl<'a, 'b> Renderer<'a, 'b> {
       return Err(format!("Container has more than {MAX_PLACEMENTS} placements; read a smaller container.").into());
     }
     self.unit_item_ids.push(placement.id.clone());
+    Ok(())
+  }
+
+  fn check_document_bytes(&self, bytes: usize) -> InfuResult<()> {
+    if self.document_byte_limit.is_some_and(|limit| bytes > limit) {
+      return Err("Skill instructions exceed the 1 MB per-message limit.".into());
+    }
     Ok(())
   }
 
@@ -1562,9 +1600,64 @@ impl<'a, 'b> Renderer<'a, 'b> {
         }
         self.active.remove(&content.id);
       }
+      _ if self.document_byte_limit.is_some() && is_tabular(content) => {
+        self.document_table_markdown(content, pieces)?;
+      }
       _ => self.label(content, pieces)?,
     }
+    if let Some(Piece::Text(text)) = pieces.0.last() {
+      self.check_document_bytes(text.len())?;
+    }
     Ok(())
+  }
+
+  fn document_table_markdown(&mut self, table: &'a Item, pieces: &mut Pieces) -> InfuResult<()> {
+    let columns = table.table_columns.as_deref().unwrap_or(&[]);
+    let visible = table.number_of_visible_columns.map_or(columns.len(), |count| count.max(0) as usize);
+    let columns = &columns[..visible.min(columns.len())];
+    if columns.is_empty() {
+      return self.label(table, pieces);
+    }
+    let markdown_row = |cells: Vec<String>| format!("| {} |", cells.join(" | "));
+    pieces.text(&markdown_row(columns.iter().map(|column| escape_cell(&single_line(&column.name))).collect()));
+    pieces.text("\n");
+    pieces.text(&markdown_row(
+      columns
+        .iter()
+        .map(|column| match column.align.map(|align| align.as_str()) {
+          Some("center") => ":---:".to_owned(),
+          Some("right") => "---:".to_owned(),
+          _ => "---".to_owned(),
+        })
+        .collect(),
+    ));
+    for row in self.children(table)? {
+      self.visit(row)?;
+      let mut cells = vec![self.document_table_cell(row)];
+      if let Some(content) = self.access.content(self.db, row) {
+        for cell in self.attachments(content)?.into_iter().take(columns.len() - 1) {
+          self.visit(cell)?;
+          cells.push(self.document_table_cell(cell));
+        }
+      }
+      cells.resize(columns.len(), String::new());
+      pieces.text("\n");
+      pieces.text(&markdown_row(cells));
+      if let Some(Piece::Text(text)) = pieces.0.last() {
+        self.check_document_bytes(text.len())?;
+      }
+    }
+    Ok(())
+  }
+
+  fn document_table_cell(&self, placement: &'a Item) -> String {
+    let Some(item) = self.access.content(self.db, placement) else { return String::new() };
+    let text = match item.item_type {
+      ItemType::Placeholder => return String::new(),
+      ItemType::Note => note_markdown(item.title.as_deref().unwrap_or(""), note_urls(item)),
+      _ => item_link(item),
+    };
+    escape_cell(&text.replace('\n', "<br>"))
   }
 
   /// A search hit's linked label, then links to the attachments whose titles hold a search word: an item's title entry

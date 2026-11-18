@@ -15,7 +15,6 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use super::*;
-use infusdk::item::IMAGE_NO_CROP_FLAG;
 use crate::ai::document_pipeline::requeue_document_fragment_item_now;
 use crate::ai::fragment::sources::{is_local_text_copy_item, write_local_text_copy};
 use crate::ai::fragment_indexing::enqueue_fragment_lexical_index_update;
@@ -24,6 +23,7 @@ use crate::ai::search_eligibility::is_in_trash;
 use crate::ai::search_processing::SearchContentKind;
 use crate::ai::text_extraction::{MAX_PDF_CONVERSION_TIMEOUT_SECS, requeue_pdf_item_now};
 use crate::util::mime::SVG_MIME_TYPE;
+use infusdk::item::IMAGE_NO_CROP_FLAG;
 
 #[derive(Deserialize)]
 pub struct GetAttachmentsRequest {
@@ -675,7 +675,7 @@ async fn update_item(
   {
     return Err(format!("Queries page '{}' must use list arrangement.", item.id).into());
   }
-  // The server pins the current chat and the Prompts page in the Queries page, and nothing else is pinned there by a
+  // The server pins the current chat and the Skills page in the Queries page, and nothing else is pinned there by a
   // client. An ordinary page may be unpinned: the Scopes page of earlier versions is one now, still pinned to the
   // bottom, and must stay movable and deletable.
   if client_request
@@ -709,9 +709,9 @@ async fn update_item(
   {
     return Err(format!("Queries page query item '{}' cannot be resized.", item.id).into());
   }
-  if is_queries_subpage_item(&old_item) && queries_subpage_update_disallowed(&old_item, &item) {
+  if is_queries_subpage_item(&old_item) && (client_request || queries_subpage_update_disallowed(&old_item, &item)) {
     let name = queries_subpage_name(&old_item.owner_id, &old_item.id).unwrap_or("Special");
-    return Err(format!("{} page '{}' cannot be moved, converted or unpinned.", name, item.id).into());
+    return Err(format!("{} page '{}' cannot be modified.", name, item.id).into());
   }
   validate_group_id_for_item(&db, &item)?;
   if old_item.parent_id != item.parent_id || old_item.relationship_to_parent != item.relationship_to_parent {

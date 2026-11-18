@@ -26,7 +26,7 @@ import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { EMPTY_UID, SOLO_ITEM_HOLDER_PAGE_UID, UMBRELLA_PAGE_UID, Uid } from "../util/uid";
 import { Item } from "./base/item";
-import { itemCanEdit } from "./base/capabilities-item";
+import { itemCanEdit, itemCanEditChildren } from "./base/capabilities-item";
 import { PageItem, asPageItem, isPage } from "./page-item";
 
 /** Reasons any conversion of an item between container types is unavailable. */
@@ -113,7 +113,7 @@ export function containerConversionSource(
     if (parent.clientOnly) { return { allowed: false, reason: "client-only" }; }
     if (parent.origin != null) { return { allowed: false, reason: "remote-item" }; }
     if (parent.ownerId != user.userId) { return { allowed: false, reason: "not-owned" }; }
-    if (!itemCanEdit(parent)) { return { allowed: false, reason: "read-only" }; }
+    if (!itemCanEditChildren(parent)) { return { allowed: false, reason: "read-only" }; }
   }
 
   return { allowed: true, source, parent: parent == null ? null : asPageItem(parent), parentId: source.parentId };

@@ -204,6 +204,7 @@ export async function startQueryChat(
   queryItemPath: VisualElementPath,
   deepResearch: boolean = false,
   attachments: Array<ChatDraftAttachment> = [],
+  skillIds: Array<Uid> = [],
 ): Promise<boolean> {
   clearQueryChat(store, queryItem);
   ensureTemporaryQueryChatPage(store, queryItem);
@@ -212,7 +213,7 @@ export async function startQueryChat(
   store.history.setFocus(queryItemPath);
   store.overlay.autoFocusChatInput.set(true);
   arrangeNow(store, "query-start-chat");
-  return await submitQueryChatMessage(store, queryItem, initialText, deepResearch, attachments);
+  return await submitQueryChatMessage(store, queryItem, initialText, deepResearch, attachments, skillIds);
 }
 
 /**

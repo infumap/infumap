@@ -446,8 +446,8 @@ async fn write_compacted_items(
       visited.len()
     );
   }
-  // Only persisted roots confer reachability. Queries includes the hidden Prompts page and its descendants;
-  // virtual search-status pages are not roots, and detached parentless items still need repair.
+  // Only persisted roots confer reachability. Queries includes Skills and its descendants.
+  // Virtual search-status pages are not roots, and detached parentless items still need repair.
   let orphaned_ids: HashSet<Uid> =
     store.get_iter().filter(|(id, _)| !visited.contains(id.as_str())).map(|(id, _)| id.clone()).collect();
   let mut orphan_order: Vec<&str> = orphaned_ids.iter().map(String::as_str).collect();

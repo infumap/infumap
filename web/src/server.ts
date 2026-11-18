@@ -140,6 +140,8 @@ export interface ChatRequest extends QueryChatSettings {
   text?: string,
   /** For a live chat: text attached to the new user message. */
   attachments?: Array<{ id: Uid, title: string, mimeType: string, text: string }>,
+  /** For a live chat: document pages used as skills on this turn. */
+  skillIds?: Array<Uid>,
 }
 
 /** A page with the Collection flag, outside the trash. */
@@ -202,20 +204,14 @@ export interface ListCollectionsResponse {
   collections: Array<CollectionSummary>,
 }
 
-/** A note or composite on the prompts page, or a link to one. */
-export interface PromptSummary {
-  /** The item on the prompts page, which may be a link to the prompt. */
+/** A named document page inside Skills. */
+export interface SkillSummary {
   id: Uid,
-  /** The first line of the first note. */
   name: string,
-  /** Markdown. Absent when the prompt is too long. */
-  text?: string,
-  tooLong?: boolean,
 }
 
-export interface ListPromptsResponse {
-  promptsPageId: Uid,
-  prompts: Array<PromptSummary>,
+export interface ListSkillsResponse {
+  skills: Array<SkillSummary>,
 }
 
 /** An item chosen as a chat's scope, as it resolves now: a link is described as its target. */
@@ -365,6 +361,7 @@ export class ChatStreamControl {
 
 export interface ChatRunSnapshot {
   revision: number,
+  resolvedAttachments?: Array<LoadChatAttachment>,
   startedAt: number,
   endedAt: number | null,
   phase: ChatStreamPhase | "interrupted",
@@ -587,7 +584,7 @@ const COMMAND_LIST_COLLECTIONS = "list-collections";
 const COMMAND_COLLECTION_COVERAGE = "collection-coverage";
 const COMMAND_COLLECTION_ADD = "collection-add";
 const COMMAND_COLLECTION_REMOVE = "collection-remove";
-const COMMAND_LIST_PROMPTS = "list-prompts";
+const COMMAND_LIST_SKILLS = "list-skills";
 const COMMAND_DESCRIBE_SCOPE_ITEMS = "describe-scope-items";
 const COMMAND_QUERY_PROFILES = "query-profiles";
 const COMMAND_LOAD_CHAT = "load-chat";
@@ -647,8 +644,8 @@ function getCommandDescription(command: string, payload: any): { description: st
     case COMMAND_LIST_COLLECTIONS:
       description = "Loading collections";
       break;
-    case COMMAND_LIST_PROMPTS:
-      description = "Loading prompts";
+    case COMMAND_LIST_SKILLS:
+      description = "Loading skills";
       break;
     case COMMAND_DESCRIBE_SCOPE_ITEMS:
       description = "Loading scope items";
@@ -1458,8 +1455,8 @@ export const server = {
     return constructCommandPromise(null, COMMAND_LIST_COLLECTIONS, { currentPageId }, null);
   },
 
-  listPrompts: async (): Promise<ListPromptsResponse> => {
-    return constructCommandPromise(null, COMMAND_LIST_PROMPTS, {}, null);
+  listSkills: async (): Promise<ListSkillsResponse> => {
+    return constructCommandPromise(null, COMMAND_LIST_SKILLS, {}, null);
   },
 
   /** At most 32 items. */
@@ -2348,6 +2345,9 @@ function parseChatJson(text: string): unknown {
 const chatNumber = (value: unknown): value is number => Number.isSafeInteger(value) && (value as number) >= 0;
 const chatItems = (value: unknown): value is Array<object> => Array.isArray(value) && value.every(isChatRecord);
 const chatNullableString = (value: unknown): boolean => value == null || typeof value == "string";
+const validChatAttachments = (value: unknown): boolean => value == null || (Array.isArray(value) &&
+  value.every(attachment => isChatRecord(attachment) && typeof attachment.id == "string" &&
+    typeof attachment.title == "string" && typeof attachment.mimeType == "string" && chatNumber(attachment.sizeBytes)));
 
 function validChatRounds(value: unknown): value is Array<QueryChatActivityModelRound> {
   return Array.isArray(value) && value.every(round => isChatRecord(round) && chatNumber(round.number) &&
@@ -2361,7 +2361,7 @@ function validChatRounds(value: unknown): value is Array<QueryChatActivityModelR
 function validChatSnapshot(value: unknown): value is ChatRunSnapshot {
   if (!isChatRecord(value)) { return false; }
   const phases = ["submitted", "thinking", "answering", "awaiting_approval", "using_tools", "materializing", "complete", "cancelled", "error", "interrupted"];
-  return chatNumber(value.revision) && value.revision > 0 && chatNumber(value.startedAt) &&
+  return chatNumber(value.revision) && value.revision > 0 && validChatAttachments(value.resolvedAttachments) && chatNumber(value.startedAt) &&
     (value.endedAt === null || chatNumber(value.endedAt)) && typeof value.phase == "string" && phases.includes(value.phase) &&
     typeof value.statusText == "string" && validChatRounds(value.rounds) && typeof value.answerPreview == "string" &&
     (value.contextTokens === null || (isChatRecord(value.contextTokens) && chatNumber(value.contextTokens.tokens) &&
@@ -2391,9 +2391,7 @@ function parseChatStreamEvent(value: unknown): ChatStreamEvent {
         (value.type != "tool_call_finished" || (typeof value.summary == "string" && chatNumber(value.durationMs)));
       break;
     case "turn_accepted":
-      valid = chatNumber(value.revision) && (value.scopeAttachments == null || (Array.isArray(value.scopeAttachments) &&
-        value.scopeAttachments.every(attachment => isChatRecord(attachment) && typeof attachment.id == "string" &&
-          typeof attachment.title == "string" && typeof attachment.mimeType == "string" && chatNumber(attachment.sizeBytes))));
+      valid = chatNumber(value.revision) && validChatAttachments(value.scopeAttachments);
       break;
     case "transcript_conflict": valid = chatNumber(value.revision); break;
     case "context_tokens": valid = chatNumber(value.tokens) && typeof value.exact == "boolean"; break;

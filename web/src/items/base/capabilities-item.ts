@@ -49,6 +49,11 @@ export function itemCanEdit(item: ItemTypeMixin | null): boolean {
   return itemCapabilities(item)?.edit ?? true;
 }
 
+export function itemCanEditChildren(item: ItemTypeMixin | null): boolean {
+  const capabilities = itemCapabilities(item);
+  return capabilities?.editChildren ?? capabilities?.edit ?? true;
+}
+
 export function itemCanMove(item: ItemTypeMixin | null): boolean {
   return itemCapabilities(item)?.move ?? true;
 }

@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { itemCanEdit, itemCanMove } from "../items/base/capabilities-item";
+import { itemCanEdit, itemCanEditChildren, itemCanMove } from "../items/base/capabilities-item";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { NoteFlags, noteHasListStyle } from "../items/base/flags-item";
 import { ItemFns } from "../items/base/item-polymorphism";
@@ -98,7 +98,7 @@ export function deleteEmptyNoteMaybe(store: StoreContextModel, ve: VisualElement
   if (!isBlankNote(note, iconContext)) { return false; }
 
   const parent = itemState.get(note.parentId);
-  if (parent == null || parent.origin != null || parent.clientOnly || !itemCanEdit(parent)) { return false; }
+  if (parent == null || parent.origin != null || parent.clientOnly || !itemCanEditChildren(parent)) { return false; }
   let notes = [note];
   let placeholder = null;
   if (!(ve.flags & VisualElementFlags.InsideTable) && parentPageArrangeAlgorithm(ve) == ArrangeAlgorithm.Document) {

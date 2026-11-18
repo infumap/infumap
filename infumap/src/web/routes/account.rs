@@ -531,7 +531,7 @@ pub async fn register(
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
     }
     if let Err(e) = ensure_prompts_page(&mut db, &user_id).await {
-      error!("Error adding default prompts page: {}", e);
+      error!("Error adding Skills page: {}", e);
       return json_response(&RegisterResponse { success: false, err: Some(String::from("server error")) });
     }
     for item_key in db.item.all_loaded_items().into_iter().filter(|item_key| item_key.user_id == user.id) {

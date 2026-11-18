@@ -17,6 +17,7 @@
 */
 
 import { ContainerItem, asContainerItem } from "../items/base/container-item";
+import { itemCanEditChildren } from "../items/base/capabilities-item";
 import { NoteFns, NoteItem } from "../items/note-item";
 import { TableFns } from "../items/table-item";
 import { arrangeNow } from "../layout/arrange";
@@ -112,7 +113,7 @@ export function pasteLinesTargetMaybe(store: StoreContextModel): PasteLinesTarge
   if (target == null) { return null; }
 
   const parent = target.parentContainer;
-  if (!locallyEditable(store, parent) || !parentChainAllowsNewChild(parent.id)) { return null; }
+  if (!locallyEditable(store, parent, itemCanEditChildren) || !parentChainAllowsNewChild(parent.id)) { return null; }
   return target;
 }
 

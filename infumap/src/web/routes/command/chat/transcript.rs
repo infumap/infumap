@@ -59,6 +59,9 @@ use crate::util::fs::expand_tilde;
 /// Version 4 replaced the configuration's bare `scopeId` with a `scope` reference.
 pub(super) const TRANSCRIPT_FORMAT_VERSION: u32 = 4;
 const CHATS_DIR_NAME: &str = "chats";
+/// Skill snapshots use the existing transcript attachment storage so a saved chat can reopen the exact instructions.
+/// This media type is reserved to the server and gives snapshots their own role in the model's user message.
+pub(super) const SKILL_SNAPSHOT_MIME_TYPE: &str = "text/vnd.infumap.skill+markdown";
 
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -98,7 +101,7 @@ pub(super) struct UserRecord {
 }
 
 impl UserRecord {
-  /// The user message the model gets: each attachment wrapped in `<attachment>` tags, then the text. Attachments are
+  /// The user message the model gets: the selected skills as instructions, then the attachments and message. Attachments are
   /// inline rather than a reference to read with a tool, because weak models skip reads, and for a summary a part
   /// left unread is the worst failure; they also work in a chat without tools. Nothing is cut to fit the context: a
   /// summary of part of a text, presented as a summary of all of it, is worse than the backend's error.
@@ -106,6 +109,7 @@ impl UserRecord {
     let mut parts = self
       .attachments
       .iter()
+      .filter(|attachment| !attachment.is_skill())
       .map(|attachment| {
         let newline = if attachment.text.ends_with('\n') { "" } else { "\n" };
         format!(
@@ -116,6 +120,19 @@ impl UserRecord {
         )
       })
       .collect::<Vec<_>>();
+    let skills = self
+      .attachments
+      .iter()
+      .filter(|attachment| attachment.is_skill())
+      .map(|skill| {
+        let newline = if skill.text.ends_with('\n') { "" } else { "\n" };
+        format!("<skill name=\"{}\">\n{}{}</skill>", skill.title.replace('"', "'"), skill.text, newline)
+      })
+      .collect::<Vec<_>>();
+    if !skills.is_empty() {
+      parts
+        .insert(0, format!("The user selected these skill instructions for this message:\n\n{}", skills.join("\n\n")));
+    }
     if !self.text.is_empty() {
       parts.push(self.text.clone());
     }
@@ -137,6 +154,12 @@ pub(super) struct ChatAttachment {
   #[serde(rename = "sizeBytes")]
   pub(super) size_bytes: usize,
   pub(super) text: String,
+}
+
+impl ChatAttachment {
+  pub(super) fn is_skill(&self) -> bool {
+    self.mime_type == SKILL_SNAPSHOT_MIME_TYPE
+  }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]

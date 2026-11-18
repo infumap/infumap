@@ -30,6 +30,7 @@ use tokio_stream::wrappers::ReceiverStream;
 use uuid::Uuid;
 
 use super::scope::{MAX_SCOPE_ITEMS, ResolvedScope, ScopeSource, resolve_item_scope, resolve_scope_ref};
+use super::skills::read_skills;
 use crate::query_configuration::ScopeRef;
 use crate::web::LLM_LOG_ENABLED;
 use crate::web::serve::{empty_body, forbidden_response, not_found_response};
@@ -229,7 +230,9 @@ mod transcript;
 use backend::{ChatAdapter, ChatEndpoint, ChatReasoning, OPENROUTER_APP_TITLE, chat_backends, resolve_chat_endpoint};
 pub(crate) use backend::{chat_providers_from_config, default_query_configuration, validate_chat_backend_config};
 use configuration::TurnSettings;
-pub(super) use container_fragments::{Access, document_note_markdown, readable_children_in_display_order};
+pub(super) use container_fragments::{
+  Access, document_body_markdown, document_note_markdown, readable_children_in_display_order,
+};
 use markdown::chat_response_items_json;
 pub(crate) use mcp::chat_tool_servers_from_config;
 use transcript::{
@@ -351,6 +354,9 @@ struct ChatRequest {
   /// For a live chat: text attached to the new user message.
   #[serde(default)]
   attachments: Vec<ChatAttachmentRequest>,
+  /// Document pages explicitly selected for the new turn. The server resolves their current Markdown.
+  #[serde(rename = "skillIds", default)]
+  skill_ids: Vec<Uid>,
   #[serde(flatten)]
   settings: TurnSettings,
 }
@@ -1049,6 +1055,12 @@ pub async fn serve_chat_stream_route(
       ChatStreamEventKind::error("Attachments are only supported in a chat in the Queries page."),
     );
   }
+  if request.query_item_id.is_none() && !request.skill_ids.is_empty() {
+    return single_chat_stream_event_response(
+      stream_request_id,
+      ChatStreamEventKind::error("Skills are only supported in a chat in the Queries page."),
+    );
+  }
   // Reject unavailable resources before recording a user turn, so the client can keep its draft.
   let mut resources = match prepare_chat_resources(config.as_ref(), db, &session, &request).await {
     Ok(resources) => resources,
@@ -1363,13 +1375,15 @@ impl LiveChatTurn {
 
   /// The attachments of this turn's message made from items in scope.
   fn scope_attachments(&self) -> Vec<LoadChatAttachment> {
-    let user = self.transcript.transcript().and_then(|transcript| transcript.turns.last()).map(|turn| &turn.user);
-    user
-      .map_or(&[][..], |user| &user.attachments[..])
-      .iter()
-      .filter(|attachment| attachment.item_id.is_some())
-      .map(LoadChatAttachment::from)
-      .collect()
+    self.attachments().iter().filter(|attachment| attachment.item_id.is_some()).map(LoadChatAttachment::from).collect()
+  }
+
+  fn attachments(&self) -> &[ChatAttachment] {
+    self
+      .transcript
+      .transcript()
+      .and_then(|transcript| transcript.turns.last())
+      .map_or(&[], |turn| &turn.user.attachments)
   }
 
   async fn end(
@@ -1996,7 +2010,7 @@ struct LoadChatTurn {
   rounds: Vec<ActivityRound>,
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 struct LoadChatAttachment {
   id: Uid,
   title: String,
@@ -2011,9 +2025,19 @@ impl From<&ChatAttachment> for LoadChatAttachment {
     LoadChatAttachment {
       id: attachment.id.clone(),
       title: attachment.title.clone(),
-      mime_type: attachment.mime_type.clone(),
+      mime_type: if attachment.is_skill() { "text/markdown".to_owned() } else { attachment.mime_type.clone() },
       size_bytes: attachment.size_bytes,
     }
+  }
+}
+
+impl LoadChatAttachment {
+  fn resolved(attachments: &[ChatAttachment]) -> Vec<Self> {
+    attachments
+      .iter()
+      .filter(|attachment| attachment.item_id.is_some() || attachment.is_skill())
+      .map(Self::from)
+      .collect()
   }
 }
 
@@ -2202,7 +2226,7 @@ fn chat_attachments_from_request(attachments: Vec<ChatAttachmentRequest>) -> Res
       if !is_uid(&attachment.id) || !ids.insert(attachment.id.clone()) {
         return Err(format!("Attachment '{}' has a missing or repeated id.", title));
       }
-      if !attachment.mime_type.starts_with("text/") {
+      if !attachment.mime_type.starts_with("text/") || attachment.mime_type == transcript::SKILL_SNAPSHOT_MIME_TYPE {
         return Err(format!("Attachment '{}' is not text.", title));
       }
       if attachment.text.trim().is_empty() {
@@ -2241,7 +2265,7 @@ async fn start_live_chat_turn(
   let text = request.text.as_deref().map(str::trim).unwrap_or("").to_owned();
   let mut attachments =
     chat_attachments_from_request(std::mem::take(&mut request.attachments)).map_err(|e| error(&e))?;
-  if text.is_empty() && attachments.is_empty() {
+  if text.is_empty() && attachments.is_empty() && request.skill_ids.is_empty() {
     return Err(error("Chat request did not contain any message text."));
   }
   let expected_revision = request
@@ -2275,6 +2299,23 @@ async fn start_live_chat_turn(
   {
     return Err(error("An attachment of this message is already in the chat."));
   }
+  if !request.skill_ids.is_empty() {
+    let skills =
+      read_skills(&*db.lock().await, &session.user_id, &request.skill_ids).map_err(|e| error(&e.message()))?;
+    let mut skills = skills
+      .into_iter()
+      .map(|(title, text)| ChatAttachment {
+        id: new_uid(),
+        item_id: None,
+        title,
+        mime_type: transcript::SKILL_SNAPSHOT_MIME_TYPE.to_owned(),
+        size_bytes: text.len(),
+        text,
+      })
+      .collect::<Vec<_>>();
+    skills.append(&mut attachments);
+    attachments = skills;
+  }
   // Items chosen as the scope go before the user's own attachments, the first time each is in scope. One whose turn
   // did not complete is not in the history, so it is attached again.
   if let Some(scope) = scope
@@ -2304,6 +2345,7 @@ async fn start_live_chat_turn(
   let user =
     UserRecord { request_id: request_id.to_owned(), started_at, text, attachments, settings: request.settings.clone() };
   let content = user.model_content();
+  let resolved_attachments = LoadChatAttachment::resolved(&user.attachments);
   transcript.append_user(user).await.map_err(transcript_error)?;
 
   let mut messages = transcript.transcript().map(Transcript::history).unwrap_or_default();
@@ -2316,8 +2358,11 @@ async fn start_live_chat_turn(
     tool_calls: None,
   });
   request.messages = messages;
-  let activity =
-    Arc::new(Mutex::new(runs::RunState::new(transcript.transcript().map_or(0, Transcript::revision), started_at)));
+  let activity = Arc::new(Mutex::new(runs::RunState::new(
+    transcript.transcript().map_or(0, Transcript::revision),
+    started_at,
+    resolved_attachments,
+  )));
   Ok(LiveChatTurn { transcript, request_id: request_id.to_owned(), started_at, history_len, activity, ended: false })
 }
 
@@ -3340,10 +3385,11 @@ async fn prepare_chat_resources(
     name_map.retain(|name, _| read_only_names.contains(name.as_str()));
   }
   configure_web_search_tools(request.settings.mode, &mut mcp_tools, &mut name_map);
-  // Resolve before current attachments are moved into the transcript. The live-chat path also
-  // protects retained attachments. Earlier Infumap retrieval deliberately does not affect this rule.
+  // The live-chat path also protects retained attachments and skill snapshots. Earlier Infumap retrieval
+  // deliberately does not affect this rule.
   let always_ask = request.settings.configuration.tool_approval == crate::query_configuration::ToolApproval::AlwaysAsk;
-  let private_sources_enabled = infumap_data.is_some() || !request.attachments.is_empty();
+  let private_sources_enabled =
+    infumap_data.is_some() || !request.attachments.is_empty() || !request.skill_ids.is_empty();
   let mut approval_required: HashSet<String> = name_map
     .iter()
     .filter(|(_, target)| {

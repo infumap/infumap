@@ -29,7 +29,7 @@ import { VesCache } from "./layout/ves-cache";
 import { VeFns, VisualElement, VisualElementFlags, VisualElementPath } from "./layout/visual-element";
 import { asAttachmentsItem, AttachmentsItem, attachmentAnchorRightPxForVe, attachmentBlockSizePxForVe, calcSpatialAttachmentInsertIndex, isAttachmentsItem } from "./items/base/attachments-item";
 import { isComposite } from "./items/composite-item";
-import { itemCanEdit } from "./items/base/capabilities-item";
+import { itemCanEditChildren } from "./items/base/capabilities-item";
 import { itemCanAcceptManualChildren } from "./items/base/flags-item";
 import { ItemType } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
@@ -214,7 +214,7 @@ function parentChainAcceptsManualChildAdd(parentId: string): boolean {
   let current = itemState.get(parentId);
   while (current != null) {
     if (isPage(current)) {
-      return current.clientOnly !== true && itemCanEdit(current) && itemCanAcceptManualChildren(current);
+      return current.clientOnly !== true && itemCanEditChildren(current) && itemCanAcceptManualChildren(current);
     }
     current = current.parentId != null ? itemState.get(current.parentId) : null;
   }
@@ -226,7 +226,7 @@ function uploadTargetAcceptsManualChildAdd(target: UploadTarget): boolean {
     case "page-position":
     case "page-ordered":
       return target.parent.clientOnly !== true &&
-        itemCanEdit(target.parent) &&
+        itemCanEditChildren(target.parent) &&
         itemCanAcceptManualChildren(target.parent);
     case "container-row":
       return parentChainAcceptsManualChildAdd(target.parentId);

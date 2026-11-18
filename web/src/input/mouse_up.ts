@@ -18,7 +18,7 @@
 
 import { GRID_SIZE, MOUSE_MOVE_AMBIGUOUS_PX, NATURAL_BLOCK_SIZE_PX } from "../constants";
 import { AttachmentsItem, asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
-import { itemCanCopy, itemCanEdit, itemCanMove } from "../items/base/capabilities-item";
+import { itemCanCopy, itemCanEdit, itemCanEditChildren, itemCanMove } from "../items/base/capabilities-item";
 import { closestCaretPositionToClientPx, setCaretPosition } from "../util/caret";
 import { ContainerItem, asContainerItem, isContainer } from "../items/base/container-item";
 import { itemCanAcceptManualChildren } from "../items/base/flags-item";
@@ -347,7 +347,7 @@ function visualElementAcceptsManualChildAdd(visualElement: VisualElement): boole
   while (currentVe != null) {
     if (isPage(currentVe.displayItem)) {
       const page = asPageItem(currentVe.displayItem);
-      return page.clientOnly !== true && itemCanEdit(page) && itemCanAcceptManualChildren(page);
+      return page.clientOnly !== true && itemCanEditChildren(page) && itemCanAcceptManualChildren(page);
     }
     currentVe = currentVe.parentPath ? MouseActionState.readVisualElement(currentVe.parentPath) : null;
   }
@@ -359,7 +359,7 @@ function containerAcceptsManualChildAdd(container: ContainerItem): boolean {
   while (current != null) {
     if (isPage(current)) {
       const page = asPageItem(current);
-      return page.clientOnly !== true && itemCanEdit(page) && itemCanAcceptManualChildren(page);
+      return page.clientOnly !== true && itemCanEditChildren(page) && itemCanAcceptManualChildren(page);
     }
     current = current.parentId != null ? itemState.get(current.parentId) : null;
   }
@@ -1225,7 +1225,7 @@ function currentDropTargetRejectionMessage(store: StoreContextModel): string | n
   if (textDocumentMaterializeMove || itemCopyMove) {
     return resolvedTarget.hoverContainerVe.displayItem.origin != null ||
       !isContainer(resolvedTarget.hoverContainerVe.displayItem) ||
-      !itemCanEdit(resolvedTarget.hoverContainerVe.displayItem)
+      !itemCanEditChildren(resolvedTarget.hoverContainerVe.displayItem)
       ? CANT_DROP_HERE_MESSAGE
       : null;
   }
