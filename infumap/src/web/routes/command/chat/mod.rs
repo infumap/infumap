@@ -236,7 +236,7 @@ pub(super) use container_fragments::{
 use markdown::chat_response_items_json;
 pub(crate) use mcp::chat_tool_servers_from_config;
 use transcript::{
-  ActivityRound, ChatAttachment, ContextTokenCount, LockedTranscript, TRANSCRIPT_FORMAT_VERSION, Transcript,
+  ActivityRound, ChatAttachment, ChatSetup, ContextTokenCount, LockedTranscript, TRANSCRIPT_FORMAT_VERSION, Transcript,
   TranscriptHeader, TurnOutcome, TurnRecord, TurnStatus, UserRecord, chat_is_locked, read_transcript,
   try_lock_transcript,
 };
@@ -347,6 +347,9 @@ struct ChatRequest {
   /// When a live chat started, from its transcript, filled in when its turn starts. None for a chat without one.
   #[serde(skip)]
   chat_started_at: Option<i64>,
+  /// A live chat's fixed system prompt, from its transcript, filled in when its turn starts.
+  #[serde(skip)]
+  system_prompt: Option<String>,
   /// For a new live turn: the transcript revision the client last saw. Existing request IDs recover their turn
   /// before this revision or the submitted settings/text are checked again.
   #[serde(rename = "expectedRevision", default)]
@@ -404,7 +407,9 @@ struct ChatAttachmentRequest {
 struct ChatResources {
   endpoint: ChatEndpoint,
   infumap_data: Option<InfumapData>,
-  mcp_tools: Vec<mcp::MappedMcpTool>,
+  /// The tool definitions sent to the model.
+  tools: Vec<OpenAiToolSpec>,
+  /// How each tool from a tool server is called, by name.
   name_map: HashMap<String, mcp::MappedMcpToolTarget>,
   approval_required: HashSet<String>,
 }
@@ -840,14 +845,14 @@ struct OpenAiToolCallFunction {
   arguments: Value,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Deserialize, PartialEq, Serialize)]
 struct OpenAiToolSpec {
   #[serde(rename = "type")]
   tool_type: String,
   function: OpenAiToolFunctionSpec,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Deserialize, PartialEq, Serialize)]
 struct OpenAiToolFunctionSpec {
   name: String,
   description: String,
@@ -1072,6 +1077,7 @@ pub async fn serve_chat_stream_route(
   // Use the header's identity when the body omits one; generating another ID here would defeat retries that
   // deliberately reuse the header after losing the acceptance response.
   let stream_request_id = request.stream_request_id(request_id);
+  let mut fixed_setup = None;
   let start_reservation = if let Some(query_item_id) = &request.query_item_id {
     let reservation = runs::reserve_start(&session.user_id, query_item_id, &stream_request_id).await;
     // A retry can wait for resource preparation. Authorize the chat after waiting, before exposing any output.
@@ -1100,6 +1106,15 @@ pub async fn serve_chat_stream_route(
         );
       }
     }
+    // Read without the chat lock: the header never changes once written, and a chat started meanwhile in another
+    // tab is caught by the revision check when the turn starts.
+    fixed_setup = match transcript::read_transcript(&data_dir, &session.user_id, query_item_id).await {
+      Ok(transcript) => transcript.and_then(|transcript| transcript.header.setup),
+      Err(e) => {
+        warn!("Could not read the transcript of chat '{}' for user '{}': {}", query_item_id, session.user_id, e);
+        return chat_tool_error_response(hyper::StatusCode::INTERNAL_SERVER_ERROR, "Could not read the chat.");
+      }
+    };
     Some(reservation)
   } else {
     None
@@ -1120,13 +1135,21 @@ pub async fn serve_chat_stream_route(
     );
   }
   // Reject unavailable resources before recording a user turn, so the client can keep its draft.
-  let mut resources = match prepare_chat_resources(config.as_ref(), db, &session, &request).await {
+  let mut resources = match prepare_chat_resources(config.as_ref(), db, &session, &request, fixed_setup.as_ref()).await
+  {
     Ok(resources) => resources,
     Err(message) => return single_chat_stream_event_response(stream_request_id, ChatStreamEventKind::error(&message)),
   };
+  let new_chat = match (&request.query_item_id, &fixed_setup) {
+    (Some(_), None) => {
+      let started_at = unix_now_millis();
+      Some((started_at, first_turn_chat_setup(&*db.lock().await, &request, &resources, started_at)))
+    }
+    _ => None,
+  };
   let chosen_scope = resources.infumap_data.as_ref().and_then(InfumapData::scope);
   let mut live_turn = match request.query_item_id.is_some() {
-    true => match start_live_chat_turn(db, &session, &mut request, &stream_request_id, chosen_scope).await {
+    true => match start_live_chat_turn(db, &session, &mut request, &stream_request_id, chosen_scope, new_chat).await {
       Ok(turn) => Some(turn),
       Err(event) => return single_chat_stream_event_response(stream_request_id, event),
     },
@@ -1846,6 +1869,7 @@ async fn continue_persisted_chat(
     version: TRANSCRIPT_FORMAT_VERSION,
     query_item_id: query_item_id.clone(),
     created_at: source.header.created_at,
+    setup: source.header.setup.clone(),
   };
   transcript.create_copy(header, &source).await?;
   let mut source_ids =
@@ -2050,7 +2074,30 @@ struct LoadChatResponse {
   /// The last context token count recorded by an ended turn.
   #[serde(rename = "contextTokens")]
   context_tokens: Option<ContextTokenCount>,
+  /// The scope, tools and mode the chat's first turn fixed. None before the first turn, and in a chat started before
+  /// setups were fixed.
+  setup: Option<LoadChatSetup>,
   turns: Vec<LoadChatTurn>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LoadChatSetup {
+  scope: ScopeRef,
+  scope_item_ids: Vec<Uid>,
+  capabilities: Vec<String>,
+  mode: ChatRunMode,
+}
+
+impl From<&ChatSetup> for LoadChatSetup {
+  fn from(setup: &ChatSetup) -> Self {
+    Self {
+      scope: setup.scope.clone(),
+      scope_item_ids: setup.scope_item_ids.clone(),
+      capabilities: setup.capabilities.clone(),
+      mode: setup.mode,
+    }
+  }
 }
 
 #[derive(Serialize)]
@@ -2106,7 +2153,14 @@ impl LoadChatAttachment {
 
 fn load_chat_response(owner_id: &Uid, transcript: Option<&Transcript>, running: bool) -> LoadChatResponse {
   let Some(transcript) = transcript else {
-    return LoadChatResponse { revision: 0, running, last_settings: None, context_tokens: None, turns: vec![] };
+    return LoadChatResponse {
+      revision: 0,
+      running,
+      last_settings: None,
+      context_tokens: None,
+      setup: None,
+      turns: vec![],
+    };
   };
   let turns = transcript
     .turns
@@ -2148,6 +2202,7 @@ fn load_chat_response(owner_id: &Uid, transcript: Option<&Transcript>, running: 
     running,
     last_settings: transcript.turns.last().map(|turn| turn.user.settings.clone()),
     context_tokens: transcript.turns.iter().rev().find_map(|turn| turn.end.as_ref().and_then(|end| end.context_tokens)),
+    setup: transcript.header.setup.as_ref().map(LoadChatSetup::from),
     turns,
   }
 }
@@ -2330,6 +2385,7 @@ async fn start_live_chat_turn(
   request: &mut ChatRequest,
   request_id: &str,
   scope: Option<&ResolvedScope>,
+  new_chat: Option<(i64, ChatSetup)>,
 ) -> Result<LiveChatTurn, ChatStreamEventKind> {
   let error = |message: &str| ChatStreamEventKind::error(message);
   let query_item_id = request.query_item_id.clone().ok_or_else(|| error("Chat request has no query item id."))?;
@@ -2414,14 +2470,17 @@ async fn start_live_chat_turn(
     attachments = scope_attachments;
   }
   if transcript.transcript().is_none() {
-    let header = TranscriptHeader {
-      version: TRANSCRIPT_FORMAT_VERSION,
-      query_item_id: query_item_id.clone(),
-      created_at: unix_now_millis(),
+    let (created_at, setup) = match new_chat {
+      Some((started_at, setup)) => (started_at, Some(setup)),
+      None => (unix_now_millis(), None),
     };
+    let header =
+      TranscriptHeader { version: TRANSCRIPT_FORMAT_VERSION, query_item_id: query_item_id.clone(), created_at, setup };
     transcript.create(header).await.map_err(transcript_error)?;
   }
-  request.chat_started_at = transcript.transcript().map(|transcript| transcript.header.created_at);
+  let header = transcript.transcript().map(|transcript| &transcript.header);
+  request.chat_started_at = header.map(|header| header.created_at);
+  request.system_prompt = header.and_then(|header| header.setup.as_ref()).map(|setup| setup.system_prompt.clone());
 
   let started_at = unix_now_millis();
   let user =
@@ -3467,12 +3526,22 @@ fn completed_chat_result(messages: &[OpenAiChatMessage], backend_label: &str) ->
 
 /// Resolves the model route, scope and tool sources once, before the turn is recorded, so a rejected request
 /// leaves no turn and the client keeps its draft. Every error is a message for the user.
+///
+/// A chat with a fixed setup must ask for the same scope, tools and mode, and gets the tool definitions it was first
+/// given, whether or not their servers are reachable now.
 async fn prepare_chat_resources(
   config: &Config,
   db: &Arc<tokio::sync::Mutex<Db>>,
   session: &Session,
   request: &ChatRequest,
+  setup: Option<&ChatSetup>,
 ) -> Result<ChatResources, String> {
+  if setup.is_some_and(|setup| !setup.matches(&request.settings)) {
+    return Err(
+      "This chat's scope, tools and mode were fixed by its first message. Start a new chat to use different ones."
+        .to_owned(),
+    );
+  }
   let selection = request.settings.configuration.model.as_ref().ok_or("Choose a model and provider for Chat.")?;
   let endpoint =
     backend::resolve_validated_chat_endpoint(config, selection).await.map_err(|error| error.message().to_owned())?;
@@ -3480,10 +3549,9 @@ async fn prepare_chat_resources(
     let scope_item_ids = &request.settings.scope_item_ids;
     let scope = if !scope_item_ids.is_empty() {
       // Items chosen in the chat replace the selected scope, which stays selected for when they are removed.
-      Some(
-        resolve_item_scope(&*db.lock().await, &session.user_id, scope_item_ids)
-          .map_err(|error| error.message().to_owned())?,
-      )
+      Some(resolve_item_scope(&*db.lock().await, &session.user_id, scope_item_ids).map_err(|error| {
+        if setup.is_some() { FIXED_SCOPE_UNAVAILABLE.to_owned() } else { error.message().to_owned() }
+      })?)
     } else {
       match &request.settings.configuration.scope {
         ScopeRef::Everything => None,
@@ -3493,7 +3561,7 @@ async fn prepare_chat_resources(
           // An unavailable collection would leave the run searching nothing, and the model would report what it
           // could not see as absent. Searching everything instead would break the user's limit.
           if let Some(message) = scope.unavailable_message() {
-            return Err(message);
+            return Err(if setup.is_some() { FIXED_SCOPE_UNAVAILABLE.to_owned() } else { message });
           }
           Some(scope)
         }
@@ -3518,17 +3586,23 @@ async fn prepare_chat_resources(
   } else {
     None
   };
-  let reserved = mcp::reserved_openai_names(infumap_data.is_some());
-  let (mut mcp_tools, mut name_map) =
-    mcp::mapped_tools_for_capabilities(config, &request.plugin_capabilities(), &reserved)
-      .await
-      .map_err(|error| error.message().to_owned())?;
-  if request.settings.mode == ChatRunMode::DeepResearch {
-    mcp_tools.retain(|tool| tool.read_only);
-    let read_only_names: HashSet<&str> = mcp_tools.iter().map(|tool| tool.openai_name.as_str()).collect();
-    name_map.retain(|name, _| read_only_names.contains(name.as_str()));
-  }
-  configure_web_search_tools(request.settings.mode, &mut mcp_tools, &mut name_map);
+  let (tools, name_map) = match setup {
+    Some(setup) => (setup.tools.clone(), setup.tool_targets.clone().into_iter().collect::<HashMap<_, _>>()),
+    None => {
+      let reserved = mcp::reserved_openai_names(infumap_data.is_some());
+      let (mut mcp_tools, mut name_map) =
+        mcp::mapped_tools_for_capabilities(config, &request.plugin_capabilities(), &reserved)
+          .await
+          .map_err(|error| error.message().to_owned())?;
+      if request.settings.mode == ChatRunMode::DeepResearch {
+        mcp_tools.retain(|tool| tool.read_only);
+        let read_only_names: HashSet<&str> = mcp_tools.iter().map(|tool| tool.openai_name.as_str()).collect();
+        name_map.retain(|name, _| read_only_names.contains(name.as_str()));
+      }
+      configure_web_search_tools(request.settings.mode, &mut mcp_tools, &mut name_map);
+      (chat_tool_specs(infumap_data.is_some(), &mcp_tools), name_map)
+    }
+  };
   // The live-chat path also protects retained attachments and skill snapshots. Earlier Infumap retrieval
   // deliberately does not affect this rule.
   let always_ask = request.settings.configuration.tool_approval == crate::query_configuration::ToolApproval::AlwaysAsk;
@@ -3543,7 +3617,30 @@ async fn prepare_chat_resources(
   if always_ask && infumap_data.is_some() {
     approval_required.extend(["infumap_search".to_owned(), "infumap_get_fragment".to_owned()]);
   }
-  Ok(ChatResources { endpoint, infumap_data, mcp_tools, name_map, approval_required })
+  Ok(ChatResources { endpoint, infumap_data, tools, name_map, approval_required })
+}
+
+const FIXED_SCOPE_UNAVAILABLE: &str =
+  "The collection or items this chat is limited to no longer exist, and a chat's scope can't change. Start a new chat.";
+
+/// The setup a new live chat's first turn fixes for the whole chat.
+fn first_turn_chat_setup(db: &Db, request: &ChatRequest, resources: &ChatResources, started_at: i64) -> ChatSetup {
+  let settings = &request.settings;
+  ChatSetup {
+    system_prompt: chat_system_prompt(
+      db,
+      Some(started_at),
+      resources.infumap_data.as_ref(),
+      !resources.name_map.is_empty(),
+      settings.mode,
+    ),
+    tools: resources.tools.clone(),
+    tool_targets: resources.name_map.iter().map(|(name, target)| (name.clone(), target.clone())).collect(),
+    scope: settings.configuration.scope.clone(),
+    scope_item_ids: settings.scope_item_ids.clone(),
+    capabilities: settings.configuration.capabilities.clone(),
+    mode: settings.mode,
+  }
 }
 
 async fn run_chat_with_tools(
@@ -3556,26 +3653,23 @@ async fn run_chat_with_tools(
 ) -> InfuResult<ChatRunResult> {
   reset_llm_log();
 
-  let ChatResources { endpoint, infumap_data, mcp_tools, name_map, approval_required } = resources;
+  let ChatResources { endpoint, infumap_data, tools, name_map, approval_required } = resources;
   let mut messages = explicit_wire_messages(&request.messages, request.query_item_id.is_some())?;
   if messages.is_empty() {
     return Err("Chat request did not contain any message text.".into());
   }
-  let uses_infumap_data = infumap_data.is_some();
-  messages.insert(
-    0,
-    OpenAiChatMessage::text(
-      "system",
-      chat_system_prompt(
-        &*db.lock().await,
-        request.chat_started_at,
-        infumap_data.as_ref(),
-        !mcp_tools.is_empty(),
-        request.settings.mode,
-      ),
+  // A live chat sends the prompt its first turn fixed. Others, and chats from before setups were fixed, build it.
+  let system_prompt = match &request.system_prompt {
+    Some(system_prompt) => system_prompt.clone(),
+    None => chat_system_prompt(
+      &*db.lock().await,
+      request.chat_started_at,
+      infumap_data.as_ref(),
+      !name_map.is_empty(),
+      request.settings.mode,
     ),
-  );
-  let tools = chat_tool_specs(uses_infumap_data, &mcp_tools);
+  };
+  messages.insert(0, OpenAiChatMessage::text("system", system_prompt));
   let mut llm_turn = 1usize;
   let mut tool_rounds = 0usize;
   let tool_context = ChatToolContext {
@@ -4923,7 +5017,7 @@ mod tests {
     let llama = serde_json::json!({ "backend": "a", "model": "default", "reasoningEffort": null });
     let prepare = |request: ChatRequest| {
       let (config, db, session) = (&config, &f.db, &f.session);
-      async move { prepare_chat_resources(config, db, session, &request).await.err() }
+      async move { prepare_chat_resources(config, db, session, &request, None).await.err() }
     };
     let with_items = |items: &[&Uid], capabilities: Value| -> ChatRequest {
       let mut request = request(llama.clone(), collection(&new_uid()), capabilities);
@@ -4937,6 +5031,7 @@ mod tests {
       &f.db,
       &f.session,
       &with_items(&[&f.x, &f.a1], serde_json::json!(["infumap_data"])),
+      None,
     )
     .await
     .ok()
@@ -4955,6 +5050,7 @@ mod tests {
       &f.db,
       &f.session,
       &request(llama.clone(), collection(&f.collection_id), serde_json::json!(["infumap_data"])),
+      None,
     )
     .await
     .ok()
@@ -4966,6 +5062,7 @@ mod tests {
       &f.db,
       &f.session,
       &request(llama.clone(), serde_json::json!({ "kind": "everything" }), serde_json::json!(["infumap_data"])),
+      None,
     )
     .await
     .ok()
@@ -5142,7 +5239,7 @@ mod live_chat_tests {
 
   impl Fixture {
     async fn start(&self, request: &mut ChatRequest, request_id: &str) -> Result<LiveChatTurn, ChatStreamEventKind> {
-      start_live_chat_turn(&self.db, &self.session, request, request_id, None).await
+      start_live_chat_turn(&self.db, &self.session, request, request_id, None, None).await
     }
 
     /// Runs a turn whose model answers `answer`, recording it as completed.
@@ -5168,7 +5265,7 @@ mod live_chat_tests {
       let scope = &scope;
       async move {
         let mut request = request(&f.query_item_id, revision, text);
-        let turn = start_live_chat_turn(&f.db, &f.session, &mut request, &format!("r-{text}"), Some(scope)).await;
+        let turn = start_live_chat_turn(&f.db, &f.session, &mut request, &format!("r-{text}"), Some(scope), None).await;
         (turn.ok().unwrap(), request)
       }
     };
@@ -5286,7 +5383,7 @@ mod live_chat_tests {
     }
     let other_user = Session { user_id: new_uid(), ..f.session.clone() };
     let mut request = request(&f.query_item_id, 0, "q");
-    assert!(start_live_chat_turn(&f.db, &other_user, &mut request, "r", None).await.is_err());
+    assert!(start_live_chat_turn(&f.db, &other_user, &mut request, "r", None, None).await.is_err());
   }
 
   #[tokio::test]
@@ -5339,7 +5436,9 @@ mod live_chat_tests {
     let loaded = f.load(&f.query_item_id).await.unwrap();
     assert_eq!(
       loaded,
-      serde_json::json!({ "revision": 0, "running": false, "lastSettings": null, "contextTokens": null, "turns": [] })
+      serde_json::json!({
+        "revision": 0, "running": false, "lastSettings": null, "contextTokens": null, "setup": null, "turns": []
+      })
     );
   }
 
@@ -5686,36 +5785,56 @@ mod live_chat_tests {
   }
 
   /// Every request a chat sends must start with everything the request before it sent, across turns too, or the
-  /// provider's prompt cache stops matching and the history is processed again. Deep research is used because it adds
+  /// provider's prompt cache stops matching and the history is processed again. Each turn goes through the route's
+  /// steps: the first fixes the chat's setup, later ones send it unchanged. Deep research is used because it adds
   /// system messages part-way through a turn, which later turns must send again.
   #[tokio::test]
   async fn every_request_extends_the_one_before_it_across_turns() {
     let f = fixture().await;
     let (url, bodies) = fake_model_server().await;
-    for (revision, text) in ["q1", "q2"].into_iter().enumerate() {
-      let mut request = request(&f.query_item_id, revision, text);
-      request.settings.mode = ChatRunMode::DeepResearch;
-      let request_id = format!("r-{text}");
-      let mut turn = f.start(&mut request, &request_id).await.ok().unwrap();
-      let resources = ChatResources {
-        endpoint: ChatEndpoint {
-          adapter: ChatAdapter::LlamaCpp,
-          label: "test".to_owned(),
-          url: url.clone(),
-          api_key: None,
-          model: "m".to_owned(),
-          reasoning: ChatReasoning::ModelDefault,
-          connect_timeout: Duration::from_secs(5),
-          read_timeout: Duration::from_secs(5),
+    let base_url = url.as_str().strip_suffix("/chat/completions").unwrap();
+    let config = Arc::new(
+      config::Config::builder()
+        .add_source(config::File::from_str(
+          &format!("[[chat_providers]]\nid = \"test\"\nurl = \"{base_url}\"\ndiscover_models = false"),
+          config::FileFormat::Toml,
+        ))
+        .build()
+        .unwrap(),
+    );
+    let chat_request = |revision: usize, text: &str, mode: &str| -> ChatRequest {
+      serde_json::from_value(serde_json::json!({
+        "queryItemId": f.query_item_id, "expectedRevision": revision, "text": text,
+        "configuration": {
+          "toolApproval": "automatic", "scope": { "kind": "everything" },
+          "model": { "backend": "test", "model": "default", "reasoningEffort": null },
+          "capabilities": ["infumap_data"],
         },
-        infumap_data: None,
-        mcp_tools: vec![],
-        name_map: HashMap::new(),
-        approval_required: HashSet::new(),
-      };
+        "appliedProfile": null, "mode": mode,
+      }))
+      .unwrap()
+    };
+    let saved_setup = || async {
+      transcript::read_transcript(&f.data_dir, &f.session.user_id, &f.query_item_id)
+        .await
+        .unwrap()
+        .and_then(|transcript| transcript.header.setup)
+    };
+
+    for (revision, text) in ["q1", "q2"].into_iter().enumerate() {
+      let mut request = chat_request(revision, text, "deep_research");
+      let setup = saved_setup().await;
+      let resources = prepare_chat_resources(&config, &f.db, &f.session, &request, setup.as_ref()).await.unwrap();
+      let new_chat = setup.is_none().then(|| {
+        let started_at = unix_now_millis();
+        let db = f.db.try_lock().unwrap();
+        (started_at, first_turn_chat_setup(&db, &request, &resources, started_at))
+      });
+      let request_id = format!("r-{text}");
+      let mut turn =
+        start_live_chat_turn(&f.db, &f.session, &mut request, &request_id, None, new_chat).await.ok().unwrap();
       let progress = ChatProgressReporter::for_live_run(request_id, f.query_item_id.clone(), turn.activity.clone());
-      let result =
-        run_chat_with_tools(Arc::new(Config::default()), &f.db, &f.session, &request, resources, &progress).await;
+      let result = run_chat_with_tools(config.clone(), &f.db, &f.session, &request, resources, &progress).await;
       turn.end_completed(result.unwrap()).await.ok().unwrap();
     }
 
@@ -5728,8 +5847,12 @@ mod live_chat_tests {
         later.len() > earlier.len() && later[..earlier.len()] == earlier[..],
         "{later:#?}\ndoes not extend\n{earlier:#?}"
       );
-      assert_eq!(pair[0].get("tools"), pair[1].get("tools"));
     }
+    // The report request sends no tools (deep research's own break, which goes when it leaves chat); every other
+    // request sends the tools the first turn fixed.
+    let tools = |index: usize| bodies[index].get("tools").cloned();
+    assert!(tools(0).is_some());
+    assert!([1, 3, 4].iter().all(|&index| tools(index) == tools(0)));
     let second_turn = bodies[3]["messages"].as_array().unwrap();
     assert_eq!(second_turn.last().unwrap()["content"], "q2");
     let stage_prompts = second_turn.iter().filter(|message| {
@@ -5737,6 +5860,20 @@ mod live_chat_tests {
       content == CHAT_DEEP_RESEARCH_REVIEW_PROMPT || content == CHAT_DEEP_RESEARCH_FINAL_PROMPT
     });
     assert_eq!(stage_prompts.count(), 2, "the first turn's stage instructions are sent again");
+
+    // The setup is fixed: another mode, scope or set of tools is refused before anything is recorded.
+    let setup = saved_setup().await.unwrap();
+    assert!(setup.system_prompt.starts_with("This chat started on "));
+    let mut other_tools = chat_request(2, "q3", "deep_research");
+    other_tools.settings.configuration.capabilities = vec![];
+    for request in [chat_request(2, "q3", "chat"), other_tools] {
+      let refused = prepare_chat_resources(&config, &f.db, &f.session, &request, Some(&setup)).await.err().unwrap();
+      assert!(refused.starts_with("This chat's scope, tools and mode were fixed"), "{refused}");
+    }
+    // Settings outside the prompt can still change. (The model can too; `ChatSetup::matches` does not look at it.)
+    let mut always_ask = chat_request(2, "q3", "deep_research");
+    always_ask.settings.configuration.tool_approval = crate::query_configuration::ToolApproval::AlwaysAsk;
+    assert!(prepare_chat_resources(&config, &f.db, &f.session, &always_ask, Some(&setup)).await.is_ok());
   }
 
   #[test]

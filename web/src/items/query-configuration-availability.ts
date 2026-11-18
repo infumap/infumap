@@ -69,16 +69,27 @@ function queryScopeIssues(scope: ScopeRef): ResourceIssue[] {
 
 export const RETIRED_CHAT_SCOPE_MESSAGE = "This chat used an item limit. Choose a collection in Scope or turn off Infumap tools to continue.";
 
-/** Reports availability without substituting a saved resource. */
+const FIXED_SCOPE_UNAVAILABLE = "This chat's collection no longer exists, and a chat's scope can't change. Start a new chat.";
+
+/**
+ * Reports availability without substituting a saved resource. In a chat whose setup its first message fixed
+ * (`fixedSetup`), a missing tool source doesn't stop the chat: it keeps the tools it was given, and calls to that
+ * source fail until it is back. A missing scope does, and can only be fixed by starting a new chat.
+ */
 export function queryConfigurationIssues(
   store: StoreContextModel,
   configuration: QueryConfiguration,
   mode: "search" | "chat",
   scopeItemIds: Array<Uid> = [],
+  fixedSetup = false,
 ): QueryConfigurationIssue[] {
   const issues: QueryConfigurationIssue[] = [];
   const scopeActive = mode == "search" || (configuration.capabilities.includes("infumap_data") && scopeItemIds.length == 0);
-  issues.push(...queryScopeIssues(configuration.scope).map(issue => ({ ...issue, active: scopeActive })));
+  issues.push(...queryScopeIssues(configuration.scope).map(issue => ({
+    ...issue,
+    active: scopeActive,
+    message: fixedSetup && issue.status == "unavailable" ? FIXED_SCOPE_UNAVAILABLE : issue.message,
+  })));
   if (mode == "chat" && scopeItemIds.length > 0) {
     issues.push({ resource: "scope", status: "unavailable", active: configuration.capabilities.includes("infumap_data"),
       subject: "Previous item limit", message: RETIRED_CHAT_SCOPE_MESSAGE });
@@ -91,10 +102,13 @@ export function queryConfigurationIssues(
     const unverified = catalog == null || store.general.chatBackendsError() != null;
     if (unverified || source == null || !source.available) {
       const checking = catalog == null && store.general.chatBackendsRefreshing() && store.general.chatBackendsError() == null;
-      issues.push({ resource: "tools", active: mode == "chat", status: checking ? "checking" : unverified ? "unverified" : "unavailable",
+      const reason = sentence(source?.unavailableReason ?? "It is not configured on this server");
+      issues.push({ resource: "tools", active: mode == "chat",
+        status: checking ? "checking" : unverified ? "unverified" : fixedSetup ? "warning" : "unavailable",
         subject: id,
         message: checking ? `Checking availability of tool source ${id}…` : unverified ? `Could not verify tool source ${id}.`
-          : `Tool source ${id} is unavailable. ${sentence(source?.unavailableReason ?? "It is not configured on this server")} Disable it or choose another profile.` });
+          : fixedSetup ? `Tool source ${id} is unavailable. ${reason} Calls to it fail until it is back.`
+          : `Tool source ${id} is unavailable. ${reason} Disable it or choose another profile.` });
     }
   }
   return issues;
@@ -102,8 +116,9 @@ export function queryConfigurationIssues(
 
 export function queryConfigurationUnavailableReason(
   store: StoreContextModel, configuration: QueryConfiguration, mode: "search" | "chat", scopeItemIds: Array<Uid> = [],
+  fixedSetup = false,
 ): string | null {
-  const messages = queryConfigurationIssues(store, configuration, mode, scopeItemIds).filter(issue => issue.active && issue.status == "unavailable").map(issue => issue.message);
+  const messages = queryConfigurationIssues(store, configuration, mode, scopeItemIds, fixedSetup).filter(issue => issue.active && issue.status == "unavailable").map(issue => issue.message);
   return messages.length == 0 ? null : messages.join("\n");
 }
 

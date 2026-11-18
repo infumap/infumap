@@ -129,6 +129,18 @@ export function cloneQueryProfileCollection(collection: QueryProfileCollection):
 
 export type ChatRunMode = "chat" | "deep_research";
 
+/**
+ * What a chat's first message fixed for the whole chat: its scope, tools and mode. They are part of the prompt the
+ * model is sent at the start of every request, so changing them would make the provider's cache miss; to change them,
+ * start a new chat. The model, its reasoning effort and tool approval can still change.
+ */
+export interface QueryChatFixedSetup {
+  scope: ScopeRef,
+  scopeItemIds: Array<Uid>,
+  capabilities: Array<string>,
+  mode: ChatRunMode,
+}
+
 /** Per-turn settings. Resource configuration and profile provenance are independent of execution mode. */
 export interface QueryChatSettings {
   configuration: QueryConfiguration,

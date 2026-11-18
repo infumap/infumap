@@ -3,7 +3,7 @@
 import { For, Show, createMemo, onMount } from "solid-js";
 import { queryChatCapabilities, setQueryChatUsesCapability } from "../../items/chat";
 import { getQueryRuntime } from "../../items/query-item";
-import { queryConfigurationChangeBlockedReason, updateQueryConfiguration } from "../../items/query-configuration-state";
+import { queryChatSetupFixedReason, queryConfigurationChangeBlockedReason, updateQueryConfiguration } from "../../items/query-configuration-state";
 import { queryToolApprovalLabel } from "../../items/query-configuration-labels";
 import type { ToolApproval } from "../../items/query-configuration";
 import { queryConfigurationIssues } from "../../items/query-configuration-availability";
@@ -48,11 +48,17 @@ export function QueryToolsPicker(props: ToolsPickerProps) {
   onMount(() => { void store.general.queryProfiles.retrieve(); void store.general.retrieveChatBackends(); });
   const enabled = createMemo(() => new Set(queryChatCapabilities(store, props.queryItem())));
   const approval = () => getQueryRuntime(store, props.queryItem()).configuration.toolApproval;
-  const issues = () => queryConfigurationIssues(store, getQueryRuntime(store, props.queryItem()).configuration, "chat").filter(issue => issue.resource == "tools");
+  const issues = () => {
+    const runtime = getQueryRuntime(store, props.queryItem());
+    return queryConfigurationIssues(store, runtime.configuration, "chat", [], runtime.chat.fixedSetup != null)
+      .filter(issue => issue.resource == "tools");
+  };
   const ready = () => getQueryRuntime(store, props.queryItem()).configurationInitialized || store.general.initialQuerySetup() != null;
   const lockedReason = () => queryConfigurationChangeBlockedReason(store, props.queryItem()) ??
     (props.locked() || props.disabled?.() == true ? props.lockedReason : !ready() ? "Wait for this query's setup to load." : null);
   const locked = () => lockedReason() != null;
+  /** A chat's tool sources are fixed by its first message; its tool approval can still change. */
+  const sourcesFixedReason = () => queryChatSetupFixedReason(store, props.queryItem());
   const sources = createMemo(() => {
     const catalog = store.general.chatBackends();
     const result: ToolSource[] = [{ id: "infumap_data", label: "Infumap",
@@ -82,7 +88,8 @@ export function QueryToolsPicker(props: ToolsPickerProps) {
   const selected = () => sources().filter(source => enabled().has(source.id));
   const summary = () => !ready() ? store.general.queryProfiles.error() == null && store.general.chatBackendsError() == null ? "Loading…" : "Unavailable" : selected().length == 0 ? "No tools" : selected().map(source => source.label).join(" + ");
   const title = () => [`Tools: ${summary()}`, `Tool approvals: ${queryToolApprovalLabel(approval())}`,
-    ...issues().map(issue => issue.message), lockedReason(), props.note?.()].filter(Boolean).join("\n");
+    ...issues().map(issue => issue.message), lockedReason(), sourcesFixedReason() == null ? null : `Tool sources: ${sourcesFixedReason()}`,
+    props.note?.()].filter(Boolean).join("\n");
 
   return <QueryPickerPopover buttonRef={props.buttonRef} onTabKey={props.onTabKey}
     buttonClass="max-w-[240px] shrink-[2] cursor-pointer" ariaLabel="Choose tools" title={title()}
@@ -95,6 +102,7 @@ export function QueryToolsPicker(props: ToolsPickerProps) {
       <DialogHeader title="Tools">
         <Show when={props.note?.()}><div class={`mt-1 ${DIALOG_NOTE_CLASS}`}>{props.note?.()}</div></Show>
         <Show when={lockedReason()}><div class={`mt-1 ${DIALOG_NOTE_CLASS}`}>{lockedReason()}</div></Show>
+        <Show when={sourcesFixedReason()}>{reason => <div class={`mt-1 ${DIALOG_NOTE_CLASS}`}>Tool sources: {reason()}</div>}</Show>
         <For each={issues()}>{issue => <div role="status" class="mt-1 text-[11px] text-amber-700">{issue.message}</div>}</For>
       </DialogHeader>
       <div class="min-h-0 grow overflow-y-auto py-1">
@@ -121,10 +129,10 @@ export function QueryToolsPicker(props: ToolsPickerProps) {
         <For each={sources()}>{source => <div class="border-b border-chrome-line px-3 py-2 last:border-b-0">
           <label class="flex items-start gap-2 text-[13px]">
             <input type="checkbox" data-picker-autofocus={source.id == "infumap_data" ? true : undefined} class="mt-1 accent-neutral-700" checked={enabled().has(source.id)}
-              disabled={locked() || (!source.available && !enabled().has(source.id))}
+              disabled={locked() || sourcesFixedReason() != null || (!source.available && !enabled().has(source.id))}
               aria-label={`Enable ${source.label}`}
               onChange={ev => {
-                if (locked()) { return; }
+                if (locked() || sourcesFixedReason() != null) { return; }
                 const isEnabled = ev.currentTarget.checked;
                 props.beforeChange?.();
                 setQueryChatUsesCapability(store, props.queryItem(), source.id, isEnabled);

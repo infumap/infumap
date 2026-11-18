@@ -17,7 +17,7 @@
 */
 
 import { logout } from "./components/Main";
-import type { ChatBackendId, QueryChatSettings, QueryConfiguration, QueryProfileOperation, QueryProfilesResponse, ScopeRef } from "./items/query-configuration";
+import type { ChatBackendId, QueryChatFixedSetup, QueryChatSettings, QueryConfiguration, QueryProfileOperation, QueryProfilesResponse, ScopeRef } from "./items/query-configuration";
 import { Item, ItemType } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
 import {
@@ -459,6 +459,8 @@ export interface LoadChatResponse {
   running: boolean,
   lastSettings: QueryChatSettings | null,
   contextTokens: { tokens: number, exact: boolean } | null,
+  /** Null before the first turn, and in a chat started before setups were fixed. */
+  setup: QueryChatFixedSetup | null,
   turns: Array<LoadChatTurn>,
 }
 

@@ -32,7 +32,7 @@
 //! incomplete last line; taking the chat lock truncates it before anything else is appended.
 //! Readers do not take the lock.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock, Weak};
 
@@ -44,9 +44,11 @@ use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::OwnedMutexGuard;
 
-use super::ChatHistoryMessage;
 use super::configuration::TurnSettings;
+use super::mcp::MappedMcpToolTarget;
+use super::{ChatHistoryMessage, ChatRunMode, OpenAiToolSpec};
 use crate::ai::artifact_io::atomic_write;
+use crate::query_configuration::ScopeRef;
 use crate::util::fs::expand_tilde;
 
 /// Version 2 replaced version 1 without a reader for it; version 1 chats were deleted rather than
@@ -86,6 +88,39 @@ pub(super) struct TranscriptHeader {
   /// from a saved `.chat` item keeps the start of the chat it continues.
   #[serde(rename = "createdAt")]
   pub(super) created_at: i64,
+  /// What every turn sends unchanged, fixed by the first turn. None in a chat started before setups were fixed, which
+  /// builds its prompt and tools again on each turn.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub(super) setup: Option<ChatSetup>,
+}
+
+/// A chat's scope, tools and mode are fixed by its first turn, and every turn sends the system prompt and tool
+/// definitions that turn sent. They are the start of every request, so changing them part-way through a chat would
+/// make the provider's prompt cache miss for the whole conversation. To change them, the user starts a new chat.
+/// The model, its reasoning effort and tool approval can still change: they are not in the prompt.
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct ChatSetup {
+  pub(super) system_prompt: String,
+  pub(super) tools: Vec<OpenAiToolSpec>,
+  /// How each tool from a tool server is called, by its name in `tools`. A call to a server that has since gone away
+  /// returns an error to the model rather than changing the tools offered.
+  pub(super) tool_targets: BTreeMap<String, MappedMcpToolTarget>,
+  pub(super) scope: ScopeRef,
+  #[serde(default, skip_serializing_if = "Vec::is_empty")]
+  pub(super) scope_item_ids: Vec<Uid>,
+  pub(super) capabilities: Vec<String>,
+  pub(super) mode: ChatRunMode,
+}
+
+impl ChatSetup {
+  /// Whether `settings` select this chat's scope, tools and mode.
+  pub(super) fn matches(&self, settings: &TurnSettings) -> bool {
+    settings.configuration.scope == self.scope
+      && settings.configuration.capabilities == self.capabilities
+      && settings.scope_item_ids == self.scope_item_ids
+      && settings.mode == self.mode
+  }
 }
 
 /// Written, and synced, before inference starts.
@@ -743,6 +778,7 @@ mod tests {
         version: TRANSCRIPT_FORMAT_VERSION,
         query_item_id: self.query_item_id.clone(),
         created_at: 1,
+        setup: None,
       };
       locked.create(header).await.unwrap();
       locked
@@ -1088,8 +1124,12 @@ mod tests {
     assert!(locked.append_user(user("r1", "first")).await.is_err());
     drop(locked);
     let mut locked = f.create().await;
-    let header =
-      TranscriptHeader { version: TRANSCRIPT_FORMAT_VERSION, query_item_id: f.query_item_id.clone(), created_at: 2 };
+    let header = TranscriptHeader {
+      version: TRANSCRIPT_FORMAT_VERSION,
+      query_item_id: f.query_item_id.clone(),
+      created_at: 2,
+      setup: None,
+    };
     assert!(locked.create(header).await.is_err());
     // A running turn holds the lock, so its transcript is kept.
     assert!(!remove_transcript_unless_locked(f.data_dir(), &f.user_id, &f.query_item_id).await.unwrap());
@@ -1106,8 +1146,12 @@ mod tests {
     drop(f.create().await);
     let orphan_id = new_uid();
     let mut locked = try_lock_transcript(f.data_dir(), &f.user_id, &orphan_id).await.unwrap().unwrap();
-    let header =
-      TranscriptHeader { version: TRANSCRIPT_FORMAT_VERSION, query_item_id: orphan_id.clone(), created_at: 1 };
+    let header = TranscriptHeader {
+      version: TRANSCRIPT_FORMAT_VERSION,
+      query_item_id: orphan_id.clone(),
+      created_at: 1,
+      setup: None,
+    };
     locked.create(header).await.unwrap();
     drop(locked);
     let chats_dir = f.path().parent().unwrap().to_path_buf();
@@ -1137,7 +1181,12 @@ mod tests {
 
     let copy_id = new_uid();
     let mut copy = try_lock_transcript(f.data_dir(), &f.user_id, &copy_id).await.unwrap().unwrap();
-    let header = TranscriptHeader { version: TRANSCRIPT_FORMAT_VERSION, query_item_id: copy_id.clone(), created_at: 5 };
+    let header = TranscriptHeader {
+      version: TRANSCRIPT_FORMAT_VERSION,
+      query_item_id: copy_id.clone(),
+      created_at: 5,
+      setup: None,
+    };
     copy.create_copy(header.clone(), &source).await.unwrap();
     assert!(copy.create_copy(header, &source).await.is_err());
     copy.append_user(user("r3", "third")).await.unwrap();

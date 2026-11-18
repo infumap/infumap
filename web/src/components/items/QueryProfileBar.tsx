@@ -4,7 +4,8 @@ import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount }
 import { getQueryRuntime, QUERY_PROFILE_ROW_HEIGHT_PX, type QueryItem } from "../../items/query-item";
 import { cloneQueryConfiguration, queryConfigurationsEqual, scopeRefsEqual, type QueryConfiguration, type QueryProfile } from "../../items/query-configuration";
 import {
-  appliedSavedProfile, applyQueryProfile, isQueryConfigurationModified, queryConfigurationChangeBlockedReason,
+  appliedSavedProfile, applyQueryProfile, isQueryConfigurationModified, queryChatSetupFixedReason,
+  queryConfigurationChangeBlockedReason,
 } from "../../items/query-configuration-state";
 import { queryConfigurationIssues } from "../../items/query-configuration-availability";
 import { queryConfigurationSummary, queryModelRouteLabel, queryToolsLabel } from "../../items/query-configuration-labels";
@@ -74,6 +75,8 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
   const reason = (): string | null => props.blockedReason?.() ?? queryConfigurationChangeBlockedReason(store, props.queryItem())
     ?? (props.disabled?.() ? "Wait for the current response to finish." : null);
   const saveBlockedReason = () => reason() ?? (!runtime().configurationInitialized ? "Wait for this query's setup to load." : null);
+  /** A profile sets scope and tools, which a chat's first message fixes. Saving a profile from the chat still works. */
+  const applyBlockedReason = () => reason() ?? queryChatSetupFixedReason(store, props.queryItem());
 
   const showError = (error: unknown) => {
     const text = error instanceof Error ? error.message : String(error);
@@ -87,7 +90,7 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
   };
 
   const apply = (profile: QueryProfile) => {
-    if (reason() != null) { return; }
+    if (applyBlockedReason() != null) { return; }
     const previousScope = runtime().configuration.scope;
     props.beforeChange?.();
     applyQueryProfile(store, props.queryItem(), profile);
@@ -95,7 +98,7 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
   };
   /** A saved setup becomes this query's applied profile, unless the query changed while saving. */
   const adopt = (profile: QueryProfile, configuration: QueryConfiguration) => {
-    if (reason() != null || !queryConfigurationsEqual(runtime().configuration, configuration)) { return; }
+    if (applyBlockedReason() != null || !queryConfigurationsEqual(runtime().configuration, configuration)) { return; }
     applyQueryProfile(store, props.queryItem(), profile);
   };
   const saveToActive = (close: () => void) => {
@@ -176,7 +179,7 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
     ...(props.searchMode() ? [] : [`Model: ${queryModelRouteLabel(store, profile.configuration.model)}`, `Tools: ${queryToolsLabel(profile.configuration.capabilities)}`]),
     ...unavailable(profile).map(issue => issue.message),
     isActive(profile) && modified() ? "Modified in this query. Click to restore the saved settings." : null,
-    reason(),
+    applyBlockedReason(),
   ].filter(Boolean).join("\n");
 
   const keyDown = (ev: KeyboardEvent) => {
@@ -191,7 +194,7 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
   };
 
   const chip = (profile: QueryProfile) =>
-    <button type="button" aria-pressed={isActive(profile)} disabled={reason() != null} title={profileTitle(profile)}
+    <button type="button" aria-pressed={isActive(profile)} disabled={applyBlockedReason() != null} title={profileTitle(profile)}
       class={chipClass}
       classList={{
         "border-control-border bg-control-selected text-neutral-900": isActive(profile),
@@ -206,7 +209,7 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
     </button>;
 
   const menuRow = (profile: QueryProfile, close: () => void) => <div class="flex items-center gap-1 px-2">
-    <button type="button" role="radio" aria-checked={isActive(profile)} disabled={reason() != null}
+    <button type="button" role="radio" aria-checked={isActive(profile)} disabled={applyBlockedReason() != null}
       class="flex min-w-0 grow cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-left hover:bg-control-hover disabled:cursor-default disabled:opacity-50"
       data-picker-autofocus={isActive(profile) ? true : undefined}
       onClick={() => { apply(profile); close(); }}>
@@ -259,7 +262,7 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
             <Show when={collection() == null && store.general.queryProfiles.error() == null}>
               <div class="px-3 py-2 text-[12px] text-neutral-500">Loading profiles…</div>
             </Show>
-            <Show when={reason()}><div class="px-3 py-1 text-[11px] text-neutral-500">{reason()}</div></Show>
+            <Show when={applyBlockedReason()}><div class="px-3 py-1 text-[11px] text-neutral-500">{applyBlockedReason()}</div></Show>
             <Show when={collection() != null && profiles().length == 0}>
               <div class="px-3 py-2 text-[12px] text-neutral-500">No saved profiles.</div>
             </Show>

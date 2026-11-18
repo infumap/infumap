@@ -18,7 +18,7 @@
 
 import { For, Show, createSignal, onMount } from "solid-js";
 import { getQueryRuntime } from "../../items/query-item";
-import { queryConfigurationChangeBlockedReason, setQueryChatScope } from "../../items/query-configuration-state";
+import { queryChatSetupFixedReason, queryConfigurationChangeBlockedReason, setQueryChatScope } from "../../items/query-configuration-state";
 import { RETIRED_CHAT_SCOPE_MESSAGE } from "../../items/query-configuration-availability";
 import { EVERYTHING_SCOPE, scopeRefsEqual, type ScopeRef } from "../../items/query-configuration";
 import {
@@ -54,7 +54,8 @@ export function QueryScopePicker(props: QueryScopePickerProps) {
   const [filter, setFilter] = createSignal("");
   const searchScope = () => props.searchScope?.() == true;
   const selected = (): ScopeRef => searchScope() ? store.general.searchScope() : queryScope(store, props.queryItem());
-  const blockedReason = () => searchScope() ? null : queryConfigurationChangeBlockedReason(store, props.queryItem());
+  const blockedReason = () => searchScope() ? null
+    : queryConfigurationChangeBlockedReason(store, props.queryItem()) ?? queryChatSetupFixedReason(store, props.queryItem());
   const unavailable = () => queryScopeUnavailable(selected());
   const unverified = () => selected().kind != "everything" && selected().kind != "unavailable" && queryCollectionsError() != null;
   const inUse = () => props.inUse?.() != false;

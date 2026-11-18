@@ -1,7 +1,8 @@
 # Chat: fixed setup, cache-stable prompts, transcript redesign
 
-Design direction from discussion (2026-11-18). Done: "Optional profiles" (035a76c6) and step 1 of "Suggested order"
-(cache fixes that don't depend on the redesign).
+Design direction from discussion (2026-11-18). Done: "Optional profiles" (035a76c6), step 1 of "Suggested order"
+(ce0c470a) and step 3 (fixed setup per chat; taken before step 2 as it is smaller and finishes the cache work for
+plain chat).
 Back/forward compatibility of transcripts and saved `.chat` items is **not** a constraint: aim for the ideal design.
 
 ## Goals
@@ -194,10 +195,9 @@ Clarifying questions, at the start or at a genuine fork mid-run, via an `ask_use
 
 ## Open decisions
 
-1. **Model: changeable or fixed?** Recommendation: changeable. A different model never had the cache, so switching
-   costs nothing extra, and "try a stronger model" is common. Reasoning effort also changeable, accepting that some
-   templates put effort in the system prompt (gpt-oss: "Reasoning: high"), so for those models a change rewrites the
-   start.
+1. ~~Model: changeable or fixed?~~ **Decided: changeable**, with reasoning effort and tool approval. A different model
+   never had the cache, and "try a stronger model" is common. Accepted: templates that put effort in the system prompt
+   (gpt-oss: "Reasoning: high") rewrite the start when effort changes.
 2. **Current date in a resumed chat.** A chat continued on a later day tells the model the start date. Option: put the
    current date in the new user message (appended, so cache-safe). Leave out if the start date is enough.
 
@@ -260,6 +260,11 @@ One action, "start a chat with this attached", available from any item's toolbar
 - Extend the LLM log's rewrite marker (`llm_request_log_value`), which today only compares requests within one run, to
   compare across turns of the same chat.
 - Check open item 5 under "What breaks the cache today" (reasoning and templates) against the models actually used.
+- **At the start of manual testing** (deferred until the steps below are in place, so testing gives one baseline):
+  record the provider's reused-token count per request in the LLM log and each round's activity. llama-server:
+  `timings.cache_n` alongside `prompt_n`; OpenRouter: `usage.prompt_tokens_details.cached_tokens` (check both field
+  names against real responses). The prefix test compares the JSON sent, not the prompt the template renders, so only
+  this shows template-side misses such as stripped reasoning. Today only `usage.prompt_tokens` is read.
 
 ## Suggested order
 
@@ -271,7 +276,13 @@ One action, "start a chat with this attached", available from any item's toolbar
 2. Deep research out of chat: research runs in the Queries list, run log, run view, Keep / Chat about this report /
    Run again, background jobs; the current pipeline as the first strategy. Removes the mode from chat. `ask_user`
    after that, once the pause plumbing is shared.
-3. Fixed setup per chat (tools with stored definitions, scope), and the read-only composer after the first turn.
-   Needs open decision 1.
+3. **Done.** Fixed setup per chat. The first turn writes a `ChatSetup` into the transcript header: system prompt and
+   tool definitions as sent, how each server tool is called, scope, scope items, capabilities, mode. Later turns send
+   the stored prompt and tools, refuse other scope/tools/mode (`prepare_chat_resources`), and don't need tool servers
+   to be reachable (calls to a missing one return a tool error). Continue copies the setup. The client gets it in the
+   load response (`setup`) or from the first accepted turn; scope, tool sources, mode and profile application are then
+   read-only, model/effort/approval stay editable; a missing tool source warns instead of blocking. Chats without a
+   stored setup (older transcripts) keep the old behaviour. Still open: the deep-research report request sends no
+   tools (goes with step 2); route and UI not yet exercised by hand.
 4. Chat transcript redesign.
 5. Chat about an item.

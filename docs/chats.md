@@ -48,11 +48,20 @@ and chooses the default; click the default's house icon again to go back to the 
 Deleting the default does the same. Saving or managing profiles leaves other chats and their recorded turns
 unchanged.
 
-In an existing chat, setup changes apply from the next message. Earlier answers, attachments and
-retrieved information stay in its context, even if you switch scopes or turn tools off. Controls lock
-while a response runs or the chat loads. Deep research applies to one recorded response; choose it
-again when needed. If a request is rejected before recording, its draft keeps the selected mode for
-retry. Reloading restores the last submitted setup, while unsent changes remain local.
+A chat's **Scope**, **Tools** and Chat / Deep research mode are fixed by its first message. They shape what the
+model is told at the start of every request, and keeping them fixed lets the model's server reuse its work on
+the earlier conversation instead of processing it again on each message. To use a different scope, tools or
+mode, start a new chat. In an existing chat these controls show the chat's setup and can't be changed, and
+profiles can be saved from it but not applied to it.
+
+**Model**, reasoning effort and **Tool approvals** can still change in an existing chat, from the next message.
+Controls lock while a response runs or the chat loads. If a request is rejected before recording, its draft
+keeps the selected mode for retry. Reloading restores the last submitted setup, while unsent changes remain
+local.
+
+A chat keeps the tools it started with. If a tool source becomes unavailable later, the chat still works, and
+the model is told the source is unavailable when it tries to use it. If a chat's collection is deleted, the chat
+can't continue; start a new one.
 
 An unavailable resource, marked with a warning, needs an explicit repair before sending: choose another
 scope or model, change an unsupported effort to **Default**, or disable a missing tool source. A profile
@@ -154,8 +163,9 @@ A chat can't be dragged while a response is running in it, and New Query can't b
 - Dragging a `.chat` item onto the Queries page moves it back: it becomes the newest earlier chat, and the `.chat`
   item goes to the trash.
 
-Either way New Query stays at the top. A `.chat` item can't be changed in place: keeping a continued chat again
-makes a second `.chat` item, and you delete the old one if you only want one.
+Either way New Query stays at the top. The continued chat keeps the original's scope, tools and mode. A `.chat`
+item can't be changed in place: keeping a continued chat again makes a second `.chat` item, and you delete the old
+one if you only want one.
 
 ## Copying part of a chat
 
@@ -184,7 +194,7 @@ unchanged.
   is safe. Keep a chat to store it with your items: its content is then held in the object store like any other file.
 - **Chats in the Queries page are not encrypted on disk.** Unlike your files in the object store, they are stored as
   plain text in the data directory. See [Data](data.md#chats).
-- **A scope limits what the model can find, not what is already in a chat.** Continuing a chat under a different
-  [scope](scopes.md) keeps the earlier answers and everything the model read for them. A `.chat` item is searched
+- **A scope limits what the model can find, not what is already in a chat.** Items you attach are sent whatever the
+  scope, and so is a `.chat` item you attach, including what its answers quoted. A `.chat` item is searched
   according to where it is, not where the items it quotes are: an answer can repeat text from items outside the
   scope of a later search.

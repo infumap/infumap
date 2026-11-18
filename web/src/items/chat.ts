@@ -39,6 +39,7 @@ import {
   updateQueryConfiguration,
 } from "./query-configuration-state";
 import { clearQueryChatCompletedActivityUi } from "./query-chat-activity-ui";
+import type { QueryChatFixedSetup } from "./query-configuration";
 import { queryConfigurationUnavailableReason, refreshQueryConfigurationAvailability } from "./query-configuration-availability";
 import {
   ChatStreamControl,
@@ -1213,7 +1214,9 @@ async function submitQueryChatTurn(
   }
   if (!isCurrent()) { return false; }
   const settings = snapshotQueryChatSettings(store, queryItem, deepResearch ? "deep_research" : "chat");
-  const unavailable = queryConfigurationUnavailableReason(store, settings.configuration, "chat", settings.scopeItemIds);
+  const unavailable = queryConfigurationUnavailableReason(
+    store, settings.configuration, "chat", settings.scopeItemIds, getQueryRuntime(store, queryItem).chat.fixedSetup != null,
+  );
   if (unavailable != null) {
     showChatMessage(store, unavailable, TransientMessageType.Error);
     return false;
@@ -1297,6 +1300,17 @@ async function followQueryChatRun(
     setQueryChatRevision(store, queryItem, revision);
     if (firstAcceptance && revision == 1) {
       firstTurnArchive.promise = archiveQueryChatAfterFirstTurn(store, queryItem, ownsChat);
+      // The server fixed the chat's setup from this first turn's settings.
+      const payload = options.submission?.payload;
+      if (payload != null) {
+        const fixedSetup: QueryChatFixedSetup = {
+          scope: payload.configuration.scope,
+          scopeItemIds: [...(payload.scopeItemIds ?? [])],
+          capabilities: [...payload.configuration.capabilities],
+          mode: payload.mode,
+        };
+        updateQueryRuntime(store, queryItem, current => ({ ...current, chat: { ...current.chat, fixedSetup } }));
+      }
     }
   };
   let clearStreamingStateOnExit = true;
@@ -1533,6 +1547,7 @@ function applyLoadedQueryChat(
         runningElsewhere: response.running,
         contextTokens: response.contextTokens?.tokens ?? null,
         contextTokensExact: response.contextTokens?.exact ?? false,
+        fixedSetup: response.setup,
       },
     }));
     if (response.turns.length == 0) {
@@ -1622,6 +1637,7 @@ export function clearQueryChat(store: StoreContextModel, queryItem: QueryItem): 
       completedActivities: [],
       contextTokens: null,
       contextTokensExact: false,
+      fixedSetup: null,
     },
   }));
   clearQueryChatStreamingState(queryItem.id);

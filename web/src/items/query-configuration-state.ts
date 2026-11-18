@@ -28,6 +28,17 @@ export function queryConfigurationChangeBlockedReason(store: StoreContextModel, 
   return null;
 }
 
+/** Why this chat's scope, tools and mode can't change, or null if they can. The model and tool approval always can. */
+export function queryChatSetupFixedReason(store: StoreContextModel, queryItem: QueryItem): string | null {
+  return getQueryRuntime(store, queryItem).chat.fixedSetup == null ? null
+    : "Fixed by this chat's first message. Start a new chat to change it.";
+}
+
+function assertQueryChatSetupEditable(store: StoreContextModel, queryItem: QueryItem): void {
+  const reason = queryChatSetupFixedReason(store, queryItem);
+  if (reason != null) { throw new Error(reason); }
+}
+
 function assertQueryConfigurationEditable(store: StoreContextModel, queryItem: QueryItem): void {
   const reason = queryConfigurationChangeBlockedReason(store, queryItem);
   if (reason != null) { throw new Error(reason); }
@@ -46,6 +57,7 @@ function replaceQueryProfile(store: StoreContextModel, queryItem: QueryItem, pro
 /** Applies every resource in one update and records the profile as applied. Does not change mode or user defaults. */
 export function applyQueryProfile(store: StoreContextModel, queryItem: QueryItem, profile: QueryProfile): void {
   assertQueryConfigurationEditable(store, queryItem);
+  assertQueryChatSetupEditable(store, queryItem);
   replaceQueryProfile(store, queryItem, profile);
 }
 
@@ -103,6 +115,7 @@ export function setQueryConfigurationCapability(
   if (!initializeQueryConfiguration(store, queryItem)) {
     throw new Error("The default query settings have not loaded yet.");
   }
+  assertQueryChatSetupEditable(store, queryItem);
   const capabilities = new Set(getQueryRuntime(store, queryItem).configuration.capabilities);
   if (enabled) { capabilities.add(capability); }
   else { capabilities.delete(capability); }
@@ -112,6 +125,7 @@ export function setQueryConfigurationCapability(
 /** An explicit collection choice replaces a retired item limit for the next turn. */
 export function setQueryChatScope(store: StoreContextModel, queryItem: QueryItem, scope: ScopeRef): void {
   assertQueryConfigurationEditable(store, queryItem);
+  assertQueryChatSetupEditable(store, queryItem);
   if (!initializeQueryConfiguration(store, queryItem)) {
     throw new Error("The default query settings have not loaded yet.");
   }

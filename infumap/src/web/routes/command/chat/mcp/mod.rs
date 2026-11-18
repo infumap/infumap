@@ -26,7 +26,7 @@ use ::config::Config;
 use futures_util::future::join_all;
 use infusdk::util::infu::InfuResult;
 use log::warn;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub use config::{ChatToolServer, chat_tool_servers_from_config};
@@ -59,6 +59,10 @@ pub struct MappedMcpTool {
   pub read_only: bool,
 }
 
+/// How a tool offered to the model is called. Saved with a chat's fixed setup, so a later turn calls the same tool
+/// whatever the server offers by then.
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MappedMcpToolTarget {
   pub server_id: String,
   pub mcp_name: String,

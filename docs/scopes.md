@@ -94,10 +94,8 @@ Exclusion wins: an item a collection covers stays hidden even if it is also link
 Search remembers the last scope you chose for it, separately for each account in each browser. Until you choose
 one, search covers everything. Chats instead copy the scope from the default [query profile](chats.md#query-profiles), and cover
 everything when there is none.
-Changing a chat's scope affects only that chat; it does not change the default profile or other queries. On New Query,
-switching between Search and Chat switches the scope shown.
-
-In a chat, changing the scope applies from the next message. Earlier answers keep what they found.
+A chat's scope is chosen before its first message and fixed after it; to use another scope, start a new chat. On
+New Query, switching between Search and Chat switches the scope shown.
 Items you add to a chat's context yourself are always sent, whatever the scope. Choosing a collection
 does not send its contents to the model; it only limits what the model can find.
 
