@@ -92,7 +92,8 @@ control's label states the choice in full, such as **Key sources** or **Everythi
 Exclusion wins: an item a collection covers stays hidden even if it is also linked from somewhere else.
 
 Search remembers the last scope you chose for it, separately for each account in each browser. Until you choose
-one, search covers everything. Chats instead copy the scope from the default [query profile](chats.md#query-profiles).
+one, search covers everything. Chats instead copy the scope from the default [query profile](chats.md#query-profiles), and cover
+everything when there is none.
 Changing a chat's scope affects only that chat; it does not change the default profile or other queries. On New Query,
 switching between Search and Chat switches the scope shown.
 

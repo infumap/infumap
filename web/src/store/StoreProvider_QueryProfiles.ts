@@ -26,7 +26,8 @@ export interface QueryProfilesStore {
   delete: (id: Uid) => Promise<void>,
   move: (id: Uid, toIndex: number) => Promise<void>,
   setPinned: (id: Uid, pinned: boolean) => Promise<void>,
-  setDefault: (id: Uid) => Promise<void>,
+  /** Null clears the default, so new queries start from the server's default configuration. */
+  setDefault: (id: Uid | null) => Promise<void>,
   setModelFavorite: (model: QueryModelFavorite, favorite: boolean) => Promise<void>,
   clear: () => void,
 }

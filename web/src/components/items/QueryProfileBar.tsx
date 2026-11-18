@@ -260,6 +260,9 @@ export function QueryProfileBar(props: QueryProfileBarProps) {
               <div class="px-3 py-2 text-[12px] text-neutral-500">Loading profiles…</div>
             </Show>
             <Show when={reason()}><div class="px-3 py-1 text-[11px] text-neutral-500">{reason()}</div></Show>
+            <Show when={collection() != null && profiles().length == 0}>
+              <div class="px-3 py-2 text-[12px] text-neutral-500">No saved profiles.</div>
+            </Show>
             <For each={profiles()}>{profile => menuRow(profile, close)}</For>
           </div>
           <Show when={naming()} fallback={

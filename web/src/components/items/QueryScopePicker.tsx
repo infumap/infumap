@@ -48,6 +48,7 @@ export function QueryScopePicker(props: QueryScopePickerProps) {
   const store = useStore();
   onMount(() => {
     void store.general.queryProfiles.retrieve();
+    void store.general.retrieveChatBackends();
     if (queryCollections() == null) { void refreshQueryCollections(store); }
   });
   const [filter, setFilter] = createSignal("");
@@ -59,7 +60,7 @@ export function QueryScopePicker(props: QueryScopePickerProps) {
   const inUse = () => props.inUse?.() != false;
   const previousScopeItems = () => searchScope() ? [] : getQueryRuntime(store, props.queryItem()).scopeItemIds;
   const needsCollection = () => previousScopeItems().length > 0;
-  const ready = () => searchScope() || getQueryRuntime(store, props.queryItem()).configurationInitialized || store.general.defaultQueryProfile() != null;
+  const ready = () => searchScope() || getQueryRuntime(store, props.queryItem()).configurationInitialized || store.general.initialQuerySetup() != null;
   const disabled = () => props.disabled?.() == true || blockedReason() != null || !ready() || !inUse();
   const label = () => !inUse() ? "Not used" : needsCollection() ? "Choose a collection" : queryScopeName(selected());
   const warning = () => inUse() && (needsCollection() || unavailable() || unverified() || queryScopeEmptyText(selected()) != null);
@@ -69,7 +70,7 @@ export function QueryScopePicker(props: QueryScopePickerProps) {
       return needsCollection() ? "Choose a collection when you turn Infumap tools on." :
         `Infumap tools are off. Saved scope: ${queryScopeName(selected())}.`;
     }
-    if (!ready()) { return store.general.queryProfiles.error() ?? "Loading the default query profile…"; }
+    if (!ready()) { return store.general.queryProfiles.error() ?? store.general.chatBackendsError() ?? "Loading the default query settings…"; }
     if (needsCollection()) { return RETIRED_CHAT_SCOPE_MESSAGE; }
     if (unverified()) { return `${queryCollectionsError()} Could not verify the saved collection.`; }
     return [`Scope: ${queryScopeName(selected())}`, queryScopeUnavailableText(selected()), queryScopeEmptyText(selected())]

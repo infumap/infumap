@@ -49,7 +49,7 @@ export function QueryToolsPicker(props: ToolsPickerProps) {
   const enabled = createMemo(() => new Set(queryChatCapabilities(store, props.queryItem())));
   const approval = () => getQueryRuntime(store, props.queryItem()).configuration.toolApproval;
   const issues = () => queryConfigurationIssues(store, getQueryRuntime(store, props.queryItem()).configuration, "chat").filter(issue => issue.resource == "tools");
-  const ready = () => getQueryRuntime(store, props.queryItem()).configurationInitialized || store.general.defaultQueryProfile() != null;
+  const ready = () => getQueryRuntime(store, props.queryItem()).configurationInitialized || store.general.initialQuerySetup() != null;
   const lockedReason = () => queryConfigurationChangeBlockedReason(store, props.queryItem()) ??
     (props.locked() || props.disabled?.() == true ? props.lockedReason : !ready() ? "Wait for this query's setup to load." : null);
   const locked = () => lockedReason() != null;
@@ -80,7 +80,7 @@ export function QueryToolsPicker(props: ToolsPickerProps) {
     return result;
   });
   const selected = () => sources().filter(source => enabled().has(source.id));
-  const summary = () => !ready() ? store.general.queryProfiles.error() == null ? "Loading…" : "Unavailable" : selected().length == 0 ? "No tools" : selected().map(source => source.label).join(" + ");
+  const summary = () => !ready() ? store.general.queryProfiles.error() == null && store.general.chatBackendsError() == null ? "Loading…" : "Unavailable" : selected().length == 0 ? "No tools" : selected().map(source => source.label).join(" + ");
   const title = () => [`Tools: ${summary()}`, `Tool approvals: ${queryToolApprovalLabel(approval())}`,
     ...issues().map(issue => issue.message), lockedReason(), props.note?.()].filter(Boolean).join("\n");
 

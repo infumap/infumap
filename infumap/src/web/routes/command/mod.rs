@@ -181,7 +181,6 @@ fn classify_command_error(e: &infusdk::util::infu::InfuError) -> CommandErrorKin
 }
 
 pub async fn serve_command_route(
-  config: &Config,
   db: &Arc<tokio::sync::Mutex<Db>>,
   object_store: &Arc<object::ObjectStore>,
   image_cache: Arc<std::sync::Mutex<storage_cache::ImageCache>>,
@@ -251,7 +250,7 @@ pub async fn serve_command_route(
     "list-prompts" => prompts::handle_list_prompts(db, &session_maybe).await,
     "list-skills" => skills::handle_list_skills(db, &session_maybe).await,
     "describe-scope-items" => scope::handle_describe_scope_items(db, &request.json_data, &session_maybe).await,
-    "query-profiles" => query_profiles::handle_query_profiles(config, db, &request.json_data, &session_maybe).await,
+    "query-profiles" => query_profiles::handle_query_profiles(db, &request.json_data, &session_maybe).await,
     "load-chat" => chat::handle_load_chat(db, object_store.clone(), &request.json_data, &session_maybe).await,
     "prepare-chat-item-attachment" => {
       chat::handle_prepare_chat_item_attachment(db, object_store.clone(), &request.json_data, &session_maybe).await

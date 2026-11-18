@@ -46,7 +46,7 @@ export function QueryModelPicker(props: QueryPickerProps) {
   onMount(() => { void store.general.queryProfiles.retrieve(); void store.general.retrieveChatBackends(); });
   const selection = createMemo(() => queryChatModelSelection(store, props.queryItem()));
   const selectionIssues = () => queryModelIssues(store, selection());
-  const ready = () => getQueryRuntime(store, props.queryItem()).configurationInitialized || store.general.defaultQueryProfile() != null;
+  const ready = () => getQueryRuntime(store, props.queryItem()).configurationInitialized || store.general.initialQuerySetup() != null;
   const blockedReason = () => queryConfigurationChangeBlockedReason(store, props.queryItem());
   const canChange = () => ready() && props.disabled?.() != true && blockedReason() == null;
   const favorites = createMemo(() => store.general.queryProfiles.collection()?.preferences.modelFavorites ?? []);
@@ -88,7 +88,7 @@ export function QueryModelPicker(props: QueryPickerProps) {
   const backend = () => store.general.chatBackends()?.backends.find(backend => backend.id == selection()?.backend);
   const model = () => backend()?.models.find(model => model.id == selection()?.model);
   const label = () => {
-    if (!ready()) { return store.general.queryProfiles.error() != null ? "Profile unavailable" : "Loading…"; }
+    if (!ready()) { return store.general.queryProfiles.error() != null || store.general.chatBackendsError() != null ? "Unavailable" : "Loading…"; }
     return selection() == null ? "Choose a model" : queryModelLabel(store, selection(), true);
   };
   const rank = (effort: string) => REASONING_EFFORTS.indexOf(effort) < 0 ? 99 : REASONING_EFFORTS.indexOf(effort);

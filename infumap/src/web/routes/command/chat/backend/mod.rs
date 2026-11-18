@@ -107,15 +107,6 @@ async fn gpu_tools_chat(config: &Config, configured: &[ChatProvider]) -> GpuTool
   }
 }
 
-/// Configured providers, followed by the GPU tools model when it is available.
-async fn chat_providers(config: &Config) -> InfuResult<Vec<ChatProvider>> {
-  let mut providers = chat_providers_from_config(config)?;
-  if let GpuToolsChat::Available(provider) = gpu_tools_chat(config, &providers).await {
-    providers.push(provider);
-  }
-  Ok(providers)
-}
-
 async fn selected_provider(config: &Config, selection: &ChatModelSelection) -> InfuResult<ChatProvider> {
   let configured = chat_providers_from_config(config)?;
   if let Some(provider) = configured.iter().find(|provider| provider.id == selection.backend) {
@@ -219,6 +210,8 @@ pub struct ChatBackendsResponse {
   infumap_tools: Vec<super::OpenAiToolSpec>,
   #[serde(rename = "toolServers")]
   tool_servers: Vec<ChatToolServerInfo>,
+  #[serde(rename = "defaultConfiguration")]
+  default_configuration: crate::query_configuration::QueryConfiguration,
 }
 
 async fn backend_info(provider: &ChatProvider, label: &str) -> ChatBackendInfo {
@@ -264,42 +257,35 @@ pub async fn chat_backends(config: &Config) -> ChatBackendsResponse {
   };
   let (mut backends, gpu_tools, tool_servers) = tokio::join!(catalogs, gpu_tools, mcp::tool_server_catalog(config));
   backends.extend(gpu_tools);
-  ChatBackendsResponse { backends, infumap_tools: super::infumap_tool_specs(), tool_servers }
+  let default_configuration = initial_query_configuration(&backends, &tool_servers);
+  ChatBackendsResponse { backends, infumap_tools: super::infumap_tool_specs(), tool_servers, default_configuration }
 }
 
-/// Initial profiles use the first provider with an available model, in configuration/catalog order.
-/// Network discovery happens before the caller acquires the database lock.
-pub(crate) async fn default_query_configuration(
-  config: &Config,
-) -> InfuResult<crate::query_configuration::QueryConfiguration> {
-  let mut model = None;
-  for provider in chat_providers(config).await? {
-    match model_catalog(&provider).await {
-      Ok(catalog) => {
-        if let Some(first) = catalog.models.first() {
-          model =
-            Some(ChatModelSelection { backend: provider.id, model: Some(first.id.clone()), reasoning_effort: None });
-          break;
-        }
-      }
-      Err(error) => warn!("Could not discover an initial model for '{}': {}", provider.id, error),
-    }
-  }
+/// What a new query starts with when the account has no default profile: the first model of the first available
+/// provider, and the tool sources enabled by default, in configuration/catalog order. It is derived from the catalog on
+/// every request and never saved. Saving it as a profile when an account was created froze whatever was discoverable
+/// then, which on a new server is usually no provider at all, and later configuration never reached it.
+fn initial_query_configuration(
+  backends: &[ChatBackendInfo],
+  tool_servers: &[ChatToolServerInfo],
+) -> crate::query_configuration::QueryConfiguration {
+  let model = backends.iter().filter(|backend| backend.available).find_map(|backend| {
+    backend.models.first().map(|first| ChatModelSelection {
+      backend: backend.id.clone(),
+      model: Some(first.id.clone()),
+      reasoning_effort: None,
+    })
+  });
   let mut capabilities = vec!["infumap_data".to_owned()];
-  capabilities.extend(
-    super::mcp::chat_tool_servers_from_config(config)?
-      .into_iter()
-      .filter(|server| server.enabled_by_default)
-      .map(|server| server.id),
-  );
+  capabilities.extend(tool_servers.iter().filter(|server| server.enabled_by_default).map(|server| server.id.clone()));
   capabilities.sort();
   capabilities.dedup();
-  Ok(crate::query_configuration::QueryConfiguration {
+  crate::query_configuration::QueryConfiguration {
     scope: crate::query_configuration::ScopeRef::Everything,
     model,
     capabilities,
     tool_approval: crate::query_configuration::ToolApproval::Automatic,
-  })
+  }
 }
 
 #[cfg(test)]
@@ -330,10 +316,36 @@ model_name = "qwen"
 
   #[tokio::test]
   async fn the_default_configuration_uses_the_first_provider_and_model() {
-    let configuration = default_query_configuration(&config(TWO_PROVIDERS)).await.unwrap();
+    let configuration = chat_backends(&config(TWO_PROVIDERS)).await.default_configuration;
     assert_eq!(configuration.model, Some(selection("a", Some("default"))));
     assert_eq!(configuration.capabilities, ["infumap_data"]);
-    assert_eq!(default_query_configuration(&config("")).await.unwrap().model, None);
+    assert_eq!(chat_backends(&config("")).await.default_configuration.model, None);
+  }
+
+  #[test]
+  fn the_default_configuration_skips_unavailable_and_empty_providers() {
+    let backend = |id: &str, available: bool, models: &[&str]| ChatBackendInfo {
+      id: id.to_owned(),
+      label: id.to_owned(),
+      available,
+      unavailable_reason: None,
+      models: models
+        .iter()
+        .map(|id| catalog::ChatModelInfo {
+          id: (*id).to_owned(),
+          name: (*id).to_owned(),
+          context_length: None,
+          reasoning_efforts: vec![],
+          default_effort: None,
+          reasoning_mandatory: false,
+          prompt_price: None,
+          completion_price: None,
+        })
+        .collect(),
+      models_error: None,
+    };
+    let backends = [backend("down", false, &["x"]), backend("empty", true, &[]), backend("up", true, &["m1", "m2"])];
+    assert_eq!(initial_query_configuration(&backends, &[]).model, Some(selection("up", Some("m1"))));
   }
 
   #[tokio::test]

@@ -18,7 +18,7 @@
 
 import { Accessor, createSignal } from "solid-js";
 import { ChatBackends, post, server } from "../server";
-import { EVERYTHING_SCOPE, parseScopeRef, scopeRefsEqual, type QueryProfile, type ScopeRef } from "../items/query-configuration";
+import { EVERYTHING_SCOPE, cloneQueryConfiguration, parseScopeRef, scopeRefsEqual, type InitialQuerySetup, type ScopeRef } from "../items/query-configuration";
 import { makeQueryProfilesStore, type QueryProfilesStore } from "./StoreProvider_QueryProfiles";
 import type { Uid } from "../util/uid";
 
@@ -109,8 +109,8 @@ export interface GeneralStoreContextModel {
   retrieveChatBackends: () => Promise<void>,
   refreshChatBackends: () => Promise<void>,
 
-  defaultQueryProfile: Accessor<QueryProfile | null>,
-  setDefaultQueryProfile: (id: Uid) => Promise<void>,
+  /** Null until the profiles, and when there is no default profile also the chat catalog, have loaded. */
+  initialQuerySetup: Accessor<InitialQuerySetup | null>,
   queryProfiles: QueryProfilesStore,
 
   prefer2fa: () => boolean,
@@ -195,8 +195,15 @@ export function makeGeneralStore(accountId: () => Uid | null): GeneralStoreConte
     setNetworkBusy(false);
   };
   const queryProfiles = makeQueryProfilesStore(accountId);
-  const defaultQueryProfile = queryProfiles.defaultProfile;
-  const setDefaultQueryProfile = queryProfiles.setDefault;
+  // Profiles are optional. Without a default one, new queries start from the configuration the server derives from
+  // its current catalog, so a server configured after an account was created is picked up.
+  const initialQuerySetup = (): InitialQuerySetup | null => {
+    if (queryProfiles.collection() == null) { return null; }
+    const profile = queryProfiles.defaultProfile();
+    if (profile != null) { return { configuration: profile.configuration, profile }; }
+    const catalog = chatBackends();
+    return catalog == null ? null : { configuration: cloneQueryConfiguration(catalog.defaultConfiguration), profile: null };
+  };
 
   const [inProgressNetworkRequests, setInProgressNetworkRequests] = createSignal<NetworkRequestInfo[]>([], { equals: false });
   const [recentNetworkRequests, setRecentNetworkRequests] = createSignal<NetworkRequestInfo[]>([], { equals: false });
@@ -382,7 +389,7 @@ export function makeGeneralStore(accountId: () => Uid | null): GeneralStoreConte
   return {
     installationState, retrieveInstallationState, clearInstallationState,
     chatBackends, chatBackendsError, chatBackendsRefreshing, retrieveChatBackends, refreshChatBackends,
-    defaultQueryProfile, setDefaultQueryProfile, queryProfiles,
+    initialQuerySetup, queryProfiles,
     prefer2fa, setPrefer2fa,
     searchResultsArrangeAlgorithm, setSearchResultsArrangeAlgorithm,
     searchScope, setSearchScope,

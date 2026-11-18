@@ -401,7 +401,7 @@ mod tests {
         },
       }],
       preferences: QueryProfilePreferences {
-        default_profile_id: id.clone(),
+        default_profile_id: Some(id.clone()),
         pinned_profile_ids: vec![id],
         model_favorites: vec![],
       },

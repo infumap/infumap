@@ -11,6 +11,7 @@ import {
   scopeRefCollectionId,
   snapshotQueryProfile,
   type ChatRunMode,
+  type InitialQuerySetup,
   type QueryChatSettings,
   type QueryConfiguration,
   type QueryProfile,
@@ -48,22 +49,32 @@ export function applyQueryProfile(store: StoreContextModel, queryItem: QueryItem
   replaceQueryProfile(store, queryItem, profile);
 }
 
+function initializeFromSetup(store: StoreContextModel, queryItem: QueryItem, setup: InitialQuerySetup): void {
+  if (setup.profile != null) { replaceQueryProfile(store, queryItem, setup.profile); return; }
+  updateQueryRuntime(store, queryItem, current => ({
+    ...current,
+    configuration: cloneQueryConfiguration(setup.configuration),
+    appliedProfile: null,
+    configurationInitialized: true,
+  }));
+}
+
 /** A late default can initialize a pending query, but cannot change an applied, edited or restored setup. */
 export function initializeQueryConfiguration(store: StoreContextModel, queryItem: QueryItem): boolean {
   if (getQueryRuntime(store, queryItem).configurationInitialized) { return true; }
-  const profile = store.general.defaultQueryProfile();
-  if (profile == null) { return false; }
+  const setup = store.general.initialQuerySetup();
+  if (setup == null) { return false; }
   // Initialization is also needed while a first request waits for its complete default setup.
-  replaceQueryProfile(store, queryItem, profile);
+  initializeFromSetup(store, queryItem, setup);
   return true;
 }
 
 /** Commands wait for the complete default setup rather than sending a partially initialized query. */
 export async function ensureQueryConfigurationReady(store: StoreContextModel, queryItem: QueryItem): Promise<void> {
   if (initializeQueryConfiguration(store, queryItem)) { return; }
-  await store.general.queryProfiles.retrieve();
+  await Promise.all([store.general.queryProfiles.retrieve(), store.general.retrieveChatBackends()]);
   if (!initializeQueryConfiguration(store, queryItem)) {
-    throw new Error(store.general.queryProfiles.error() ?? "Could not load the default query profile.");
+    throw new Error(store.general.queryProfiles.error() ?? store.general.chatBackendsError() ?? "Could not load the default query settings.");
   }
 }
 
@@ -75,7 +86,7 @@ export function updateQueryConfiguration(
 ): void {
   assertQueryConfigurationEditable(store, queryItem);
   if (!initializeQueryConfiguration(store, queryItem)) {
-    throw new Error("The default query profile has not loaded yet.");
+    throw new Error("The default query settings have not loaded yet.");
   }
   updateQueryRuntime(store, queryItem, current => ({
     ...current,
@@ -90,7 +101,7 @@ export function setQueryConfigurationCapability(
   enabled: boolean,
 ): void {
   if (!initializeQueryConfiguration(store, queryItem)) {
-    throw new Error("The default query profile has not loaded yet.");
+    throw new Error("The default query settings have not loaded yet.");
   }
   const capabilities = new Set(getQueryRuntime(store, queryItem).configuration.capabilities);
   if (enabled) { capabilities.add(capability); }
@@ -102,7 +113,7 @@ export function setQueryConfigurationCapability(
 export function setQueryChatScope(store: StoreContextModel, queryItem: QueryItem, scope: ScopeRef): void {
   assertQueryConfigurationEditable(store, queryItem);
   if (!initializeQueryConfiguration(store, queryItem)) {
-    throw new Error("The default query profile has not loaded yet.");
+    throw new Error("The default query settings have not loaded yet.");
   }
   updateQueryRuntime(store, queryItem, current => ({
     ...current,
@@ -146,7 +157,7 @@ export function snapshotQueryChatSettings(
   mode: ChatRunMode,
 ): QueryChatSettings {
   if (!initializeQueryConfiguration(store, queryItem)) {
-    throw new Error("The default query profile has not loaded yet.");
+    throw new Error("The default query settings have not loaded yet.");
   }
   const runtime = getQueryRuntime(store, queryItem);
   return {

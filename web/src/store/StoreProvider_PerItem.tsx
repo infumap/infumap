@@ -19,7 +19,7 @@
 import { EMPTY_VEID, Veid } from "../layout/visual-element";
 import { BooleanSignal, InfuSignal, NumberSignal, createBooleanSignal, createInfuSignal, createNumberSignal } from "../util/signals";
 import type { SearchResult } from "../server";
-import { EVERYTHING_SCOPE, cloneQueryConfiguration, snapshotQueryProfile, type QueryConfiguration, type QueryProfile } from "../items/query-configuration";
+import { EVERYTHING_SCOPE, cloneQueryConfiguration, snapshotQueryProfile, type InitialQuerySetup, type QueryConfiguration, type QueryProfile } from "../items/query-configuration";
 import type { ArrangeAlgorithm } from "../items/page-item";
 import type { Uid } from "../util/uid";
 
@@ -151,7 +151,7 @@ export interface PerItemStoreContextModel {
 }
 
 export function makePerItemStore(
-  initialProfile: () => QueryProfile | null = () => null,
+  initialSetup: () => InitialQuerySetup | null = () => null,
 ): PerItemStoreContextModel {
   // TODO (LOW): Unsure if lots of these signals, after lots of navigation, will create a perf issue. possibly
   // want to keep the number under control on page changes (delete those with value 0).
@@ -173,15 +173,15 @@ export function makePerItemStore(
     veid.itemId + (veid.linkIdMaybe == null ? "" : "[" + veid.linkIdMaybe + "]");
 
   const newQueryRuntime = (): QueryRuntime => {
-    const profile = initialProfile();
+    const setup = initialSetup();
     return {
       mode: null,
       text: "",
-      configuration: profile == null
+      configuration: setup == null
         ? { scope: EVERYTHING_SCOPE, model: null, capabilities: [], toolApproval: "automatic" }
-        : cloneQueryConfiguration(profile.configuration),
-      configurationInitialized: profile != null,
-      appliedProfile: profile == null ? null : snapshotQueryProfile(profile),
+        : cloneQueryConfiguration(setup.configuration),
+      configurationInitialized: setup != null,
+      appliedProfile: setup?.profile == null ? null : snapshotQueryProfile(setup.profile),
       scopeItemIds: [],
       search: {
         resultsPageId: null,

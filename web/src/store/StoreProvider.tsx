@@ -172,7 +172,7 @@ export function StoreProvider(props: StoreContextProps) {
 
   const perVe = makePerVeStore();
   const general = makeGeneralStore(() => userStore.getUserMaybe()?.userId ?? null);
-  const perItem = makePerItemStore(general.defaultQueryProfile);
+  const perItem = makePerItemStore(general.initialQuerySetup);
   const textEdit = makeTextEditStore(() => value);
   const editorHistory = makeEditorHistory(() => value);
   setUnsavedTextFieldsRestorer(textEdit.preserveUnsavedFields);

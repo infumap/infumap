@@ -34,7 +34,7 @@ enum ProfileOperation {
   Delete { id: Uid },
   Move { id: Uid, to_index: usize },
   SetPinned { id: Uid, pinned: bool },
-  SetDefault { id: Uid },
+  SetDefault { id: Option<Uid> },
   SetModelFavorite { backend: String, model: Option<String>, favorite: bool },
 }
 
@@ -53,9 +53,6 @@ fn name_key(name: &str) -> String {
 
 /// Checks every invariant and normalizes names, capabilities and pin order before a collection is stored.
 fn validate_collection(collection: &mut QueryProfileCollection) -> InfuResult<()> {
-  if collection.profiles.is_empty() {
-    return Err("At least one query profile is required.".into());
-  }
   if collection.profiles.len() > MAX_PROFILES {
     return Err(format!("At most {MAX_PROFILES} query profiles are supported.").into());
   }
@@ -71,7 +68,7 @@ fn validate_collection(collection: &mut QueryProfileCollection) -> InfuResult<()
     }
   }
   let preferences = &mut collection.preferences;
-  if !ids.contains(&preferences.default_profile_id) {
+  if preferences.default_profile_id.as_ref().is_some_and(|id| !ids.contains(id)) {
     return Err("The default profile must be one of the saved profiles.".into());
   }
   let pinned: HashSet<_> = preferences.pinned_profile_ids.iter().cloned().collect();
@@ -152,13 +149,11 @@ fn apply(candidate: &mut QueryProfileCollection, operation: ProfileOperation) ->
     }
     ProfileOperation::Delete { id } => {
       let index = profile_index(candidate, &id)?;
-      if candidate.profiles.len() == 1 {
-        return Err("The last query profile cannot be deleted.".into());
-      }
       candidate.profiles.remove(index);
       candidate.preferences.pinned_profile_ids.retain(|pinned| pinned != &id);
-      if candidate.preferences.default_profile_id == id {
-        candidate.preferences.default_profile_id = candidate.profiles[0].id.clone();
+      // Promoting another profile would silently change what new queries start with.
+      if candidate.preferences.default_profile_id.as_ref() == Some(&id) {
+        candidate.preferences.default_profile_id = None;
       }
       Ok(None)
     }
@@ -181,9 +176,11 @@ fn apply(candidate: &mut QueryProfileCollection, operation: ProfileOperation) ->
       Ok(Some(id))
     }
     ProfileOperation::SetDefault { id } => {
-      profile_index(candidate, &id)?;
+      if let Some(id) = &id {
+        profile_index(candidate, id)?;
+      }
       candidate.preferences.default_profile_id = id.clone();
-      Ok(Some(id))
+      Ok(id)
     }
     ProfileOperation::SetModelFavorite { backend, model, favorite } => {
       let favorites = &mut candidate.preferences.model_favorites;
@@ -196,23 +193,21 @@ fn apply(candidate: &mut QueryProfileCollection, operation: ProfileOperation) ->
   }
 }
 
-fn initial_collection(configuration: QueryConfiguration) -> QueryProfileCollection {
-  let id = new_uid();
+fn empty_collection() -> QueryProfileCollection {
   QueryProfileCollection {
     revision: 0,
-    profiles: vec![QueryProfile { id: id.clone(), name: "Default".to_owned(), configuration }],
+    profiles: vec![],
     preferences: QueryProfilePreferences {
-      default_profile_id: id.clone(),
-      pinned_profile_ids: vec![id],
+      default_profile_id: None,
+      pinned_profile_ids: vec![],
       model_favorites: vec![],
     },
   }
 }
 
 /// Ownership comes exclusively from the validated session. Profiles and preferences are one user-log update.
-/// An account without profiles gets a pinned Default profile on its first request.
+/// Profiles are optional: an account starts with none, and nothing is saved until the first change.
 pub(super) async fn handle_query_profiles(
-  config: &Config,
   db: &Arc<tokio::sync::Mutex<Db>>,
   json_data: &str,
   session_maybe: &Option<Session>,
@@ -222,24 +217,10 @@ pub(super) async fn handle_query_profiles(
   if request.expected_user_id != session.user_id {
     return Err("Not authorized: the account changed while managing query profiles.".into());
   }
-  // Provider discovery can take time. Do it before taking the lock used to update user data,
-  // then re-read the collection so concurrent first requests cannot overwrite one another.
-  let needs_initial_profile = {
-    let db = db.lock().await;
-    db.user.get(&session.user_id).ok_or("User not found.")?.query_profiles.is_none()
-  };
-  let initial = if needs_initial_profile {
-    Some(initial_collection(chat::default_query_configuration(config).await?))
-  } else {
-    None
-  };
   let mut db = db.lock().await;
   let mut user = db.user.get(&session.user_id).ok_or("User not found.")?.clone();
   let is_list = matches!(request.operation, ProfileOperation::List);
-  let mut collection = match &user.query_profiles {
-    Some(collection) => collection.clone(),
-    None => initial.ok_or("Could not initialize query profiles.")?,
-  };
+  let mut collection = user.query_profiles.clone().unwrap_or_else(empty_collection);
   let mut candidate = collection.clone();
   let result = apply(&mut candidate, request.operation).and_then(|id| validate_collection(&mut candidate).map(|_| id));
   let (profile_id, error) = match result {
@@ -248,7 +229,8 @@ pub(super) async fn handle_query_profiles(
       if !is_list {
         candidate.revision += 1;
       }
-      if user.query_profiles.as_ref() != Some(&candidate) {
+      // Compared with the effective collection, so listing an account without profiles writes nothing.
+      if candidate != collection {
         user.query_profiles = Some(candidate.clone());
         db.user.update(&user).await?;
         db.item.mark_user_dirty(&user.id);
@@ -283,7 +265,7 @@ mod tests {
     QueryProfileCollection {
       revision: 0,
       preferences: QueryProfilePreferences {
-        default_profile_id: profiles[0].id.clone(),
+        default_profile_id: Some(profiles[0].id.clone()),
         pinned_profile_ids: vec![profiles[2].id.clone(), profiles[0].id.clone()],
         model_favorites: vec![],
       },
@@ -320,17 +302,41 @@ mod tests {
   }
 
   #[test]
-  fn deleting_the_default_promotes_the_first_remaining_profile() {
+  fn deleting_the_default_leaves_no_default() {
     let c = collection();
     let deleted = run(&c, ProfileOperation::Delete { id: c.profiles[0].id.clone() }).unwrap();
     assert_eq!(order(&deleted), ["B", "C"]);
-    assert_eq!(names(&deleted, &[deleted.preferences.default_profile_id.clone()]), ["B"]);
+    assert_eq!(deleted.preferences.default_profile_id, None);
     assert_eq!(names(&deleted, &deleted.preferences.pinned_profile_ids), ["C"]);
+
+    let other = run(&c, ProfileOperation::Delete { id: c.profiles[1].id.clone() }).unwrap();
+    assert_eq!(other.preferences.default_profile_id, Some(c.profiles[0].id.clone()));
 
     let mut last = collection();
     last.profiles.truncate(1);
     last.preferences.pinned_profile_ids.clear();
-    assert!(run(&last, ProfileOperation::Delete { id: last.profiles[0].id.clone() }).is_err());
+    let empty = run(&last, ProfileOperation::Delete { id: last.profiles[0].id.clone() }).unwrap();
+    assert!(empty.profiles.is_empty() && empty.preferences.default_profile_id.is_none());
+  }
+
+  #[test]
+  fn the_default_can_be_set_and_cleared() {
+    let c = collection();
+    let b = c.profiles[1].id.clone();
+    let set = run(&c, ProfileOperation::SetDefault { id: Some(b.clone()) }).unwrap();
+    assert_eq!(set.preferences.default_profile_id, Some(b));
+    let cleared = run(&set, ProfileOperation::SetDefault { id: None }).unwrap();
+    assert_eq!(cleared.preferences.default_profile_id, None);
+    assert!(run(&c, ProfileOperation::SetDefault { id: Some(new_uid()) }).is_err());
+  }
+
+  #[test]
+  fn an_account_starts_without_profiles() {
+    let created =
+      run(&empty_collection(), ProfileOperation::Create { name: "A".to_owned(), configuration: configuration() })
+        .unwrap();
+    assert_eq!(order(&created), ["A"]);
+    assert_eq!(created.preferences.default_profile_id, None);
   }
 
   #[test]
@@ -379,7 +385,7 @@ mod tests {
       .map(|n| QueryProfile { id: new_uid(), name: format!("P{n}"), configuration: configuration() })
       .collect();
     full.preferences = QueryProfilePreferences {
-      default_profile_id: full.profiles[0].id.clone(),
+      default_profile_id: Some(full.profiles[0].id.clone()),
       pinned_profile_ids: vec![],
       model_favorites: vec![],
     };

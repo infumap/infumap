@@ -185,14 +185,15 @@ model names, context sizes, prices and reasoning choices. If refreshing fails, t
 catalog remains available for browsing and is labelled unverified. A failed or stale discovery cannot
 establish that a saved model disappeared; its explicit selection can still be tried at the provider.
 
-An account's first saved **Default** query profile uses the first provider with an available model,
-then that provider's first model, in configuration/catalog order. Discovery runs outside the database
-lock. If no model can be found, the profile can still be used for Search; users choose a model before Chat.
-Changing server configuration does not rewrite existing profiles.
+Accounts start without query profiles. Until a user chooses a default profile, new queries use the
+first provider with an available model, then that provider's first model, in configuration/catalog
+order, and Infumap tools plus tool sources with `enabled_by_default`. This is worked out from the
+current catalog each time, so providers configured later are picked up. If no model can be found, users
+choose one before Chat. Changing server configuration does not rewrite saved profiles or existing chats.
 The old `llama_server`, `llama_servers`, `llama_server_url`, `openrouter_api_key`, `chat_default_backend`
 and `chat_default_openrouter_model` settings are ignored, like other unrecognized settings.
 
-Users choose the default profile in **Profiles → Manage…**. New queries copy
+Users can choose a default profile in **Profiles → Manage…**. New queries copy
 it once. Picking a different profile or changing the model, reasoning effort, scope or tools affects
 only that query; the last choice never automatically becomes the account default. Profiles and
 model favorites are saved with the account and included in account backups. See

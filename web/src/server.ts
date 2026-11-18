@@ -17,7 +17,7 @@
 */
 
 import { logout } from "./components/Main";
-import type { ChatBackendId, QueryChatSettings, QueryProfileOperation, QueryProfilesResponse, ScopeRef } from "./items/query-configuration";
+import type { ChatBackendId, QueryChatSettings, QueryConfiguration, QueryProfileOperation, QueryProfilesResponse, ScopeRef } from "./items/query-configuration";
 import { Item, ItemType } from "./items/base/item";
 import { ItemFns } from "./items/base/item-polymorphism";
 import {
@@ -306,6 +306,8 @@ export interface ChatBackends {
   backends: Array<ChatBackendInfo>,
   infumapTools?: Array<Record<string, unknown>>,
   toolServers?: Array<ChatToolServerInfo>,
+  /** Where a new query starts when the account has no default profile. Derived from this catalog, never saved. */
+  defaultConfiguration: QueryConfiguration,
 }
 
 export interface ChatResponse {

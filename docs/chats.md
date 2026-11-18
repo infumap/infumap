@@ -37,13 +37,15 @@ menu at the end of the row lists every profile, including shortcuts that do not 
 leaves the draft, attachments and Chat / Deep research mode unchanged. Search uses only a scope, and
 remembers its own ([Choosing a scope](scopes.md#choosing-a-scope)), so the shortcuts are hidden there.
 
-New queries start with your default profile. Changing Scope, Model or Tools affects only the current
+Profiles are optional. New queries start with your default profile, or, if you have not chosen one, with
+the server's settings: every item in scope, the first available model, and Infumap tools plus any tool
+sources the server enables by default. Changing Scope, Model or Tools affects only the current
 query: the applied profile's shortcut then shows a dot. Click that profile again, in the row or the
 **Profiles** menu, to restore its saved settings. To update the saved profile, open **Profiles → Save
 changes to “Profile name”**. To keep a setup under a new name, use **Profiles → Save as new…**;
 the new profile is pinned. **Profiles → Manage…** orders, renames, pins, duplicates and deletes profiles
-and chooses the default. Deleting the default makes the first remaining profile the default, and at
-least one profile must remain. Saving or managing profiles leaves other chats and their recorded turns
+and chooses the default; click the default's house icon again to go back to the server's settings.
+Deleting the default does the same. Saving or managing profiles leaves other chats and their recorded turns
 unchanged.
 
 In an existing chat, setup changes apply from the next message. Earlier answers, attachments and

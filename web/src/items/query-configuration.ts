@@ -79,7 +79,8 @@ export interface QueryProfileCollection {
   /** All profiles in their user-selected order. */
   profiles: Array<QueryProfile>,
   preferences: {
-    defaultProfileId: Uid,
+    /** Null: new queries start from the server's catalog-derived configuration. */
+    defaultProfileId: Uid | null,
     /** One-click shortcuts, in profile order. */
     pinnedProfileIds: Array<Uid>,
     modelFavorites: Array<QueryModelFavorite>,
@@ -96,7 +97,7 @@ export type QueryProfileOperation =
   | { operation: "delete", id: Uid }
   | { operation: "move", id: Uid, toIndex: number }
   | { operation: "setPinned", id: Uid, pinned: boolean }
-  | { operation: "setDefault", id: Uid }
+  | { operation: "setDefault", id: Uid | null }
   | { operation: "setModelFavorite", backend: ChatBackendId, model: string | null, favorite: boolean };
 
 export interface QueryProfilesResponse {
@@ -106,6 +107,12 @@ export interface QueryProfilesResponse {
   error: string | null,
   /** The created, changed or duplicated profile, when applicable. */
   profileId: Uid | null,
+}
+
+/** What a new query starts with: the default profile, or without one the server's current default configuration. */
+export interface InitialQuerySetup {
+  configuration: QueryConfiguration,
+  profile: QueryProfile | null,
 }
 
 export function cloneQueryProfileCollection(collection: QueryProfileCollection): QueryProfileCollection {

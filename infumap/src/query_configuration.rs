@@ -164,7 +164,8 @@ pub struct QueryModelFavorite {
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QueryProfilePreferences {
-  pub default_profile_id: Uid,
+  /// None starts new queries from the server's current catalog instead of a saved profile.
+  pub default_profile_id: Option<Uid>,
   /// Profiles shown as one-click shortcuts, kept in profile order.
   pub pinned_profile_ids: Vec<Uid>,
   pub model_favorites: Vec<QueryModelFavorite>,

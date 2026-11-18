@@ -228,7 +228,7 @@ mod scope_attachments;
 mod search_results;
 mod transcript;
 use backend::{ChatAdapter, ChatEndpoint, ChatReasoning, OPENROUTER_APP_TITLE, chat_backends, resolve_chat_endpoint};
-pub(crate) use backend::{chat_providers_from_config, default_query_configuration, validate_chat_backend_config};
+pub(crate) use backend::{chat_providers_from_config, validate_chat_backend_config};
 use configuration::TurnSettings;
 pub(super) use container_fragments::{
   Access, document_body_markdown, document_note_markdown, readable_children_in_display_order,

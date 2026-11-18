@@ -74,9 +74,6 @@ export function QueryProfileManager(props: { onClose: () => void }) {
     if (name().trim() == profile.name) { setRenaming(null); return; }
     void run(async () => { await store.general.queryProfiles.rename(profile.id, name().trim()); setRenaming(null); });
   };
-  /** Deleting the default makes the first remaining profile the default. */
-  const nextDefault = (deleted: QueryProfile) =>
-    isDefault(deleted.id) ? profiles().find(profile => profile.id != deleted.id) ?? null : null;
 
   const panelKeyDown = (ev: KeyboardEvent) => {
     ev.stopPropagation();
@@ -121,28 +118,24 @@ export function QueryProfileManager(props: { onClose: () => void }) {
           title={isPinned(profile.id) ? "Pinned: shown as a shortcut above the input" : "Pin as a shortcut above the input"}
           disabled={busy()} onClick={() => void run(() => store.general.queryProfiles.setPinned(profile.id, !isPinned(profile.id)))}>
           <i class={isPinned(profile.id) ? "bi-pin-angle-fill text-neutral-800" : "bi-pin-angle"} /></button>
-        <Show when={isDefault(profile.id)} fallback={
-          <button type="button" class={iconButtonClass} aria-label={`Make ${profile.name} the default`}
-            title="Make the default for new queries" disabled={busy()}
-            onClick={() => void run(() => store.general.queryProfiles.setDefault(profile.id))}>
-            <i class="bi-house" /></button>
-        }>
-          <span class="flex h-7 w-7 shrink-0 items-center justify-center text-neutral-800" role="img"
-            aria-label={`${profile.name} is the default`} title="Default for new queries"><i class="bi-house-fill" /></span>
-        </Show>
+        <button type="button" class={iconButtonClass} aria-pressed={isDefault(profile.id)}
+          aria-label={isDefault(profile.id) ? `Stop using ${profile.name} as the default` : `Make ${profile.name} the default`}
+          title={isDefault(profile.id) ? "Default for new queries. Click to start new queries with the server's settings instead." : "Make the default for new queries"}
+          disabled={busy()}
+          onClick={() => void run(() => store.general.queryProfiles.setDefault(isDefault(profile.id) ? null : profile.id))}>
+          <i class={isDefault(profile.id) ? "bi-house-fill text-neutral-800" : "bi-house"} /></button>
         <button type="button" class={iconButtonClass} aria-label={`Duplicate ${profile.name}`} title="Duplicate"
           disabled={busy()} onClick={() => void run(() => store.general.queryProfiles.duplicate(profile.id))}>
           <i class="bi-copy" /></button>
-        <button type="button" class={iconButtonClass} aria-label={`Delete ${profile.name}`}
-          title={profiles().length <= 1 ? "The last profile cannot be deleted" : "Delete"}
-          disabled={busy() || profiles().length <= 1} onClick={() => { setRenaming(null); setError(null); setDeleting(profile.id); }}>
+        <button type="button" class={iconButtonClass} aria-label={`Delete ${profile.name}`} title="Delete"
+          disabled={busy()} onClick={() => { setRenaming(null); setError(null); setDeleting(profile.id); }}>
           <i class="bi-trash" /></button>
       </div>
     }>
       <div class="flex flex-wrap items-center gap-2 py-1 text-[12px]">
         <span class="min-w-0 grow">
           Delete “{profile.name}”?
-          <Show when={nextDefault(profile)}>{next => <span class="text-neutral-500"> “{next().name}” will become the default.</span>}</Show>
+          <Show when={isDefault(profile.id)}><span class="text-neutral-500"> New queries will start with the server's settings.</span></Show>
         </span>
         <button type="button" class={`${dialogButtonClass()} !text-red-700`} disabled={busy()}
           ref={el => queueMicrotask(() => el.focus())}
@@ -161,13 +154,14 @@ export function QueryProfileManager(props: { onClose: () => void }) {
       onMouseDown={stopQueryPickerEvent} onMouseUp={stopQueryPickerEvent} onClick={stopQueryPickerEvent}
       onKeyDown={panelKeyDown} onKeyUp={stopQueryPickerEvent}>
       <DialogHeader title="Query profiles" onClose={props.onClose}
-        description="Pinned profiles are shortcuts above the input. New queries start with the default." />
+        description="Pinned profiles are shortcuts above the input. New queries start with the default profile, or with the server's settings when there is none." />
       <Show when={error() ?? store.general.queryProfiles.error()}>{message =>
         <div role="alert" class="shrink-0 border-b border-chrome-line bg-red-50 px-3 py-2 text-[12px] text-red-700">{message()}</div>
       }</Show>
       <div class="min-h-0 grow overflow-y-auto">
         <Show when={collection() != null} fallback={<div class="px-3 py-3 text-[12px] text-neutral-500">Loading profiles…</div>}>
-          <For each={profiles()}>{(profile, index) => row(profile, index)}</For>
+          <For each={profiles()} fallback={<div class="px-3 py-3 text-[12px] text-neutral-500">No saved profiles. Use Profiles → Save as new… to save a query's setup.</div>}>
+            {(profile, index) => row(profile, index)}</For>
         </Show>
       </div>
     </div>
