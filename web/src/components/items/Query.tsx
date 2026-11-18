@@ -198,8 +198,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   let attachmentDraftGeneration = 0;
   onCleanup(() => { attachmentDraftGeneration++; });
   const [deepResearch, setDeepResearch] = createSignal(false);
-  /** A chat's mode is fixed by its first message; before that, the draft's choice. */
-  const fixedChatSetup = () => getQueryRuntime(store, queryItem()).chat.fixedSetup;
+  /** Deep research is chosen in New Query, where it starts a research run rather than a chat. */
   /** A research run shows its stages and status where a chat has its input: it can't be continued. */
   const researchState = () => getQueryRuntime(store, queryItem()).chat.research;
   const isResearchRun = () => isQueryResearchRun(queryItem()) || researchState() != null;
@@ -213,10 +212,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
   const researchAction = (action: typeof runResearchAgain) => {
     void action(store, queryItem()).catch(error =>
       showTransientMessage(error instanceof Error ? error.message : String(error), TransientMessageType.Error));
-  };
-  const effectiveDeepResearch = () => {
-    const fixed = fixedChatSetup();
-    return fixed != null ? fixed.mode == "deep_research" : deepResearch();
   };
   const [isSendingChat, setIsSendingChat] = createSignal(false);
   const [queryTextareaHeightPx, setQueryTextareaHeightPx] = createSignal(QUERY_WORKSPACE_CONTROLS_HEIGHT_PX);
@@ -359,7 +354,7 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
       ) : null;
   };
   const sendButtonTitle = () => selectedInputMode() == "chat"
-    ? (effectiveDeepResearch() ? "Start deep research" : "Send chat")
+    ? (!isChatHistoryEntry() && deepResearch() ? "Start deep research" : "Send chat")
     : "Run search";
   const searchArrangeAlgorithm = () =>
     getQuerySearchArrangeAlgorithm(store, queryItem()) == ArrangeAlgorithm.Grid
@@ -936,10 +931,9 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
     setItemAttachmentError(null);
     resizeChatTextareaSoon();
     setIsSendingChat(true);
-    const useDeepResearch = effectiveDeepResearch();
     let recorded = false;
     try {
-      recorded = await submitQueryChatMessage(store, queryItem(), value, useDeepResearch, attachments, selectedDraftSkills(skillDraft));
+      recorded = await submitQueryChatMessage(store, queryItem(), value, false, attachments, selectedDraftSkills(skillDraft));
       if (!recorded && chatText() == "") {
         setDraftSkillSelection(skillDraft);
         setChatText(value);
@@ -1572,8 +1566,8 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
               class="flex shrink-0 cursor-pointer items-center justify-center rounded-xs border border-[#999] bg-white text-black disabled:cursor-default disabled:opacity-40"
               style={`width: ${QUERY_CHAT_SEND_BUTTON_WIDTH_PX}px; height: ${QUERY_WORKSPACE_CONTROLS_HEIGHT_PX}px;`}
               type="button"
-              title={stopPending() ? "Waiting for the server to confirm Stop" : chatRequestCanCancel() ? "Stop generating" : configurationUnavailableReason() ?? (effectiveDeepResearch() ? "Start deep research" : "Send")}
-              aria-label={stopPending() ? "Stopping" : chatRequestCanCancel() ? "Stop generating" : (effectiveDeepResearch() ? "Start deep research" : "Send")}
+              title={stopPending() ? "Waiting for the server to confirm Stop" : chatRequestCanCancel() ? "Stop generating" : configurationUnavailableReason() ?? "Send"}
+              aria-label={stopPending() ? "Stopping" : chatRequestCanCancel() ? "Stop generating" : "Send"}
               disabled={chatRequestActive()
                 ? !chatRequestCanCancel() || stopPending()
                 : pendingItemAttachments() > 0 || configurationUnavailableReason() != null ||
@@ -1626,25 +1620,6 @@ export const Query_Desktop: Component<VisualElementProps> = (props: VisualElemen
                   <i class="bi-cloud-slash" />
                 </span>
               </Show>
-              {/* The same icons as New Query's mode selector, styled like the configuration pills beside it. */}
-              <div role="radiogroup" aria-label="Chat mode"
-                class="flex h-[22px] shrink-0 overflow-hidden rounded-md border border-control-border bg-white text-[12px]"
-                onMouseDown={ev => ev.stopPropagation()} onKeyDown={ev => ev.stopPropagation()}>
-                <For each={QUERY_INPUT_MODE_OPTIONS.filter(option => option.value != "search")}>{option => {
-                  const selected = () => (option.value == "deep-research") == effectiveDeepResearch();
-                  const fixedReason = () => isResearchRun() ? RESEARCH_SETUP_FIXED
-                    : fixedChatSetup() == null ? null
-                    : "Fixed by this chat's first message. Start a new chat to change it.";
-                  return <button type="button" role="radio" aria-checked={selected()} aria-label={option.label}
-                    title={fixedReason() == null ? option.label : `${option.label}. ${fixedReason()}`}
-                    class="flex w-[26px] cursor-pointer items-center justify-center text-control-text hover:bg-control-hover disabled:cursor-default disabled:opacity-50"
-                    classList={{ "bg-neutral-200 text-neutral-900 hover:bg-control-hover": selected() }}
-                    disabled={chatSettingsDisabled() || fixedReason() != null}
-                    onClick={() => setDeepResearch(option.value == "deep-research")}>
-                    <i class={option.icon} />
-                  </button>;
-                }}</For>
-              </div>
               <QueryScopePicker
                 queryItem={queryItem} disabled={chatSettingsDisabled} inUse={() => queryChatUsesInfumapData(store, queryItem())} note={chatSettingsNote} />
               <QueryModelPicker queryItem={queryItem} disabled={chatSettingsDisabled} note={chatSettingsNote} />

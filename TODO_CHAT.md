@@ -303,8 +303,13 @@ One action, "start a chat with this attached", available from any item's toolbar
       attachment; it doesn't use a general "Chat about an item" action yet. Run again restores question, own
       attachments (`load-chat` now marks scope items and skills), scope, model, tools and approval; skill mentions
       come back as plain text, without their skill selection. Checked in a browser.
-   4. **Deep research removed from chat.** The mode leaves the chat input and `ChatSetup`, with the deep-research
-      prompts and code paths in chat.
+   4. **Done.** Deep research removed from chat. `/chat/stream` refuses `mode: deep_research` (pointing to New Query);
+      the chat run is one stage; the review and report prompts and the round ceiling moved to `research.rs` (the report
+      prompt now says not to call tools, since they are kept with `tool_choice: "none"`). `ChatSetup` has no mode; the
+      chat input lost its Chat / Deep research buttons and always sends chats. Still shared with research, as
+      resource preparation: `ChatRunMode`, the deep-research system prompt paragraph in `chat_system_prompt`, the
+      web-search result count and the read-only tool filter in `prepare_chat_resources`. Chats recorded in deep
+      research mode continue as plain chats (a stored setup keeps its deep-research prompt).
    5. **Later:** `ask_user`, on the approval-pause mechanism.
 3. **Done.** Fixed setup per chat. The first turn writes a `ChatSetup` into the transcript header: system prompt and
    tool definitions as sent, how each server tool is called, scope, scope items, capabilities, mode. Later turns send

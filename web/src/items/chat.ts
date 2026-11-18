@@ -1226,8 +1226,12 @@ async function submitQueryChatTurn(
     return false;
   }
   const expectedRevision = getQueryRuntime(store, queryItem).chat.revision;
-  // Deep research from New Query starts a research run, which is not a chat and can't be continued.
-  const research = deepResearch && expectedRevision == 0 && getQueryRuntime(store, queryItem).chat.fixedSetup == null;
+  // Deep research starts a research run, which is not a chat: it is only offered in New Query, before a first message.
+  const research = deepResearch;
+  if (research && (expectedRevision != 0 || getQueryRuntime(store, queryItem).chat.fixedSetup != null)) {
+    showChatMessage(store, "Deep research isn't part of a chat. Start it from New Query.", TransientMessageType.Error);
+    return false;
+  }
   if (research) { markQueryResearchRun(store, queryItem, { stages: [], status: "running" }); }
   // The server has the attachments only once the turn is accepted; until then, and after, they open from here.
   for (const attachment of attachments) {

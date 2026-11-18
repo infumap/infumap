@@ -39,6 +39,20 @@ const STRATEGY_STANDARD: &str = "standard";
 const MAIN_BRANCH: usize = 0;
 /// A run needs no viewer, so this and the tool-round ceiling are what stop one that has gone wrong.
 const MAX_RUN_DURATION: Duration = Duration::from_secs(60 * 60);
+/// A backstop against a model that loops forever, shared by all stages, so it is the ceiling for a whole run.
+const RESEARCH_MAX_TOOL_ROUNDS: usize = 10_000;
+const RESEARCH_REVIEW_PROMPT: &str = "\
+Review the evidence collected so far. Check coverage of the user's question, source quality and recency, factual \
+conflicts, and whether the main claims can be cited. If a material gap can be resolved with any available read-only \
+discovery or retrieval tool, use it now. Tool names and domains vary, so rely on their descriptions. When the \
+evidence is adequate or remaining gaps cannot be resolved, return a concise readiness memo describing the supported \
+conclusions and any limitations. This is still not the final report.";
+const RESEARCH_REPORT_PROMPT: &str = "\
+Write the final deep-research report now. Use only the evidence already collected, and do not call any tool in \
+this stage. Answer the user's question directly, distinguish facts from inference, explain material conflicts or \
+limitations, and use exact Markdown links returned by tools for citations near the claims they support. Never invent \
+a citation or imply that a search-result snippet was fully read. Prefer a clear structure suited to the question over \
+a fixed template.";
 
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -536,10 +550,8 @@ async fn run_standard_strategy(
   let tool_context = ChatToolContext { mode, model: endpoint.model.clone(), call_counts: Mutex::new(HashMap::new()) };
   let (mut round, mut tool_rounds) = (1usize, 0usize);
 
-  let stages = [
-    ("research", "Researching sources", None),
-    ("review", "Reviewing evidence", Some(CHAT_DEEP_RESEARCH_REVIEW_PROMPT)),
-  ];
+  let stages =
+    [("research", "Researching sources", None), ("review", "Reviewing evidence", Some(RESEARCH_REVIEW_PROMPT))];
   for (stage, status, instruction) in stages {
     log.stage(stage).await?;
     progress.status(status).await;
@@ -554,10 +566,8 @@ async fn run_standard_strategy(
         messages.push(completed.assistant_message);
         break;
       }
-      if tool_rounds >= CHAT_DEEP_RESEARCH_MAX_TOOL_ROUNDS {
-        return Err(
-          format!("Chat tool loop exceeded maximum tool rounds ({CHAT_DEEP_RESEARCH_MAX_TOOL_ROUNDS}).").into(),
-        );
+      if tool_rounds >= RESEARCH_MAX_TOOL_ROUNDS {
+        return Err(format!("Chat tool loop exceeded maximum tool rounds ({RESEARCH_MAX_TOOL_ROUNDS}).").into());
       }
       tool_rounds += 1;
       messages.push(completed.assistant_message);
@@ -580,7 +590,7 @@ async fn run_standard_strategy(
 
   log.stage("report").await?;
   progress.status("Writing research report").await;
-  messages.push(OpenAiChatMessage::text("system", CHAT_DEEP_RESEARCH_FINAL_PROMPT.to_owned()));
+  messages.push(OpenAiChatMessage::text("system", RESEARCH_REPORT_PROMPT.to_owned()));
   let tool_choice = (!tools.is_empty()).then_some("none");
   let completed =
     research_round(&endpoint, &messages, &tools, tool_choice, round, tool_rounds, "report", &targets, log, progress)

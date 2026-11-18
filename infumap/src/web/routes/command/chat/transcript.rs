@@ -46,7 +46,7 @@ use tokio::sync::OwnedMutexGuard;
 
 use super::configuration::TurnSettings;
 use super::mcp::MappedMcpToolTarget;
-use super::{ChatHistoryMessage, ChatRunMode, OpenAiToolSpec};
+use super::{ChatHistoryMessage, OpenAiToolSpec};
 use crate::ai::artifact_io::atomic_write;
 use crate::query_configuration::ScopeRef;
 use crate::util::fs::expand_tilde;
@@ -94,7 +94,7 @@ pub(super) struct TranscriptHeader {
   pub(super) setup: Option<ChatSetup>,
 }
 
-/// A chat's scope, tools and mode are fixed by its first turn, and every turn sends the system prompt and tool
+/// A chat's scope and tools are fixed by its first turn, and every turn sends the system prompt and tool
 /// definitions that turn sent. They are the start of every request, so changing them part-way through a chat would
 /// make the provider's prompt cache miss for the whole conversation. To change them, the user starts a new chat.
 /// The model, its reasoning effort and tool approval can still change: they are not in the prompt.
@@ -110,16 +110,14 @@ pub(super) struct ChatSetup {
   #[serde(default, skip_serializing_if = "Vec::is_empty")]
   pub(super) scope_item_ids: Vec<Uid>,
   pub(super) capabilities: Vec<String>,
-  pub(super) mode: ChatRunMode,
 }
 
 impl ChatSetup {
-  /// Whether `settings` select this chat's scope, tools and mode.
+  /// Whether `settings` select this chat's scope and tools.
   pub(super) fn matches(&self, settings: &TurnSettings) -> bool {
     settings.configuration.scope == self.scope
       && settings.configuration.capabilities == self.capabilities
       && settings.scope_item_ids == self.scope_item_ids
-      && settings.mode == self.mode
   }
 }
 
