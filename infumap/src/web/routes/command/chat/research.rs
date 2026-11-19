@@ -5,38 +5,39 @@
 //! report comes out, and the run can't be continued. It lives on a query item in the Queries page, marked with
 //! `RESEARCH_RUN_FLAG`, and runs in the background: unlike a chat turn, it doesn't stop when no one is watching.
 //!
-//! Its log, `user_{id}/chats/{query_item_id}.run`, records exactly what the model was given. It is append-only JSONL,
-//! each record synced before the next step:
-//! - the header: the question, its attachments and setup, the strategy and the server version;
-//! - each message the first time a request sends it, as sent (the form the provider gets, not the internal one);
-//! - each tool set once, by hash, with how its tools are called;
-//! - each request before it is sent: its stage, the requests it followed, how many messages it sent, its tool set
-//!   and every other field of the body. The body is those fields, those messages and that tool set;
-//! - each response as received, stages as they start, and the end with the report and the activity shown for it.
+//! Its log, `user_{id}/chats/{query_item_id}.run`, records exactly what the model was given, in the chat transcript's
+//! records (transcript.rs), as a chat of one turn: append-only JSONL, each record synced before the next step.
+//! - The header: the question with its attachments, as the model got it; the setup every request sends (system
+//!   prompt and tool definitions); the strategy; the server version.
+//! - A record as each stage starts.
+//! - Each model request before it is sent, its reply, and each message the run adds (tool results, stage
+//!   instructions). Each message is stored once; the report is the last reply, and the activity shown is derived.
+//! - The end: outcome, error, and the tool calls' display details.
 //!
-//! Requests are numbered and say which earlier requests they followed, and messages belong to a branch, so a strategy
-//! that runs several models side by side can use the same log. The only strategy today is one branch.
+//! A request's body is rebuilt as a chat turn's is: the system prompt, the question, then what the run had added,
+//! `messages` in all, with the setup's tools and the request's other fields.
 
-use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 
-use sha2::{Digest, Sha256};
 use tokio::io::AsyncWriteExt;
 
 use super::activity::{ActivityPhase, ActivitySnapshot};
-use super::mcp::MappedMcpToolTarget;
 use super::runs::{RunResult, RunSnapshot, RunState};
-use super::transcript::{ActivityRound, ContextTokenCount, TurnOutcome, UserRecord};
+use super::transcript::{
+  ChatSetup, EndRecord, MessageRecord, RequestRecord, ResponseRecord, TranscriptTurn, TurnEntry, TurnOutcome,
+  UserRecord,
+};
 use super::*;
 
 pub(super) const RUN_LOG_EXTENSION: &str = "run";
-const RUN_LOG_VERSION: u32 = 1;
+/// Version 2 stores the run in the chat transcript's records. Version 1 logs are not read: run logs are not kept
+/// compatible across this change.
+const RUN_LOG_VERSION: u32 = 2;
 /// Marks a query item as a research run (`SearchFlags.ResearchRun` in the web client), so the Queries list can tell
 /// runs from chats without reading their logs. A flag rather than a new field: query items already have flags, so
 /// the item format doesn't change.
 pub(super) const RESEARCH_RUN_FLAG: i64 = 0x001;
 const STRATEGY_STANDARD: &str = "standard";
-const MAIN_BRANCH: usize = 0;
 /// A run needs no viewer, so this and the tool-round ceiling are what stop one that has gone wrong.
 const MAX_RUN_DURATION: Duration = Duration::from_secs(60 * 60);
 /// A backstop against a model that loops forever, shared by all stages, so it is the ceiling for a whole run.
@@ -58,11 +59,10 @@ a fixed template.";
 #[serde(tag = "type", rename_all = "snake_case")]
 enum RunRecord {
   Header(RunHeader),
-  ToolSet(ToolSetRecord),
-  Message(MessageRecord),
+  Stage(StageRecord),
   Request(RequestRecord),
   Response(ResponseRecord),
-  Stage(StageRecord),
+  Message(MessageRecord),
   End(EndRecord),
 }
 
@@ -71,58 +71,15 @@ enum RunRecord {
 pub(super) struct RunHeader {
   version: u32,
   query_item_id: Uid,
-  /// Identifies the run's live stream, for resume and stop.
+  /// Identifies the run's live stream, for resume and stop, and its records.
   pub(super) request_id: String,
   pub(super) created_at: i64,
   server_version: String,
   pub(super) strategy: String,
-  /// The question, its attachments (selected skills and items in scope included) and the setup chosen for it.
+  /// The question, its attachments (selected skills and items in scope included) and the settings chosen for it.
   pub(super) user: UserRecord,
-}
-
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct ToolSetRecord {
-  hash: String,
-  tools: Vec<OpenAiToolSpec>,
-  /// How each tool from a tool server is called, by name.
-  targets: BTreeMap<String, MappedMcpToolTarget>,
-}
-
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct MessageRecord {
-  branch: usize,
-  index: usize,
-  message: OpenAiChatMessage,
-}
-
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct RequestRecord {
-  id: usize,
-  branch: usize,
-  stage: String,
-  /// The requests whose results this one was built on.
-  depends_on: Vec<usize>,
-  /// It sent the branch's first `messages` messages.
-  messages: usize,
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  tool_set: Option<String>,
-  /// Every other field of the request body, as sent.
-  params: Value,
-  started_at: i64,
-}
-
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct ResponseRecord {
-  request: usize,
-  ended_at: i64,
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  message: Option<OpenAiChatMessage>,
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  error: Option<String>,
+  /// What every request sends: the system prompt and tool definitions, and how each tool is called.
+  pub(super) setup: ChatSetup,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -132,39 +89,16 @@ pub(super) struct StageRecord {
   pub(super) started_at: i64,
 }
 
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct EndRecord {
-  pub(super) outcome: TurnOutcome,
-  pub(super) ended_at: i64,
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub(super) error: Option<String>,
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub(super) report: Option<String>,
-  /// The activity shown for the run, including partial rounds of one that didn't complete.
-  #[serde(default)]
-  pub(super) rounds: Vec<ActivityRound>,
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub(super) context_tokens: Option<ContextTokenCount>,
-}
-
 pub(super) fn run_log_path(data_dir: &str, user_id: &Uid, query_item_id: &Uid) -> InfuResult<PathBuf> {
   Ok(transcript::transcript_path(data_dir, user_id, query_item_id)?.with_extension(RUN_LOG_EXTENSION))
-}
-
-fn tool_set_hash(tools: &[OpenAiToolSpec]) -> InfuResult<String> {
-  let digest = Sha256::digest(serde_json::to_string(tools)?.as_bytes());
-  Ok(digest.iter().take(8).map(|byte| format!("{byte:02x}")).collect())
 }
 
 /// The writer. Only the run's worker holds one, under the chat lock.
 struct RunLog {
   file: tokio::fs::File,
-  /// How many messages of the branch are in the log.
-  messages_logged: usize,
-  tool_sets: HashSet<String>,
-  next_request: usize,
-  last_request: Option<usize>,
+  request_id: String,
+  /// The number of the last model request recorded, and whether its reply has been.
+  last_request: Option<(usize, bool)>,
 }
 
 impl RunLog {
@@ -174,7 +108,8 @@ impl RunLog {
       tokio::fs::create_dir_all(dir).await?;
     }
     let file = tokio::fs::OpenOptions::new().create_new(true).append(true).open(path).await?;
-    let mut log = Self { file, messages_logged: 0, tool_sets: HashSet::new(), next_request: 1, last_request: None };
+    let request_id = header.request_id.clone();
+    let mut log = Self { file, request_id, last_request: None };
     log.append(&RunRecord::Header(header)).await?;
     Ok(log)
   }
@@ -191,61 +126,82 @@ impl RunLog {
     self.append(&RunRecord::Stage(StageRecord { name: name.to_owned(), started_at: unix_now_millis() })).await
   }
 
-  /// Records a request before it is sent: the messages it sends that the log doesn't have yet, its tool set if new,
-  /// then the request. Returns its number.
+  /// Records a model request before it is sent. Returns its number in the run.
   async fn request(
     &mut self,
-    stage: &str,
+    endpoint: &ChatEndpoint,
     payload: &OpenAiChatCompletionRequest,
-    targets: &BTreeMap<String, MappedMcpToolTarget>,
+    messages: usize,
   ) -> InfuResult<usize> {
-    for (index, message) in payload.messages.iter().enumerate().skip(self.messages_logged) {
-      let record = MessageRecord { branch: MAIN_BRANCH, index, message: message.clone() };
-      self.append(&RunRecord::Message(record)).await?;
-    }
-    self.messages_logged = self.messages_logged.max(payload.messages.len());
-    let tool_set = if payload.tools.is_empty() { None } else { Some(tool_set_hash(&payload.tools)?) };
-    if let Some(hash) = tool_set.as_ref().filter(|hash| !self.tool_sets.contains(*hash)) {
-      let record = ToolSetRecord { hash: hash.clone(), tools: payload.tools.clone(), targets: targets.clone() };
-      self.append(&RunRecord::ToolSet(record)).await?;
-      self.tool_sets.insert(hash.clone());
-    }
-    let mut params = serde_json::to_value(payload)?;
-    if let Some(params) = params.as_object_mut() {
-      params.remove("messages");
-      params.remove("tools");
-    }
-    let id = self.next_request;
-    self.next_request += 1;
-    let record = RequestRecord {
-      id,
-      branch: MAIN_BRANCH,
-      stage: stage.to_owned(),
-      depends_on: self.last_request.into_iter().collect(),
-      messages: payload.messages.len(),
-      tool_set,
-      params,
-      started_at: unix_now_millis(),
-    };
+    let number = self.last_request.map_or(1, |(number, _)| number + 1);
+    let record = request_record(&self.request_id, number, endpoint, payload, messages)?;
     self.append(&RunRecord::Request(record)).await?;
-    self.last_request = Some(id);
-    Ok(id)
+    self.last_request = Some((number, false));
+    Ok(number)
   }
 
-  async fn response(&mut self, request: usize, result: &InfuResult<OpenAiChatMessage>) -> InfuResult<()> {
-    let (message, error) = match result {
-      Ok(message) => (Some(message.clone()), None),
-      Err(error) => (None, Some(error.message().to_owned())),
-    };
-    self.append(&RunRecord::Response(ResponseRecord { request, ended_at: unix_now_millis(), message, error })).await
+  async fn response(&mut self, number: usize, result: &InfuResult<OpenAiChatMessage>) -> InfuResult<()> {
+    self.append(&RunRecord::Response(response_record(&self.request_id, number, result))).await?;
+    self.last_request = Some((number, true));
+    Ok(())
+  }
+
+  /// Records a message the run added that isn't a model reply: a tool result, or a stage instruction.
+  async fn message(&mut self, message: &OpenAiChatMessage) -> InfuResult<()> {
+    let record = MessageRecord { request_id: self.request_id.clone(), message: ChatHistoryMessage::from_wire(message) };
+    self.append(&RunRecord::Message(record)).await
+  }
+
+  /// Ends the run, keeping what had arrived of a reply it stopped or failed during (see `partial_response`).
+  async fn end(
+    &mut self,
+    outcome: TurnOutcome,
+    error: Option<String>,
+    progress: &ChatProgressReporter,
+  ) -> InfuResult<()> {
+    let (rounds, context_tokens) = progress.activity.as_ref().map_or((vec![], None), |activity| {
+      let activity = activity.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+      (activity.finished_rounds(), activity.context_tokens())
+    });
+    if let Some(partial) = partial_response(&self.request_id, outcome, self.last_request, &rounds) {
+      self.append(&RunRecord::Response(partial)).await?;
+    }
+    self.append(&RunRecord::End(end_record(&self.request_id, outcome, error, rounds, context_tokens))).await
   }
 }
 
-/// What the run view needs from a log: the parts that aren't the model's input.
+/// A run as its log records it: the run is a chat turn of its own, with the stages it started.
 pub(super) struct SavedRun {
   pub(super) header: RunHeader,
   pub(super) stages: Vec<StageRecord>,
-  pub(super) end: Option<EndRecord>,
+  pub(super) turn: TranscriptTurn,
+}
+
+impl SavedRun {
+  pub(super) fn end(&self) -> Option<&EndRecord> {
+    self.turn.end.as_ref()
+  }
+
+  /// The report: the run's last reply, once it has completed.
+  pub(super) fn report(&self) -> Option<String> {
+    self.turn.assistant_text()
+  }
+
+  /// The run as a transcript of one turn, which rebuilds its requests (`Transcript::request_messages`). Only tests
+  /// read it so far, as for chats.
+  #[cfg_attr(not(test), allow(dead_code))]
+  pub(super) fn transcript(&self) -> Transcript {
+    let header = TranscriptHeader {
+      version: transcript::TRANSCRIPT_FORMAT_VERSION,
+      query_item_id: self.header.query_item_id.clone(),
+      created_at: self.header.created_at,
+      server_version: self.header.server_version.clone(),
+      setup: Some(self.header.setup.clone()),
+    };
+    let turn =
+      TranscriptTurn { user: self.turn.user.clone(), entries: self.turn.entries.clone(), end: self.turn.end.clone() };
+    Transcript { header, turns: vec![turn] }
+  }
 }
 
 pub(super) async fn read_run(data_dir: &str, user_id: &Uid, query_item_id: &Uid) -> InfuResult<Option<SavedRun>> {
@@ -273,15 +229,24 @@ pub(super) fn parse_run(bytes: &[u8]) -> InfuResult<Option<SavedRun>> {
   let complete = &bytes[..bytes.iter().rposition(|byte| *byte == b'\n').map_or(0, |index| index + 1)];
   let mut lines = complete.split(|byte| *byte == b'\n').filter(|line| !line.is_empty());
   let Some(first) = lines.next() else { return Ok(None) };
-  let RunRecord::Header(header) = serde_json::from_slice(first)? else {
+  let header: Value = serde_json::from_slice(first)?;
+  let version = header.get("version").and_then(Value::as_u64).unwrap_or(0);
+  if version != u64::from(RUN_LOG_VERSION) {
+    return Err(format!("This research run was saved in run log format {version}, which can't be read.").into());
+  }
+  let RunRecord::Header(header) = serde_json::from_value(header)? else {
     return Err("A research run log must start with its header.".into());
   };
-  let mut run = SavedRun { header, stages: vec![], end: None };
+  let turn = TranscriptTurn { user: header.user.clone(), entries: vec![], end: None };
+  let mut run = SavedRun { header, stages: vec![], turn };
   for line in lines {
     match serde_json::from_slice(line)? {
+      RunRecord::Header(_) => return Err("A research run log has a second header.".into()),
       RunRecord::Stage(stage) => run.stages.push(stage),
-      RunRecord::End(end) => run.end = Some(end),
-      _ => {}
+      RunRecord::Request(request) => run.turn.entries.push(TurnEntry::Request(request)),
+      RunRecord::Response(response) => run.turn.entries.push(TurnEntry::Response(response)),
+      RunRecord::Message(message) => run.turn.entries.push(TurnEntry::Message(message)),
+      RunRecord::End(end) => run.turn.end = Some(end),
     }
   }
   Ok(Some(run))
@@ -289,18 +254,18 @@ pub(super) fn parse_run(bytes: &[u8]) -> InfuResult<Option<SavedRun>> {
 
 /// The run as a resume or stop sees it once its worker has gone.
 pub(super) fn snapshot(owner_id: &Uid, run: &SavedRun) -> RunSnapshot {
-  let end = run.end.as_ref();
+  let end = run.end();
   let (phase, status_text) = match end.map(|end| end.outcome) {
     Some(TurnOutcome::Completed) => (ActivityPhase::Complete, "Research complete"),
     Some(TurnOutcome::Cancelled) => (ActivityPhase::Cancelled, "Research stopped"),
     Some(TurnOutcome::Error) => (ActivityPhase::Error, "Research failed"),
     None => (ActivityPhase::Interrupted, "Research interrupted"),
   };
-  let result = end.and_then(|end| end.report.clone()).map(|text| {
+  let result = run.report().map(|text| {
     let items = chat_response_items_json(owner_id, &text).get("items").cloned().unwrap_or_else(|| Value::Array(vec![]));
     RunResult { text, items }
   });
-  let rounds = end.map(|end| end.rounds.clone()).unwrap_or_default();
+  let rounds = run.turn.rounds();
   RunSnapshot {
     revision: 1,
     resolved_attachments: LoadChatAttachment::resolved(&run.header.user.attachments),
@@ -406,6 +371,7 @@ pub(super) async fn start_research_run(
   let attachments = message_attachments(db, session, &request, &text, attachments, scope, None).await?;
   let started_at = unix_now_millis();
   let user = UserRecord::new(request_id.to_owned(), started_at, text, attachments, request.settings.clone());
+  let setup = first_turn_chat_setup(&*db.lock().await, &request, &resources, started_at);
   let header = RunHeader {
     version: RUN_LOG_VERSION,
     query_item_id: query_item_id.clone(),
@@ -414,6 +380,7 @@ pub(super) async fn start_research_run(
     server_version: env!("CARGO_PKG_VERSION").to_owned(),
     strategy: STRATEGY_STANDARD.to_owned(),
     user: user.clone(),
+    setup: setup.clone(),
   };
   let path = run_log_path(&data_dir, &session.user_id, &query_item_id).map_err(log_error)?;
   let log = RunLog::create(&path, header).await.map_err(log_error)?;
@@ -428,10 +395,18 @@ pub(super) async fn start_research_run(
     runs::register(session.user_id.clone(), query_item_id.clone(), request_id.to_owned(), state.clone())
       .map_err(error)?;
   let progress = ChatProgressReporter::for_live_run(request_id.to_owned(), query_item_id, state);
-  tokio::spawn(run_worker(config, db.clone(), session.clone(), user, resources, log, lock, registration, progress));
+  let run = Run { user, system_prompt: setup.system_prompt, resources };
+  tokio::spawn(run_worker(config, db.clone(), session.clone(), run, log, lock, registration, progress));
   // Retries can attach from here on; inference must not hold the startup lock.
   drop(reservation);
   Ok(subscriber)
+}
+
+/// What the strategy is given: the question, the system prompt the header recorded, and the model and tools.
+struct Run {
+  user: UserRecord,
+  system_prompt: String,
+  resources: ChatResources,
 }
 
 enum RunStop {
@@ -445,8 +420,7 @@ async fn run_worker(
   config: Arc<Config>,
   db: Arc<tokio::sync::Mutex<Db>>,
   session: Session,
-  user: UserRecord,
-  resources: ChatResources,
+  run: Run,
   mut log: RunLog,
   _lock: tokio::sync::OwnedMutexGuard<()>,
   registration: runs::RunRegistration,
@@ -454,36 +428,40 @@ async fn run_worker(
 ) {
   let user_id = session.user_id.clone();
   let outcome = AssertUnwindSafe(async {
-    let scope_attachments =
-      user.attachments.iter().filter(|attachment| attachment.item_id.is_some()).map(LoadChatAttachment::from).collect();
+    let scope_attachments = run
+      .user
+      .attachments
+      .iter()
+      .filter(|attachment| attachment.item_id.is_some())
+      .map(LoadChatAttachment::from)
+      .collect();
     progress.send(ChatStreamEventKind::TurnAccepted { revision: 1, scope_attachments }).await;
     let result = tokio::select! {
       _ = registration.run.cancelled() => Err(RunStop::Cancelled),
       _ = tokio::time::sleep(MAX_RUN_DURATION) => Err(RunStop::TimedOut),
-      result = run_standard_strategy(&config, &db, &session, &user, resources, &mut log, &progress) => {
+      result = run_standard_strategy(&config, &db, &session, run, &mut log, &progress) => {
         result.map_err(RunStop::Failed)
       }
     };
     cancel_pending_tool_approvals(&progress.request_id, &user_id);
-    let (outcome, report, error, event) = match result {
+    let (outcome, error, event) = match result {
       Ok(report) => {
         let items = chat_response_items_json(&user_id, &report).get("items").cloned().unwrap_or(Value::Array(vec![]));
-        let event = ChatStreamEventKind::final_items(items, &report, vec![]);
-        (TurnOutcome::Completed, Some(report), None, event)
+        (TurnOutcome::Completed, None, ChatStreamEventKind::final_items(items, &report, vec![]))
       }
-      Err(RunStop::Cancelled) => (TurnOutcome::Cancelled, None, None, ChatStreamEventKind::Cancelled),
+      Err(RunStop::Cancelled) => (TurnOutcome::Cancelled, None, ChatStreamEventKind::Cancelled),
       Err(RunStop::TimedOut) => {
         let message = "The research run stopped after an hour.";
-        (TurnOutcome::Error, None, Some(message.to_owned()), ChatStreamEventKind::error(message))
+        (TurnOutcome::Error, Some(message.to_owned()), ChatStreamEventKind::error(message))
       }
       Err(RunStop::Failed(e)) => {
         warn!("Research run '{}' for user '{}' failed: {}", progress.request_id, user_id, e);
         let message = chat_failure_message(e.message());
-        (TurnOutcome::Error, None, Some(message.clone()), ChatStreamEventKind::error(&message))
+        (TurnOutcome::Error, Some(message.clone()), ChatStreamEventKind::error(&message))
       }
     };
     // The end is saved before it is reported, so a resume never sees a finished run without its record.
-    if let Err(e) = end_run(&mut log, &progress, outcome, report, error).await {
+    if let Err(e) = log.end(outcome, error, &progress).await {
       warn!("Could not record the end of research run '{}' for user '{}': {}", progress.request_id, user_id, e);
     }
     progress.send(event).await;
@@ -494,7 +472,7 @@ async fn run_worker(
     error!("Research worker '{}' for user '{}' panicked.", progress.request_id, user_id);
     cancel_pending_tool_approvals(&progress.request_id, &user_id);
     let message = "The research worker stopped unexpectedly.";
-    if let Err(e) = end_run(&mut log, &progress, TurnOutcome::Error, None, Some(message.to_owned())).await {
+    if let Err(e) = log.end(TurnOutcome::Error, Some(message.to_owned()), &progress).await {
       warn!("Could not record the failure of research run '{}': {}", progress.request_id, e);
     }
     progress.send(ChatStreamEventKind::error(message)).await;
@@ -502,41 +480,36 @@ async fn run_worker(
   drop(registration);
 }
 
-async fn end_run(
-  log: &mut RunLog,
-  progress: &ChatProgressReporter,
-  outcome: TurnOutcome,
-  report: Option<String>,
-  error: Option<String>,
-) -> InfuResult<()> {
-  let (rounds, context_tokens) = progress.activity.as_ref().map_or((vec![], None), |activity| {
-    let activity = activity.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-    (activity.finished_rounds(), activity.context_tokens())
-  });
-  let end = EndRecord { outcome, ended_at: unix_now_millis(), error, report, rounds, context_tokens };
-  log.append(&RunRecord::End(end)).await
-}
-
-/// One model request of a run, recorded before it is sent and its response after.
+/// One model request of a run, recorded before it is sent and its reply after.
 #[allow(clippy::too_many_arguments)]
 async fn research_round(
   endpoint: &ChatEndpoint,
   messages: &[OpenAiChatMessage],
   tools: &[OpenAiToolSpec],
   tool_choice: Option<&'static str>,
-  round: usize,
   tool_rounds_completed: usize,
-  stage: &str,
-  targets: &BTreeMap<String, MappedMcpToolTarget>,
   log: &mut RunLog,
   progress: &ChatProgressReporter,
 ) -> InfuResult<CompletedChatModelRound> {
   let payload = chat_completion_payload(endpoint, messages, tools, tool_choice);
-  let request = log.request(stage, &payload, targets).await?;
+  let round = log.request(endpoint, &payload, messages.len()).await?;
   progress.model_round_started(round).await;
   let result = send_chat_completion(endpoint, &payload, round, progress).await;
-  log.response(request, &result).await?;
+  log.response(round, &result).await?;
   completed_model_round(endpoint, result?, round, tool_rounds_completed)
+}
+
+/// Adds messages to what the next request sends, recording each as it is added.
+async fn add_messages(
+  messages: &mut Vec<OpenAiChatMessage>,
+  added: Vec<OpenAiChatMessage>,
+  log: &mut RunLog,
+) -> InfuResult<()> {
+  for message in &added {
+    log.message(message).await?;
+  }
+  messages.extend(added);
+  Ok(())
 }
 
 /// The first strategy: research with tools, review the evidence (more tools allowed), then write the report.
@@ -546,20 +519,17 @@ async fn run_standard_strategy(
   config: &Arc<Config>,
   db: &Arc<tokio::sync::Mutex<Db>>,
   session: &Session,
-  user: &UserRecord,
-  resources: ChatResources,
+  run: Run,
   log: &mut RunLog,
   progress: &ChatProgressReporter,
 ) -> InfuResult<String> {
+  let Run { user, system_prompt, resources } = run;
   let ChatResources { endpoint, infumap_data, tools, name_map, approval_required } = resources;
-  let targets: BTreeMap<_, _> = name_map.iter().map(|(name, target)| (name.clone(), target.clone())).collect();
   let mode = ChatRunMode::DeepResearch;
-  let system_prompt =
-    chat_system_prompt(&*db.lock().await, Some(user.started_at), infumap_data.as_ref(), !name_map.is_empty(), mode);
   let mut messages =
     vec![OpenAiChatMessage::text("system", system_prompt), OpenAiChatMessage::text("user", user.model_content())];
   let tool_context = ChatToolContext { mode, model: endpoint.model.clone(), call_counts: Mutex::new(HashMap::new()) };
-  let (mut round, mut tool_rounds) = (1usize, 0usize);
+  let mut tool_rounds = 0usize;
 
   let stages =
     [("research", "Researching sources", None), ("review", "Reviewing evidence", Some(RESEARCH_REVIEW_PROMPT))];
@@ -567,21 +537,19 @@ async fn run_standard_strategy(
     log.stage(stage).await?;
     progress.status(status).await;
     if let Some(instruction) = instruction {
-      messages.push(OpenAiChatMessage::text("system", instruction.to_owned()));
+      add_messages(&mut messages, vec![OpenAiChatMessage::text("system", instruction.to_owned())], log).await?;
     }
     loop {
-      let completed =
-        research_round(&endpoint, &messages, &tools, None, round, tool_rounds, stage, &targets, log, progress).await?;
-      round += 1;
+      let completed = research_round(&endpoint, &messages, &tools, None, tool_rounds, log, progress).await?;
+      // The reply is recorded as the request's response, so it isn't recorded again as an added message.
+      messages.push(completed.assistant_message);
       if completed.tool_calls.is_empty() {
-        messages.push(completed.assistant_message);
         break;
       }
       if tool_rounds >= RESEARCH_MAX_TOOL_ROUNDS {
         return Err(format!("Chat tool loop exceeded maximum tool rounds ({RESEARCH_MAX_TOOL_ROUNDS}).").into());
       }
       tool_rounds += 1;
-      messages.push(completed.assistant_message);
       let tool_messages = execute_chat_tool_round(
         db,
         session,
@@ -595,17 +563,15 @@ async fn run_standard_strategy(
         progress,
       )
       .await?;
-      messages.extend(tool_messages);
+      add_messages(&mut messages, tool_messages, log).await?;
     }
   }
 
   log.stage("report").await?;
   progress.status("Writing research report").await;
-  messages.push(OpenAiChatMessage::text("system", RESEARCH_REPORT_PROMPT.to_owned()));
+  add_messages(&mut messages, vec![OpenAiChatMessage::text("system", RESEARCH_REPORT_PROMPT.to_owned())], log).await?;
   let tool_choice = (!tools.is_empty()).then_some("none");
-  let completed =
-    research_round(&endpoint, &messages, &tools, tool_choice, round, tool_rounds, "report", &targets, log, progress)
-      .await?;
+  let completed = research_round(&endpoint, &messages, &tools, tool_choice, tool_rounds, log, progress).await?;
   if !completed.tool_calls.is_empty() {
     return Err(format!("{} attempted to call a tool while writing the final research report.", endpoint.label).into());
   }
@@ -628,7 +594,7 @@ pub(super) struct LoadResearch {
 /// with `/chat/resume` and stops it with `/chat/cancel`, as it does a chat's running turn. `running` is whether its
 /// worker still holds the chat lock.
 pub(super) fn load_chat_response(owner_id: &Uid, run: SavedRun, running: bool) -> LoadChatResponse {
-  let end = run.end.as_ref();
+  let end = run.end();
   let status = match end.map(|end| end.outcome) {
     Some(TurnOutcome::Completed) => TurnStatus::Completed,
     Some(TurnOutcome::Cancelled) => TurnStatus::Cancelled,
@@ -636,7 +602,7 @@ pub(super) fn load_chat_response(owner_id: &Uid, run: SavedRun, running: bool) -
     None if running => TurnStatus::Running,
     None => TurnStatus::Interrupted,
   };
-  let report = end.and_then(|end| end.report.clone());
+  let report = run.report();
   let items = report.as_deref().map(|report| {
     chat_response_items_json(owner_id, report).get("items").cloned().unwrap_or_else(|| Value::Array(vec![]))
   });
@@ -652,7 +618,7 @@ pub(super) fn load_chat_response(owner_id: &Uid, run: SavedRun, running: bool) -
     attachments: user.attachments.iter().filter(|attachment| !attachment.is_inline_skill()).map(Into::into).collect(),
     assistant_text: report,
     items,
-    rounds: end.map(|end| end.rounds.clone()).unwrap_or_default(),
+    rounds: run.turn.rounds(),
   };
   LoadChatResponse {
     revision: 1,
@@ -666,7 +632,7 @@ pub(super) fn load_chat_response(owner_id: &Uid, run: SavedRun, running: bool) -
       mode: settings.mode,
     }),
     turns: vec![turn],
-    research: Some(LoadResearch { strategy: run.header.strategy, stages: run.stages }),
+    research: Some(LoadResearch { strategy: run.header.strategy.clone(), stages: run.stages.clone() }),
   }
 }
 
@@ -697,7 +663,7 @@ pub(super) async fn persist_research_run(
     let _lock = transcript::try_lock_chat(user_id, query_item_id)
       .ok_or("This research run is still running. Keep it when it has finished.")?;
     let run = parse_run(&tokio::fs::read(&path).await?)?.ok_or("The research run was not found.")?;
-    if run.end.as_ref().and_then(|end| end.report.as_ref()).is_none() {
+    if run.report().is_none() {
       return Err("This research run has no report to keep. Delete it instead.".into());
     }
   }

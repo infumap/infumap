@@ -118,10 +118,12 @@ research's stages, extra prompts and tool-less final request.
   pipeline (research, evidence review, final report) becomes the first strategy. More are expected later (not a
   priority), some calling several models at once. Implement one strategy; don't design a strategy interface before
   there is a second one to shape it.
-- **Its own run log, not a chat transcript.** A set of request records, each with an id, the model, exact request
-  fields, the messages it was sent, and which earlier requests it depended on. That allows parallel branches across
-  models without requiring them now. Same principles as the chat transcript redesign: an append-only log of facts,
-  messages stored as sent, tool sets by hash, request records written before sending, server version.
+- **Its own run log, in the chat transcript's records.** A header with the question and the fixed setup (prompt and
+  tools), then request records written before sending, replies, added messages (tool results, stage instructions),
+  stage records and the end: each message stored once, activity and report derived on load, every request body
+  rebuildable as for a chat turn. Decided after a v1 log (messages as sent, tool sets by hash, end with report and
+  activity) stored each reply three or four times. Parallel branches across models will need request ids and
+  depends-on; add them with the first strategy that branches, not before.
 - **Cache.** Within one sequential branch, the same rule as chat: each request extends the previous one. If a final
   report step must not use tools, keep the tool definitions and set `tool_choice: "none"` rather than dropping them
   (check that llama.cpp renders the prompt unchanged with it).
@@ -280,9 +282,10 @@ One action, "start a chat with this attached", available from any item's toolbar
       was dropped as a duplicate. Following, stopping and tool approvals reuse
       `/chat/resume`, `/chat/cancel` and `/chat/tool-approval` (same run registry; saved-run recovery reads run logs).
       Runs don't stop without a viewer (`RunState::without_detach_timeout`); the budget is the tool-round ceiling and
-      an hour of wall time. The log is `chats/<id>.run`: header, messages as sent (first time each is sent), tool sets
-      by hash, request records written before sending (stage, depends-on, message count, tool set, other body
-      fields), responses, stages, end with report and activity. The report request keeps the tools with
+      an hour of wall time. The log is `chats/<id>.run`. Rewritten (v2) to the chat transcript's records: header with the
+      question (a user record) and `ChatSetup`, request records written before sending, responses, added messages,
+      stage records, end. Each message once; report = last reply; activity derived (`TranscriptTurn::rounds`); the test
+      rebuilds every request body from the log via `Transcript::request_messages`. v1 logs are refused. The report request keeps the tools with
       `tool_choice: "none"`. A run is marked with `SearchFlags.ResearchRun` (0x001) on its query item: the item's
       existing flags, so no item format change or migration. Chat messages to a run's query item are refused; deleting
       the item or orphan cleanup removes the log. Not yet: HTTP routes exercised by hand; `tool_choice: "none"` checked

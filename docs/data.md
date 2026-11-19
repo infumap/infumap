@@ -28,10 +28,12 @@ All of these are derived from the items and their original files, and are regene
 - They are stored as plain text, not encrypted like objects.
 - Each file is JSON Lines, appended to and synced as a chat runs. The header holds the chat's fixed setup: its system prompt, tool definitions, scope and tools. Each turn then has a record for your message exactly as the model got it (attachments and skills included, each attachment marked by where its text is), a record for each request to the model written before it is sent (with every field of the request but the messages and tools, and how many messages it sent), each reply, each tool result or message the server added, and the turn's end. From these the exact body of every request can be rebuilt. A reply cut short by a stop or failure is kept, marked partial, and is not sent again. Chats saved in the earlier transcript format can't be opened.
 
-`chats/<query_item_id>.run` holds a deep research run instead, with the same storage caveats. It is JSON Lines too: a
-header with the question, its attachments and setup, then each message the first time the model is sent it, each tool
-set once, each request to the model (recorded before it is sent) with its other fields, each response, the stages as
-they start, and the end with the report. Together they give the exact body of every request the run made. Keeping a
+`chats/<query_item_id>.run` holds a deep research run instead, with the same storage caveats. It uses the same records
+as a chat's turn: a header with the question as the model got it and the run's fixed setup (system prompt and tool
+definitions), then a record for each request written before it is sent, each reply, each tool result or stage
+instruction the server added, a record as each stage starts, and the end. Each message is stored once; the report is
+the last reply, and the activity shown is derived from these records. The exact body of every request can be rebuilt
+from them. Runs saved in the earlier log format can't be opened. Keeping a
 run moves its log into the object store as a `.run` item (`application/x-infumap-research-run`), indexed by its
 question and report, and removes it here.
 

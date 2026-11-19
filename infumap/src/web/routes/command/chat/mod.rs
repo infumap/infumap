@@ -1455,7 +1455,7 @@ async fn recover_chat_run(data_dir: &str, user_id: &Uid, request: &ChatRunContro
     }
     let running =
       runs::find(user_id, &request.query_item_id, &request.request_id).is_some_and(|run| !run.is_finished());
-    if running || (run.end.is_none() && transcript::chat_is_locked(user_id, &request.query_item_id)) {
+    if running || (run.end().is_none() && transcript::chat_is_locked(user_id, &request.query_item_id)) {
       return Ok(SavedChatRun::Busy);
     }
     return Ok(SavedChatRun::Snapshot(research::snapshot(user_id, &run)));
@@ -1518,8 +1518,7 @@ impl LiveChatTurn {
       .map_or(&[], |turn| &turn.user.attachments)
   }
 
-  /// Records a model request before it is sent: everything in its body but the messages and tools, which the
-  /// transcript already holds. Returns its number in the turn.
+  /// Records a model request before it is sent. Returns its number in the turn.
   async fn record_request(
     &mut self,
     endpoint: &ChatEndpoint,
@@ -1527,39 +1526,13 @@ impl LiveChatTurn {
     messages: usize,
   ) -> InfuResult<usize> {
     let number = self.last_request.map_or(1, |(number, _)| number + 1);
-    let mut params = serde_json::to_value(payload)?;
-    if let Some(params) = params.as_object_mut() {
-      params.remove("messages");
-      params.remove("tools");
-    }
-    let record = transcript::RequestRecord {
-      request_id: self.request_id.clone(),
-      number,
-      provider: endpoint.label.clone(),
-      messages,
-      tools: !payload.tools.is_empty(),
-      params,
-      started_at: unix_now_millis(),
-    };
-    self.transcript.append_request(record).await?;
+    self.transcript.append_request(request_record(&self.request_id, number, endpoint, payload, messages)?).await?;
     self.last_request = Some((number, false));
     Ok(number)
   }
 
   async fn record_response(&mut self, number: usize, result: &InfuResult<OpenAiChatMessage>) -> InfuResult<()> {
-    let (message, error) = match result {
-      Ok(message) => (Some(ChatHistoryMessage::from_wire(message)), None),
-      Err(error) => (None, Some(error.message().to_owned())),
-    };
-    let record = transcript::ResponseRecord {
-      request_id: self.request_id.clone(),
-      number,
-      ended_at: unix_now_millis(),
-      message,
-      partial: false,
-      error,
-    };
-    self.transcript.append_response(record).await?;
+    self.transcript.append_response(response_record(&self.request_id, number, result)).await?;
     self.last_request = Some((number, true));
     Ok(())
   }
@@ -1573,44 +1546,16 @@ impl LiveChatTurn {
     self.transcript.append_message(record).await
   }
 
-  /// Ends the turn. A turn stopped or failed during a model request keeps what had arrived of its reply, marked
-  /// partial: it is shown, but never sent again.
+  /// Ends the turn, keeping what had arrived of a reply it stopped or failed during (see `partial_response`).
   async fn end(&mut self, outcome: TurnOutcome, error: Option<String>) -> InfuResult<()> {
     let (rounds, context_tokens) = {
       let activity = self.activity.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
       (activity.finished_rounds(), activity.context_tokens())
     };
-    if outcome != TurnOutcome::Completed
-      && let Some((number, false)) = self.last_request
-      && let Some(round) = rounds.iter().find(|round| round.number == number)
-      && !(round.answer.is_empty() && round.reasoning.is_empty())
-    {
-      let message = ChatHistoryMessage {
-        role: "assistant".to_owned(),
-        content: Some(round.answer.clone()).filter(|answer| !answer.is_empty()),
-        reasoning_content: Some(round.reasoning.clone()).filter(|reasoning| !reasoning.is_empty()),
-        tool_call_id: None,
-        tool_calls: None,
-      };
-      let record = transcript::ResponseRecord {
-        request_id: self.request_id.clone(),
-        number,
-        ended_at: unix_now_millis(),
-        message: Some(message),
-        partial: true,
-        error: None,
-      };
-      self.transcript.append_response(record).await?;
+    if let Some(partial) = partial_response(&self.request_id, outcome, self.last_request, &rounds) {
+      self.transcript.append_response(partial).await?;
     }
-    let record = transcript::EndRecord {
-      request_id: self.request_id.clone(),
-      outcome,
-      ended_at: unix_now_millis(),
-      error,
-      context_tokens,
-      tool_calls: rounds.into_iter().flat_map(|round| round.tool_calls).collect(),
-    };
-    self.transcript.append_end(record).await?;
+    self.transcript.append_end(end_record(&self.request_id, outcome, error, rounds, context_tokens)).await?;
     self.ended = true;
     Ok(())
   }
@@ -1627,6 +1572,97 @@ impl LiveChatTurn {
       .await
       .map_err(|e| format!("Could not save the chat turn to its transcript: {}", e))?;
     Ok(result)
+  }
+}
+
+/// The record of a model request, written before it is sent: everything in its body but the messages and tools, which
+/// the transcript or run log already holds.
+fn request_record(
+  request_id: &str,
+  number: usize,
+  endpoint: &ChatEndpoint,
+  payload: &OpenAiChatCompletionRequest,
+  messages: usize,
+) -> InfuResult<transcript::RequestRecord> {
+  let mut params = serde_json::to_value(payload)?;
+  if let Some(params) = params.as_object_mut() {
+    params.remove("messages");
+    params.remove("tools");
+  }
+  Ok(transcript::RequestRecord {
+    request_id: request_id.to_owned(),
+    number,
+    provider: endpoint.label.clone(),
+    messages,
+    tools: !payload.tools.is_empty(),
+    params,
+    started_at: unix_now_millis(),
+  })
+}
+
+fn response_record(
+  request_id: &str,
+  number: usize,
+  result: &InfuResult<OpenAiChatMessage>,
+) -> transcript::ResponseRecord {
+  let (message, error) = match result {
+    Ok(message) => (Some(ChatHistoryMessage::from_wire(message)), None),
+    Err(error) => (None, Some(error.message().to_owned())),
+  };
+  transcript::ResponseRecord {
+    request_id: request_id.to_owned(),
+    number,
+    ended_at: unix_now_millis(),
+    message,
+    partial: false,
+    error,
+  }
+}
+
+/// What had arrived of the reply to a request that a stop or failure cut short, from the activity shown: kept, marked
+/// partial, so it is shown, but never sent again. None if the last request had its reply, or nothing had arrived.
+fn partial_response(
+  request_id: &str,
+  outcome: TurnOutcome,
+  last_request: Option<(usize, bool)>,
+  rounds: &[ActivityRound],
+) -> Option<transcript::ResponseRecord> {
+  let Some((number, false)) = last_request else { return None };
+  let round = rounds.iter().find(|round| round.number == number)?;
+  if outcome == TurnOutcome::Completed || (round.answer.is_empty() && round.reasoning.is_empty()) {
+    return None;
+  }
+  Some(transcript::ResponseRecord {
+    request_id: request_id.to_owned(),
+    number,
+    ended_at: unix_now_millis(),
+    message: Some(ChatHistoryMessage {
+      role: "assistant".to_owned(),
+      content: Some(round.answer.clone()).filter(|answer| !answer.is_empty()),
+      reasoning_content: Some(round.reasoning.clone()).filter(|reasoning| !reasoning.is_empty()),
+      tool_call_id: None,
+      tool_calls: None,
+    }),
+    partial: true,
+    error: None,
+  })
+}
+
+/// The end of a chat turn or research run, with the tool calls' display details from the activity shown.
+fn end_record(
+  request_id: &str,
+  outcome: TurnOutcome,
+  error: Option<String>,
+  rounds: Vec<ActivityRound>,
+  context_tokens: Option<ContextTokenCount>,
+) -> transcript::EndRecord {
+  transcript::EndRecord {
+    request_id: request_id.to_owned(),
+    outcome,
+    ended_at: unix_now_millis(),
+    error,
+    context_tokens,
+    tool_calls: rounds.into_iter().flat_map(|round| round.tool_calls).collect(),
   }
 }
 
@@ -6242,15 +6278,15 @@ mod live_chat_tests {
     let mut run = None;
     for _ in 0..200 {
       run = research::read_run(&f.data_dir, &f.session.user_id, &f.query_item_id).await.unwrap();
-      if run.as_ref().is_some_and(|run| run.end.is_some()) {
+      if run.as_ref().is_some_and(|run| run.end().is_some()) {
         break;
       }
       tokio::time::sleep(Duration::from_millis(25)).await;
     }
     let run = run.unwrap();
-    let end = run.end.as_ref().unwrap();
+    let end = run.end().unwrap();
     assert_eq!(end.outcome, TurnOutcome::Completed, "{:?}", end.error);
-    assert_eq!(end.report.as_deref(), Some("answer 3"));
+    assert_eq!(run.report().as_deref(), Some("answer 3"), "the report is the last reply");
     assert_eq!(
       run.stages.iter().map(|stage| stage.name.as_str()).collect::<Vec<_>>(),
       ["research", "review", "report"]
@@ -6271,23 +6307,43 @@ mod live_chat_tests {
     assert_eq!(bodies[2]["tool_choice"], "none");
     assert!(bodies[1].get("tool_choice").is_none());
 
-    // The log holds each request body: its messages, its tool set and its other fields.
+    // Every request body is rebuilt exactly from the log, as a chat turn's is from its transcript: the header's prompt
+    // and tools, the question, the run's messages, and the request's other fields.
+    let transcript = run.transcript();
+    let endpoint = backend::resolve_chat_endpoint(
+      &config,
+      &crate::query_configuration::ChatModelSelection {
+        backend: "test".to_owned(),
+        model: Some("default".to_owned()),
+        reasoning_effort: None,
+      },
+    )
+    .await
+    .unwrap();
+    let requests = run.turn.entries.iter().filter_map(|entry| match entry {
+      transcript::TurnEntry::Request(request) => Some(request),
+      _ => None,
+    });
+    for (body, request) in bodies.iter().zip(requests) {
+      let messages = transcript.request_messages(&run.header.request_id, request.number).unwrap();
+      let payload = chat_completion_payload(
+        &endpoint,
+        &explicit_wire_messages(&messages, true).unwrap(),
+        &run.header.setup.tools,
+        None,
+      );
+      let mut rebuilt = request.params.clone();
+      rebuilt["messages"] = serde_json::to_value(&payload.messages).unwrap();
+      rebuilt["tools"] = serde_json::to_value(&payload.tools).unwrap();
+      assert_eq!(&rebuilt, body, "request {}", request.number);
+    }
+    // Each message is stored once, and the activity shown is derived: a reply is not repeated as a message or in the end.
     let log =
       tokio::fs::read_to_string(research::run_log_path(&f.data_dir, &f.session.user_id, &f.query_item_id).unwrap())
         .await
         .unwrap();
-    let records = log.lines().map(|line| serde_json::from_str::<Value>(line).unwrap()).collect::<Vec<_>>();
-    let of_type = |kind: &str| records.iter().filter(|record| record["type"] == kind).cloned().collect::<Vec<_>>();
-    let messages = of_type("message");
-    for (body, request) in bodies.iter().zip(of_type("request")) {
-      let count = request["messages"].as_u64().unwrap() as usize;
-      let logged = messages[..count].iter().map(|record| record["message"].clone()).collect::<Vec<_>>();
-      assert_eq!(&logged, body["messages"].as_array().unwrap());
-      assert_eq!(request["params"]["model"], body["model"]);
-      assert_eq!(request["params"].get("tool_choice"), body.get("tool_choice"));
-    }
-    assert_eq!(of_type("tool_set").len(), 1, "one tool set, recorded once");
-    assert_eq!(of_type("response").len(), 3);
+    assert_eq!(log.matches("answer 1").count(), 1);
+    assert_eq!(run.turn.rounds().len(), 3);
 
     // Its log is the query item's text file, as a chat's transcript is.
     let file = serve_live_chat_file(&f.db, &Some(f.session.user_id.clone()), &f.query_item_id).await;
@@ -6364,7 +6420,7 @@ mod live_chat_tests {
     let flags = f.db.lock().await.item.get(&moved_id).unwrap().flags.unwrap_or(0);
     assert_eq!(flags & research::RESEARCH_RUN_FLAG, research::RESEARCH_RUN_FLAG);
     let restored = research::read_run(&f.data_dir, &f.session.user_id, &moved_id).await.unwrap().unwrap();
-    assert_eq!(restored.end.unwrap().report.as_deref(), Some("answer 3"));
+    assert_eq!(restored.report().as_deref(), Some("answer 3"));
     assert!(research::read_run(&f.data_dir, &f.session.user_id, &f.query_item_id).await.unwrap().is_none());
   }
 }

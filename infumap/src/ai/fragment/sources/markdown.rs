@@ -179,7 +179,7 @@ async fn chat_fragment_source_for_item(
 /// answer, in order. Not reasoning, tool calls and results, or activity: search is for the conversation, not what was
 /// fetched along the way. Without labels, so words like "assistant" do not match every chat. The format is the chat
 /// route's (transcript.rs); it is read loosely here, and an unreadable line is skipped. A research run's log
-/// (research.rs) reads the same way: its question is in its header, its report in its end.
+/// (research.rs) uses the same records, with its question in its header; its report is its last reply.
 fn chat_visible_text(bytes: &[u8], item_id: &str) -> InfuResult<Option<String>> {
   use serde_json::Value;
   let text = std::str::from_utf8(bytes).map_err(|e| format!("Chat '{}' is not valid UTF-8: {}", item_id, e))?;
@@ -203,9 +203,7 @@ fn chat_visible_text(bytes: &[u8], item_id: &str) -> InfuResult<Option<String>> 
           .map(str::to_owned);
         None
       }
-      Some("end") if record.get("outcome").and_then(Value::as_str) == Some("completed") => {
-        record.get("report").and_then(Value::as_str).map(str::to_owned).or_else(|| answer.take())
-      }
+      Some("end") if record.get("outcome").and_then(Value::as_str) == Some("completed") => answer.take(),
       _ => None,
     };
     if let Some(part) = part.as_deref().map(str::trim).filter(|part| !part.is_empty()) {
@@ -386,9 +384,10 @@ mod tests {
     assert_eq!(text, "How do lifetimes work?\n\nThey bound borrows.\n\nAnd traits?");
     assert!(chat_visible_text(b"", "item").unwrap().is_none());
     let run = [
-      r#"{"type":"header","version":1,"queryItemId":"q","requestId":"r","createdAt":1,"strategy":"standard","user":{"requestId":"r","startedAt":1,"text":"What changed?","content":"What changed?","settings":{"mode":"deep_research"}}}"#,
-      r#"{"type":"response","request":1,"endedAt":2,"message":{"role":"assistant","content":"an evidence memo"}}"#,
-      r#"{"type":"end","outcome":"completed","endedAt":3,"report":"The report."}"#,
+      r#"{"type":"header","version":2,"queryItemId":"q","requestId":"r","createdAt":1,"strategy":"standard","user":{"requestId":"r","startedAt":1,"text":"What changed?","content":"What changed?","settings":{"mode":"deep_research"}}}"#,
+      r#"{"type":"response","requestId":"r","number":1,"endedAt":2,"message":{"role":"assistant","content":"an evidence memo"}}"#,
+      r#"{"type":"response","requestId":"r","number":2,"endedAt":3,"message":{"role":"assistant","content":"The report."}}"#,
+      r#"{"type":"end","requestId":"r","outcome":"completed","endedAt":3}"#,
     ]
     .join("\n");
     assert_eq!(chat_visible_text(run.as_bytes(), "item").unwrap().unwrap(), "What changed?\n\nThe report.");
