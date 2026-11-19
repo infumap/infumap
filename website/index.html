@@ -33,7 +33,7 @@
 
     <main id="main">
       <section class="hero" aria-labelledby="hero-title">
-        <p><em>Work In Progress: currently just AI slop</em></p>
+        <p><em>Website is a Work-In-Progress: currently just AI slop</em></p>
         <h1 id="hero-title">A durable home for your information</h1>
         <div class="hero-download">
         <div class="hero-actions">
@@ -57,40 +57,40 @@
         </div>
         <div class="tiles tab-controls" data-tabs aria-label="Item types" hidden>
           <button class="tile" type="button" id="tab-pages" data-panel="panel-pages">Pages</button>
+          <button class="tile" type="button" id="tab-tables" data-panel="panel-tables">Tables</button>
           <button class="tile" type="button" id="tab-notes" data-panel="panel-notes">Notes</button>
+          <button class="tile" type="button" id="tab-composites" data-panel="panel-composites">Composites</button>
           <button class="tile" type="button" id="tab-images" data-panel="panel-images">Images</button>
           <button class="tile" type="button" id="tab-files" data-panel="panel-files">Files</button>
-          <button class="tile" type="button" id="tab-text" data-panel="panel-text">Text</button>
-          <button class="tile" type="button" id="tab-tables" data-panel="panel-tables">Tables</button>
+          <button class="tile" type="button" id="tab-text" data-panel="panel-text">Text Files</button>
           <button class="tile" type="button" id="tab-links" data-panel="panel-links">Links</button>
           <button class="tile" type="button" id="tab-ratings" data-panel="panel-ratings">Ratings</button>
           <button class="tile" type="button" id="tab-passwords" data-panel="panel-passwords">Passwords</button>
           <button class="tile" type="button" id="tab-queries" data-panel="panel-queries">Queries</button>
-          <button class="tile" type="button" id="tab-composites" data-panel="panel-composites">Composites</button>
           <button class="tile" type="button" id="tab-dividers" data-panel="panel-dividers">Dividers</button>
         </div>
 
         <div class="panel item" id="panel-pages" style="--page: var(--blue)">
           <div class="item-titlebar"><h3>Pages</h3></div>
           <div class="page-intro">
-            <p>A page holds other items, including other pages. Choose an arrangement for the way you want to work.</p>
+            <p>A page holds other items, including other pages.</p>
           </div>
           <div class="arrangements tab-controls" data-tabs aria-label="Page arrangements" hidden>
             <button class="arrangement-tab" type="button" id="tab-page-spatial" data-panel="panel-page-spatial">Spatial</button>
             <button class="arrangement-tab" type="button" id="tab-page-grid" data-panel="panel-page-grid">Grid</button>
-            <button class="arrangement-tab" type="button" id="tab-page-catalog" data-panel="panel-page-catalog">Catalog</button>
             <button class="arrangement-tab" type="button" id="tab-page-justified" data-panel="panel-page-justified">Justified</button>
             <button class="arrangement-tab" type="button" id="tab-page-list" data-panel="panel-page-list">List</button>
             <button class="arrangement-tab" type="button" id="tab-page-table" data-panel="panel-page-table">Table</button>
             <button class="arrangement-tab" type="button" id="tab-page-document" data-panel="panel-page-document">Document</button>
             <button class="arrangement-tab" type="button" id="tab-page-calendar" data-panel="panel-page-calendar">Calendar</button>
+            <button class="arrangement-tab" type="button" id="tab-page-catalog" data-panel="panel-page-catalog">Catalog</button>
           </div>
           <section class="arrangement-panel" id="panel-page-spatial" aria-labelledby="heading-page-spatial">
             <div class="panel-body panel-body-media">
               <div class="panel-copy">
-                <h4 id="heading-page-spatial">Spatial</h4>
-                <p class="panel-lead">Place items where they make sense.</p>
-                <p>Move and resize notes, images, documents and nested pages freely. Keep related material close and use space to show how it connects.</p>
+                <p>Spatial pages in Infumap are unique. They are not zoomable or scrollable unless the page and screen aspect ratios differ significantly, in which case you can have pages which scroll vertically, or horizontally, but not both.</p>
+                <p>To add more information than will fit, you either resize the page, or add sub pages. This is an explicit/opinionated design which trades flexibility for simpler navigation and cognative load.</p>
+                <p>Humans think spatially. Spatial pages are amongst the most useful.</p>
               </div>
               <img src="assets/img/crop-areas.webp" width="963" height="637" loading="lazy" alt="Coloured pages of different sizes arranged beside one another in Infumap.">
             </div>
