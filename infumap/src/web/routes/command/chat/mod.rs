@@ -1654,8 +1654,22 @@ fn title_from_prompt(user: &UserRecord) -> String {
 }
 
 /// A title from a model's reply: its first line, without Markdown, quotes, a "Title:" label or ending punctuation.
+/// A reasoning model can put its thinking in its reply, in `<think>` tags, even when it has nothing to think: the
+/// answer is what follows the last closing tag. An opening tag that is never closed means it never got to an answer.
+fn without_thinking(response: &str) -> &str {
+  // ASCII lowercasing keeps byte offsets, so they index `response` too.
+  let lower = response.to_ascii_lowercase();
+  if let Some(end) = lower.rfind("</think>") {
+    return &response[end + "</think>".len()..];
+  }
+  match lower.find("<think>") {
+    Some(start) => &response[..start],
+    None => response,
+  }
+}
+
 fn title_from_model_response(response: &str) -> Option<String> {
-  let first_line = response.lines().find(|line| !line.trim().is_empty())?;
+  let first_line = without_thinking(response).lines().find(|line| !line.trim().is_empty())?;
   let mut title = first_line.trim_start();
   let heading_marks = title.chars().take_while(|c| *c == '#').count();
   if (1..=6).contains(&heading_marks) && title[heading_marks..].starts_with(char::is_whitespace) {
@@ -5936,6 +5950,12 @@ mod live_chat_tests {
     assert_eq!(title_from_prompt(&user("  how do   rust lifetimes work? ")), "how do rust");
     assert_eq!(title_from_prompt(&user("   ")), "Chat");
     assert_eq!(title_from_model_response("\n## Rust Lifetimes.\nmore"), Some("Rust Lifetimes".to_owned()));
+    assert_eq!(
+      title_from_model_response("<think></think>\n\nPure Cycle Outlook"),
+      Some("Pure Cycle Outlook".to_owned())
+    );
+    assert_eq!(title_from_model_response("<THINK>\nhmm\n</THINK>\nWater Rights"), Some("Water Rights".to_owned()));
+    assert_eq!(title_from_model_response("<think>\nstill thinking"), None);
     assert_eq!(title_from_model_response("Title: \"Borrow   Checker\""), Some("Borrow Checker".to_owned()));
     assert_eq!(title_from_model_response("Borrow Checker!?"), Some("Borrow Checker".to_owned()));
     assert_eq!(title_from_model_response("**Async Rust**"), Some("Async Rust".to_owned()));

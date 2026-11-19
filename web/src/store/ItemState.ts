@@ -591,15 +591,24 @@ export const itemState = {
     TabularFns.validateNumberOfVisibleColumnsMaybe(parentId);
   },
 
+  /**
+   * Adds an item under its parent. An item the parent already lists is not listed again: a sync can deliver an item
+   * before the reply of the request that created it, as when keeping a chat or research run over a slow object store,
+   * and a second entry drew it once but kept an empty slot for it.
+   */
   add: (item: Item): void => {
     items.set(item.id, item);
     if (item.relationshipToParent == RelationshipToParent.Child) {
       const parentItem = itemState.getAsContainerItem(item.parentId)!;
-      parentItem.computed_children = [...parentItem.computed_children, item.id];
+      if (!parentItem.computed_children.includes(item.id)) {
+        parentItem.computed_children = [...parentItem.computed_children, item.id];
+      }
       itemState.sortChildren(parentItem.id);
     } else if (item.relationshipToParent == RelationshipToParent.Attachment) {
       const parentItem = itemState.getAsAttachmentsItem(item.parentId)!;
-      parentItem.computed_attachments = [...parentItem.computed_attachments, item.id];
+      if (!parentItem.computed_attachments.includes(item.id)) {
+        parentItem.computed_attachments = [...parentItem.computed_attachments, item.id];
+      }
       itemState.sortAttachments(parentItem.id);
     } else {
       panic(`unsupported relationship to parent: ${item.relationshipToParent}.`);
