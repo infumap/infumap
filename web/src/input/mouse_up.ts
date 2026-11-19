@@ -41,7 +41,7 @@ import { NoteFns, asNoteItem, isNote } from "../items/note-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
 import { NoteFlags } from "../items/base/flags-item";
 import { isPlaceholder, PlaceholderFns } from "../items/placeholder-item";
-import { asQueryItem, isQueryItem, isQueryResearchRun, isQuerySearchResultsPage, setChatPersistPreview } from "../items/query-item";
+import { asQueryItem, isQueryItem, isQueryResearchRun, isQuerySearchResultsPage, setChatPersistPreview, setTranscriptMoveInFlight } from "../items/query-item";
 import { TableFns, asTableItem, isTable } from "../items/table-item";
 import { newOrderingAtBeginning, newOrderingAtEnd, newOrderingBetween } from "../util/ordering";
 import { arrangeNow, requestArrange } from "../layout/arrange";
@@ -555,6 +555,8 @@ function enqueueChatPersistIfDropped(ops: Array<MovePersistOperation>, store: St
     : `${queryItem.title.trim() == "" ? "Chat" : queryItem.title}.chat`;
   chatItem.mimeType = research ? RESEARCH_RUN_MIME_TYPE : CHAT_TRANSCRIPT_MIME_TYPE;
   setChatPersistPreview(queryItem.id, chatItem);
+  setTranscriptMoveInFlight(queryItem.id, true);
+  setTranscriptMoveInFlight(chatItem.id, true);
   chatOperationHandlesDraggedItem = true;
   ops.push({
     apply: async () => {
@@ -566,6 +568,8 @@ function enqueueChatPersistIfDropped(ops: Array<MovePersistOperation>, store: St
           : research ? "Couldn't keep the research run" : "Couldn't keep the chat");
       } finally {
         setChatPersistPreview(queryItem.id, null);
+        setTranscriptMoveInFlight(queryItem.id, false);
+        setTranscriptMoveInFlight(chatItem.id, false);
       }
       // The server has persisted the chat, so nothing after this may fail the move: a rollback would undo it locally
       // only. A local error is logged, and syncing corrects the local state.
@@ -606,12 +610,15 @@ function enqueueChatContinueIfDropped(ops: Array<MovePersistOperation>, store: S
     return false;
   }
   chatOperationHandlesDraggedItem = true;
+  setTranscriptMoveInFlight(item.id, true);
   ops.push({
     apply: async () => {
       try {
         await continuePersistedChat(store, item.id, true);
       } catch (e) {
         throw new MoveRejectedError(e instanceof Error ? e.message : "Couldn't continue the chat");
+      } finally {
+        setTranscriptMoveInFlight(item.id, false);
       }
     },
   });

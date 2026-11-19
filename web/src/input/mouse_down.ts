@@ -58,7 +58,7 @@ import { isInsideDocumentPageClickContext, isReadOnlyDocumentPageOrInsideOne } f
 import { ReadOnlyDocumentHandlePress, readOnlyDocumentMoveOutVeAtClientPx } from "./document_move_out";
 import { NativeTextSelectionState } from "./native_text_selection";
 import { documentNoteBodyClick, isNoteInsideDocumentArrangedPage, noteBodyClick, readOnlyDocumentNoteBodyClick } from "./document_note_hit";
-import { isQueryItem, isQuerySearchResultsPage } from "../items/query-item";
+import { isQueryItem, isQuerySearchResultsPage, isTranscriptMoveInFlight } from "../items/query-item";
 
 
 export const MOUSE_LEFT = 0;
@@ -726,6 +726,13 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   const startHeightBl = null;
   const startPx = desktopPosPx;
   let hitVe = HitInfoFns.getHitVe(hitInfo);
+  // An item being kept or moved back can't be picked up until the server replies (see `isTranscriptMoveInFlight`).
+  // The press is dropped whole: a link press it began must not carry over to the next click.
+  if (isTranscriptMoveInFlight(hitVe.displayItem.id)) {
+    ClickState.setLinkWasClicked(false);
+    DoubleClickState.preventDoubleClick();
+    return defaultResult;
+  }
 
   if (toggleCompositeCollapseOnMouseDownMaybe(store, hitInfo)) {
     return defaultResult;

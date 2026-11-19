@@ -90,6 +90,21 @@ export function setChatPersistPreview(queryItemId: Uid, preview: TextItem | null
   }
 }
 
+/**
+ * Items whose keep (a chat or run dropped outside the Queries page) or move back (a kept one dropped into it) is in
+ * flight. The server replaces the item with another, so it can't be picked up again until it replies: a second drag
+ * that ended after the reply would leave focus on, and try to move, an item that no longer exists.
+ */
+const transcriptMovesInFlight = new Set<Uid>();
+
+export function isTranscriptMoveInFlight(itemId: Uid): boolean {
+  return transcriptMovesInFlight.has(itemId);
+}
+
+export function setTranscriptMoveInFlight(itemId: Uid, inFlight: boolean): void {
+  if (inFlight) { transcriptMovesInFlight.add(itemId); } else { transcriptMovesInFlight.delete(itemId); }
+}
+
 export function queryIconClass(queryItem: QueryItem): string {
   if (isQueryResearchRun(queryItem)) { return "bi-binoculars"; }
   return queryItem.pinnedTo == PinnedTo.Top ? "fas fa-search" : "far fa-comment";
