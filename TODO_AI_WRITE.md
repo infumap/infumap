@@ -62,13 +62,16 @@ files, images or passwords, duplicating existing structures, or exposing arbitra
 Unattended scheduled writes are outside this proposal. The initial interface is an interactive chat with visible
 changes and undo.
 
-## Capability and authority
+## Tool access and write authorization
 
-`infumap_write` is a separate capability alongside `infumap_data` and requires it. Read-only chats do not receive
-write tools. Deep research does not receive write tools; its results can be saved in a subsequent ordinary turn.
+The chat configuration's `capabilities` field lists internal IDs for groups of tools. The existing `infumap_data`
+ID corresponds to the **Infumap** checkbox and enables search and read tools within the selected scope.
+The proposal adds `infumap_write` for write tools. The host exposes those tools only in ordinary chat turns
+with both IDs enabled. Deep research results can be saved in a later ordinary chat turn with writing enabled.
 
-Tool availability is an authority boundary. Prompts telling the model to ignore instructions in retrieved content
-are useful, but cannot substitute for limiting which writes the host will execute.
+Enabling write tools lets the model request changes. Prompts can tell the model to ignore instructions in
+retrieved content. The host enforces the user's authorization by checking each requested write before
+executing it.
 
 ### Read scope, destinations and move sources
 
