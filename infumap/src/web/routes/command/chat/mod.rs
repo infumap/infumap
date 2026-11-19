@@ -1987,8 +1987,16 @@ async fn continue_persisted_chat(
   request: &ChatContinueRequest,
 ) -> InfuResult<ChatContinueResponse> {
   let user_id = &session.user_id;
-  let source = read_persisted_chat(db, object_store.clone(), session, &request.chat_item_id).await?;
-  if source.turns.is_empty() {
+  // A kept research run moves back as a run. It can't be continued, so it is never copied.
+  let kept_run = research::read_kept_run(db, object_store.clone(), session, &request.chat_item_id).await?;
+  if kept_run.is_some() && !request.trash_original {
+    return Err("A research run can't be continued. Drag it into the Queries page to move it back.".into());
+  }
+  let source = match kept_run {
+    Some(_) => None,
+    None => Some(read_persisted_chat(db, object_store.clone(), session, &request.chat_item_id).await?),
+  };
+  if source.as_ref().is_some_and(|source| source.turns.is_empty()) {
     return Err("The chat has no turns to continue.".into());
   }
   let entry_lock = query_entry_lock(user_id).await;
@@ -1998,7 +2006,8 @@ async fn continue_persisted_chat(
     let user = db.user.get(user_id).ok_or("The user was not found.")?;
     let chat_item = db.item.get(&request.chat_item_id)?;
     let file_title = chat_item.title.clone().unwrap_or_default();
-    let title = file_title.strip_suffix(".chat").unwrap_or(&file_title).to_owned();
+    let title = file_title.strip_suffix(".chat").or_else(|| file_title.strip_suffix(".run")).unwrap_or(&file_title);
+    let title = title.to_owned();
     (db.item.data_dir().to_owned(), user.queries_page_id.clone(), title)
   };
   let (_, archived_ids) = ensure_query_entry_locked(db, object_store.clone(), session, None).await?;
@@ -2011,21 +2020,27 @@ async fn continue_persisted_chat(
   let query_item_id = new_uid();
   let mut transcript =
     try_lock_transcript(&data_dir, user_id, &query_item_id).await?.ok_or("The new chat's transcript is locked.")?;
-  // The continued chat is the same conversation, so its system prompt keeps the date it started.
-  let header = TranscriptHeader {
-    version: TRANSCRIPT_FORMAT_VERSION,
-    query_item_id: query_item_id.clone(),
-    created_at: source.header.created_at,
-    server_version: env!("CARGO_PKG_VERSION").to_owned(),
-    setup: source.header.setup.clone(),
-  };
-  transcript.create_copy(header, &source).await?;
-  let mut source_ids =
-    crate::ai::chat_transcripts::source_chat_ids(&data_dir, user_id, &source.header.query_item_id).await?;
-  source_ids.extend([request.chat_item_id.clone(), source.header.query_item_id.clone()]);
-  source_ids.sort();
-  source_ids.dedup();
-  crate::ai::chat_transcripts::write_source_chat_ids(&data_dir, user_id, &query_item_id, &source_ids).await?;
+  match (&source, &kept_run) {
+    (Some(source), _) => {
+      // The continued chat is the same conversation, so its system prompt keeps the date it started.
+      let header = TranscriptHeader {
+        version: TRANSCRIPT_FORMAT_VERSION,
+        query_item_id: query_item_id.clone(),
+        created_at: source.header.created_at,
+        server_version: env!("CARGO_PKG_VERSION").to_owned(),
+        setup: source.header.setup.clone(),
+      };
+      transcript.create_copy(header, source).await?;
+      let mut source_ids =
+        crate::ai::chat_transcripts::source_chat_ids(&data_dir, user_id, &source.header.query_item_id).await?;
+      source_ids.extend([request.chat_item_id.clone(), source.header.query_item_id.clone()]);
+      source_ids.sort();
+      source_ids.dedup();
+      crate::ai::chat_transcripts::write_source_chat_ids(&data_dir, user_id, &query_item_id, &source_ids).await?;
+    }
+    (None, Some((_, log))) => research::restore_kept_run(session, &data_dir, &query_item_id, log).await?,
+    (None, None) => unreachable!(),
+  }
 
   let mut query_item = Item::new_query(
     &queries_page_id,
@@ -2036,7 +2051,7 @@ async fn continue_persisted_chat(
   );
   query_item.id = query_item_id.clone();
   query_item.owner_id = user_id.clone();
-  query_item.flags = Some(0);
+  query_item.flags = Some(if kept_run.is_some() { research::RESEARCH_RUN_FLAG } else { 0 });
   query_item.title = Some(title);
   super::item_ops::add_item_for_user(
     db,
@@ -2374,6 +2389,11 @@ pub(super) async fn handle_load_chat(
 ) -> InfuResult<Option<String>> {
   let session = session_maybe.as_ref().ok_or("Session is required to load a chat.")?;
   let request: LoadChatRequest = serde_json::from_str(json_data)?;
+  if let Some(chat_item_id) = &request.chat_item_id
+    && let Some((run, _)) = research::read_kept_run(db, object_store.clone(), session, chat_item_id).await?
+  {
+    return Ok(Some(serde_json::to_string(&research::load_chat_response(&session.user_id, run, false))?));
+  }
   if let Some(query_item_id) = &request.query_item_id {
     let data_dir = live_chat_data_dir(db, session, query_item_id).await?;
     if let Some(run) = research::read_run(&data_dir, &session.user_id, query_item_id).await? {
@@ -2431,19 +2451,26 @@ pub(super) async fn handle_load_chat_attachment(
 ) -> InfuResult<Option<String>> {
   let session = session_maybe.as_ref().ok_or("Session is required to load a chat attachment.")?;
   let request: LoadChatAttachmentRequest = serde_json::from_str(json_data)?;
-  if let Some(query_item_id) = &request.chat.query_item_id {
-    let data_dir = live_chat_data_dir(db, session, query_item_id).await?;
-    if let Some(run) = research::read_run(&data_dir, &session.user_id, query_item_id).await? {
-      let text = run
-        .header
-        .user
-        .attachments
-        .into_iter()
-        .find(|attachment| attachment.id == request.attachment_id)
-        .map(|attachment| attachment.text)
-        .ok_or_else(|| format!("Attachment '{}' was not found in the research run.", request.attachment_id))?;
-      return Ok(Some(serde_json::to_string(&LoadChatAttachmentResponse { text })?));
+  let run = match (&request.chat.query_item_id, &request.chat.chat_item_id) {
+    (Some(query_item_id), _) => {
+      let data_dir = live_chat_data_dir(db, session, query_item_id).await?;
+      research::read_run(&data_dir, &session.user_id, query_item_id).await?
     }
+    (None, Some(chat_item_id)) => {
+      research::read_kept_run(db, object_store.clone(), session, chat_item_id).await?.map(|(run, _)| run)
+    }
+    (None, None) => None,
+  };
+  if let Some(run) = run {
+    let text = run
+      .header
+      .user
+      .attachments
+      .into_iter()
+      .find(|attachment| attachment.id == request.attachment_id)
+      .map(|attachment| attachment.text)
+      .ok_or_else(|| format!("Attachment '{}' was not found in the research run.", request.attachment_id))?;
+    return Ok(Some(serde_json::to_string(&LoadChatAttachmentResponse { text })?));
   }
   let (transcript, _) = read_chat_for_load(db, object_store, session, &request.chat).await?;
   let text = transcript
@@ -6278,17 +6305,30 @@ mod live_chat_tests {
     .await
     .unwrap();
     let kept: Value = serde_json::from_str(&kept).unwrap();
-    let report_id = kept["item"]["id"].as_str().unwrap().to_owned();
-    assert_eq!(kept["attachments"].as_array().unwrap().len(), 1);
-    let db = f.db.lock().await;
-    let report = db.item.get(&report_id).unwrap();
-    assert_eq!(report.mime_type.as_deref(), Some("text/markdown"));
-    assert!(report.title.as_deref().unwrap().ends_with(".md"));
-    let attachments = db.item.get_attachments(&report_id).unwrap();
-    assert_eq!(attachments.len(), 1);
-    assert_eq!(attachments[0].mime_type.as_deref(), Some(research::RESEARCH_RUN_MIME_TYPE));
-    assert!(db.item.get(&f.query_item_id).is_err(), "the run's query item is gone");
-    drop(db);
+    let kept_id = kept["item"]["id"].as_str().unwrap().to_owned();
+    {
+      let db = f.db.lock().await;
+      let item = db.item.get(&kept_id).unwrap();
+      assert_eq!(item.mime_type.as_deref(), Some(research::RESEARCH_RUN_MIME_TYPE));
+      assert!(item.title.as_deref().unwrap().ends_with(".run"));
+      assert!(db.item.get_attachments(&kept_id).unwrap().is_empty(), "kept as one item, in the run's own form");
+      assert!(db.item.get(&f.query_item_id).is_err(), "the run's query item is gone");
+    }
+    // It opens as the run did.
+    let (kept_run, _) =
+      research::read_kept_run(&f.db, f.object_store.clone(), &f.session, &kept_id).await.unwrap().unwrap();
+    let loaded = serde_json::to_value(research::load_chat_response(&f.session.user_id, kept_run, false)).unwrap();
+    assert_eq!(loaded["turns"][0]["assistantText"], "answer 3");
+    // A run can't be continued, only moved back, and moving it back makes it a run in the Queries page again.
+    let copy = ChatContinueRequest { chat_item_id: kept_id.clone(), trash_original: false };
+    assert!(continue_persisted_chat(&f.db, f.object_store.clone(), &f.session, &copy).await.is_err());
+    let back = ChatContinueRequest { chat_item_id: kept_id.clone(), trash_original: true };
+    let moved = continue_persisted_chat(&f.db, f.object_store.clone(), &f.session, &back).await.ok().unwrap();
+    let moved_id = moved.query_item["id"].as_str().unwrap().to_owned();
+    let flags = f.db.lock().await.item.get(&moved_id).unwrap().flags.unwrap_or(0);
+    assert_eq!(flags & research::RESEARCH_RUN_FLAG, research::RESEARCH_RUN_FLAG);
+    let restored = research::read_run(&f.data_dir, &f.session.user_id, &moved_id).await.unwrap().unwrap();
+    assert_eq!(restored.end.unwrap().report.as_deref(), Some("answer 3"));
     assert!(research::read_run(&f.data_dir, &f.session.user_id, &f.query_item_id).await.unwrap().is_none());
   }
 }

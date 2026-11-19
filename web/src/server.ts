@@ -1581,8 +1581,7 @@ export const server = {
    * Moves an earlier chat into the item tree as a `.chat` text item, created from `chatItem`, placed where the chat was
    * dropped; the server sets its id, title, MIME type and data. Deletes the chat's query item. Returns the new item.
    */
-  /** For a research run, `item` is its report, and `attachments` holds its log, attached to it. */
-  persistChat: async (queryItemId: Uid, chatItem: object): Promise<{ item: object, attachments?: Array<object> }> => {
+  persistChat: async (queryItemId: Uid, chatItem: object): Promise<{ item: object }> => {
     const fetchResult = await localFetch("/chat/persist", {
       method: "POST",
       headers: { "Accept": "application/json", "Content-Type": "application/json" },

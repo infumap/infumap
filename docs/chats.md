@@ -33,9 +33,11 @@ chats, marked with binoculars, and named the same way.
 
 When a run has finished:
 
-- **Keep it** by dragging it out of the Queries page, as you would a chat. Its report becomes a Markdown item where you
-  drop it, with the run's log attached: a record of everything the model was given, for checking how the report came
-  about. A run that was stopped or failed has no report to keep; delete it instead.
+- **Keep it** by dragging it out of the Queries page, as you would a chat. It becomes a `.run` item where you drop it,
+  which opens as the run: the question, the activity and the report. It holds the run's whole log, a record of
+  everything the model was given. Drag it back into the Queries page to move it there again; a run can't be
+  continued, so unlike a chat it has no Continue. A run that was stopped or failed has no report to keep; delete it
+  instead.
 - **Chat about report** opens New Query in Chat with the report attached, for follow-up questions.
 - **Run again** fills New Query with the same question, your own attachments, scope, model and tools, ready to change
   and send. Items read from the scope are read again when it runs.

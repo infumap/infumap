@@ -29,7 +29,7 @@ use crate::ai::user_id_for_log;
 use crate::config::CONFIG_DATA_DIR;
 use crate::storage::db::Db;
 use crate::storage::object::ObjectStore;
-use crate::util::mime::CHAT_TRANSCRIPT_MIME_TYPE;
+use crate::util::mime::{CHAT_TRANSCRIPT_MIME_TYPE, RESEARCH_RUN_MIME_TYPE};
 
 const EMPTY_QUEUE_WAIT_MILLIS: u64 = 1000;
 const PDF_SOURCE_MIME_TYPE: &str = "application/pdf";
@@ -63,7 +63,7 @@ impl DocumentFragmentKind {
       PDF_SOURCE_MIME_TYPE => Some(DocumentFragmentKind::Pdf),
       MARKDOWN_SOURCE_MIME_TYPE => Some(DocumentFragmentKind::Markdown),
       TEXT_SOURCE_MIME_TYPE => Some(DocumentFragmentKind::Text),
-      CHAT_TRANSCRIPT_MIME_TYPE => Some(DocumentFragmentKind::Chat),
+      CHAT_TRANSCRIPT_MIME_TYPE | RESEARCH_RUN_MIME_TYPE => Some(DocumentFragmentKind::Chat),
       _ => None,
     }
   }

@@ -257,7 +257,7 @@ pub(super) async fn read_run(data_dir: &str, user_id: &Uid, query_item_id: &Uid)
 }
 
 /// An incomplete last line, from an append cut short, is ignored.
-fn parse_run(bytes: &[u8]) -> InfuResult<Option<SavedRun>> {
+pub(super) fn parse_run(bytes: &[u8]) -> InfuResult<Option<SavedRun>> {
   let complete = &bytes[..bytes.iter().rposition(|byte| *byte == b'\n').map_or(0, |index| index + 1)];
   let mut lines = complete.split(|byte| *byte == b'\n').filter(|line| !line.is_empty());
   let Some(first) = lines.next() else { return Ok(None) };
@@ -658,12 +658,11 @@ pub(super) fn load_chat_response(owner_id: &Uid, run: SavedRun, running: bool) -
   }
 }
 
-/// The MIME type of a kept run's log, attached to its report. Set explicitly, so the JSONL is never indexed as text.
-pub(super) const RESEARCH_RUN_MIME_TYPE: &str = "application/x-infumap-research-run";
+pub(super) use crate::util::mime::RESEARCH_RUN_MIME_TYPE;
 
-/// Keeps a finished run in the item tree where it was dropped: its report as a Markdown text item, with the run log
-/// attached, so what the model was given stays with what it wrote. The query item and the log in the data directory
-/// are then removed, as when a chat is kept. A run without a report has nothing to keep.
+/// Keeps a finished run in the item tree where it was dropped, as a run: a `.run` item holding its log, which opens
+/// as the run did, as a `.chat` item does a chat. The query item and the log in the data directory are then removed,
+/// as when a chat is kept. A run without a report has nothing to keep.
 pub(super) async fn persist_research_run(
   config: &Config,
   db: &Arc<tokio::sync::Mutex<Db>>,
@@ -681,16 +680,15 @@ pub(super) async fn persist_research_run(
       return Err("Only an earlier research run can be moved out of the Queries page.".into());
     }
   }
-  let lock = transcript::try_lock_chat(user_id, query_item_id)
-    .ok_or("This research run is still running. Keep it when it has finished.")?;
   let path = run_log_path(data_dir, user_id, query_item_id)?;
-  let run = parse_run(&tokio::fs::read(&path).await?)?.ok_or("The research run was not found.")?;
-  let report = run
-    .end
-    .as_ref()
-    .and_then(|end| end.report.clone())
-    .ok_or("This research run has no report to keep. Delete it instead.")?;
-  drop(lock);
+  {
+    let _lock = transcript::try_lock_chat(user_id, query_item_id)
+      .ok_or("This research run is still running. Keep it when it has finished.")?;
+    let run = parse_run(&tokio::fs::read(&path).await?)?.ok_or("The research run was not found.")?;
+    if run.end.as_ref().and_then(|end| end.report.as_ref()).is_none() {
+      return Err("This research run has no report to keep. Delete it instead.".into());
+    }
+  }
   // The title is generated when the run starts; this only fills in one that never arrived.
   let title = match generate_live_chat_title(config, db, session, query_item_id).await {
     Ok(title) if !title.trim().is_empty() => title,
@@ -704,69 +702,23 @@ pub(super) async fn persist_research_run(
   let lock = transcript::try_lock_chat(user_id, query_item_id).ok_or("The research run is busy. Try again.")?;
   let log = tokio::fs::read(&path).await?;
 
-  let text_item = |id: &Uid, title: String, size: usize| {
-    let mut map = request.item.clone();
-    map.insert("id".to_owned(), Value::String(id.clone()));
-    map.insert("itemType".to_owned(), Value::String(ItemType::Text.as_str().to_owned()));
-    map.insert("ownerId".to_owned(), Value::String(user_id.clone()));
-    map.insert("title".to_owned(), Value::String(title));
-    map.insert("fileSizeBytes".to_owned(), Value::Number(size.into()));
-    map.remove("mimeType");
-    map
-  };
-  let report_id = new_uid();
-  let report_json = serde_json::to_string(&Value::Object(text_item(&report_id, format!("{title}.md"), report.len())))?;
+  let mut item_map = request.item.clone();
+  item_map.insert("id".to_owned(), Value::String(new_uid()));
+  item_map.insert("itemType".to_owned(), Value::String(ItemType::Text.as_str().to_owned()));
+  item_map.insert("ownerId".to_owned(), Value::String(user_id.clone()));
+  item_map.insert("title".to_owned(), Value::String(format!("{title}.run")));
+  item_map.insert("fileSizeBytes".to_owned(), Value::Number(log.len().into()));
+  item_map.remove("mimeType");
   let added = super::super::item_ops::add_item_for_user_with_mime_type(
     db,
     object_store.clone(),
-    &report_json,
-    &Some(general_purpose::STANDARD.encode(report.as_bytes())),
-    user_id,
-    Some("text/markdown"),
-  )
-  .await?
-  .ok_or("Adding the report item returned nothing.")?;
-
-  let mut log_map = text_item(&new_uid(), format!("{title}.run"), log.len());
-  log_map.insert("parentId".to_owned(), Value::String(report_id.clone()));
-  log_map.insert("relationshipToParent".to_owned(), Value::String("attachment".to_owned()));
-  log_map.insert(
-    "ordering".to_owned(),
-    Value::Array(crate::util::ordering::new_ordering().into_iter().map(|byte| byte.into()).collect()),
-  );
-  log_map.remove("groupId");
-  log_map.remove("pinnedTo");
-  let attached = super::super::item_ops::add_item_for_user_with_mime_type(
-    db,
-    object_store.clone(),
-    &serde_json::to_string(&Value::Object(log_map))?,
+    &serde_json::to_string(&Value::Object(item_map))?,
     &Some(general_purpose::STANDARD.encode(&log)),
     user_id,
     Some(RESEARCH_RUN_MIME_TYPE),
   )
-  .await;
-  let attached = match attached {
-    Ok(Some(attached)) => attached,
-    result => {
-      // Without its log the report is not what was asked to be kept: remove it and leave the run as it was.
-      let delete_json = serde_json::json!({ "id": report_id }).to_string();
-      if let Err(e) = super::super::item_ops::handle_delete_item(
-        db,
-        object_store.clone(),
-        image_cache.clone(),
-        &delete_json,
-        &Some(session.clone()),
-      )
-      .await
-      {
-        warn!("Could not remove the report of research run '{}' after attaching its log failed: {}", query_item_id, e);
-      }
-      return Err(match result {
-        Err(e) => e,
-        _ => "Adding the run log returned nothing.".into(),
-      });
-    }
-  };
+  .await?
+  .ok_or("Adding the research run item returned nothing.")?;
 
   // The log is kept while this holds the chat lock, so deleting the query item leaves it for us to remove.
   let delete_json = serde_json::json!({ "id": query_item_id }).to_string();
@@ -779,8 +731,51 @@ pub(super) async fn persist_research_run(
     warn!("Kept research run '{}', but could not remove its log; startup cleanup will: {}", query_item_id, e);
   }
   drop(lock);
-  let mut result: Value = serde_json::from_str(&added)?;
-  let attachment: Value = serde_json::from_str(&attached)?;
-  result["attachments"] = Value::Array(attachment.get("item").cloned().into_iter().collect());
-  Ok(serde_json::to_string(&result)?)
+  Ok(added)
+}
+
+/// A kept run's log, from its `.run` item. None if the item is not a kept run.
+pub(super) async fn read_kept_run(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  object_store: Arc<object::ObjectStore>,
+  session: &Session,
+  item_id: &Uid,
+) -> InfuResult<Option<(SavedRun, Vec<u8>)>> {
+  let encryption_key = {
+    let db = db.lock().await;
+    let item = db.item.get(item_id)?;
+    if item.owner_id != session.user_id
+      || item.item_type != ItemType::Text
+      || item.mime_type.as_deref() != Some(RESEARCH_RUN_MIME_TYPE)
+    {
+      return Ok(None);
+    }
+    db.user.get(&session.user_id).ok_or("The user was not found.")?.object_encryption_key.clone()
+  };
+  let bytes = object::get(object_store, session.user_id.clone(), item_id.clone(), &encryption_key).await?;
+  let run = parse_run(&bytes)?.ok_or_else(|| format!("Research run item '{}' has no log.", item_id))?;
+  Ok(Some((run, bytes)))
+}
+
+/// Writes a kept run's log under a new query item's id, for moving it back to the Queries page as the run it was.
+/// The caller adds the query item, marked as a run.
+pub(super) async fn restore_kept_run(
+  session: &Session,
+  data_dir: &str,
+  query_item_id: &Uid,
+  log: &[u8],
+) -> InfuResult<()> {
+  let text = std::str::from_utf8(log).map_err(|_| "The research run log is not text.")?;
+  let (first, rest) = text.split_once('\n').ok_or("The research run log has no header.")?;
+  let mut header: Value = serde_json::from_str(first)?;
+  header["queryItemId"] = Value::String(query_item_id.clone());
+  let mut content = serde_json::to_string(&header)?;
+  content.push('\n');
+  content.push_str(rest);
+  parse_run(content.as_bytes())?.ok_or("The research run log has no header.")?;
+  let path = run_log_path(data_dir, &session.user_id, query_item_id)?;
+  if let Some(dir) = path.parent() {
+    tokio::fs::create_dir_all(dir).await?;
+  }
+  crate::ai::artifact_io::atomic_write(&path, content.as_bytes()).await
 }

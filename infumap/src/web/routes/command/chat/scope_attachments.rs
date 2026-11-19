@@ -94,7 +94,7 @@ pub(super) async fn draft_item_attachment(
       (text, "text/markdown")
     }
     ItemType::Image | ItemType::Search | ItemType::Text
-      if item.item_type != ItemType::Text || mime_type == CHAT_TRANSCRIPT_MIME_TYPE =>
+      if item.item_type != ItemType::Text || crate::util::mime::is_transcript_mime_type(mime_type) =>
     {
       let mut fragments = read_item_fragments(&data_dir, &item.owner_id, &item.id).await.map_err(|_| no_text())?;
       if ![

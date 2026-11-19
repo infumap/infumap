@@ -33,7 +33,7 @@ import { getPageCalendarDisplayMode, PageCalendarDisplayMode, PageFlags } from "
 import { ClickState } from "../../../input/state";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { ItemType } from "../../../items/base/item";
-import { isChatTextItem, isVirtualTextDocumentPage, openTextItemFileInNewTab, persistVirtualTextDocumentPageOptions, sourceTextItemForVirtualTextDocumentPage } from "../../../items/text-document";
+import { isChatTextItem, isResearchRunTextItem, isVirtualTextDocumentPage, openTextItemFileInNewTab, persistVirtualTextDocumentPageOptions, sourceTextItemForVirtualTextDocumentPage } from "../../../items/text-document";
 import { continuePersistedChat } from "../../../items/query";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 import { Toolbar_InfoAndId } from "./Toolbar_InfoAndId";
@@ -537,7 +537,9 @@ export const Toolbar_Page: Component = () => {
   const sourceChatItem = () => {
     store.touchToolbarDependency();
     const source = sourceTextItemForVirtualTextDocumentPage(pageItem().id);
-    return source != null && isChatTextItem(source) && source.origin == null ? source : null;
+    // A kept research run can be moved back to the Queries page, but not continued.
+    return source != null && isChatTextItem(source) && !isResearchRunTextItem(source) && source.origin == null
+      ? source : null;
   };
   const handleContinueChat = () => {
     const source = sourceChatItem();

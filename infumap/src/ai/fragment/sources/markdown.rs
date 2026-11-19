@@ -11,13 +11,14 @@ use tokio::fs;
 use crate::ai::artifact_io::{atomic_write, sha256};
 use crate::ai::artifact_paths::{item_text_content_path, item_text_manifest_path};
 use crate::storage::object::{self as storage_object, ObjectStore};
-use crate::util::mime::CHAT_TRANSCRIPT_MIME_TYPE;
+use crate::util::mime::{CHAT_TRANSCRIPT_MIME_TYPE, RESEARCH_RUN_MIME_TYPE};
 
 use super::pdf::markdown_fragment_source;
 use super::{FragmentSource, FragmentSourceKind, write_fragment_source_artifact};
 use crate::ai::fragment::FragmentBuildOutcome;
 
-const LOCAL_COPY_MIME_TYPES: [&str; 3] = ["text/markdown", "text/plain", CHAT_TRANSCRIPT_MIME_TYPE];
+const LOCAL_COPY_MIME_TYPES: [&str; 4] =
+  ["text/markdown", "text/plain", CHAT_TRANSCRIPT_MIME_TYPE, RESEARCH_RUN_MIME_TYPE];
 
 pub struct ObjectTextFragmentBuildResult {
   pub had_fragment_source: bool,
@@ -177,7 +178,8 @@ async fn chat_fragment_source_for_item(
 /// The visible conversation of a chat transcript: each turn's user text and, for a completed turn, the assistant's
 /// answer, in order. Not reasoning, tool calls and results, or activity: search is for the conversation, not what was
 /// fetched along the way. Without labels, so words like "assistant" do not match every chat. The format is the chat
-/// route's (transcript.rs); it is read loosely here, and an unreadable line is skipped.
+/// route's (transcript.rs); it is read loosely here, and an unreadable line is skipped. A research run's log
+/// (research.rs) reads the same way: its question is in its header, its report in its end.
 fn chat_visible_text(bytes: &[u8], item_id: &str) -> InfuResult<Option<String>> {
   use serde_json::Value;
   let text = std::str::from_utf8(bytes).map_err(|e| format!("Chat '{}' is not valid UTF-8: {}", item_id, e))?;
@@ -187,6 +189,7 @@ fn chat_visible_text(bytes: &[u8], item_id: &str) -> InfuResult<Option<String>> 
   for line in text.lines() {
     let Ok(record) = serde_json::from_str::<Value>(line) else { continue };
     let part = match record.get("type").and_then(Value::as_str) {
+      Some("header") => record.get("user").and_then(|user| user.get("text")).and_then(Value::as_str).map(str::to_owned),
       Some("user") => {
         answer = None;
         record.get("text").and_then(Value::as_str).map(str::to_owned)
@@ -200,7 +203,9 @@ fn chat_visible_text(bytes: &[u8], item_id: &str) -> InfuResult<Option<String>> 
           .map(str::to_owned);
         None
       }
-      Some("end") if record.get("outcome").and_then(Value::as_str) == Some("completed") => answer.take(),
+      Some("end") if record.get("outcome").and_then(Value::as_str) == Some("completed") => {
+        record.get("report").and_then(Value::as_str).map(str::to_owned).or_else(|| answer.take())
+      }
       _ => None,
     };
     if let Some(part) = part.as_deref().map(str::trim).filter(|part| !part.is_empty()) {
@@ -380,6 +385,13 @@ mod tests {
     let text = chat_visible_text(transcript.as_bytes(), "item").unwrap().unwrap();
     assert_eq!(text, "How do lifetimes work?\n\nThey bound borrows.\n\nAnd traits?");
     assert!(chat_visible_text(b"", "item").unwrap().is_none());
+    let run = [
+      r#"{"type":"header","version":1,"queryItemId":"q","requestId":"r","createdAt":1,"strategy":"standard","user":{"requestId":"r","startedAt":1,"text":"What changed?","content":"What changed?","settings":{"mode":"deep_research"}}}"#,
+      r#"{"type":"response","request":1,"endedAt":2,"message":{"role":"assistant","content":"an evidence memo"}}"#,
+      r#"{"type":"end","outcome":"completed","endedAt":3,"report":"The report."}"#,
+    ]
+    .join("\n");
+    assert_eq!(chat_visible_text(run.as_bytes(), "item").unwrap().unwrap(), "What changed?\n\nThe report.");
     assert!(chat_visible_text(&[0xff, 0xfe, 0x00], "item").is_err());
   }
 }

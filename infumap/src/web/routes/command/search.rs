@@ -17,7 +17,6 @@
 use super::scope::{ResolvedScope, readable, resolve_content, resolve_scope_ref};
 use super::*;
 use crate::query_configuration::ScopeRef;
-use crate::util::mime::CHAT_TRANSCRIPT_MIME_TYPE;
 
 const SEARCH_RRF_K: f64 = 60.0;
 const SEARCH_TITLE_LEXICAL_WEIGHT: f64 = 1.35;
@@ -368,7 +367,9 @@ async fn indexed_search_results(
         let db = db.lock().await;
         tier_results.retain(|result| {
           !search_result_item_id(result).is_some_and(|item_id| {
-            db.item.get(&item_id).is_ok_and(|item| item.mime_type.as_deref() == Some(CHAT_TRANSCRIPT_MIME_TYPE))
+            db.item
+              .get(&item_id)
+              .is_ok_and(|item| item.mime_type.as_deref().is_some_and(crate::util::mime::is_transcript_mime_type))
           })
         });
       }
@@ -1402,7 +1403,7 @@ mod tests {
     let chat = t
       .non_note(&home, "kiwi chat.chat", |item| {
         item.item_type = ItemType::Text;
-        item.mime_type = Some(CHAT_TRANSCRIPT_MIME_TYPE.to_owned());
+        item.mime_type = Some(crate::util::mime::CHAT_TRANSCRIPT_MIME_TYPE.to_owned());
         item.file_size_bytes = Some(1);
         item.original_creation_date = Some(0);
       })

@@ -27,7 +27,7 @@ import { TextFns, asTextItem } from "../../../items/text-item";
 import { Toolbar_ItemOrdering } from "./Toolbar_ItemOrdering";
 import { Toolbar_InfoAndId } from "./Toolbar_InfoAndId";
 import { getToolbarFocusItem } from "../toolbarFocus";
-import { isChatTextItem, openTextItemFileInNewTab } from "../../../items/text-document";
+import { isChatTextItem, isResearchRunTextItem, openTextItemFileInNewTab } from "../../../items/text-document";
 import { continuePersistedChat } from "../../../items/query";
 import { TransientMessageType } from "../../../store/StoreProvider_Overlay";
 import { toolbarInfoDividerWithExtraButtonRightPx } from "../toolbarDividers";
@@ -87,7 +87,7 @@ export const Toolbar_Text: Component = () => {
           </div>
         </Show>
 
-        <Show when={isChatTextItem(textItem()) && textItem().origin == null}>
+        <Show when={isChatTextItem(textItem()) && !isResearchRunTextItem(textItem()) && textItem().origin == null}>
           <div ref={continueDiv} class="inline-block pl-[2px]" onMouseDown={handleContinueChatDown}>
             <InfuIconButton icon="bi-chat-dots" highlighted={false} clickHandler={handleContinueChat} title="Continue chat" />
           </div>

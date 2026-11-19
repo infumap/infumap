@@ -32,8 +32,8 @@ All of these are derived from the items and their original files, and are regene
 header with the question, its attachments and setup, then each message the first time the model is sent it, each tool
 set once, each request to the model (recorded before it is sent) with its other fields, each response, the stages as
 they start, and the end with the report. Together they give the exact body of every request the run made. Keeping a
-run moves its log into the object store, as a `.run` item (`application/x-infumap-research-run`) attached to the
-report, and removes it here.
+run moves its log into the object store as a `.run` item (`application/x-infumap-research-run`), indexed by its
+question and report, and removes it here.
 
 Search fragments for these chats are generated locally from their transcripts, without uploading objects. They
 contain user messages and completed assistant answers, excluding reasoning and tool exchanges. They are refreshed

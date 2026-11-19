@@ -52,7 +52,7 @@ use crate::storage::cache::{ImageCacheKey, ImageSize};
 use crate::storage::db::Db;
 use crate::storage::object;
 use crate::util::image::{IMAGE_PROCESSING_SEMAPHORE, decode_image, encode_image_jpeg};
-use crate::util::mime::{CHAT_TRANSCRIPT_MIME_TYPE, SVG_MIME_TYPE, requires_jpeg_rendition};
+use crate::util::mime::{SVG_MIME_TYPE, is_transcript_mime_type, requires_jpeg_rendition};
 use crate::web::serve::{
   cors_response, forbidden_response, full_body, internal_server_error_response, not_found_response,
 };
@@ -214,8 +214,8 @@ fn content_disposition_header(filename: &str, inline: bool) -> String {
 }
 
 fn response_content_headers(filename: &str, mime_type: &str) -> (String, String) {
-  if mime_type == CHAT_TRANSCRIPT_MIME_TYPE {
-    // The stored MIME identifies a chat item; the JSONL response is safe to view as plain text.
+  if is_transcript_mime_type(mime_type) {
+    // The stored MIME identifies a chat or research run item; the JSONL response is safe to view as plain text.
     ("text/plain; charset=utf-8".to_owned(), content_disposition_header(filename, true))
   } else if is_safe_inline_mime(mime_type) {
     (mime_type.to_owned(), content_disposition_header(filename, true))

@@ -9,6 +9,14 @@ const TEXT_PLAIN: &str = "text/plain";
 /// The MIME type of a persisted chat: a chat transcript (JSONL) in a `.chat` text item. Always set explicitly, since
 /// detection would give text/plain, and the raw JSONL would then be indexed as plain text.
 pub const CHAT_TRANSCRIPT_MIME_TYPE: &str = "application/x-infumap-chat";
+/// The MIME type of a kept deep research run: its run log (JSONL) in a `.run` text item, shown as the run. Set
+/// explicitly for the same reason as a chat's.
+pub const RESEARCH_RUN_MIME_TYPE: &str = "application/x-infumap-research-run";
+
+/// A kept chat or research run: JSONL shown as a conversation, indexed by its visible text, never as plain text.
+pub fn is_transcript_mime_type(mime_type: &str) -> bool {
+  mime_type == CHAT_TRANSCRIPT_MIME_TYPE || mime_type == RESEARCH_RUN_MIME_TYPE
+}
 pub const CR2_MIME_TYPE: &str = "image/x-canon-cr2";
 pub const SVG_MIME_TYPE: &str = "image/svg+xml";
 

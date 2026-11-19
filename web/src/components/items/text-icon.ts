@@ -17,10 +17,11 @@
 */
 
 import { TextItem } from "../../items/text-item";
-import { isChatTextItem, isMarkdownTextItem } from "../../items/text-document";
+import { isChatTextItem, isMarkdownTextItem, isResearchRunTextItem } from "../../items/text-document";
 
 
 export function defaultTextIconClass(textItem: TextItem): string {
+  if (isResearchRunTextItem(textItem)) { return "bi-binoculars"; }
   if (isChatTextItem(textItem)) { return "far fa-comment"; }
   if (isMarkdownTextItem(textItem)) { return "bi bi-filetype-md"; }
   return "far fa-file-lines";

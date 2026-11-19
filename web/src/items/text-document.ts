@@ -203,9 +203,17 @@ export async function clientTextCopyData(item: Item): Promise<string | null> {
 /** The MIME type of a persisted chat, set by the server when a chat is moved out of the Queries page. */
 export const CHAT_TRANSCRIPT_MIME_TYPE = "application/x-infumap-chat";
 
-/** A persisted chat: its content is a chat transcript, shown as the chat it was, not as text. */
+/** A kept deep research run: its content is the run's log, shown as the run, not as text. */
+export const RESEARCH_RUN_MIME_TYPE = "application/x-infumap-research-run";
+
+/** A persisted chat or research run: its content is a transcript, shown as the conversation it was, not as text. */
 export function isChatTextItem(textItem: TextItem): boolean {
-  return textItem.mimeType == CHAT_TRANSCRIPT_MIME_TYPE;
+  return textItem.mimeType == CHAT_TRANSCRIPT_MIME_TYPE || isResearchRunTextItem(textItem);
+}
+
+/** A kept research run, which can be moved back to the Queries page but not continued. */
+export function isResearchRunTextItem(textItem: TextItem): boolean {
+  return textItem.mimeType == RESEARCH_RUN_MIME_TYPE;
 }
 
 export function isMarkdownTextItem(textItem: TextItem): boolean {

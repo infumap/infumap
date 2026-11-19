@@ -8,10 +8,10 @@ use tokio::fs;
 
 use crate::ai::artifact_io::atomic_write;
 use crate::util::fs::expand_tilde;
-use crate::util::mime::CHAT_TRANSCRIPT_MIME_TYPE;
+use crate::util::mime::is_transcript_mime_type;
 
 pub fn is_chat_item(item: &Item) -> bool {
-  item.item_type == ItemType::Search || item.mime_type.as_deref() == Some(CHAT_TRANSCRIPT_MIME_TYPE)
+  item.item_type == ItemType::Search || item.mime_type.as_deref().is_some_and(is_transcript_mime_type)
 }
 
 pub fn transcript_path(data_dir: &str, user_id: &str, query_item_id: &str) -> InfuResult<PathBuf> {
