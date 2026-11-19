@@ -1666,14 +1666,16 @@ fn end_record(
   }
 }
 
-const CHAT_TITLE_PROMPT: &str = "Give this conversation a concise, informative document title. \
+const CHAT_TITLE_PROMPT: &str = "For this request, give the conversation a concise, informative document title. \
 Name the user's underlying topic or question, not the assistant's process, search method, sources, or caveats. \
 Err on the side of terseness: use the shortest natural noun phrase that clearly identifies the subject, usually \
 two to four words and never more than six. Use title case. Do not begin with words such as Finding, \
 Researching, Searching, Exploring, or Analyzing. \
-Use plain text only, with no Markdown, quotation marks, or ending punctuation. Reply with only the title.";
+Do not use tools or answer the question. Reply with only the title in plain text, without Markdown, quotation marks, \
+or ending punctuation.";
 const CHAT_TITLE_FALLBACK: &str = "Chat";
 const CHAT_TITLE_MAX_CHARS: usize = 100;
+const INITIAL_CHAT_TITLE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 /// The visible conversation sent for a title is cut to this, so the call stays short however long the chat is. The
 /// topic is nearly always set by the first exchanges.
 const CHAT_TITLE_INPUT_MAX_CHARS: usize = 4_000;
@@ -1711,9 +1713,9 @@ fn title_from_model_response(response: &str) -> Option<String> {
   if (1..=6).contains(&heading_marks) && title[heading_marks..].starts_with(char::is_whitespace) {
     title = &title[heading_marks..];
   }
-  let mut title = title.trim().to_owned();
-  if title.len() >= 6 && title[..6].eq_ignore_ascii_case("title:") {
-    title = title[6..].trim().to_owned();
+  let mut title = title.trim();
+  if title.get(..6).is_some_and(|prefix| prefix.eq_ignore_ascii_case("title:")) {
+    title = title[6..].trim();
   }
   let quote_like = |c: char| matches!(c, '*' | '_' | '"' | '\'' | '`');
   let title = title.trim_matches(quote_like).trim_end_matches(['.', '!', '?']).trim();
@@ -1753,7 +1755,96 @@ fn chat_title_input_messages(transcript: &Transcript) -> Vec<OpenAiChatMessage> 
   messages
 }
 
-/// A research run's title, from its question alone: it is generated when the run starts, before there is a report.
+async fn request_chat_title(
+  endpoint: &ChatEndpoint,
+  messages: &[OpenAiChatMessage],
+  tools: &[OpenAiToolSpec],
+) -> InfuResult<String> {
+  // Keep tool settings identical to the first main request for providers that render them into the prompt.
+  let mut payload = chat_completion_payload(endpoint, messages, tools, None);
+  // Use the same role conventions as other server instructions and the earlier title fallback.
+  let role = if endpoint.adapter != ChatAdapter::LlamaCpp && messages.first().is_some_and(|m| m.role == "system") {
+    "system"
+  } else {
+    "user"
+  };
+  payload.messages.push(OpenAiChatMessage::text(role, CHAT_TITLE_PROMPT.to_owned()));
+  let progress = ChatProgressReporter::unobserved(new_chat_request_id());
+  // Round zero keeps the auxiliary request distinct from the answer and its recorded model rounds.
+  let message = send_chat_completion(endpoint, &payload, 0, &progress).await?;
+  let completed = completed_model_round(endpoint, message, 0, 0)?;
+  if !completed.tool_calls.is_empty() {
+    return Err("The model attempted a tool call while generating a title.".into());
+  }
+  completed
+    .assistant_message
+    .content
+    .as_deref()
+    .and_then(title_from_model_response)
+    .ok_or_else(|| "The model did not reply with a title.".into())
+}
+
+async fn save_generated_title(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  user_id: &Uid,
+  query_item_id: &Uid,
+  previous: String,
+  derived: String,
+  title: String,
+) -> InfuResult<String> {
+  let (db, user_id, query_item_id) = (db.clone(), user_id.clone(), query_item_id.clone());
+  // The item store updates its indexes across a disk write. Let that finish if the worker is cancelled.
+  tokio::spawn(async move {
+    // Archiving can give a blank query its prompt-derived title during inference. Allow that transition while
+    // serializing the write with archiving and preserving a custom rename.
+    let entry_lock = query_entry_lock(&user_id).await;
+    let _guard = entry_lock.lock().await;
+    let expected =
+      if previous.is_empty() && db.lock().await.item.get(&query_item_id)?.title.as_deref() == Some(derived.as_str()) {
+        &derived
+      } else {
+        &previous
+      };
+    super::item_ops::set_item_title_if_unchanged(&db, &user_id, &query_item_id, expected, &title).await
+  })
+  .await
+  .map_err(|e| format!("Could not finish saving the generated title: {e}"))?
+}
+
+/// Branch from the first answer or research request's prepared context. The title instruction is a suffix, so the
+/// main request can reuse the common prompt prefix and the title exchange stays outside the conversation history.
+async fn generate_initial_chat_title(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  user_id: &Uid,
+  query_item_id: &Uid,
+  user: &UserRecord,
+  resources: &ChatResources,
+  messages: &[OpenAiChatMessage],
+  progress: &ChatProgressReporter,
+) {
+  let result: InfuResult<()> = async {
+    let derived = title_from_prompt(user);
+    let previous = db.lock().await.item.get(query_item_id)?.title.clone().unwrap_or_default();
+    if !previous.is_empty() && previous != derived {
+      return Ok(());
+    }
+    progress.status("Generating title").await;
+    let title = tokio::time::timeout(
+      INITIAL_CHAT_TITLE_TIMEOUT,
+      request_chat_title(&resources.endpoint, messages, &resources.tools),
+    )
+    .await
+    .map_err(|_| "Title generation timed out.")??;
+    save_generated_title(db, user_id, query_item_id, previous, derived, title).await?;
+    Ok(())
+  }
+  .await;
+  if let Err(e) = result {
+    warn!("Could not generate an initial title for query item '{}' of user '{}': {}", query_item_id, user_id, e);
+  }
+}
+
+/// Fills in a missing title on an earlier research run from its question.
 async fn generate_research_title(
   config: &Config,
   db: &Arc<tokio::sync::Mutex<Db>>,
@@ -1769,17 +1860,8 @@ async fn generate_research_title(
   let selection = user.settings.configuration.model.as_ref().ok_or("The run has no model selection.")?;
   let endpoint = resolve_chat_endpoint(config, selection).await?;
   let question = user.text.chars().take(CHAT_TITLE_INPUT_MAX_CHARS).collect::<String>();
-  let messages =
-    vec![OpenAiChatMessage::text("user", question), OpenAiChatMessage::text("user", CHAT_TITLE_PROMPT.to_owned())];
-  let progress = ChatProgressReporter::unobserved(new_chat_request_id());
-  let round = run_chat_model_round(&endpoint, &messages, &[], 1, 0, &progress).await?;
-  let title = round
-    .assistant_message
-    .content
-    .as_deref()
-    .and_then(title_from_model_response)
-    .ok_or("The model did not reply with a title.")?;
-  super::item_ops::set_item_title_if_unchanged(db, &session.user_id, query_item_id, &current, &title).await
+  let title = request_chat_title(&endpoint, &[OpenAiChatMessage::text("user", question)], &[]).await?;
+  save_generated_title(db, &session.user_id, query_item_id, current, derived, title).await
 }
 
 /// Gives a live chat a generated title, if its title is still the one derived from its first prompt (or none), and
@@ -1809,17 +1891,8 @@ async fn generate_live_chat_title(
     .and_then(|turn| turn.user.settings.configuration.model.as_ref())
     .ok_or("The chat has no model selection.")?;
   let endpoint = resolve_chat_endpoint(config, selection).await?;
-  let mut messages = chat_title_input_messages(&transcript);
-  messages.push(OpenAiChatMessage::text("user", CHAT_TITLE_PROMPT.to_owned()));
-  let progress = ChatProgressReporter::unobserved(new_chat_request_id());
-  let round = run_chat_model_round(&endpoint, &messages, &[], 1, 0, &progress).await?;
-  let title = round
-    .assistant_message
-    .content
-    .as_deref()
-    .and_then(title_from_model_response)
-    .ok_or("The model did not reply with a title.")?;
-  super::item_ops::set_item_title_if_unchanged(db, &session.user_id, query_item_id, &current, &title).await
+  let title = request_chat_title(&endpoint, &chat_title_input_messages(&transcript), &[]).await?;
+  save_generated_title(db, &session.user_id, query_item_id, current, derived, title).await
 }
 
 #[derive(Deserialize)]
@@ -1833,8 +1906,7 @@ struct ChatTitleResponse {
   title: String,
 }
 
-/// Generates a title for an earlier chat; see `generate_live_chat_title`. Called after a chat's first response,
-/// so it does not run alongside that response.
+/// Fills in a missing title for an earlier chat; see `generate_live_chat_title`.
 pub async fn serve_chat_title_route(
   config: Arc<Config>,
   db: &Arc<tokio::sync::Mutex<Db>>,
@@ -1910,8 +1982,14 @@ async fn persist_live_chat(
     item.title.clone().unwrap_or_default()
   };
 
-  // A generated title if the title is still derived from the first prompt; otherwise, or if that fails, the title as
-  // it is.
+  let transcript = try_lock_transcript(&data_dir, &session.user_id, query_item_id)
+    .await?
+    .ok_or("A response is running in this chat. Try again when it has finished.")?;
+  if transcript.transcript().is_none_or(|transcript| transcript.turns.is_empty()) {
+    return Err("The chat has no turns to keep.".into());
+  }
+
+  // Fill in a missing title after taking the chat lock, so keeping a running chat cannot start another title call.
   let title = match generate_live_chat_title(config, db, session, query_item_id).await {
     Ok(title) => title,
     Err(e) => {
@@ -1921,12 +1999,6 @@ async fn persist_live_chat(
   };
   let title = if title.trim().is_empty() { CHAT_TITLE_FALLBACK.to_owned() } else { title };
 
-  let transcript = try_lock_transcript(&data_dir, &session.user_id, query_item_id)
-    .await?
-    .ok_or("A response is running in this chat. Try again when it has finished.")?;
-  if transcript.transcript().is_none_or(|transcript| transcript.turns.is_empty()) {
-    return Err("The chat has no turns to keep.".into());
-  }
   let bytes = transcript.bytes().await?;
 
   let mut item_map = request.item.clone();
@@ -3569,19 +3641,6 @@ struct CompletedChatModelRound {
   tool_calls: Vec<OpenAiToolCall>,
 }
 
-async fn run_chat_model_round(
-  endpoint: &ChatEndpoint,
-  messages: &[OpenAiChatMessage],
-  tools: &[OpenAiToolSpec],
-  round: usize,
-  tool_rounds_completed: usize,
-  progress: &ChatProgressReporter,
-) -> InfuResult<CompletedChatModelRound> {
-  progress.model_round_started(round).await;
-  let assistant_message = chat_completion(endpoint, messages, tools, round, progress).await?;
-  completed_model_round(endpoint, assistant_message, round, tool_rounds_completed)
-}
-
 /// Checks a model's reply and extracts the tool calls to run.
 fn completed_model_round(
   endpoint: &ChatEndpoint,
@@ -3960,7 +4019,6 @@ async fn run_chat_with_tools(
 ) -> InfuResult<ChatRunResult> {
   reset_llm_log();
 
-  let ChatResources { endpoint, infumap_data, tools, name_map, approval_required } = resources;
   let mut messages = explicit_wire_messages(&request.messages, request.query_item_id.is_some())?;
   if messages.is_empty() {
     return Err("Chat request did not contain any message text.".into());
@@ -3971,12 +4029,27 @@ async fn run_chat_with_tools(
     None => chat_system_prompt(
       &*db.lock().await,
       request.chat_started_at,
-      infumap_data.as_ref(),
-      !name_map.is_empty(),
+      resources.infumap_data.as_ref(),
+      !resources.name_map.is_empty(),
       request.settings.mode,
     ),
   };
   messages.insert(0, OpenAiChatMessage::text("system", system_prompt));
+  if let Some(transcript) = turn.as_ref().and_then(|turn| turn.transcript.transcript())
+    && let [first] = transcript.turns.as_slice()
+  {
+    generate_initial_chat_title(
+      db,
+      &session.user_id,
+      &transcript.header.query_item_id,
+      &first.user,
+      &resources,
+      &messages,
+      progress,
+    )
+    .await;
+  }
+  let ChatResources { endpoint, infumap_data, tools, name_map, approval_required } = resources;
   let tool_context = ChatToolContext {
     mode: request.settings.mode,
     model: endpoint.model.clone(),
@@ -4737,16 +4810,6 @@ async fn apply_sse_events(
     }
   }
   Ok(false)
-}
-
-async fn chat_completion(
-  endpoint: &ChatEndpoint,
-  messages: &[OpenAiChatMessage],
-  tools: &[OpenAiToolSpec],
-  llm_turn: usize,
-  progress: &ChatProgressReporter,
-) -> InfuResult<OpenAiChatMessage> {
-  send_chat_completion(endpoint, &chat_completion_payload(endpoint, messages, tools, None), llm_turn, progress).await
 }
 
 /// The request body exactly as it is sent: messages in the form the provider gets them, and its own fields.

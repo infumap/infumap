@@ -1301,7 +1301,6 @@ async function followQueryChatRun(
   };
   let accepted = false;
   let resolvedAttachmentsAdded = false;
-  const firstTurnArchive: { promise: Promise<void> | null } = { promise: null };
   const acceptTurn = (revision: number, attachments: Array<LoadChatAttachment> = []) => {
     if (!resolvedAttachmentsAdded && options.submission != null && attachments.length > 0) {
       addResolvedAttachmentsToLocalUserTurn(store, queryItem, options.submission.userTurnRootId, attachments);
@@ -1311,7 +1310,9 @@ async function followQueryChatRun(
     accepted = true;
     setQueryChatRevision(store, queryItem, revision);
     if (firstAcceptance && revision == 1) {
-      firstTurnArchive.promise = archiveQueryChatAfterFirstTurn(store, queryItem, ownsChat);
+      void archiveQueryChatAfterFirstTurn(store, queryItem, ownsChat).catch(
+        e => console.error("Failed to archive the first query chat turn:", e),
+      );
       // The server fixed the chat's setup from this first turn's settings.
       const payload = options.submission?.payload;
       if (payload != null) {
@@ -1441,18 +1442,6 @@ async function followQueryChatRun(
   } finally {
     controller.abort();
     disposeAccountWatch();
-    if (firstTurnArchive.promise != null) {
-      void firstTurnArchive.promise.then(
-        () => {
-          // Reattachment may find the first turn already archived but its title generation unfinished.
-          // The title endpoint only replaces the original prompt-derived title.
-          if (ownsChat() && !getQueryRuntime(store, queryItem).chat.runningElsewhere) {
-            void generateQueryChatTitle(store, queryItem.id);
-          }
-        },
-        e => console.error("Failed to archive the first query chat turn:", e),
-      );
-    }
     const activeRequest = activeQueryChatRequestByQueryId.get(queryItem.id);
     if (activeRequest?.controller == controller) {
       activeQueryChatRequestByQueryId.delete(queryItem.id);

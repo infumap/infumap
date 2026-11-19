@@ -394,16 +394,17 @@ pub(super) async fn start_research_run(
   let (registration, subscriber) =
     runs::register(session.user_id.clone(), query_item_id.clone(), request_id.to_owned(), state.clone())
       .map_err(error)?;
-  let progress = ChatProgressReporter::for_live_run(request_id.to_owned(), query_item_id, state);
-  let run = Run { user, system_prompt: setup.system_prompt, resources };
+  let progress = ChatProgressReporter::for_live_run(request_id.to_owned(), query_item_id.clone(), state);
+  let run = Run { query_item_id, user, system_prompt: setup.system_prompt, resources };
   tokio::spawn(run_worker(config, db.clone(), session.clone(), run, log, lock, registration, progress));
   // Retries can attach from here on; inference must not hold the startup lock.
   drop(reservation);
   Ok(subscriber)
 }
 
-/// What the strategy is given: the question, the system prompt the header recorded, and the model and tools.
+/// The query item, the question, and the prepared system prompt, model and tools.
 struct Run {
+  query_item_id: Uid,
   user: UserRecord,
   system_prompt: String,
   resources: ChatResources,
@@ -523,11 +524,12 @@ async fn run_standard_strategy(
   log: &mut RunLog,
   progress: &ChatProgressReporter,
 ) -> InfuResult<String> {
-  let Run { user, system_prompt, resources } = run;
-  let ChatResources { endpoint, infumap_data, tools, name_map, approval_required } = resources;
+  let Run { query_item_id, user, system_prompt, resources } = run;
   let mode = ChatRunMode::DeepResearch;
   let mut messages =
     vec![OpenAiChatMessage::text("system", system_prompt), OpenAiChatMessage::text("user", user.model_content())];
+  generate_initial_chat_title(db, &session.user_id, &query_item_id, &user, &resources, &messages, progress).await;
+  let ChatResources { endpoint, infumap_data, tools, name_map, approval_required } = resources;
   let tool_context = ChatToolContext { mode, model: endpoint.model.clone(), call_counts: Mutex::new(HashMap::new()) };
   let mut tool_rounds = 0usize;
 
@@ -667,7 +669,7 @@ pub(super) async fn persist_research_run(
       return Err("This research run has no report to keep. Delete it instead.".into());
     }
   }
-  // The title is generated when the run starts; this only fills in one that never arrived.
+  // Fill in a missing title from an earlier run or a failed initial title request.
   let title = match generate_live_chat_title(config, db, session, query_item_id).await {
     Ok(title) if !title.trim().is_empty() => title,
     Ok(_) => "Research".to_owned(),
