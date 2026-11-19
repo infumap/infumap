@@ -9,7 +9,8 @@ lose it, and you can keep a chat in your item tree, continue it later, or copy p
 
 - **Starting a chat** moves it down into the list, as the newest earlier chat, as soon as your first message is
   accepted. The chat stays open while its response runs, and a new, empty New Query takes its place at the top. To
-  start another chat, select New Query.
+  start another search, chat or research run while the response is still running, select New Query. In **Model**,
+  you can choose a different configured provider for the new query.
 - **Earlier chats** are listed below New Query, newest first. Select one to read it, and send a message to
   continue it. Earlier chats are only for chatting: their search mode is not offered.
 - A chat is named from the first words of its first message. When it becomes an earlier chat, it is given a short

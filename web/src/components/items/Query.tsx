@@ -180,6 +180,16 @@ const QUERY_DRAFT_ATTACHMENTS_ROW_HEIGHT_PX = 30;
 const QUERY_DRAFT_ATTACHMENTS_ROW_GAP_PX = 6;
 const EMPTY_SKILL_SELECTION: DraftSkillSelection = { text: "", mentions: [] };
 export const Query_Desktop: Component<VisualElementProps> = (props: VisualElementProps) => {
+  // The list reuses its detail view when changing rows. Give each query its own composer state while requests
+  // continue in the query runtime after their view is closed.
+  return (
+    <Show keyed when={props.visualElement.displayItem.id}>
+      <QueryView {...props} />
+    </Show>
+  );
+};
+
+const QueryView: Component<VisualElementProps> = (props: VisualElementProps) => {
   const store = useStore();
   const [pendingInputFocus, setPendingInputFocus] = createSignal<{ caretIdx: number, selectAll: boolean } | null>(null);
   const [forceNonEditing, setForceNonEditing] = createSignal(false);
