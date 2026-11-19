@@ -21,6 +21,7 @@ use futures_util::future::{BoxFuture, Shared};
 use http_body_util::combinators::BoxBody;
 use hyper::{Request, Response};
 use image::imageops::FilterType;
+use infusdk::item::ItemType;
 use infusdk::util::geometry::Dimensions;
 use infusdk::util::infu::InfuResult;
 use infusdk::util::time::unix_now_secs_i64;
@@ -278,11 +279,17 @@ pub async fn serve_files_route(
 
   let name = &req.uri().path()[7..];
 
+  // `/files/<id>/chat` is the older address of a live chat's file, kept so existing links work.
   if let Some(uid) = name.strip_suffix("/chat") {
     if !is_uid(uid) {
       return not_found_response();
     }
     super::command::serve_live_chat_file(db, &session_user_id_maybe, &uid.to_owned()).await
+  } else if is_query_item(db, name).await {
+    // A chat or research run in the Queries page has no stored object: its file is its live transcript or run log,
+    // which changes as it runs and is served uncached. Its id never names a stored object (keeping it makes a new
+    // item), so no cached object response can be confused with it.
+    super::command::serve_live_chat_file(db, &session_user_id_maybe, &name.to_owned()).await
   } else if let Some(uid) = name.strip_suffix("/text") {
     if !is_uid(uid) {
       return not_found_response();
@@ -345,6 +352,10 @@ pub async fn serve_files_route(
       }
     }
   }
+}
+
+async fn is_query_item(db: &Arc<tokio::sync::Mutex<Db>>, name: &str) -> bool {
+  is_uid(name) && db.lock().await.item.get(&name.to_owned()).is_ok_and(|item| item.item_type == ItemType::Search)
 }
 
 async fn get_cached_resized_img(

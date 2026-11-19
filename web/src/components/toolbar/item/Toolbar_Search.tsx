@@ -34,7 +34,7 @@ export const Toolbar_Search: Component = () => {
   const canOpenChatFile = () => isLiveQueryChat(store, queryItem()) && queryChatHasContent(store, queryItem());
 
   const handleOpenFile = () => {
-    window.open(`/files/${queryItem().id}/chat`, "_blank", "noopener");
+    window.open(`/files/${queryItem().id}`, "_blank", "noopener");
   };
   const handleOpenFileDown = () => {
     ClickState.setButtonClickBoundsPx(openFileDiv!.getBoundingClientRect());

@@ -256,6 +256,18 @@ pub(super) async fn read_run(data_dir: &str, user_id: &Uid, query_item_id: &Uid)
   }
 }
 
+/// The log's complete records, without reading them: an append still in progress is an incomplete last line, left out.
+pub(super) async fn read_run_bytes(data_dir: &str, user_id: &Uid, query_item_id: &Uid) -> InfuResult<Option<Vec<u8>>> {
+  match tokio::fs::read(run_log_path(data_dir, user_id, query_item_id)?).await {
+    Ok(mut bytes) => {
+      bytes.truncate(bytes.iter().rposition(|byte| *byte == b'\n').map_or(0, |index| index + 1));
+      Ok(Some(bytes))
+    }
+    Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+    Err(e) => Err(e.into()),
+  }
+}
+
 /// An incomplete last line, from an append cut short, is ignored.
 pub(super) fn parse_run(bytes: &[u8]) -> InfuResult<Option<SavedRun>> {
   let complete = &bytes[..bytes.iter().rposition(|byte| *byte == b'\n').map_or(0, |index| index + 1)];

@@ -2214,10 +2214,18 @@ pub(crate) async fn serve_live_chat_file(
     }
     db.item.data_dir().to_owned()
   };
-  match transcript::read_transcript_bytes(&data_dir, user_id, query_item_id).await {
-    Ok(Some(bytes)) => Response::builder()
+  // A research run's query item has its run log instead of a chat transcript.
+  let file = match transcript::read_transcript_bytes(&data_dir, user_id, query_item_id).await {
+    Ok(Some(bytes)) => Ok(Some((bytes, "chat"))),
+    Ok(None) => research::read_run_bytes(&data_dir, user_id, query_item_id)
+      .await
+      .map(|bytes| bytes.map(|bytes| (bytes, research::RUN_LOG_EXTENSION))),
+    Err(e) => Err(e),
+  };
+  match file {
+    Ok(Some((bytes, extension))) => Response::builder()
       .header(hyper::header::CONTENT_TYPE, "text/plain; charset=utf-8")
-      .header(hyper::header::CONTENT_DISPOSITION, format!("inline; filename=\"{}.chat\"", query_item_id))
+      .header(hyper::header::CONTENT_DISPOSITION, format!("inline; filename=\"{}.{}\"", query_item_id, extension))
       .header("X-Content-Type-Options", "nosniff")
       .header(hyper::header::CACHE_CONTROL, "no-store")
       .body(crate::web::serve::full_body(bytes))
@@ -6280,6 +6288,14 @@ mod live_chat_tests {
     }
     assert_eq!(of_type("tool_set").len(), 1, "one tool set, recorded once");
     assert_eq!(of_type("response").len(), 3);
+
+    // Its log is the query item's text file, as a chat's transcript is.
+    let file = serve_live_chat_file(&f.db, &Some(f.session.user_id.clone()), &f.query_item_id).await;
+    assert_eq!(file.status(), hyper::StatusCode::OK);
+    let disposition = file.headers()[hyper::header::CONTENT_DISPOSITION].to_str().unwrap().to_owned();
+    assert!(disposition.ends_with(".run\""), "{disposition}");
+    let body = http_body_util::BodyExt::collect(file.into_body()).await.ok().unwrap().to_bytes();
+    assert!(body.starts_with(b"{\"type\":\"header\""));
 
     // It loads as a chat of one turn, for the chat view: the question, then the report.
     let loaded = serde_json::to_value(research::load_chat_response(&f.session.user_id, run, false)).unwrap();
