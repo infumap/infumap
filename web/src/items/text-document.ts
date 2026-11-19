@@ -22,6 +22,7 @@ import { GRID_SIZE } from "../constants";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { PageFlags, TableFlags, CompositeFlags } from "./base/flags-item";
 import { asAttachmentsItem, isAttachmentsItem } from "./base/attachments-item";
+import { itemCanEdit } from "./base/capabilities-item";
 import { asContainerItem, isContainer } from "./base/container-item";
 import { CompositeFns, isComposite, asCompositeItem } from "./composite-item";
 import { queryChatOutcomeText } from "./chat";
@@ -826,6 +827,17 @@ export function sourceTextItemForVirtualTextDocumentPage(pageId: Uid): TextItem 
   const source = itemState.get(sourceTextId);
   if (source == null || source.itemType != ItemType.Text) { return null; }
   return source as TextItem;
+}
+
+/**
+ * The text item whose title a virtual document page's title edits, if it can be edited. The page itself is read-only
+ * (its content is a projection of the text item's), but its title is the text item's, so it is edited there. Not for a
+ * client-only source, such as a chat attachment or a chat turn as markdown, which has nowhere to save it.
+ */
+export function titleEditableSourceForVirtualTextDocumentPage(pageId: Uid): TextItem | null {
+  const source = sourceTextItemForVirtualTextDocumentPage(pageId);
+  if (source == null || source.clientOnly || source.chatAttachmentSource != null || !itemCanEdit(source)) { return null; }
+  return source;
 }
 
 export function isMarkdownTextDocumentPage(pageId: Uid): boolean {

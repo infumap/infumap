@@ -20,7 +20,7 @@ import imgUrl from '../../assets/circle.png'
 
 import { Component, Index, Match, Show, Switch, createMemo } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
-import { commitActiveToolbarTitleEdit } from "../../input/toolbar_title";
+import { commitActiveToolbarTitleEdit, toolbarTitleCanEdit } from "../../input/toolbar_title";
 import { NONE_VISUAL_ELEMENT, VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { Toolbar_Note } from "./item/Toolbar_Note";
 import { Toolbar_Navigation } from "./Toolbar_Navigation";
@@ -28,7 +28,6 @@ import { Toolbar_NetworkStatus } from "./Toolbar_NetworkStatus";
 import { initialEditUserSettingsBounds } from "../overlay/userSettingsGeometry";
 import { itemState } from "../../store/ItemState";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../../items/page-item";
-import { itemCanEdit } from "../../items/base/capabilities-item";
 import { hexToRGBA } from "../../util/color";
 import { BORDER_COLOR, BorderType, Colors, LIGHT_BORDER_COLOR, borderColorForColorIdx, linearGradient, mainPageBorderColor, mainPageBorderWidth, tablePageLineColor } from "../../style";
 import { InfuIconButton } from '../library/InfuIconButton';
@@ -63,7 +62,6 @@ import { VesCache } from '../../layout/ves-cache';
 import { logout } from '../Main';
 import { getFocusedSearchWorkspaceChromeSpec } from '../../util/search-focus-chrome';
 import { getToolbarFocusItem } from './toolbarFocus';
-import { SOLO_ITEM_HOLDER_PAGE_UID } from '../../util/uid';
 import { toolbarRightDividerRightPx } from "./toolbarDividers";
 import { MOD } from '../../util/platform';
 import { InfuRevealCaret } from '../library/InfuRevealCaret';
@@ -218,7 +216,7 @@ export const Toolbar: Component = () => {
         ? borderColorForColorIdx(firstTopPage.backgroundColorIndex, BorderType.MainPage)
         : ' ',
       borderWidthPx: focusPageIdx == 0 ? 2 : 1,
-      canEdit: firstTopPage.id != SOLO_ITEM_HOLDER_PAGE_UID && itemCanEdit(firstTopPage),
+      canEdit: toolbarTitleCanEdit(firstTopPage),
       isCollection: isCollectionPage(firstTopPage),
     });
 
@@ -248,7 +246,7 @@ export const Toolbar: Component = () => {
           ? borderColorForColorIdx(focusPageItem!.backgroundColorIndex, BorderType.MainPage)
           : ' ',
         borderWidthPx: focusPageIdx <= i ? 2 : 1,
-        canEdit: page.id != SOLO_ITEM_HOLDER_PAGE_UID && itemCanEdit(page),
+        canEdit: toolbarTitleCanEdit(page),
         isCollection: isCollectionPage(page),
       });
     }

@@ -19,6 +19,7 @@
 import { itemCanEdit } from "../items/base/capabilities-item";
 import { asPageItem, isPage } from "../items/page-item";
 import type { PageItem } from "../items/page-item";
+import { titleEditableSourceForVirtualTextDocumentPage } from "../items/text-document";
 import { VeFns } from "../layout/visual-element";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
@@ -46,6 +47,15 @@ function toolbarTitlePageItem(store: StoreContextModel, element: Element | null)
   return asPageItem(titleItem);
 }
 
+/**
+ * Whether the title of a page in the toolbar can be edited. A text item (including a kept chat or research run) shown
+ * as a document page is shown as a read-only virtual page, but its title is the text item's and can be edited.
+ */
+export function toolbarTitleCanEdit(pageItem: PageItem): boolean {
+  if (pageItem.id == SOLO_ITEM_HOLDER_PAGE_UID) { return false; }
+  return itemCanEdit(pageItem) || titleEditableSourceForVirtualTextDocumentPage(pageItem.id) != null;
+}
+
 export function commitActiveToolbarTitleEdit(store: StoreContextModel, immediately: boolean = true): boolean {
   const activeElement = document.activeElement;
   if (!(activeElement instanceof HTMLElement) || !activeElement.isContentEditable) {
@@ -53,17 +63,18 @@ export function commitActiveToolbarTitleEdit(store: StoreContextModel, immediate
   }
 
   const pageItem = toolbarTitlePageItem(store, activeElement);
-  if (!pageItem || !itemCanEdit(pageItem)) {
-    return false;
-  }
-  if (pageItem.id == SOLO_ITEM_HOLDER_PAGE_UID) {
+  if (!pageItem || !toolbarTitleCanEdit(pageItem)) {
     return false;
   }
 
-  if (pageItem.title != activeElement.innerText) {
-    pageItem.title = activeElement.innerText;
-    itemState.sortParentChildrenIfSorted(pageItem);
-    store.textEdit.saveItem(pageItem, immediately);
+  const newTitle = activeElement.innerText;
+  // The virtual page's title is kept equal to its text item's: a mismatch makes it be projected again.
+  const itemToSave = titleEditableSourceForVirtualTextDocumentPage(pageItem.id) ?? pageItem;
+  if (itemToSave.title != newTitle) {
+    pageItem.title = newTitle;
+    itemToSave.title = newTitle;
+    itemState.sortParentChildrenIfSorted(itemToSave);
+    store.textEdit.saveItem(itemToSave, immediately);
   } else if (immediately) {
     void store.textEdit.flush();
   }
