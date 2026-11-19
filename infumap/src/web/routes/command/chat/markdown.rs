@@ -848,20 +848,39 @@ fn parse_markdown_inline(input: &str) -> ChatMarkdownInlineText {
       continue;
     }
 
-    if let Some((marker, flags)) = markdown_inline_marker(&input[index..]) {
-      let content_start = index + marker.len();
-      if let Some(content_end) = input[content_start..].find(marker).map(|offset| content_start + offset) {
-        if content_end > content_start {
-          append_chat_marked_inline_text(&mut output, &mut inline_marks, &input[content_start..content_end], flags);
-          index = content_end + marker.len();
-          continue;
-        }
+    let ch = input[index..].chars().next().unwrap();
+    let (literal_end, emphasis) = match ch {
+      '_' => {
+        let content_start = index + markdown_underscore_run_len(&input[index..]);
+        let emphasis =
+          markdown_underscore_emphasis_end(input, index, content_start).map(|content_end| (content_start, content_end));
+        (content_start, emphasis)
       }
+      '*' => {
+        let marker_len = input[index..].bytes().take(3).take_while(|&byte| byte == b'*').count();
+        let content_start = index + marker_len;
+        let emphasis = input[content_start..]
+          .find(&input[index..content_start])
+          .filter(|&offset| offset > 0)
+          .map(|offset| (content_start, content_start + offset));
+        (index + 1, emphasis)
+      }
+      _ => (index + ch.len_utf8(), None),
+    };
+    if let Some((content_start, content_end)) = emphasis {
+      let marker_len = content_start - index;
+      let flags = match marker_len {
+        1 => NOTE_INLINE_MARK_ITALIC,
+        2 => NOTE_INLINE_MARK_BOLD,
+        _ => NOTE_INLINE_MARK_BOLD | NOTE_INLINE_MARK_ITALIC,
+      };
+      append_chat_marked_inline_text(&mut output, &mut inline_marks, &input[content_start..content_end], flags);
+      index = content_end + marker_len;
+      continue;
     }
 
-    let ch = input[index..].chars().next().unwrap();
-    output.push(ch);
-    index += ch.len_utf8();
+    output.push_str(&input[index..literal_end]);
+    index = literal_end;
   }
 
   ChatMarkdownInlineText { title: output, inline_marks, urls }
@@ -932,17 +951,37 @@ fn markdown_escaped_ascii_punctuation(slice: &str) -> Option<(char, usize)> {
   Some((escaped, '\\'.len_utf8() + escaped.len_utf8()))
 }
 
-fn markdown_inline_marker(slice: &str) -> Option<(&'static str, i64)> {
-  for (marker, flags) in [
-    ("***", NOTE_INLINE_MARK_BOLD | NOTE_INLINE_MARK_ITALIC),
-    ("___", NOTE_INLINE_MARK_BOLD | NOTE_INLINE_MARK_ITALIC),
-    ("**", NOTE_INLINE_MARK_BOLD),
-    ("__", NOTE_INLINE_MARK_BOLD),
-    ("*", NOTE_INLINE_MARK_ITALIC),
-    ("_", NOTE_INLINE_MARK_ITALIC),
-  ] {
-    if slice.starts_with(marker) {
-      return Some((marker, flags));
+fn markdown_underscore_run_len(slice: &str) -> usize {
+  slice.bytes().take_while(|&byte| byte == b'_').count()
+}
+
+fn markdown_underscore_emphasis_end(input: &str, start: usize, content_start: usize) -> Option<usize> {
+  let marker_len = content_start - start;
+  // Check both emphasis boundaries so the underscores inside a filename stay literal,
+  // even when the filename appears next to emphasized text.
+  if marker_len > 3
+    || input[..start].ends_with(char::is_alphanumeric)
+    || input[content_start..].starts_with(char::is_whitespace)
+  {
+    return None;
+  }
+
+  let mut index = content_start;
+  while index < input.len() {
+    let slice = &input[index..];
+    if let Some((_, len)) = markdown_escaped_ascii_punctuation(slice) {
+      index += len;
+    } else if slice.starts_with('_') {
+      let run_len = markdown_underscore_run_len(slice);
+      if run_len == marker_len
+        && !input[..index].ends_with(char::is_whitespace)
+        && !slice[run_len..].starts_with(char::is_alphanumeric)
+      {
+        return Some(index);
+      }
+      index += run_len;
+    } else {
+      index += slice.chars().next().unwrap().len_utf8();
     }
   }
   None
