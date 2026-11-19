@@ -405,6 +405,11 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const isTextEditTarget = () =>
     store.overlay.textEditInfo()?.itemPath == vePath();
 
+  // A fixed height note doesn't grow while its text is edited, so the text scrolls within it instead of
+  // spilling out (other notes let it overflow briefly, until the next arrange grows them).
+  const scrollsWhileEditing = () =>
+    isTextEditTarget() && !!(noteItem().flags & NoteFlags.ExplicitHeight) && !isInCompositeOrDocument();
+
   const renderedTitle = () => noteItem().title;
 
   const renderedInlineMarks = () => noteItem().inlineMarks;
@@ -458,6 +463,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
         `overflow-wrap: break-word; white-space: pre-wrap; ` +
         `box-sizing: border-box; padding-left: ${titlePaddingLeftPx()}px; ` +
         `text-indent: ${titleTextIndentPx()}px; ` +
+        `${editing && scrollsWhileEditing() ? `padding-bottom: ${NOTE_PADDING_PX}px; ` : ""}` +
         `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
         `outline: 0px solid transparent; ` +
         (editing
@@ -491,7 +497,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const renderDetailed = () =>
     <>
-      <div class={`absolute inset-0 rounded-item ${isTextEditTarget() ? "overflow-visible" : "overflow-hidden"}`}>
+      <div class={`absolute inset-0 rounded-item ${isTextEditTarget() && !scrollsWhileEditing() ? "overflow-visible" : "overflow-hidden"}`}>
         <Show when={(props.visualElement.flags & VisualElementFlags.FindHighlighted) || (props.visualElement.flags & VisualElementFlags.SelectionHighlighted)}>
           <div class="absolute pointer-events-none rounded-item"
             style={`left: 0px; top: 0px; ` +
@@ -514,10 +520,17 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
             <NoteIconGlyph note={noteItem} iconContext={iconContext} highPriority={isPopup} />
           </div>
         </Show>
-        {renderListMarkerMaybe()}
-        <Show when={isTextEditTarget()} fallback={renderTitle(false)}>
-          {renderTitle(true)}
-        </Show>
+        {/* Always present (not toggled with Show) so turning on fixed height mid-edit doesn't recreate the
+            editor. It has the same bounds as its parent, so it doesn't move the text when it isn't scrolling.
+            mouse_down uses data-edit-clip to ignore clicks on the scrolled out parts of the editor. */}
+        <div class="absolute inset-0"
+          data-edit-clip={scrollsWhileEditing() ? "" : undefined}
+          style={scrollsWhileEditing() ? `overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin;` : ""}>
+          {renderListMarkerMaybe()}
+          <Show when={isTextEditTarget()} fallback={renderTitle(false)}>
+            {renderTitle(true)}
+          </Show>
+        </div>
         <Show when={isInDocumentPage()}>
           <div
             aria-hidden="true"

@@ -531,7 +531,33 @@ export async function mouseDownHandler(store: StoreContextModel, buttonNumber: n
         ? editingItemPath + ":col" + store.overlay.textEditInfo()!.colNum
         : editingItemPath + ":title";
       const editingDomEl = document.getElementById(editingDomId);
-      if (editingDomEl && isInside(CursorEventState.getLatestClientPx(), boundingBoxFromDOMRect(editingDomEl.getBoundingClientRect())!) &&
+      // A fixed height note scrolls its editor, which then extends past the visible area. Only the visible
+      // part places the caret, and its scrollbar is left to the browser rather than ending the edit.
+      const editingClipEl = editingDomEl?.closest("[data-edit-clip]") as HTMLElement | null;
+      if (editingClipEl && buttonNumber == MOUSE_LEFT) {
+        const clipRect = editingClipEl.getBoundingClientRect();
+        const clientPx = CursorEventState.getLatestClientPx();
+        if (isInside(clientPx, boundingBoxFromDOMRect(clipRect)!) &&
+          clientPx.x >= clipRect.left + editingClipEl.clientLeft + editingClipEl.clientWidth &&
+          !(HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], false).hitboxType & HitboxFlags.Resize)) {
+          MouseActionState.set(null);
+          return MouseEventActionFlags.None;
+        }
+      }
+      const editingClickBounds = (() => {
+        if (!editingDomEl) { return null; }
+        const editorBounds = boundingBoxFromDOMRect(editingDomEl.getBoundingClientRect())!;
+        if (!editingClipEl) { return editorBounds; }
+        const clipBounds = boundingBoxFromDOMRect(editingClipEl.getBoundingClientRect())!;
+        const x = Math.max(editorBounds.x, clipBounds.x);
+        const y = Math.max(editorBounds.y, clipBounds.y);
+        return {
+          x, y,
+          w: Math.max(0, Math.min(editorBounds.x + editorBounds.w, clipBounds.x + clipBounds.w) - x),
+          h: Math.max(0, Math.min(editorBounds.y + editorBounds.h, clipBounds.y + clipBounds.h) - y),
+        };
+      })();
+      if (editingClickBounds && isInside(CursorEventState.getLatestClientPx(), editingClickBounds) &&
         buttonNumber == MOUSE_LEFT) {
         const hitInfo = HitInfoFns.hit(store, CursorEventState.getLatestDesktopPx(store), [], false);
         // The column menu arrow is rendered inside the heading it belongs to, but clicking it isn't placing a caret.
