@@ -2302,11 +2302,29 @@ async fn live_chat_data_dir(
   Ok(db.item.data_dir().to_owned())
 }
 
-/// Opens a live chat's recorded transcript as plain text without persisting it into the item tree.
+/// Serves the compact transcript at the older `/chat` address.
 pub(crate) async fn serve_live_chat_file(
   db: &Arc<tokio::sync::Mutex<Db>>,
   session_user_id: &Option<Uid>,
   query_item_id: &Uid,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
+  serve_live_chat_file_with_format(db, session_user_id, query_item_id, false).await
+}
+
+/// Opens a live chat or run's recorded log as indented JSON without persisting it into the item tree.
+pub(crate) async fn serve_live_chat_json_file(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  session_user_id: &Option<Uid>,
+  query_item_id: &Uid,
+) -> Response<BoxBody<Bytes, hyper::Error>> {
+  serve_live_chat_file_with_format(db, session_user_id, query_item_id, true).await
+}
+
+async fn serve_live_chat_file_with_format(
+  db: &Arc<tokio::sync::Mutex<Db>>,
+  session_user_id: &Option<Uid>,
+  query_item_id: &Uid,
+  pretty: bool,
 ) -> Response<BoxBody<Bytes, hyper::Error>> {
   let Some(user_id) = session_user_id else {
     return forbidden_response();
@@ -2330,6 +2348,10 @@ pub(crate) async fn serve_live_chat_file(
       .map(|bytes| bytes.map(|bytes| (bytes, research::RUN_LOG_EXTENSION))),
     Err(e) => Err(e),
   };
+  let file = match file {
+    Ok(Some((bytes, extension))) if pretty => pretty_transcript_json(bytes).await.map(|json| Some((json, extension))),
+    file => file,
+  };
   match file {
     Ok(Some((bytes, extension))) => Response::builder()
       .header(hyper::header::CONTENT_TYPE, "text/plain; charset=utf-8")
@@ -2344,6 +2366,22 @@ pub(crate) async fn serve_live_chat_file(
       crate::web::serve::internal_server_error_response("Could not open the chat transcript.")
     }
   }
+}
+
+/// Format for display at the file route. The readers and appenders use the stored line boundaries.
+pub(crate) async fn pretty_transcript_json(bytes: Vec<u8>) -> InfuResult<Vec<u8>> {
+  tokio::task::spawn_blocking(move || {
+    let records = bytes
+      .split(|byte| *byte == b'\n')
+      .filter(|line| !line.iter().all(u8::is_ascii_whitespace))
+      .map(serde_json::from_slice::<Value>)
+      .collect::<Result<Vec<_>, _>>()?;
+    let mut json = serde_json::to_vec_pretty(&records)?;
+    json.push(b'\n');
+    Ok(json)
+  })
+  .await
+  .map_err(|e| format!("Transcript formatting task failed: {}", e))?
 }
 
 /// Names exactly one of a live chat (its query item) or a persisted chat (its `.chat` text item).

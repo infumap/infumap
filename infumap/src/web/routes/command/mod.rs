@@ -93,7 +93,8 @@ mod search;
 mod skills;
 
 pub(crate) use chat::{
-  chat_providers_from_config, chat_tool_servers_from_config, serve_live_chat_file, validate_chat_backend_config,
+  chat_providers_from_config, chat_tool_servers_from_config, pretty_transcript_json, serve_live_chat_file,
+  serve_live_chat_json_file, validate_chat_backend_config,
 };
 pub use chat::{
   remove_orphan_chat_transcripts, serve_chat_cancel_route, serve_chat_continue_route, serve_chat_models_route,

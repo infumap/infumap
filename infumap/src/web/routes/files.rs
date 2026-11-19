@@ -216,7 +216,7 @@ fn content_disposition_header(filename: &str, inline: bool) -> String {
 
 fn response_content_headers(filename: &str, mime_type: &str) -> (String, String) {
   if is_transcript_mime_type(mime_type) {
-    // The stored MIME identifies a chat or research run item; the JSONL response is safe to view as plain text.
+    // Plain text displays the formatted log without the browser's JSON viewer.
     ("text/plain; charset=utf-8".to_owned(), content_disposition_header(filename, true))
   } else if is_safe_inline_mime(mime_type) {
     (mime_type.to_owned(), content_disposition_header(filename, true))
@@ -289,7 +289,7 @@ pub async fn serve_files_route(
     // A chat or research run in the Queries page has no stored object: its file is its live transcript or run log,
     // which changes as it runs and is served uncached. Its id never names a stored object (keeping it makes a new
     // item), so no cached object response can be confused with it.
-    super::command::serve_live_chat_file(db, &session_user_id_maybe, &name.to_owned()).await
+    super::command::serve_live_chat_json_file(db, &session_user_id_maybe, &name.to_owned()).await
   } else if let Some(uid) = name.strip_suffix("/text") {
     if !is_uid(uid) {
       return not_found_response();
@@ -833,11 +833,14 @@ async fn get_file(
   // Text items are served from the local copy the fragment pipeline keeps of them, rather than from object storage.
   // Opening one waits on this response before its document page is arranged, and the object storage round trip was
   // a noticeable delay. Other files are cached browser side only.
-  let data = if is_local_text_copy_item(&item) {
+  let mut data = if is_local_text_copy_item(&item) {
     read_or_create_local_text_copy(&data_dir, object_store, &item, &object_encryption_key, "text file").await?
   } else {
     object::get(object_store, item.owner_id, String::from(uid), &object_encryption_key).await?
   };
+  if is_transcript_mime_type(mime_type_string) {
+    data = super::command::pretty_transcript_json(data).await?;
+  }
 
   let browser_cache_max_age_seconds =
     config.get_int(CONFIG_BROWSER_CACHE_MAX_AGE_SECONDS).map_err(|e| e.to_string())?;
