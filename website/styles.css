@@ -111,7 +111,8 @@ main { max-width: calc(var(--max) + 2 * var(--gutter)); margin: 0 auto; padding:
 .panel-copy > * + * { margin-top: 12px; }
 .panel-copy .panel-lead { font-size: 21px; line-height: 1.35; color: var(--ink); font-weight: 600; }
 .panel-copy h4 { margin: 0; color: var(--blue); font-size: 15px; font-weight: 600; }
-.page-intro { padding: 20px clamp(20px, 3vw, 32px); }
+.page-intro { padding: 20px clamp(20px, 6vw, 32px); }
+.page-intro > p { max-width: none; }
 .arrangements { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 clamp(20px, 3vw, 32px) 20px; border-bottom: 1px solid var(--item-line); }
 .tile, .arrangement-tab { min-height: 40px; padding: 8px 14px; border: 1px solid var(--item-line); border-radius: var(--radius); background: var(--ground); color: var(--text); font: 600 15px/1.3 var(--sans); cursor: pointer; }
 .tile:hover, .arrangement-tab:hover { background: var(--hover); }
