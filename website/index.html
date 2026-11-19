@@ -73,15 +73,15 @@
         <div class="panel item" id="panel-pages" style="--page: var(--blue)">
           <div class="item-titlebar"><h3>Pages</h3></div>
           <div class="page-intro">
-            <p>There are 8 page arrangement types. Switch any page between them at any time.</p>
+            <p>There are 8 page arrangement types. Arrangements are just different views of the same information - switch between them at any time.</p>
           </div>
           <div class="arrangements tab-controls" data-tabs aria-label="Page arrangements" hidden>
             <button class="arrangement-tab" type="button" id="tab-page-spatial" data-panel="panel-page-spatial">Spatial</button>
+            <button class="arrangement-tab" type="button" id="tab-page-document" data-panel="panel-page-document">Document</button>
             <button class="arrangement-tab" type="button" id="tab-page-grid" data-panel="panel-page-grid">Grid</button>
             <button class="arrangement-tab" type="button" id="tab-page-justified" data-panel="panel-page-justified">Justified</button>
             <button class="arrangement-tab" type="button" id="tab-page-list" data-panel="panel-page-list">List</button>
             <button class="arrangement-tab" type="button" id="tab-page-table" data-panel="panel-page-table">Table</button>
-            <button class="arrangement-tab" type="button" id="tab-page-document" data-panel="panel-page-document">Document</button>
             <button class="arrangement-tab" type="button" id="tab-page-calendar" data-panel="panel-page-calendar">Calendar</button>
             <button class="arrangement-tab" type="button" id="tab-page-catalog" data-panel="panel-page-catalog">Catalog</button>
           </div>
@@ -90,9 +90,16 @@
               <div class="panel-copy">
                 <p>Infumap takes a unique approach to spatial pages. There's no zoom and a page is scrollable only when its aspect ratio differs substantially from the screen - and even then, only horizontally or vertically, never both.</p>
                 <p>This approach makes it easier to keep your bearings - reduces cognitive load and makes navigation quicker. If you need more room, resize the page or add subpages.</p>
-                <p>Humans think spatially. Spatial pages are amongst the most useful.</p>
+                <p>The human brain is good at spatial reasoning and recall. Spatial pages are amongst the most versatile and useful.</p>
               </div>
               <img src="assets/img/crop-areas.webp" width="963" height="637" loading="lazy" alt="Coloured pages of different sizes arranged beside one another in Infumap.">
+            </div>
+          </section>
+          <section class="arrangement-panel" id="panel-page-document" aria-labelledby="heading-page-document">
+            <div class="panel-body">
+              <div class="panel-copy">
+                <p>Infumap's text editor is just another page arrangement type. Paragraphs are note items, and any other infumap item type can be embedded in the document.</p>
+              </div>
             </div>
           </section>
           <section class="arrangement-panel" id="panel-page-grid" aria-labelledby="heading-page-grid">
@@ -138,15 +145,6 @@
                 <h4 id="heading-page-table">Table</h4>
                 <p class="panel-lead">Line up the details.</p>
                 <p>Display the items on a page as rows with columns for their details. Compare options or keep a structured record alongside your other material.</p>
-              </div>
-            </div>
-          </section>
-          <section class="arrangement-panel" id="panel-page-document" aria-labelledby="heading-page-document">
-            <div class="panel-body">
-              <div class="panel-copy">
-                <h4 id="heading-page-document">Document</h4>
-                <p class="panel-lead">Read and write in a continuous flow.</p>
-                <p>Arrange notes and other items vertically as a document. Bring text and supporting material together in reading order.</p>
               </div>
             </div>
           </section>
