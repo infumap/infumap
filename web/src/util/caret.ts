@@ -207,10 +207,13 @@ export const closestCaretPositionToClientPx = (el: HTMLElement, clientPx: Vector
   }
 
   if (globalOffset == 0) {
+    // An element with no text gives offset 0. Besides BRs, it can hold empty text nodes (Solid renders "" as one)
+    // and non-editable decorations, e.g. the column menu chevron in a table heading whose name is empty.
     for (let i=0; i<el.childNodes.length; ++i) {
-      if (el.childNodes[i].nodeName != "BR") {
-        panic("closestCaretPositionToClientPx: expecting text-containing descendants or BR element");
-      }
+      const child = el.childNodes[i];
+      if (child.nodeName == "BR" || child.nodeType == Node.TEXT_NODE) { continue; }
+      if (child instanceof HTMLElement && child.contentEditable == "false") { continue; }
+      panic("closestCaretPositionToClientPx: expecting text-containing descendants or BR element");
     }
   }
 
