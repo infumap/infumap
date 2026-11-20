@@ -18,9 +18,9 @@
 
 import imgUrl from '../../assets/circle.png'
 
-import { Component, Index, Match, Show, Switch, createMemo } from "solid-js";
+import { Component, Index, Match, Show, Switch, createEffect, createMemo } from "solid-js";
 import { useStore } from "../../store/StoreProvider";
-import { commitActiveToolbarTitleEdit, toolbarTitleCanEdit } from "../../input/toolbar_title";
+import { commitActiveToolbarTitleEdit, syncToolbarTitleDivText, toolbarTitleCanEdit } from "../../input/toolbar_title";
 import { NONE_VISUAL_ELEMENT, VeFns, VisualElementFlags } from "../../layout/visual-element";
 import { Toolbar_Note } from "./item/Toolbar_Note";
 import { Toolbar_Navigation } from "./Toolbar_Navigation";
@@ -468,8 +468,8 @@ export const Toolbar: Component = () => {
                 `height: ${store.topToolbarHeightPx()}px; ` +
                 (tSpec().rPosPx > 0 ? `width: ${tSpec().rPosPx - tSpec().lPosPx - 6 - (tSpec().nextHasFocus ? 1 : 0) - (tSpec().isCollection ? TOOLBAR_COLLECTION_GLYPH_WIDTH_PX : 0)}px;` : '') +
                 "outline: 0px solid transparent;"}
-              onClick={handleTitleClick}>
-              {tSpec().title}
+              onClick={handleTitleClick}
+              ref={el => createEffect(() => syncToolbarTitleDivText(el, tSpec().title))}>
             </div>
             {/* A sibling, not inside the title, which is contentEditable. Its width comes out of a nested title's
                 width so the titles stay aligned with the list columns below them. */}

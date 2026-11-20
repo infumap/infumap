@@ -23,6 +23,7 @@ import { titleEditableSourceForVirtualTextDocumentPage } from "../items/text-doc
 import { VeFns } from "../layout/visual-element";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
+import { trimNewline } from "../util/string";
 import { SOLO_ITEM_HOLDER_PAGE_UID } from "../util/uid";
 
 
@@ -56,6 +57,27 @@ export function toolbarTitleCanEdit(pageItem: PageItem): boolean {
   return itemCanEdit(pageItem) || titleEditableSourceForVirtualTextDocumentPage(pageItem.id) != null;
 }
 
+/**
+ * The title shown in a toolbar title div. Emptying the div (select all, then delete) leaves only a <br>, whose
+ * innerText is "\n".
+ */
+function toolbarTitleDivText(element: HTMLElement): string {
+  return trimNewline(element.innerText);
+}
+
+/**
+ * Makes a toolbar title div show title, unless it already does. The div is edited in place by the browser, so it is not
+ * rendered as a Solid text child: Solid only rewrites text when the title differs from the value it last rendered, and
+ * then only by setting firstChild.data. After an edit that leaves just a <br> (emptying the title), or when the slot
+ * goes to another page with the same title as the last rendered one, the div would keep showing stale text, and the
+ * next commit would save that text to whichever page is now in the slot.
+ */
+export function syncToolbarTitleDivText(element: HTMLElement, title: string): void {
+  if (toolbarTitleDivText(element) != title) {
+    element.textContent = title;
+  }
+}
+
 export function commitActiveToolbarTitleEdit(store: StoreContextModel, immediately: boolean = true): boolean {
   const activeElement = document.activeElement;
   if (!(activeElement instanceof HTMLElement) || !activeElement.isContentEditable) {
@@ -67,7 +89,7 @@ export function commitActiveToolbarTitleEdit(store: StoreContextModel, immediate
     return false;
   }
 
-  const newTitle = activeElement.innerText;
+  const newTitle = toolbarTitleDivText(activeElement);
   // The virtual page's title is kept equal to its text item's: a mismatch makes it be projected again.
   const itemToSave = titleEditableSourceForVirtualTextDocumentPage(pageItem.id) ?? pageItem;
   if (itemToSave.title != newTitle) {
