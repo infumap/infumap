@@ -122,12 +122,12 @@ main { max-width: calc(var(--max) + 2 * var(--gutter)); margin: 0 auto; padding:
 .arrangement-panel + .arrangement-panel { border-top: 1px solid var(--item-line); }
 .arrangements[role="tablist"] ~ .arrangement-panel { border-top: 0; }
 
-/* The page opens from its tile, the way a page opens in Infumap. One authored moment; nothing else animates in. */
+/* Item panels open from their tiles, the way pages open in Infumap. Switching arrangements is immediate. */
 @keyframes open-page {
   from { opacity: 0; transform: scale(0.97); clip-path: inset(0 0 60% 0 round 2px); }
   to { opacity: 1; transform: none; clip-path: inset(0 0 0 0 round 2px); }
 }
-.panel.opening, .arrangement-panel.opening { transform-origin: var(--from-x, 50%) 0; animation: open-page 380ms var(--ease-out); }
+.panel.opening { transform-origin: var(--from-x, 50%) 0; animation: open-page 380ms var(--ease-out); }
 
 /* Download */
 .download { margin-top: clamp(64px, 9vw, 112px); padding-bottom: clamp(56px, 8vw, 96px); }
@@ -177,6 +177,6 @@ main { max-width: calc(var(--max) + 2 * var(--gutter)); margin: 0 auto; padding:
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .panel.opening, .arrangement-panel.opening { animation: none; }
+  .panel.opening { animation: none; }
   * { transition: none !important; }
 }

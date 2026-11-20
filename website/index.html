@@ -366,11 +366,13 @@
               document.getElementById(other.getAttribute('aria-controls')).hidden = !selected;
             });
             var panel = document.getElementById(tab.getAttribute('aria-controls'));
-            var r = tab.getBoundingClientRect(), p = panel.getBoundingClientRect();
-            panel.style.setProperty('--from-x', (r.left + r.width / 2 - p.left) + 'px');
-            panel.classList.remove('opening');
-            void panel.offsetWidth;
-            panel.classList.add('opening');
+            if (panel.classList.contains('panel')) {
+              var r = tab.getBoundingClientRect(), p = panel.getBoundingClientRect();
+              panel.style.setProperty('--from-x', (r.left + r.width / 2 - p.left) + 'px');
+              panel.classList.remove('opening');
+              void panel.offsetWidth;
+              panel.classList.add('opening');
+            }
             if (focus) tab.focus();
           }
           tabs.forEach(function (tab, i) {
