@@ -25,6 +25,9 @@
   --item-line: #c9d5e2;        /* --color-item-line */
   --chrome-line: #e1e3e1;      /* --color-chrome-line */
   --table-head: #e7eaef;       /* page colour at 12%, tableHeaderBackgroundColor */
+  /* Page colour at 20%: between rows and inside containers. The neutral #e1e3e1 tried here before read as no
+     structure at all against the blue-tinted chrome. */
+  --rule: #d7dce4;
   --selected: #d4d9e1;         /* --color-control-selected */
   --hover: #e8e8e8;            /* --color-control-hover */
   --focus: rgb(0 82 255 / 0.9);/* --color-focus */
@@ -86,15 +89,19 @@ main { max-width: calc(var(--max) + 2 * var(--gutter)); margin: 0 auto; padding:
 
 /* Section heads */
 .section-head { max-width: 720px; }
-.section-head h2 { color: var(--ink); font-size: clamp(28px, 3.2vw, 38px); line-height: 1.12; font-weight: 700; letter-spacing: -0.02em; }
+.section-head h2 { color: var(--ink); font-size: clamp(28px, 3.2vw, 38px); line-height: 1.12; font-weight: 700; letter-spacing: -0.02em; text-wrap: balance; }
 .section-head p { margin-top: 12px; font-size: 18px; color: var(--text); max-width: 60ch; }
 
 /* Feature sections */
 .feature-section { margin-top: clamp(64px, 9vw, 112px); }
 .feature-table { width: 100%; margin-top: 16px; table-layout: fixed; border-collapse: collapse; }
-.feature-table th, .feature-table td { padding: clamp(12px, 2vw, 24px); text-align: left; vertical-align: top; }
-.feature-table th { color: var(--ink); font-size: clamp(20px, 2vw, 24px); font-weight: 700; }
-.feature-table th:first-child { width: 38%; }
+.feature-table td { padding: clamp(12px, 2vw, 24px); text-align: left; vertical-align: top; }
+/* Set on a <col> because there is no heading row and the first Building blocks row spans both columns. */
+.feature-table .feature-example-col { width: 38%; }
+/* Rows rule off from each other so each example reads with its own description; the first and last rules bound the
+   table. No column rule: the gap already separates example from text. */
+.feature-table td { border-top: 1px solid var(--rule); }
+.feature-table tr:last-child > td { border-bottom: 1px solid var(--rule); }
 .feature-table h3 { color: var(--blue); font-size: 18px; }
 .feature-table td p { margin-top: 6px; max-width: 65ch; overflow-wrap: break-word; }
 .feature-example { padding: clamp(8px, 2vw, 20px); background: var(--chrome); border-radius: var(--radius); overflow-wrap: break-word; }
@@ -120,7 +127,7 @@ main { max-width: calc(var(--max) + 2 * var(--gutter)); margin: 0 auto; padding:
 .page-dialog { position: fixed; inset: 0; margin: auto; width: min(1120px, calc(100% - var(--gutter))); max-height: calc(100% - var(--gutter)); padding: 0; border: 0; border-radius: var(--radius); color: var(--text); background: var(--ground); }
 .page-dialog:not([open]) { display: none; }
 .page-dialog::backdrop { background: rgb(29 33 40 / 0.55); }
-.page-dialog .item-titlebar { position: sticky; top: 0; z-index: 1; justify-content: space-between; align-items: center; background: var(--ground); }
+.page-dialog .item-titlebar { position: sticky; top: 0; z-index: 1; justify-content: space-between; align-items: center; background: var(--ground); border-bottom: 1px solid var(--rule); }
 .page-dialog-body { padding: clamp(16px, 3vw, 32px); }
 .page-dialog-body img { margin: auto; width: auto; max-height: 68vh; }
 .page-dialog-body .page-preview-copy { margin: 20px auto 0; max-width: 65ch; }
@@ -128,10 +135,13 @@ main { max-width: calc(var(--max) + 2 * var(--gutter)); margin: 0 auto; padding:
 /* Download */
 .download { margin-top: clamp(64px, 9vw, 112px); padding-bottom: clamp(56px, 8vw, 96px); }
 .platforms { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 24px; }
-.platform { display: flex; flex-direction: column; }
+/* A platform has a title bar, so it gets the container that title bar belongs to; without the outline the
+   tinted band floats above loose steps. Outline only, no shadow, to stay light. */
+.platform { display: flex; flex-direction: column; border: 1px solid var(--item-line); border-radius: var(--radius); overflow: hidden; }
+.platform > .item-titlebar { border-bottom: 1px solid var(--rule); }
 .platform ol { margin: 0; padding: 18px 20px 0 40px; display: grid; gap: 10px; font-size: 16px; }
 .platform li::marker { color: var(--blue); font-weight: 600; }
-.platform .tip { margin: 14px 20px 0; padding-top: 12px; border-top: 1px solid var(--chrome-line); font-size: 15px; color: var(--muted); }
+.platform .tip { margin: 14px 20px 0; padding-top: 12px; border-top: 1px solid var(--rule); font-size: 15px; color: var(--muted); }
 .platform .button { align-self: flex-start; margin: auto 20px 20px; margin-top: 20px; }
 .platform > .item-titlebar + ol { flex: none; }
 .command { display: flex; align-items: center; gap: 10px; margin-top: 8px; padding: 6px 6px 6px 14px; background: #1d2128; border-radius: var(--radius); color: #e8ecf2; }
