@@ -37,7 +37,6 @@
   --radius: 4px;
   --gutter: clamp(16px, 4vw, 48px);
   --max: 1280px;
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -95,40 +94,38 @@ main { max-width: calc(var(--max) + 2 * var(--gutter)); margin: 0 auto; padding:
 .section-head h2 { color: var(--ink); font-size: clamp(28px, 3.2vw, 38px); line-height: 1.12; font-weight: 700; letter-spacing: -0.02em; }
 .section-head p { margin-top: 12px; font-size: 18px; color: var(--text); max-width: 60ch; }
 
-/* Item types, with a separate arrangement selector inside Pages. */
-.forms { margin-top: clamp(64px, 9vw, 112px); }
-.tab-controls[hidden] { display: none; }
-.tiles { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 28px; }
+/* Feature sections */
+.feature-section { margin-top: clamp(64px, 9vw, 112px); }
+.item-types { width: 100%; margin-top: 16px; table-layout: fixed; border-collapse: collapse; }
+.item-types th, .item-types td { padding: clamp(12px, 2vw, 24px); text-align: left; vertical-align: top; }
+.item-types th { background: var(--table-head); border-bottom: 1px solid var(--table-line); color: var(--ink); }
+.item-types tr > :first-child { width: 38%; border-right: 1px solid var(--table-line); }
+.item-types tr + tr td { border-top: 1px solid var(--chrome-line); }
+.item-types h3 { color: var(--blue); font-size: 18px; }
+.item-types td p { margin-top: 6px; max-width: 65ch; overflow-wrap: break-word; }
+.query-example { padding: 20px; background: var(--chrome); border: 1px solid var(--item-line); border-radius: var(--radius); }
+.query-example figcaption { color: var(--muted); font-size: 14px; font-weight: 600; }
+.query-example blockquote { margin: 8px 0 0; color: var(--ink); font-size: 21px; }
 
 /* An opened page: its title bar takes a light tint of the page colour, as a page's title does in Infumap. */
 .panel { margin-top: 16px; }
 .panel .item-titlebar { background: color-mix(in srgb, var(--page) 9%, white); border-bottom-color: color-mix(in srgb, var(--page) 35%, white); }
-/* Darkened a touch: the yellow page colour alone falls just short of 4.5:1 on its own tint. */
-.panel .item-titlebar h3 { color: color-mix(in srgb, var(--page) 85%, black); font-size: 22px; }
+.panel .item-titlebar h2 { color: color-mix(in srgb, var(--page) 85%, black); font-size: 22px; }
 .panel-body { padding: clamp(20px, 3vw, 32px); }
 .panel-body-media { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(20px, 3vw, 40px); align-items: start; }
 .panel p { font-size: 17px; max-width: 65ch; }
 .panel-copy > * + * { margin-top: 12px; }
-.panel-copy .panel-lead { font-size: 21px; line-height: 1.35; color: var(--ink); font-weight: 600; }
-.panel-copy h4 { margin: 0; color: var(--blue); font-size: 15px; font-weight: 600; }
 .page-intro { padding: 20px clamp(20px, 6vw, 32px); }
 .page-intro > p { max-width: none; }
 .arrangements { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 clamp(20px, 3vw, 32px) 20px; border-bottom: 1px solid var(--item-line); }
-.tile, .arrangement-tab { min-height: 40px; padding: 8px 14px; border: 1px solid var(--item-line); border-radius: var(--radius); background: var(--ground); color: var(--text); font: 600 15px/1.3 var(--sans); cursor: pointer; }
-.tile:hover, .arrangement-tab:hover { background: var(--hover); }
-.tile[aria-selected="true"], .arrangement-tab[aria-selected="true"] { background: var(--blue); border-color: var(--blue); color: #fff; }
-.panel img { border: 1px solid var(--chrome-line); background: var(--ground); }
+.arrangement-tab { min-height: 40px; padding: 8px 14px; border: 1px solid var(--item-line); border-radius: var(--radius); background: var(--ground); color: var(--text); font: 600 15px/1.3 var(--sans); cursor: pointer; }
+.arrangement-tab:hover { background: var(--hover); }
+.arrangement-tab[aria-selected="true"] { background: var(--blue); border-color: var(--blue); color: #fff; }
+.item-types img, .panel img { border: 1px solid var(--chrome-line); background: var(--ground); }
 .arrangement-panel img { width: 100%; max-height: 460px; object-fit: contain; object-position: left top; }
-.panel[hidden], .arrangement-panel[hidden] { display: none; }
+.tab-controls[hidden], .arrangement-panel[hidden] { display: none; }
 .arrangement-panel + .arrangement-panel { border-top: 1px solid var(--item-line); }
 .arrangements[role="tablist"] ~ .arrangement-panel { border-top: 0; }
-
-/* Item panels open from their tiles, the way pages open in Infumap. Switching arrangements is immediate. */
-@keyframes open-page {
-  from { opacity: 0; transform: scale(0.97); clip-path: inset(0 0 60% 0 round 2px); }
-  to { opacity: 1; transform: none; clip-path: inset(0 0 0 0 round 2px); }
-}
-.panel.opening { transform-origin: var(--from-x, 50%) 0; animation: open-page 380ms var(--ease-out); }
 
 /* Download */
 .download { margin-top: clamp(64px, 9vw, 112px); padding-bottom: clamp(56px, 8vw, 96px); }
@@ -168,7 +165,7 @@ main { max-width: calc(var(--max) + 2 * var(--gutter)); margin: 0 auto; padding:
   .tool:not(.tool-primary) { padding: 0 10px; }
   .hero-actions .button { width: 100%; }
   .hero { gap: 20px; padding: 20px 0 24px; }
-  .tiles, .arrangements { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .arrangements { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .footer ul { margin-left: 0; }
 }
 
@@ -178,6 +175,5 @@ main { max-width: calc(var(--max) + 2 * var(--gutter)); margin: 0 auto; padding:
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .panel.opening { animation: none; }
   * { transition: none !important; }
 }

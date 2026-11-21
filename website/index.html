@@ -50,28 +50,111 @@
         </div>
       </section>
 
-      <section class="forms" aria-labelledby="forms-title">
+      <section class="feature-section" aria-labelledby="forms-title">
         <div class="section-head">
           <h2 id="forms-title">Building blocks</h2>
-          <p>Explore the items you can add and the layouts you can use.</p>
+          <p>Explore the items you can add to a page.</p>
         </div>
-        <div class="tiles tab-controls" data-tabs aria-label="Item types" hidden>
-          <button class="tile" type="button" id="tab-pages" data-panel="panel-pages">Pages</button>
-          <button class="tile" type="button" id="tab-tables" data-panel="panel-tables">Tables</button>
-          <button class="tile" type="button" id="tab-notes" data-panel="panel-notes">Notes</button>
-          <button class="tile" type="button" id="tab-composites" data-panel="panel-composites">Composites</button>
-          <button class="tile" type="button" id="tab-images" data-panel="panel-images">Images</button>
-          <button class="tile" type="button" id="tab-files" data-panel="panel-files">Files</button>
-          <button class="tile" type="button" id="tab-text" data-panel="panel-text">Text Files</button>
-          <button class="tile" type="button" id="tab-links" data-panel="panel-links">Links</button>
-          <button class="tile" type="button" id="tab-ratings" data-panel="panel-ratings">Ratings</button>
-          <button class="tile" type="button" id="tab-passwords" data-panel="panel-passwords">Passwords</button>
-          <button class="tile" type="button" id="tab-queries" data-panel="panel-queries">Queries</button>
-          <button class="tile" type="button" id="tab-dividers" data-panel="panel-dividers">Dividers</button>
-        </div>
+        <table class="item-types item">
+          <thead>
+            <tr>
+              <th scope="col">Example</th>
+              <th scope="col">Item type</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><img src="https://img.infumap.com/page_spatial_1.jpg" loading="lazy" alt="A spatial page with trip documents, a checklist and photos."></td>
+              <td>
+                <h3>Pages</h3>
+                <p>Keep related items together on a page. Choose a <a href="#panel-pages">page arrangement</a> to suit the information you’re working with.</p>
+              </td>
+            </tr>
+            <tr id="panel-tables">
+              <td><img src="https://img.infumap.com/tables.jpg" loading="lazy" alt="An example of a table item in Infumap."></td>
+              <td>
+                <h3>Tables</h3>
+                <p>Tables, like pages, are container items. Their children appear in the first column, and each child’s attachments appear in the remaining columns.</p>
+                <p>Any item can be a child of a table.</p>
+              </td>
+            </tr>
+            <tr id="panel-notes">
+              <td><img src="https://img.infumap.com/tables.jpg" loading="lazy" alt=""></td>
+              <td>
+                <h3>Notes</h3>
+                <p>Write directly on a page, add a heading or a checkbox, or keep a web address as a note. Small details can live beside the material they relate to.</p>
+              </td>
+            </tr>
+            <tr id="panel-composites">
+              <td><img src="https://img.infumap.com/tables.jpg" loading="lazy" alt=""></td>
+              <td>
+                <h3>Composites</h3>
+                <p>Bring notes, images and other items together in a vertical composition. Keep the parts together while each remains an individual item.</p>
+              </td>
+            </tr>
+            <tr id="panel-images">
+              <td><img src="https://img.infumap.com/tables.jpg" loading="lazy" alt=""></td>
+              <td>
+                <h3>Images</h3>
+                <p>Add images alongside notes and other items, or gather them on a page. Open an image for a closer look.</p>
+              </td>
+            </tr>
+            <tr id="panel-files">
+              <td><img src="https://img.infumap.com/tables.jpg" loading="lazy" alt=""></td>
+              <td>
+                <h3>Files</h3>
+                <p>Keep PDFs and other files with the notes and pages they relate to.</p>
+              </td>
+            </tr>
+            <tr id="panel-text">
+              <td><img src="https://img.infumap.com/tables.jpg" loading="lazy" alt=""></td>
+              <td>
+                <h3>Text Files</h3>
+                <p>Keep text as a document item with its own title and contents. Open it to read and edit alongside the rest of your information.</p>
+              </td>
+            </tr>
+            <tr id="panel-links">
+              <td><img src="https://img.infumap.com/tables.jpg" loading="lazy" alt=""></td>
+              <td>
+                <h3>Links</h3>
+                <p>Link to an existing Infumap item from another page. Keep a reference where it is useful while working with the same underlying item.</p>
+              </td>
+            </tr>
+            <tr id="panel-ratings">
+              <td><img src="https://img.infumap.com/tables.jpg" loading="lazy" alt=""></td>
+              <td>
+                <h3>Ratings</h3>
+                <p>Add a rating beside an option or use one in a table. Display it as stars, a number or a bar.</p>
+              </td>
+            </tr>
+            <tr id="panel-passwords">
+              <td><img src="https://img.infumap.com/tables.jpg" loading="lazy" alt=""></td>
+              <td>
+                <h3>Passwords</h3>
+                <p>Password items mask their contents until you reveal them. Place one alongside the information it belongs with.</p>
+              </td>
+            </tr>
+            <tr id="panel-queries">
+              <td><img src="https://img.infumap.com/tables.jpg" loading="lazy" alt=""></td>
+              <td>
+                <h3>Queries</h3>
+                <p>Use a query to search your items or start a chat about them. Keep the query in your workspace so you can return to it.</p>
+              </td>
+            </tr>
+            <tr id="panel-dividers">
+              <td><img src="https://img.infumap.com/tables.jpg" loading="lazy" alt=""></td>
+              <td>
+                <h3>Dividers</h3>
+                <p>Add a divider between sections to make a change of topic clear. Use it to break up a longer page without adding another container.</p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
 
+      <section class="feature-section" aria-labelledby="pages-title">
         <div class="panel item" id="panel-pages" style="--page: var(--blue)">
-          <div class="item-titlebar"><h3>Pages</h3></div>
+          <div class="item-titlebar"><h2 id="pages-title">Pages</h2></div>
           <div class="page-intro">
             <p>There are 8 page arrangement types. Arrangements are different views of the same information - switch between them at any time.</p>
           </div>
@@ -153,120 +236,26 @@
             </div>
           </section>
         </div>
+      </section>
 
-        <div class="panel item" id="panel-notes" style="--page: var(--green)">
-          <div class="item-titlebar"><h3>Notes</h3></div>
+      <section class="feature-section" aria-labelledby="ai-title">
+        <div class="section-head">
+          <h2 id="ai-title">AI Integration</h2>
+          <p>Ask questions about the material you already keep in Infumap.</p>
+        </div>
+        <div class="panel item">
           <div class="panel-body panel-body-media">
             <div class="panel-copy">
-              <p>Write directly on a page, add a heading or a checkbox, or keep a web address as a note. Small details can live beside the material they relate to.</p>
-              <img src="https://img.infumap.com/tables.jpg" loading="lazy" alt="">
+              <p>Open Queries, choose a model you’ve configured, and pick the collection it can search. Attach a specific note or PDF to ask about it directly.</p>
+              <p>Start a deep research run when you want a fuller answer. Save finished reports and chats alongside the items they refer to.</p>
+              <p><a href="https://github.com/infumap/infumap/blob/master/docs/chats.md">Read about chats and deep research</a></p>
             </div>
+            <figure class="query-example">
+              <figcaption>Example query</figcaption>
+              <blockquote>Which of my Germany trip hotel bookings can I still cancel, and by when?</blockquote>
+            </figure>
           </div>
         </div>
-
-        <div class="panel item" id="panel-images" style="--page: var(--purple)">
-          <div class="item-titlebar"><h3>Images</h3></div>
-          <div class="panel-body panel-body-media">
-            <div class="panel-copy">
-              <p>.</p>
-              <img src="https://img.infumap.com/tables.jpg" loading="lazy" alt="">
-            </div>
-          </div>
-        </div>
-
-        <div class="panel item" id="panel-files" style="--page: var(--orange)">
-          <div class="item-titlebar"><h3>Files</h3></div>
-          <div class="panel-body panel-body-media">
-            <div class="panel-copy">
-              <p>Files</p>
-              <img src="https://img.infumap.com/tables.jpg" loading="lazy" alt="">
-            </div>
-          </div>
-        </div>
-
-        <div class="panel item" id="panel-text" style="--page: var(--blue)">
-          <div class="item-titlebar"><h3>Text</h3></div>
-          <div class="panel-body panel-body-media">
-            <div class="panel-copy">
-              <p>Keep text as a document item with its own title and contents. Open it to read and edit alongside the rest of your information.</p>
-              <img src="https://img.infumap.com/tables.jpg" loading="lazy" alt="">
-            </div>
-          </div>
-        </div>
-
-        <div class="panel item" id="panel-tables" style="--page: var(--yellow)">
-          <div class="item-titlebar"><h3>Tables</h3></div>
-          <div class="panel-body panel-body-media">
-            <div class="panel-copy">
-              <p>Tables, like pages are container items. In infumap, items that can have children are called container items.</p>
-              <p>Tables can have one ore more columns. Children of the table are displayed in the first column.</p>
-              <p>Items in the second or higher column are attachments of the corresponding child.</p>
-              <p>Any item can be a child of a table.</p>
-            </div>
-            <img src="https://img.infumap.com/tables.jpg" loading="lazy" alt="">
-          </div>
-        </div>
-
-        <div class="panel item" id="panel-links" style="--page: var(--green)">
-          <div class="item-titlebar"><h3>Links</h3></div>
-          <div class="panel-body panel-body-media">
-            <div class="panel-copy">
-              <p>Link to an existing Infumap item from another page. Keep a reference where it is useful while working with the same underlying item.</p>
-              <img src="https://img.infumap.com/tables.jpg" loading="lazy" alt="">
-            </div>
-          </div>
-        </div>
-
-        <div class="panel item" id="panel-ratings" style="--page: var(--orange)">
-          <div class="item-titlebar"><h3>Ratings</h3></div>
-          <div class="panel-body panel-body-media">
-            <div class="panel-copy">
-              <p>Add a rating beside an option or use one in a table. Display it as stars, a number or a bar.</p>
-              <img src="https://img.infumap.com/tables.jpg" loading="lazy" alt="">
-            </div>
-          </div>
-        </div>
-
-        <div class="panel item" id="panel-passwords" style="--page: var(--purple)">
-          <div class="item-titlebar"><h3>Passwords</h3></div>
-          <div class="panel-body panel-body-media">
-            <div class="panel-copy">
-              <p>Password items mask their contents until you reveal them. Place one alongside the information it belongs with.</p>
-              <img src="https://img.infumap.com/tables.jpg" loading="lazy" alt="">
-            </div>
-          </div>
-        </div>
-
-        <div class="panel item" id="panel-queries" style="--page: var(--blue)">
-          <div class="item-titlebar"><h3>Queries</h3></div>
-          <div class="panel-body panel-body-media">
-            <div class="panel-copy">
-              <p>Use a query to search your items or start a chat about them. Keep the query in your workspace so you can return to it.</p>
-              <img src="https://img.infumap.com/tables.jpg" loading="lazy" alt="">
-            </div>
-          </div>
-        </div>
-
-        <div class="panel item" id="panel-composites" style="--page: var(--green)">
-          <div class="item-titlebar"><h3>Composites</h3></div>
-          <div class="panel-body">
-            <div class="panel-copy panel-body-media">
-              <p>Bring notes, images and other items together in a vertical composition. Keep the parts together while each remains an individual item.</p>
-              <img src="https://img.infumap.com/tables.jpg" loading="lazy" alt="">
-            </div>
-          </div>
-        </div>
-
-        <div class="panel item" id="panel-dividers" style="--page: var(--grey)">
-          <div class="item-titlebar"><h3>Dividers</h3></div>
-          <div class="panel-body panel-body-media">
-            <div class="panel-copy">
-              <p>Add a divider between sections to make a change of topic clear. Use it to break up a longer page without adding another container.</p>
-              <img src="https://img.infumap.com/tables.jpg" loading="lazy" alt="">
-            </div>
-          </div>
-        </div>
-
       </section>
 
       <section class="download" id="download" aria-labelledby="download-title">
@@ -345,8 +334,7 @@
     </footer>
 
     <script>
-      // Each tab list owns only its own panels, so page arrangements retain their selection when switching item types.
-      // Controls appear after setup; without JavaScript, every section remains readable under its heading.
+      // Every arrangement remains visible without JavaScript. Show the tabs once they can switch panels.
       (function () {
         document.querySelectorAll('[data-tabs]').forEach(function (tablist) {
           var tabs = Array.prototype.slice.call(tablist.querySelectorAll('[data-panel]'));
@@ -369,14 +357,6 @@
               other.tabIndex = selected ? 0 : -1;
               document.getElementById(other.getAttribute('aria-controls')).hidden = !selected;
             });
-            var panel = document.getElementById(tab.getAttribute('aria-controls'));
-            if (panel.classList.contains('panel')) {
-              var r = tab.getBoundingClientRect(), p = panel.getBoundingClientRect();
-              panel.style.setProperty('--from-x', (r.left + r.width / 2 - p.left) + 'px');
-              panel.classList.remove('opening');
-              void panel.offsetWidth;
-              panel.classList.add('opening');
-            }
             if (focus) tab.focus();
           }
           tabs.forEach(function (tab, i) {
