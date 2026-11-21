@@ -28,7 +28,7 @@ import { server } from "../server";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { TransientMessageType } from "../store/StoreProvider_Overlay";
-import { normalizeClipboardLineEndings } from "../util/editable_text";
+import { normalizeLineBreaks } from "../util/editable_text";
 import { Uid } from "../util/uid";
 import { parentChainAllowsNewChild, scrollTableToIncludeNewItemRow } from "./create";
 import { clearRowRangeSelectionMaybe } from "./row_selection";
@@ -57,8 +57,8 @@ export const MAX_LINE_COUNT = 1000;
  * with "- ", is text, and stripping it would lose what the user pasted.
  */
 export function parsePastedLines(text: string): Array<string> {
-  const lines = normalizeClipboardLineEndings(text)
-    .split(/[\n\u2028\u2029]/)
+  const lines = normalizeLineBreaks(text)
+    .split("\n")
     .map(line => line.replace(/\s*\t\s*/g, " ").trim())
     .filter(line => line.length > 0);
   if (lines.length < 2) { return lines; }

@@ -17,6 +17,7 @@
 */
 
 import { NoteFlags, NOTE_INDENT_MAX_LEVEL, noteFlagsWithIndentLevel, noteIndentLevelFromFlags } from "../items/base/flags-item";
+import { normalizeLineBreaks } from "../util/editable_text";
 import type { TextDocumentBlock, TextDocumentInlineText, TextDocumentTableBlock } from "../items/markdown-blocks";
 import {
   NoteInlineMark, NoteInlineMarkFlags, NoteUrl, normalizeNoteInlineMarks, normalizeNoteUrls, safeNoteLinkUrl,
@@ -137,7 +138,7 @@ class HtmlBlocks {
     }
     if (tag == "pre") {
       this.flush();
-      const code = (el.textContent ?? "").replace(/\r\n?/g, "\n").replace(/\n+$/, "");
+      const code = normalizeLineBreaks(el.textContent ?? "").replace(/\n+$/, "");
       if (code.trim() != "") {
         const indentLevel = context.mode == "listItem" ? noteIndentLevelFromFlags(context.blockFlags) + 1 : 0;
         this.pushTextBlock({ title: code, inlineMarks: [], urls: [], blockFlags: noteFlagsWithIndentLevel(NoteFlags.Code, indentLevel) });

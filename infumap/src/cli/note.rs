@@ -81,7 +81,9 @@ pub async fn execute(sub_matches: &ArgMatches) -> InfuResult<()> {
     }
     None => {}
   }
-  item.insert("title".to_owned(), Value::String(note.to_owned()));
+  // Note text holds only \n line breaks, as the web client keeps it.
+  let note = note.replace("\r\n", "\n").replace(['\r', '\u{2028}', '\u{2029}'], "\n");
+  item.insert("title".to_owned(), Value::String(note));
   item.insert("spatialWidthGr".to_owned(), Value::Number((GRID_SIZE * 8).into()));
   item.insert("urls".to_owned(), Value::Array(vec![]));
 

@@ -150,6 +150,23 @@ function resyncPlainEditorDom(element: HTMLElement, text: string): void {
   if (first.data != expected) { first.data = expected; }
 }
 
+/**
+ * A drop, an autocorrection or an IME can put \r, \r\n, U+2028 or U+2029 into a note editor, and note text holds only
+ * \n (see note_line_breaks.ts). replaceData, unlike setting the text, moves the selection with the text after it.
+ */
+function normalizeNoteEditorLineBreaks(element: HTMLElement): void {
+  if (!/[\r\u2028\u2029]/.test(element.textContent ?? "")) { return; }
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node != null; node = walker.nextNode()) {
+    const text = node as Text;
+    const lineBreak = /\r\n?|[\u2028\u2029]/g;
+    for (let match = lineBreak.exec(text.data); match != null; match = lineBreak.exec(text.data)) {
+      text.replaceData(match.index, match[0].length, "\n");
+      lineBreak.lastIndex = match.index + 1;
+    }
+  }
+}
+
 /** The table showing the row at itemPath, and the index of that row in it. */
 function tableRowOfPath(store: StoreContextModel, itemPath: VisualElementPath): { tableVe: VisualElement, rowIdx: number } | null {
   const parentPath = VeFns.parentPath(itemPath);
@@ -363,6 +380,7 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
     if (session.isComposing) { return session; }
     const item = itemState.get(session.itemId);
     if (item == null || !itemCanEdit(item)) { return null; }
+    if (session.info.itemType == ItemType.Note) { normalizeNoteEditorLineBreaks(element); }
 
     const selection = window.getSelection();
     if (selection?.anchorNode && selection.focusNode &&

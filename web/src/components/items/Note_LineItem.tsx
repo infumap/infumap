@@ -243,7 +243,9 @@ export const Note_LineItem: Component<VisualElementProps> = (props: VisualElemen
         inlineMarks={renderedInlineMarks()}
         urls={renderedUrls()}
         linksEnabled={!editing && !isInert()}
-        inactiveLinksStyled={editing || isInert()} />}
+        inactiveLinksStyled={editing || isInert()}
+        // A note with a line break in it is shown on more than one line wherever it can be (see note_line_breaks.ts).
+        lineBreakGlyphs={!isMultiLine()} />}
       {!editing && isSelectableReadOnlyDocumentText() && READ_ONLY_DOCUMENT_ROW_END}
     </span>;
     if (editing) {

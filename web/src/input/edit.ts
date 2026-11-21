@@ -66,6 +66,7 @@ import { asContainerItem } from "../items/base/container-item";
 import { itemCanEdit, itemCanMove } from "../items/base/capabilities-item";
 import { reconcileNoteEditableDom } from "./note_editable_dom";
 import { planNoteParagraphSplit } from "./note_paragraph";
+import { noteLineBreakRefusal } from "./note_line_breaks";
 import { TransientMessageType } from "../store/StoreProvider_Overlay";
 
 
@@ -708,7 +709,7 @@ export function edit_structuralKeyDownGuard(store: StoreContextModel, ev: Keyboa
   if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(ev.key)) { store.editorHistory.breakGroup(); }
   if (ev.defaultPrevented) { return false; }
   if (ev.key == "Enter") {
-    if (ev.shiftKey && edit_replaceNoteSelection(store, ev, "\n")) { return true; }
+    if (ev.shiftKey && insertNoteLineBreak(store, ev)) { return true; }
     if (!ev.shiftKey && exitEmptyNoteList(store, ev)) { return true; }
   }
   if (changeListIndentFromTabKey(store, ev)) { return true; }
@@ -744,7 +745,7 @@ export function edit_structuralBeforeInputGuard(store: StoreContextModel, ev: In
   if (ev.defaultPrevented) { return; }
   const composing = ev.isComposing || store.textEdit.activeSession()?.isComposing;
   if (!composing) {
-    if (ev.inputType == "insertLineBreak" && edit_replaceNoteSelection(store, ev, "\n")) { return; }
+    if (ev.inputType == "insertLineBreak" && insertNoteLineBreak(store, ev)) { return; }
     if (ev.inputType == "insertParagraph" && exitEmptyNoteList(store, ev)) { return; }
     if (ev.inputType == "deleteContentBackward" && outdentListNoteFromStart(store, ev)) { return; }
   }
@@ -767,6 +768,17 @@ export function edit_structuralBeforeInputGuard(store: StoreContextModel, ev: In
     stopStructuralTextEvent(ev);
     enterKeyHandler(store);
   }
+}
+
+/** Shift+Enter: a line break in the note being edited, refused where the note is shown on one line. */
+function insertNoteLineBreak(store: StoreContextModel, ev: Event): boolean {
+  const info = store.overlay.textEditInfo();
+  const noteVe = info?.itemType == ItemType.Note && info.colNum == null && textEditElementForEvent(store, ev) != null
+    ? VesCache.current.readNode(info.itemPath)
+    : null;
+  const refusal = noteVe == null ? null : noteLineBreakRefusal(noteVe);
+  if (refusal != null) { return blockStructuralTextEvent(store, ev, refusal); }
+  return edit_replaceNoteSelection(store, ev, "\n");
 }
 
 export function edit_structuralClipboardGuard(store: StoreContextModel, ev: ClipboardEvent): boolean {

@@ -19,12 +19,13 @@
 import { StoreContextModel } from "../store/StoreProvider";
 import { acceptClipboardTextForPendingTextItem } from "./text_clipboard_create";
 import { edit_replaceNoteSelection, edit_structuralClipboardGuard } from "./edit";
-import { clipboardTextForSingleLine, normalizeClipboardLineEndings } from "../util/editable_text";
+import { clipboardTextForSingleLine, normalizeLineBreaks } from "../util/editable_text";
 import { textEditElementId } from "./text_edit_session";
 import { parsePastedLines, pasteLinesIntoContainer, pasteLinesTargetMaybe, showPasteMessage } from "./paste_lines";
 import { pasteBlocksIntoNote, pasteParagraphsIntoNote } from "./paste_markdown";
 import { parsePastedHtmlBlocks } from "./paste_html";
 import { pasteFilesMaybe } from "../upload";
+import { noteTextForPaste } from "./note_line_breaks";
 
 
 /**
@@ -86,10 +87,13 @@ export function pasteHandler(store: StoreContextModel, ev: ClipboardEvent) {
       ? null
       : parsePastedHtmlBlocks(clipboardData.getData("text/html"));
     if (htmlBlocks != null && pasteBlocksIntoNote(store, editingElement, htmlBlocks)) { return; }
-    if (pasteParagraphsIntoNote(store, editingElement, normalizeClipboardLineEndings(clipboardText), !plain)) { return; }
+    if (pasteParagraphsIntoNote(store, editingElement, normalizeLineBreaks(clipboardText), !plain)) { return; }
   }
 
-  if (edit_replaceNoteSelection(store, ev, normalizeClipboardLineEndings(clipboardText), "Paste")) { return; }
+  const noteText = noteTextForPaste(store, clipboardText);
+  // Only whitespace, which would otherwise replace a selection with nothing.
+  if (noteText == "") { return; }
+  if (edit_replaceNoteSelection(store, ev, noteText, "Paste")) { return; }
   document.execCommand("insertText", false, clipboardTextForSingleLine(clipboardText));
 }
 

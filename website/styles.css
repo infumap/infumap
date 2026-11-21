@@ -93,9 +93,8 @@ main { max-width: calc(var(--max) + 2 * var(--gutter)); margin: 0 auto; padding:
 .feature-section { margin-top: clamp(64px, 9vw, 112px); }
 .feature-table { width: 100%; margin-top: 16px; table-layout: fixed; border-collapse: collapse; }
 .feature-table th, .feature-table td { padding: clamp(12px, 2vw, 24px); text-align: left; vertical-align: top; }
-.feature-table th { border-bottom: 1px solid var(--chrome-line); color: var(--muted); font-weight: 600; }
+.feature-table th { color: var(--ink); font-size: clamp(20px, 2vw, 24px); font-weight: 700; }
 .feature-table th:first-child { width: 38%; }
-.feature-table tr + tr td { border-top: 1px solid var(--chrome-line); }
 .feature-table h3 { color: var(--blue); font-size: 18px; }
 .feature-table td p { margin-top: 6px; max-width: 65ch; overflow-wrap: break-word; }
 .feature-example { padding: clamp(8px, 2vw, 20px); background: var(--chrome); border-radius: var(--radius); overflow-wrap: break-word; }
@@ -110,11 +109,11 @@ main { max-width: calc(var(--max) + 2 * var(--gutter)); margin: 0 auto; padding:
 .page-gallery { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(12px, 2.5vw, 32px); }
 .section-head + .page-gallery { margin-top: 24px; }
 .page-gallery-compact { gap: clamp(8px, 1.25vw, 16px); }
-.page-preview-link { display: block; text-decoration: none; }
+.page-preview-link { display: block; overflow: hidden; border: 1px solid var(--item-border); border-radius: var(--radius); text-decoration: none; }
 .page-preview-link:hover .page-preview-label { text-decoration: underline; }
 .page-preview-link[aria-haspopup="dialog"] { cursor: zoom-in; }
-.page-preview-label { display: block; margin-top: 6px; font-size: 16px; font-weight: 600; }
-.page-gallery-compact .page-preview-label { margin-top: 4px; font-size: 13px; overflow-wrap: anywhere; }
+.page-preview-label { display: block; padding: 8px 12px; font-size: 16px; font-weight: 600; }
+.page-gallery-compact .page-preview-label { padding: 4px 6px; font-size: 13px; overflow-wrap: anywhere; }
 .page-preview-link img { width: 100%; aspect-ratio: 16 / 10; object-fit: contain; background: var(--chrome); }
 .page-preview-copy { margin-top: 12px; }
 .page-preview-link[aria-haspopup="dialog"] + .page-preview-copy { display: none; }

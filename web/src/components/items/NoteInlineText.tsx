@@ -39,12 +39,25 @@ function inactiveLinkStyle(flags: number): string {
   return segmentStyle(flags);
 }
 
+/**
+ * Where only one line of the note is shown, a line break in it would hide the lines after it. A glyph shows it instead.
+ * It isn't selectable, so a copy doesn't pick up the glyph.
+ */
+function textWithLineBreakGlyphs(text: string, lineBreakGlyphs: boolean | undefined) {
+  if (!lineBreakGlyphs || !text.includes("\n")) { return text; }
+  return text.split("\n").flatMap((line, i) => i == 0 ? [line] : [
+    <span class="text-neutral-400" style="padding: 0 0.2em; user-select: none; -webkit-user-select: none;">{"\u21B5"}</span>,
+    line,
+  ]);
+}
+
 export const NoteInlineText: Component<{
   text: string,
   inlineMarks: Array<NoteInlineMark>,
   urls: Array<NoteUrl>,
   linksEnabled?: boolean,
   inactiveLinksStyled?: boolean,
+  lineBreakGlyphs?: boolean,
   onLinkMouseDown?: (url: string, ev: MouseEvent) => void,
 }> = (props) => {
   // Each arrange of the note can get here, as a change to its alignment does. Rebuilding spans that are the same would
@@ -78,9 +91,9 @@ export const NoteInlineText: Component<{
             fallback={
               <Show
                 when={props.inactiveLinksStyled && segment.url != null}
-                fallback={<span style={segmentStyle(segment.flags)}>{segment.text}</span>}>
+                fallback={<span style={segmentStyle(segment.flags)}>{textWithLineBreakGlyphs(segment.text, props.lineBreakGlyphs)}</span>}>
                 <span class="text-blue-600" style={inactiveLinkStyle(segment.flags)}>
-                  {segment.text}
+                  {textWithLineBreakGlyphs(segment.text, props.lineBreakGlyphs)}
                 </span>
               </Show>
             }>
@@ -91,7 +104,7 @@ export const NoteInlineText: Component<{
               onClick={eatLinkClick}
               onMouseDown={linkMouseDown(segment.url ?? "")}
               onMouseUp={eatLinkClick}>
-              {segment.text}
+              {textWithLineBreakGlyphs(segment.text, props.lineBreakGlyphs)}
             </a>
           </Show>
         }</For>

@@ -50,10 +50,11 @@ export function readEditableText(element: HTMLElement): string {
     ? element.value : element.innerText);
 }
 
-export function normalizeClipboardLineEndings(text: string): string {
-  return text.replace(/\r\n?/g, "\n");
+/** Every kind of line break as \n, the only one note text holds. */
+export function normalizeLineBreaks(text: string): string {
+  return text.replace(/\r\n?|[\u2028\u2029]/g, "\n");
 }
 
 export function clipboardTextForSingleLine(text: string): string {
-  return normalizeClipboardLineEndings(text).replace(/[\n\t\u2028\u2029]/g, " ");
+  return normalizeLineBreaks(text).replace(/[\n\t]/g, " ");
 }
