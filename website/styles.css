@@ -88,9 +88,11 @@ main { max-width: calc(var(--max) + 2 * var(--gutter)); margin: 0 auto; padding:
 .item-titlebar p { color: var(--muted); font-size: 15px; }
 
 /* Section heads */
-.section-head { max-width: 720px; }
+/* Width comes from the paragraph's measure: the lede is set larger than body text so it can run wider, roughly
+   to the hero headline's width, without lines getting longer than about 80 characters. */
+.section-head { max-width: 800px; }
 .section-head h2 { color: var(--ink); font-size: clamp(28px, 3.2vw, 38px); line-height: 1.12; font-weight: 700; letter-spacing: -0.02em; text-wrap: balance; }
-.section-head p { margin-top: 12px; font-size: 18px; color: var(--text); max-width: 60ch; }
+.section-head p { margin-top: 12px; font-size: clamp(18px, 1.6vw, 20px); color: var(--text); max-width: 62ch; }
 
 /* Feature sections */
 .feature-section { margin-top: clamp(64px, 9vw, 112px); }
