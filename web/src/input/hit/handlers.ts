@@ -226,11 +226,15 @@ const _compositeHandler: HitHandler = {
         if (!ignoreItems.has(compositeChildVe.displayItem.id)) {
           // table will be delegated to the table handler later in traversal
         }
+        // Clicks beside a page do nothing, as beside an image (see its inert side hitbox): a page draws its own box,
+        // so a click outside it is not a click on it. Focusing the page here put a focus ring on it for a click on
+        // empty space. The gutter is still hit as the page, not the composite, because a composite hit in a document
+        // page focuses the composite, and so that hovering here still shows the page's move handle.
         if (isInPageGutter && hitboxType == HitboxFlags.None && !ignoreItems.has(compositeChildVe.displayItem.id)) {
           return new HitBuilder(parentRootVe, rootVes)
             .over(compositeChildVes)
             .hitboxes(HitboxFlags.Click, compositeHitboxType)
-            .meta({ focusOnly: true })
+            .meta({ inert: true })
             .pos(posRelativeToRootVeViewportPx)
             .allowEmbeddedInteractive(false)
             .createdAt("composite-handler-page-gutter")

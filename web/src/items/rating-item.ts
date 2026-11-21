@@ -196,11 +196,13 @@ export const RatingFns = {
         h: ATTACH_AREA_SIZE_PX,
       }),
     ];
+    // Clicks beside the value do nothing, as beside an image or a page: they focused the rating, which put a focus
+    // ring on it for a click on empty space. The hitboxes remain so hovering there still shows the move handle.
     if (leftFocusBoundsPx.w > 0) {
-      hitboxes.unshift(HitboxFns.create(HitboxFlags.Click, leftFocusBoundsPx, { focusOnly: true }));
+      hitboxes.unshift(HitboxFns.create(HitboxFlags.Click, leftFocusBoundsPx, { inert: true }));
     }
     if (rightFocusBoundsPx.w > 0) {
-      hitboxes.splice(hitboxes.length - 2, 0, HitboxFns.create(HitboxFlags.Click, rightFocusBoundsPx, { focusOnly: true }));
+      hitboxes.splice(hitboxes.length - 2, 0, HitboxFns.create(HitboxFlags.Click, rightFocusBoundsPx, { inert: true }));
     }
     return {
       boundsPx,

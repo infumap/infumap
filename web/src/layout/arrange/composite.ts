@@ -23,7 +23,7 @@ import { ItemFns } from "../../items/base/item-polymorphism";
 import { CompositeFns, CompositeItem } from "../../items/composite-item";
 import { LinkItem } from "../../items/link-item";
 import { isNote, NoteFns } from "../../items/note-item";
-import { asPageItem, isPage } from "../../items/page-item";
+import { asPageItem, documentRowSideClickIsInert, isPage } from "../../items/page-item";
 import { asTableItem, isTable } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
 import {
@@ -213,7 +213,11 @@ export const arrangeComposite = (
     displayItem: child.displayItem_childItem,
     geometry: child.geometry,
   })));
-  addContiguousStackedGapHitboxes(compositeChildArrangeData.map(child => child.geometry), compositeGeometry.boundsPx.w, false);
+  // As in a document page, clicks in the gap beside a page, image, rating or table do nothing: these were full clicks
+  // on the item, so clicking empty space above or below a rating changed its value, and above an image opened it.
+  addContiguousStackedGapHitboxes(
+    compositeChildArrangeData.map(child => child.geometry), compositeGeometry.boundsPx.w, false,
+    idx => documentRowSideClickIsInert(compositeChildArrangeData[idx].displayItem_childItem));
   if (documentContentRightPx != null) {
     alignDocumentCompositeChildMoveOutHitboxes(
       compositeChildArrangeData.map(child => child.geometry), compositeGeometry.boundsPx.w, documentContentRightPx);
