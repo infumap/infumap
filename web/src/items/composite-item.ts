@@ -188,7 +188,12 @@ export const CompositeFns = {
       } else if (showTitle) {
         bh += COMPOSITE_ITEM_GAP_BL;
       }
-      let cloned = ItemFns.cloneMeasurableFields(item);
+      // Measure a link as its target, so the width normalization below applies to it. Links are not x-sizable, so
+      // measuring the link itself wraps the target at the link's own spatial width, whereas the child geometry
+      // (LinkFns.calcGeometry_InComposite delegates to the target's) lays it out at the composite's width.
+      let cloned = isLink(item)
+        ? LinkFns.targetMeasurableMaybe(asLinkItem(item)) ?? ItemFns.cloneMeasurableFields(item)
+        : ItemFns.cloneMeasurableFields(item);
       if (isPage(cloned)) {
         if (asPageItem(cloned).spatialWidthGr > composite.spatialWidthGr) {
           asPageItem(cloned).spatialWidthGr = composite.spatialWidthGr;

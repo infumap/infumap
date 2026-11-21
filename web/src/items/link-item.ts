@@ -352,6 +352,15 @@ export const LinkFns = {
     return ItemFns.calcGeometry_InCell(measurableMaybe!, cellBoundsPx, expandable, parentIsPopup, parentIsDock, isPopup, hasChildChanges, hasDefaultChanges, maximize, ignoreCellHeight, smallScreenMode);
   },
 
+  /**
+   * The linked-to item's measurable fields with the link's position/size applied, or null if the link is empty or
+   * its target is not loaded (or is itself a link).
+   */
+  targetMeasurableMaybe: (link: LinkItem): Measurable | null => {
+    if (LinkFns.getLinkToId(link) == EMPTY_UID) { return null; }
+    return constructLinkToMeasurable(link);
+  },
+
   asLinkMeasurable: (item: ItemTypeMixin): LinkMeasurable => {
     if (item.itemType == ItemType.Link) { return item as LinkMeasurable; }
     panic("not link measurable.");
