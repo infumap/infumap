@@ -15,6 +15,7 @@
       <symbol id="i-down" viewBox="0 0 16 16"><path d="M8 2.5v8 M4.5 7 8 10.5 11.5 7 M3 13.5h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
       <symbol id="i-ext" viewBox="0 0 16 16"><path d="M5.5 3.5h7v7 M12.5 3.5 4 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
       <symbol id="i-copy" viewBox="0 0 16 16"><rect x="5.5" y="5.5" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3.5 10.5h-1v-8h8v1" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+      <symbol id="i-close" viewBox="0 0 16 16"><path d="m4 4 8 8m0-8-8 8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
     </svg>
 
     <a class="skip-link" href="#main">Skip to content</a>
@@ -143,13 +144,15 @@
                   </div>
                   <div>
                     <h3>Pages</h3>
-                    <p>Switch between eight ways to arrange the same items. Each arrangement is just a different view of the same information.</p>
+                    <p>There are eight page arrangement types. Each arrangement is just a different view of the same items.</p>
                   </div>
                 </div>
               </td>
             </tr>
+            <!-- Item images are 2x macOS screen grabs. width/height are half the file's pixels so an image never shows
+                 larger than the item does in the app; without them each file pixel becomes a CSS px. -->
             <tr id="panel-tables">
-              <td><img src="https://img.infumap.com/tables.jpg" loading="lazy" alt="An example of a table item in Infumap."></td>
+              <td><img src="https://img.infumap.com/tables.jpg" width="726" height="415" loading="lazy" alt="An example of a table item in Infumap."></td>
               <td>
                 <h3>Tables</h3>
                 <p>Like pages, tables are container items. A table can hold any type of item as a child. Each child gets its own row, with the item in the first column and its attachments in the columns beside it.</p>
@@ -157,7 +160,7 @@
               </td>
             </tr>
             <tr id="panel-notes">
-              <td><img src="https://img.infumap.com/notes.jpg" loading="lazy" alt=""></td>
+              <td><img src="https://img.infumap.com/notes.jpg" width="707" height="187" loading="lazy" alt=""></td>
               <td>
                 <h3>Notes</h3>
                 <p>Write headings, paragraphs, and bullet or numbered lists nested up to three levels deep, with bold, italic and links inline. Mark a note as code to show it in monospace, with an optional copy button.</p>
@@ -165,7 +168,7 @@
               </td>
             </tr>
             <tr id="panel-composites">
-              <td><img src="https://img.infumap.com/composite_1.jpg" loading="lazy" alt=""></td>
+              <td><img src="https://img.infumap.com/composite_1.jpg" width="445" height="363" loading="lazy" alt=""></td>
               <td>
                 <h3>Composites</h3>
                 <p>A composite is a small document that sits on a page: notes, images and other items stacked in one block that moves as a whole. Each part is still an item of its own.</p>
@@ -173,7 +176,7 @@
               </td>
             </tr>
             <tr id="panel-images">
-              <td><img src="https://img.infumap.com/image.jpg" loading="lazy" alt=""></td>
+              <td><img src="https://img.infumap.com/image.jpg" width="827" height="750" loading="lazy" alt=""></td>
               <td>
                 <h3>Images</h3>
                 <p>Supports JPEG, PNG, WebP, GIF, HEIC and more.</p>
@@ -181,7 +184,7 @@
               </td>
             </tr>
             <tr id="panel-files">
-              <td><img src="https://img.infumap.com/tables.jpg" loading="lazy" alt=""></td>
+              <td><img src="https://img.infumap.com/file.jpg" width="372" height="78" loading="lazy" alt=""></td>
               <td>
                 <h3>Files</h3>
                 <p>Any file type. Click to open in a new browser tab.</p>
@@ -189,7 +192,7 @@
               </td>
             </tr>
             <tr id="panel-text">
-              <td><img src="https://img.infumap.com/tables.jpg" loading="lazy" alt=""></td>
+              <td><img src="https://img.infumap.com/tables.jpg" width="726" height="415" loading="lazy" alt=""></td>
               <td>
                 <h3>Text Files</h3>
                 <p>Plain text and Markdown, uploaded or pasted. Opens as a read-only document, with Markdown formatted.</p>
@@ -197,7 +200,7 @@
               </td>
             </tr>
             <tr id="panel-links">
-              <td><img src="https://img.infumap.com/tables.jpg" loading="lazy" alt=""></td>
+              <td><img src="https://img.infumap.com/tables.jpg" width="726" height="415" loading="lazy" alt=""></td>
               <td>
                 <h3>Links</h3>
                 <p>Show any item in a second place, at its own size and position. There is still only one item.</p>
@@ -205,14 +208,14 @@
               </td>
             </tr>
             <tr id="panel-ratings">
-              <td><img src="https://img.infumap.com/tables.jpg" loading="lazy" alt=""></td>
+              <td><img src="https://img.infumap.com/tables.jpg" width="726" height="415" loading="lazy" alt=""></td>
               <td>
                 <h3>Ratings</h3>
                 <p>Zero to five, shown as stars, a number, or a horizontal or vertical bar. Click to change.</p>
               </td>
             </tr>
             <tr id="panel-passwords">
-              <td><img src="https://img.infumap.com/tables.jpg" loading="lazy" alt=""></td>
+              <td><img src="https://img.infumap.com/tables.jpg" width="726" height="415" loading="lazy" alt=""></td>
               <td>
                 <h3>Passwords</h3>
                 <p>Masked until revealed. Copy without revealing.</p>
@@ -220,7 +223,7 @@
               </td>
             </tr>
             <tr id="panel-dividers">
-              <td><img src="https://img.infumap.com/tables.jpg" loading="lazy" alt=""></td>
+              <td><img src="https://img.infumap.com/tables.jpg" width="726" height="415" loading="lazy" alt=""></td>
               <td>
                 <h3>Dividers</h3>
                 <p>Horizontal or vertical. Always horizontal in documents and lists.</p>
@@ -232,7 +235,9 @@
           <div class="item-titlebar">
             <h3 id="page-dialog-title">Page preview</h3>
             <form method="dialog">
-              <button class="tool" type="submit" autofocus>Close</button>
+              <button class="tool page-dialog-close" type="submit" aria-label="Close preview" autofocus>
+                <svg class="icon" aria-hidden="true"><use href="#i-close"/></svg>
+              </button>
             </form>
           </div>
           <div class="page-dialog-body"></div>
@@ -378,6 +383,25 @@
         if (typeof dialog.showModal === 'function') {
           var dialogTitle = document.getElementById('page-dialog-title');
           var dialogBody = dialog.querySelector('.page-dialog-body');
+          var pointerStartedOnBackdrop = false;
+
+          function isBackdrop(event) {
+            // The backdrop and the dialog's own scrollbar can both report the dialog as the target.
+            if (event.target !== dialog) return false;
+            var bounds = dialog.getBoundingClientRect();
+            return event.clientX < bounds.left || event.clientX >= bounds.right ||
+              event.clientY < bounds.top || event.clientY >= bounds.bottom;
+          }
+
+          // Require the press to start outside so a drag from the preview doesn't dismiss it.
+          dialog.addEventListener('pointerdown', function (event) {
+            pointerStartedOnBackdrop = isBackdrop(event);
+          });
+          dialog.addEventListener('click', function (event) {
+            if (pointerStartedOnBackdrop && isBackdrop(event)) dialog.close();
+            pointerStartedOnBackdrop = false;
+          });
+
           document.querySelectorAll('.page-preview').forEach(function (preview) {
             var link = preview.querySelector('.page-preview-link');
             link.setAttribute('aria-haspopup', 'dialog');
