@@ -53,7 +53,7 @@
       <section class="feature-section" aria-labelledby="forms-title">
         <div class="section-head">
           <h2 id="forms-title">Everything is an item</h2>
-          <p>Items sit below other items, as children or as attachments. A page might be attached to a note, in a table, on another page, and every page opens into a space of its own. Together it all makes one giant workspace.</p>
+          <p>Items sit under other items, as children or as attachments. A page might be attached to a note, in a table, on another page, and every page opens into a space of its own. Together it all makes one giant workspace.</p>
         </div>
         <table class="feature-table">
           <colgroup>
@@ -65,38 +65,81 @@
               <td colspan="2">
                 <div class="pages-overview">
                   <div class="page-gallery page-gallery-compact">
-                    <a class="page-preview-link" href="#panel-page-spatial">
-                      <span class="page-preview-label">Spatial</span>
-                      <img src="https://img.infumap.com/page_spatial_1.jpg" loading="lazy" alt="">
-                    </a>
-                    <a class="page-preview-link" href="#panel-page-document">
-                      <span class="page-preview-label">Document</span>
-                      <img src="https://img.infumap.com/page_document_2.jpg" loading="lazy" alt="">
-                    </a>
-                    <a class="page-preview-link" href="#panel-page-justified">
-                      <span class="page-preview-label">Justified</span>
-                      <img src="https://img.infumap.com/page_justified.jpg" loading="lazy" alt="">
-                    </a>
-                    <a class="page-preview-link" href="#panel-page-grid">
-                      <span class="page-preview-label">Grid</span>
-                      <img src="https://img.infumap.com/page_grid.jpg" loading="lazy" alt="">
-                    </a>
-                    <a class="page-preview-link" href="#panel-page-table">
-                      <span class="page-preview-label">Table</span>
-                      <img src="https://img.infumap.com/page_table.jpg" loading="lazy" alt="">
-                    </a>
-                    <a class="page-preview-link" href="#panel-page-list">
-                      <span class="page-preview-label">List</span>
-                      <img src="https://img.infumap.com/page_list_1.jpg" loading="lazy" alt="">
-                    </a>
-                    <a class="page-preview-link" href="#panel-page-calendar">
-                      <span class="page-preview-label">Calendar</span>
-                      <img src="https://img.infumap.com/page_calendar.jpg" loading="lazy" alt="">
-                    </a>
-                    <a class="page-preview-link" href="#panel-page-catalog">
-                      <span class="page-preview-label">Catalog</span>
-                      <img src="https://img.infumap.com/page_catalog_1.jpg" loading="lazy" alt="">
-                    </a>
+                    <div class="page-preview" id="panel-page-spatial">
+                      <a class="page-preview-link" href="https://img.infumap.com/page_spatial_1.jpg">
+                        <span class="page-preview-label">Spatial</span>
+                        <img src="https://img.infumap.com/page_spatial_1.jpg" loading="lazy" alt="An Infumap spatial page for a Germany trip, with itinerary documents, receipts, a checklist, and photos arranged in groups.">
+                      </a>
+                      <div class="page-preview-copy panel-copy" hidden>
+                        <p>Infumap takes a unique approach to spatial pages. There's no zoom and a page is scrollable only when its aspect ratio differs substantially from the screen - and even then, only horizontally or vertically, never both.</p>
+                        <p>This approach makes it easier to keep your bearings - reduces cognitive load and makes navigation quicker. If you need more room, resize the page or add subpages.</p>
+                        <p>The human brain is good at spatial reasoning and recall. Spatial pages are amongst the most versatile and useful.</p>
+                      </div>
+                    </div>
+                    <div class="page-preview" id="panel-page-document">
+                      <a class="page-preview-link" href="https://img.infumap.com/page_document_2.jpg">
+                        <span class="page-preview-label">Document</span>
+                        <img src="https://img.infumap.com/page_document_2.jpg" loading="lazy" alt="">
+                      </a>
+                      <div class="page-preview-copy panel-copy" hidden>
+                        <p>Infumap's text editor is just another page arrangement type. Paragraphs are note items, and any other infumap item type can also be embedded in the document.</p>
+                        <p>You can think of documents as a full page version of composites. You can convert between the two.</p>
+                      </div>
+                    </div>
+                    <div class="page-preview" id="panel-page-justified">
+                      <a class="page-preview-link" href="https://img.infumap.com/page_justified.jpg">
+                        <span class="page-preview-label">Justified</span>
+                        <img src="https://img.infumap.com/page_justified.jpg" loading="lazy" alt="">
+                      </a>
+                      <div class="page-preview-copy panel-copy" hidden>
+                        <p>Arrange previews in rows that fill the page width while preserving their aspect ratios. Useful for browsing a collection of images.</p>
+                      </div>
+                    </div>
+                    <div class="page-preview" id="panel-page-grid">
+                      <a class="page-preview-link" href="https://img.infumap.com/page_grid.jpg">
+                        <span class="page-preview-label">Grid</span>
+                        <img src="https://img.infumap.com/page_grid.jpg" loading="lazy" alt="">
+                      </a>
+                      <div class="page-preview-copy panel-copy" hidden>
+                        <p>Grid pages allow items to be arranged in evenly sized cells.</p>
+                      </div>
+                    </div>
+                    <div class="page-preview" id="panel-page-table">
+                      <a class="page-preview-link" href="https://img.infumap.com/page_table.jpg">
+                        <span class="page-preview-label">Table</span>
+                        <img src="https://img.infumap.com/page_table.jpg" loading="lazy" alt="">
+                      </a>
+                      <div class="page-preview-copy panel-copy" hidden>
+                        <p>Display the items on a page as rows with columns for their details. Compare options or keep a structured record alongside your other material.</p>
+                      </div>
+                    </div>
+                    <div class="page-preview" id="panel-page-list">
+                      <a class="page-preview-link" href="https://img.infumap.com/page_list_1.jpg">
+                        <span class="page-preview-label">List</span>
+                        <img src="https://img.infumap.com/page_list_1.jpg" loading="lazy" alt="">
+                      </a>
+                      <div class="page-preview-copy panel-copy" hidden>
+                        <p>Show notes, bookmarks and other items as rows. A list is an arrangement of a page, so its contents are still individual items.</p>
+                      </div>
+                    </div>
+                    <div class="page-preview" id="panel-page-calendar">
+                      <a class="page-preview-link" href="https://img.infumap.com/page_calendar.jpg">
+                        <span class="page-preview-label">Calendar</span>
+                        <img src="https://img.infumap.com/page_calendar.jpg" loading="lazy" alt="">
+                      </a>
+                      <div class="page-preview-copy panel-copy" hidden>
+                        <p>Place dated items on a calendar. Switch between month, quarter, half-year and year views to see the time span you need.</p>
+                      </div>
+                    </div>
+                    <div class="page-preview" id="panel-page-catalog">
+                      <a class="page-preview-link" href="https://img.infumap.com/page_catalog_1.jpg">
+                        <span class="page-preview-label">Catalog</span>
+                        <img src="https://img.infumap.com/page_catalog_1.jpg" loading="lazy" alt="">
+                      </a>
+                      <div class="page-preview-copy panel-copy" hidden>
+                        <p>Catalog page arrangement is primarily used for search results, but you can use it on any other page as well. Catalog pages show you each item with its accompanying information.</p>
+                      </div>
+                    </div>
                   </div>
                   <div>
                     <h3>Pages</h3>
@@ -185,90 +228,6 @@
             </tr>
           </tbody>
         </table>
-      </section>
-
-      <section class="feature-section" id="panel-pages" aria-labelledby="pages-title">
-        <div class="section-head">
-          <h2 id="pages-title">Page Arrangements</h2>
-          <p>Switch between eight ways to arrange the same items.</p>
-        </div>
-        <div class="page-gallery">
-          <article class="page-preview" id="panel-page-spatial">
-            <a class="page-preview-link" href="https://img.infumap.com/page_spatial_1.jpg" aria-labelledby="heading-page-spatial">
-              <h3 class="page-preview-label" id="heading-page-spatial">Spatial</h3>
-              <img src="https://img.infumap.com/page_spatial_1.jpg" width="1600" loading="lazy" alt="An Infumap spatial page for a Germany trip, with itinerary documents, receipts, a checklist, and photos arranged in groups.">
-            </a>
-            <div class="page-preview-copy panel-copy">
-              <p>Infumap takes a unique approach to spatial pages. There's no zoom and a page is scrollable only when its aspect ratio differs substantially from the screen - and even then, only horizontally or vertically, never both.</p>
-              <p>This approach makes it easier to keep your bearings - reduces cognitive load and makes navigation quicker. If you need more room, resize the page or add subpages.</p>
-              <p>The human brain is good at spatial reasoning and recall. Spatial pages are amongst the most versatile and useful.</p>
-            </div>
-          </article>
-          <article class="page-preview" id="panel-page-document">
-            <a class="page-preview-link" href="https://img.infumap.com/page_document_2.jpg" aria-labelledby="heading-page-document">
-              <h3 class="page-preview-label" id="heading-page-document">Document</h3>
-              <img src="https://img.infumap.com/page_document_2.jpg" width="1600" loading="lazy" alt="">
-            </a>
-            <div class="page-preview-copy panel-copy">
-              <p>Infumap's text editor is just another page arrangement type. Paragraphs are note items, and any other infumap item type can also be embedded in the document.</p>
-              <p>You can think of documents as a full page version of composites. You can convert between the two.</p>
-            </div>
-          </article>
-          <article class="page-preview" id="panel-page-justified">
-            <a class="page-preview-link" href="https://img.infumap.com/page_justified.jpg" aria-labelledby="heading-page-justified">
-              <h3 class="page-preview-label" id="heading-page-justified">Justified</h3>
-              <img src="https://img.infumap.com/page_justified.jpg" width="1600" loading="lazy" alt="">
-            </a>
-            <div class="page-preview-copy panel-copy">
-              <p>Arrange previews in rows that fill the page width while preserving their aspect ratios. Useful for browsing a collection of images.</p>
-            </div>
-          </article>
-          <article class="page-preview" id="panel-page-grid">
-            <a class="page-preview-link" href="https://img.infumap.com/page_grid.jpg" aria-labelledby="heading-page-grid">
-              <h3 class="page-preview-label" id="heading-page-grid">Grid</h3>
-              <img src="https://img.infumap.com/page_grid.jpg" width="1600" loading="lazy" alt="">
-            </a>
-            <div class="page-preview-copy panel-copy">
-              <p>Grid pages allow items to be arranged in evenly sized cells.</p>
-            </div>
-          </article>
-          <article class="page-preview" id="panel-page-table">
-            <a class="page-preview-link" href="https://img.infumap.com/page_table.jpg" aria-labelledby="heading-page-table">
-              <h3 class="page-preview-label" id="heading-page-table">Table</h3>
-              <img src="https://img.infumap.com/page_table.jpg" width="1600" loading="lazy" alt="">
-            </a>
-            <div class="page-preview-copy panel-copy">
-              <p>Display the items on a page as rows with columns for their details. Compare options or keep a structured record alongside your other material.</p>
-            </div>
-          </article>
-          <article class="page-preview" id="panel-page-list">
-            <a class="page-preview-link" href="https://img.infumap.com/page_list_1.jpg" aria-labelledby="heading-page-list">
-              <h3 class="page-preview-label" id="heading-page-list">List</h3>
-              <img src="https://img.infumap.com/page_list_1.jpg" width="1600" loading="lazy" alt="">
-            </a>
-            <div class="page-preview-copy panel-copy">
-              <p>Show notes, bookmarks and other items as rows. A list is an arrangement of a page, so its contents are still individual items.</p>
-            </div>
-          </article>
-          <article class="page-preview" id="panel-page-calendar">
-            <a class="page-preview-link" href="https://img.infumap.com/page_calendar.jpg" aria-labelledby="heading-page-calendar">
-              <h3 class="page-preview-label" id="heading-page-calendar">Calendar</h3>
-              <img src="https://img.infumap.com/page_calendar.jpg" width="1600" loading="lazy" alt="">
-            </a>
-            <div class="page-preview-copy panel-copy">
-              <p>Place dated items on a calendar. Switch between month, quarter, half-year and year views to see the time span you need.</p>
-            </div>
-          </article>
-          <article class="page-preview" id="panel-page-catalog">
-            <a class="page-preview-link" href="https://img.infumap.com/page_catalog_1.jpg" aria-labelledby="heading-page-catalog">
-              <h3 class="page-preview-label" id="heading-page-catalog">Catalog</h3>
-              <img src="https://img.infumap.com/page_catalog_1.jpg" width="1600" loading="lazy" alt="">
-            </a>
-            <div class="page-preview-copy panel-copy">
-              <p>Catalog page arrangement is primarily used for search results, but you can use it on any other page as well. Catalog pages show you each item with its accompanying information.</p>
-            </div>
-          </article>
-        </div>
         <dialog class="page-dialog" id="page-preview-dialog" aria-labelledby="page-dialog-title">
           <div class="item-titlebar">
             <h3 id="page-dialog-title">Page preview</h3>
@@ -415,21 +374,22 @@
     <script>
       (function () {
         var dialog = document.getElementById('page-preview-dialog');
-        // Without dialogs, the compact gallery links to the full gallery and its descriptions.
+        // Without dialogs, each preview links straight to its full-size image and the description stays hidden.
         if (typeof dialog.showModal === 'function') {
           var dialogTitle = document.getElementById('page-dialog-title');
           var dialogBody = dialog.querySelector('.page-dialog-body');
-          document.querySelectorAll('.page-preview-link').forEach(function (link) {
-            var preview = link.closest('.page-preview') || document.getElementById(link.hash.slice(1));
-            if (!preview) return;
+          document.querySelectorAll('.page-preview').forEach(function (preview) {
+            var link = preview.querySelector('.page-preview-link');
             link.setAttribute('aria-haspopup', 'dialog');
             link.addEventListener('click', function (event) {
               if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
               event.preventDefault();
               var image = preview.querySelector('img').cloneNode();
               image.removeAttribute('loading');
-              dialogTitle.textContent = preview.querySelector('h3').textContent;
-              dialogBody.replaceChildren(image, preview.querySelector('.page-preview-copy').cloneNode(true));
+              var copy = preview.querySelector('.page-preview-copy').cloneNode(true);
+              copy.hidden = false;
+              dialogTitle.textContent = preview.querySelector('.page-preview-label').textContent;
+              dialogBody.replaceChildren(image, copy);
               link.focus({ preventScroll: true });
               dialog.showModal();
               dialog.scrollTop = 0;
