@@ -96,36 +96,42 @@ main { max-width: calc(var(--max) + 2 * var(--gutter)); margin: 0 auto; padding:
 
 /* Feature sections */
 .feature-section { margin-top: clamp(64px, 9vw, 112px); }
-.item-types { width: 100%; margin-top: 16px; table-layout: fixed; border-collapse: collapse; }
-.item-types th, .item-types td { padding: clamp(12px, 2vw, 24px); text-align: left; vertical-align: top; }
-.item-types th { background: var(--table-head); border-bottom: 1px solid var(--table-line); color: var(--ink); }
-.item-types tr > :first-child { width: 38%; border-right: 1px solid var(--table-line); }
-.item-types tr + tr td { border-top: 1px solid var(--chrome-line); }
-.item-types h3 { color: var(--blue); font-size: 18px; }
-.item-types td p { margin-top: 6px; max-width: 65ch; overflow-wrap: break-word; }
-.query-example { padding: 20px; background: var(--chrome); border: 1px solid var(--item-line); border-radius: var(--radius); }
-.query-example figcaption { color: var(--muted); font-size: 14px; font-weight: 600; }
-.query-example blockquote { margin: 8px 0 0; color: var(--ink); font-size: 21px; }
+.feature-table { width: 100%; margin-top: 16px; table-layout: fixed; border-collapse: collapse; }
+.feature-table th, .feature-table td { padding: clamp(12px, 2vw, 24px); text-align: left; vertical-align: top; }
+.feature-table th { background: var(--table-head); border-bottom: 1px solid var(--table-line); color: var(--ink); }
+.feature-table tr > :first-child { width: 38%; border-right: 1px solid var(--table-line); }
+.feature-table tr + tr td { border-top: 1px solid var(--chrome-line); }
+.feature-table h3 { color: var(--blue); font-size: 18px; }
+.feature-table td p { margin-top: 6px; max-width: 65ch; overflow-wrap: break-word; }
+.feature-example { padding: clamp(8px, 2vw, 20px); background: var(--chrome); border: 1px solid var(--item-line); border-radius: var(--radius); overflow-wrap: break-word; }
+.feature-example figcaption { color: var(--muted); font-size: 14px; font-weight: 600; }
+.feature-example blockquote { margin: 8px 0 0; color: var(--ink); font-size: clamp(15px, 2vw, 21px); }
+.feature-example ul { margin-top: 8px; padding-inline-start: 1.1em; }
+.feature-table .feature-command { margin: 0; overflow-wrap: anywhere; }
+.feature-table img, .page-dialog img { border: 1px solid var(--chrome-line); background: var(--ground); }
 
 /* An opened page: its title bar takes a light tint of the page colour, as a page's title does in Infumap. */
 .panel { margin-top: 16px; }
 .panel .item-titlebar { background: color-mix(in srgb, var(--page) 9%, white); border-bottom-color: color-mix(in srgb, var(--page) 35%, white); }
 .panel .item-titlebar h2 { color: color-mix(in srgb, var(--page) 85%, black); font-size: 22px; }
 .panel-body { padding: clamp(20px, 3vw, 32px); }
-.panel-body-media { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(20px, 3vw, 40px); align-items: start; }
-.panel p { font-size: 17px; max-width: 65ch; }
 .panel-copy > * + * { margin-top: 12px; }
 .page-intro { padding: 20px clamp(20px, 6vw, 32px); }
-.page-intro > p { max-width: none; }
-.arrangements { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 clamp(20px, 3vw, 32px) 20px; border-bottom: 1px solid var(--item-line); }
-.arrangement-tab { min-height: 40px; padding: 8px 14px; border: 1px solid var(--item-line); border-radius: var(--radius); background: var(--ground); color: var(--text); font: 600 15px/1.3 var(--sans); cursor: pointer; }
-.arrangement-tab:hover { background: var(--hover); }
-.arrangement-tab[aria-selected="true"] { background: var(--blue); border-color: var(--blue); color: #fff; }
-.item-types img, .panel img { border: 1px solid var(--chrome-line); background: var(--ground); }
-.arrangement-panel img { width: 100%; max-height: 460px; object-fit: contain; object-position: left top; }
-.tab-controls[hidden], .arrangement-panel[hidden] { display: none; }
-.arrangement-panel + .arrangement-panel { border-top: 1px solid var(--item-line); }
-.arrangements[role="tablist"] ~ .arrangement-panel { border-top: 0; }
+.page-intro p { font-size: 17px; }
+.page-gallery { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(10px, 2vw, 24px); padding: 0 clamp(16px, 3vw, 32px) clamp(16px, 3vw, 32px); }
+.page-preview-link { display: block; background: var(--chrome); text-decoration: none; }
+.page-preview-link:hover { background: var(--selected); }
+.page-gallery.has-dialog .page-preview-link { cursor: zoom-in; }
+.page-preview-link h3 { padding: 8px 12px; font-size: 16px; }
+.page-preview-link img { width: 100%; aspect-ratio: 16 / 10; object-fit: contain; background: var(--ground); border-top: 1px solid var(--item-line); }
+.page-preview-copy { padding: 12px; }
+.page-gallery.has-dialog .page-preview-copy { display: none; }
+.page-dialog { position: fixed; inset: 0; margin: auto; width: min(1120px, calc(100% - var(--gutter))); max-height: calc(100% - var(--gutter)); padding: 0; color: var(--text); }
+.page-dialog:not([open]) { display: none; }
+.page-dialog::backdrop { background: rgb(29 33 40 / 0.55); }
+.page-dialog .item-titlebar { position: sticky; top: 0; z-index: 1; justify-content: space-between; align-items: center; }
+.page-dialog-body img { margin: auto; width: auto; max-height: 68vh; }
+.page-dialog-body .page-preview-copy { margin: 20px auto 0; max-width: 65ch; padding: 0; }
 
 /* Download */
 .download { margin-top: clamp(64px, 9vw, 112px); padding-bottom: clamp(56px, 8vw, 96px); }
@@ -155,7 +161,6 @@ main { max-width: calc(var(--max) + 2 * var(--gutter)); margin: 0 auto; padding:
 .footer ul a { display: inline-flex; align-items: center; min-height: 44px; }
 
 @media (max-width: 900px) {
-  .panel-body-media { grid-template-columns: 1fr; }
   .platforms { grid-template-columns: 1fr; }
 }
 
@@ -165,7 +170,7 @@ main { max-width: calc(var(--max) + 2 * var(--gutter)); margin: 0 auto; padding:
   .tool:not(.tool-primary) { padding: 0 10px; }
   .hero-actions .button { width: 100%; }
   .hero { gap: 20px; padding: 20px 0 24px; }
-  .arrangements { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .page-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .footer ul { margin-left: 0; }
 }
 

@@ -53,9 +53,9 @@
       <section class="feature-section" aria-labelledby="forms-title">
         <div class="section-head">
           <h2 id="forms-title">Building blocks</h2>
-          <p>Explore the items you can add to a page.</p>
+          <p>Information in Infumap lives in a giant workspace.</p>
         </div>
-        <table class="item-types item">
+        <table class="feature-table item">
           <thead>
             <tr>
               <th scope="col">Example</th>
@@ -158,104 +158,152 @@
           <div class="page-intro">
             <p>There are 8 page arrangement types. Arrangements are different views of the same information - switch between them at any time.</p>
           </div>
-          <div class="arrangements tab-controls" data-tabs aria-label="Page arrangements" hidden>
-            <button class="arrangement-tab" type="button" id="tab-page-spatial" data-panel="panel-page-spatial">Spatial</button>
-            <button class="arrangement-tab" type="button" id="tab-page-document" data-panel="panel-page-document">Document</button>
-            <button class="arrangement-tab" type="button" id="tab-page-justified" data-panel="panel-page-justified">Justified</button>
-            <button class="arrangement-tab" type="button" id="tab-page-grid" data-panel="panel-page-grid">Grid</button>
-            <button class="arrangement-tab" type="button" id="tab-page-table" data-panel="panel-page-table">Table</button>
-            <button class="arrangement-tab" type="button" id="tab-page-list" data-panel="panel-page-list">List</button>
-            <button class="arrangement-tab" type="button" id="tab-page-calendar" data-panel="panel-page-calendar">Calendar</button>
-            <button class="arrangement-tab" type="button" id="tab-page-catalog" data-panel="panel-page-catalog">Catalog</button>
-          </div>
-          <section class="arrangement-panel" id="panel-page-spatial" aria-labelledby="heading-page-spatial">
-            <div class="panel-body panel-body-media">
-              <div class="panel-copy">
+          <div class="page-gallery">
+            <article class="page-preview item" id="panel-page-spatial">
+              <a class="page-preview-link" href="https://img.infumap.com/page_spatial_1.jpg" aria-labelledby="heading-page-spatial">
+                <h3 id="heading-page-spatial">Spatial</h3>
+                <img src="https://img.infumap.com/page_spatial_1.jpg" width="1600" loading="lazy" alt="An Infumap spatial page for a Germany trip, with itinerary documents, receipts, a checklist, and photos arranged in groups.">
+              </a>
+              <div class="page-preview-copy panel-copy">
                 <p>Infumap takes a unique approach to spatial pages. There's no zoom and a page is scrollable only when its aspect ratio differs substantially from the screen - and even then, only horizontally or vertically, never both.</p>
                 <p>This approach makes it easier to keep your bearings - reduces cognitive load and makes navigation quicker. If you need more room, resize the page or add subpages.</p>
                 <p>The human brain is good at spatial reasoning and recall. Spatial pages are amongst the most versatile and useful.</p>
               </div>
-              <img src="https://img.infumap.com/page_spatial_1.jpg" width="1600" loading="lazy" alt="An Infumap spatial page for a Germany trip, with itinerary documents, receipts, a checklist, and photos arranged in groups.">
-            </div>
-          </section>
-          <section class="arrangement-panel" id="panel-page-document" aria-labelledby="heading-page-document">
-            <div class="panel-body panel-body-media">
-              <div class="panel-copy">
+            </article>
+            <article class="page-preview item" id="panel-page-document">
+              <a class="page-preview-link" href="https://img.infumap.com/page_document_2.jpg" aria-labelledby="heading-page-document">
+                <h3 id="heading-page-document">Document</h3>
+                <img src="https://img.infumap.com/page_document_2.jpg" width="1600" loading="lazy" alt="">
+              </a>
+              <div class="page-preview-copy panel-copy">
                 <p>Infumap's text editor is just another page arrangement type. Paragraphs are note items, and any other infumap item type can also be embedded in the document.</p>
                 <p>You can think of documents as a full page version of composites. You can convert between the two.</p>
               </div>
-              <img src="https://img.infumap.com/page_document_2.jpg" width="1600" loading="lazy" alt="">
-            </div>
-          </section>
-          <section class="arrangement-panel" id="panel-page-grid" aria-labelledby="heading-page-grid">
-            <div class="panel-body panel-body-media">
-              <div class="panel-copy">
+            </article>
+            <article class="page-preview item" id="panel-page-justified">
+              <a class="page-preview-link" href="https://img.infumap.com/page_justified.jpg" aria-labelledby="heading-page-justified">
+                <h3 id="heading-page-justified">Justified</h3>
+                <img src="https://img.infumap.com/page_justified.jpg" width="1600" loading="lazy" alt="">
+              </a>
+              <div class="page-preview-copy panel-copy">
+                <p>Arrange previews in rows that fill the page width while preserving their aspect ratios. Useful for browsing a collection of images.</p>
+              </div>
+            </article>
+            <article class="page-preview item" id="panel-page-grid">
+              <a class="page-preview-link" href="https://img.infumap.com/page_grid.jpg" aria-labelledby="heading-page-grid">
+                <h3 id="heading-page-grid">Grid</h3>
+                <img src="https://img.infumap.com/page_grid.jpg" width="1600" loading="lazy" alt="">
+              </a>
+              <div class="page-preview-copy panel-copy">
                 <p>Grid pages allow items to be arranged in evenly sized cells.</p>
               </div>
-              <img src="https://img.infumap.com/page_grid.jpg" width="1600" loading="lazy" alt="">
-            </div>
-          </section>
-          <section class="arrangement-panel" id="panel-page-catalog" aria-labelledby="heading-page-catalog">
-            <div class="panel-body panel-body-media">
-              <div class="panel-copy">
-                <p>Catalog page arrangement is primarily used for search results, but you can use it on any other page as well. Catalog pages show you each item with its accompanying information.</p>
-              </div>
-              <img src="https://img.infumap.com/page_catalog_1.jpg" width="1600" loading="lazy" alt="">
-            </div>
-          </section>
-          <section class="arrangement-panel" id="panel-page-justified" aria-labelledby="heading-page-justified">
-            <div class="panel-body panel-body-media">
-              <div class="panel-copy">
-                <p>Justified pages arrange items in rows with  Arrange previews in rows that fill the page width while preserving their aspect ratios. Useful for browsing a collection of images.</p>
-              </div>
-              <img src="https://img.infumap.com/page_justified.jpg" width="1600" loading="lazy" alt="">
-            </div>
-          </section>
-          <section class="arrangement-panel" id="panel-page-list" aria-labelledby="heading-page-list">
-            <div class="panel-body panel-body-media">
-              <div class="panel-copy">
-                <p>Show notes, bookmarks and other items as rows. A list is an arrangement of a page, so its contents are still individual items.</p>
-              </div>
-              <img src="https://img.infumap.com/page_list_1.jpg" width="1600" loading="lazy" alt="">
-            </div>
-          </section>
-          <section class="arrangement-panel" id="panel-page-table" aria-labelledby="heading-page-table">
-            <div class="panel-body panel-body-media">
-              <div class="panel-copy">
+            </article>
+            <article class="page-preview item" id="panel-page-table">
+              <a class="page-preview-link" href="https://img.infumap.com/page_table.jpg" aria-labelledby="heading-page-table">
+                <h3 id="heading-page-table">Table</h3>
+                <img src="https://img.infumap.com/page_table.jpg" width="1600" loading="lazy" alt="">
+              </a>
+              <div class="page-preview-copy panel-copy">
                 <p>Display the items on a page as rows with columns for their details. Compare options or keep a structured record alongside your other material.</p>
               </div>
-              <img src="https://img.infumap.com/page_table.jpg" width="1600" loading="lazy" alt="">
-            </div>
-          </section>
-          <section class="arrangement-panel" id="panel-page-calendar" aria-labelledby="heading-page-calendar">
-            <div class="panel-body panel-body-media">
-              <div class="panel-copy">
+            </article>
+            <article class="page-preview item" id="panel-page-list">
+              <a class="page-preview-link" href="https://img.infumap.com/page_list_1.jpg" aria-labelledby="heading-page-list">
+                <h3 id="heading-page-list">List</h3>
+                <img src="https://img.infumap.com/page_list_1.jpg" width="1600" loading="lazy" alt="">
+              </a>
+              <div class="page-preview-copy panel-copy">
+                <p>Show notes, bookmarks and other items as rows. A list is an arrangement of a page, so its contents are still individual items.</p>
+              </div>
+            </article>
+            <article class="page-preview item" id="panel-page-calendar">
+              <a class="page-preview-link" href="https://img.infumap.com/page_calendar.jpg" aria-labelledby="heading-page-calendar">
+                <h3 id="heading-page-calendar">Calendar</h3>
+                <img src="https://img.infumap.com/page_calendar.jpg" width="1600" loading="lazy" alt="">
+              </a>
+              <div class="page-preview-copy panel-copy">
                 <p>Place dated items on a calendar. Switch between month, quarter, half-year and year views to see the time span you need.</p>
               </div>
-              <img src="https://img.infumap.com/page_calendar.jpg" width="1600" loading="lazy" alt="">
-            </div>
-          </section>
-        </div>
-      </section>
-
-      <section class="feature-section" aria-labelledby="ai-title">
-        <div class="section-head">
-          <h2 id="ai-title">AI Integration</h2>
-          <p>Ask questions about the material you already keep in Infumap.</p>
-        </div>
-        <div class="panel item">
-          <div class="panel-body panel-body-media">
-            <div class="panel-copy">
-              <p>Open Queries, choose a model you’ve configured, and pick the collection it can search. Attach a specific note or PDF to ask about it directly.</p>
-              <p>Start a deep research run when you want a fuller answer. Save finished reports and chats alongside the items they refer to.</p>
-              <p><a href="https://github.com/infumap/infumap/blob/master/docs/chats.md">Read about chats and deep research</a></p>
-            </div>
-            <figure class="query-example">
-              <figcaption>Example query</figcaption>
-              <blockquote>Which of my Germany trip hotel bookings can I still cancel, and by when?</blockquote>
-            </figure>
+            </article>
+            <article class="page-preview item" id="panel-page-catalog">
+              <a class="page-preview-link" href="https://img.infumap.com/page_catalog_1.jpg" aria-labelledby="heading-page-catalog">
+                <h3 id="heading-page-catalog">Catalog</h3>
+                <img src="https://img.infumap.com/page_catalog_1.jpg" width="1600" loading="lazy" alt="">
+              </a>
+              <div class="page-preview-copy panel-copy">
+                <p>Catalog page arrangement is primarily used for search results, but you can use it on any other page as well. Catalog pages show you each item with its accompanying information.</p>
+              </div>
+            </article>
           </div>
         </div>
+        <dialog class="page-dialog item" id="page-preview-dialog" aria-labelledby="page-dialog-title">
+          <div class="item-titlebar">
+            <h3 id="page-dialog-title">Page preview</h3>
+            <form method="dialog">
+              <button class="tool" type="submit" autofocus>Close</button>
+            </form>
+          </div>
+          <div class="panel-body page-dialog-body"></div>
+        </dialog>
+      </section>
+
+      <section class="feature-section" aria-labelledby="features-title">
+        <div class="section-head">
+          <h2 id="features-title">More features</h2>
+        </div>
+        <table class="feature-table item">
+          <thead>
+            <tr>
+              <th scope="col">Example</th>
+              <th scope="col">Feature</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <figure class="feature-example">
+                  <figcaption>Example query</figcaption>
+                  <blockquote>Which of my Germany trip hotel bookings can I still cancel, and by when?</blockquote>
+                </figure>
+              </td>
+              <td>
+                <h3 id="ai-title">AI Integration</h3>
+                <p>Open Queries, choose a model you’ve configured, and pick the collection it can search. Attach a specific note or PDF to ask about it directly.</p>
+                <p>Start a deep research run when you want a fuller answer. Save finished reports and chats alongside the items they refer to.</p>
+                <p><a href="https://github.com/infumap/infumap/blob/master/docs/chats.md">Read about chats and deep research</a></p>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <figure class="feature-example">
+                  <figcaption>Trip bookings</figcaption>
+                  <ul>
+                    <li>Hotel reservations</li>
+                    <li>Train tickets</li>
+                  </ul>
+                </figure>
+              </td>
+              <td>
+                <h3>Collections</h3>
+                <p>Group links to related items from anywhere in your workspace. The originals stay where they are. Use a collection to narrow a search, chat, or deep research run to the material you want to use.</p>
+                <p><a href="https://github.com/infumap/infumap/blob/master/docs/scopes.md#collections">Read about collections and scopes</a></p>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div class="command feature-command">
+                  <span class="prompt" aria-hidden="true">$</span>
+                  <code>infumap ls</code>
+                </div>
+              </td>
+              <td>
+                <h3>CLI</h3>
+                <p>Run Infumap from the terminal. Start a server or sign in to a running instance to list items, add notes, and upload files in bulk.</p>
+                <p><a href="https://github.com/infumap/infumap/blob/master/docs/cli.md">See the CLI commands</a></p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </section>
 
       <section class="download" id="download" aria-labelledby="download-title">
@@ -334,44 +382,29 @@
     </footer>
 
     <script>
-      // Every arrangement remains visible without JavaScript. Show the tabs once they can switch panels.
       (function () {
-        document.querySelectorAll('[data-tabs]').forEach(function (tablist) {
-          var tabs = Array.prototype.slice.call(tablist.querySelectorAll('[data-panel]'));
-          tablist.setAttribute('role', 'tablist');
-          tabs.forEach(function (tab, i) {
-            var panel = document.getElementById(tab.getAttribute('data-panel'));
-            tab.setAttribute('role', 'tab');
-            tab.setAttribute('aria-controls', panel.id);
-            tab.setAttribute('aria-selected', i === 0 ? 'true' : 'false');
-            tab.tabIndex = i === 0 ? 0 : -1;
-            panel.setAttribute('role', 'tabpanel');
-            panel.setAttribute('aria-labelledby', tab.id);
-            panel.tabIndex = 0;
-            panel.hidden = i !== 0;
-          });
-          function select(tab, focus) {
-            tabs.forEach(function (other) {
-              var selected = other === tab;
-              other.setAttribute('aria-selected', selected ? 'true' : 'false');
-              other.tabIndex = selected ? 0 : -1;
-              document.getElementById(other.getAttribute('aria-controls')).hidden = !selected;
-            });
-            if (focus) tab.focus();
-          }
-          tabs.forEach(function (tab, i) {
-            tab.addEventListener('click', function () { select(tab, false); });
-            tab.addEventListener('keydown', function (e) {
-              var next = null;
-              if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = tabs[(i + 1) % tabs.length];
-              if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = tabs[(i - 1 + tabs.length) % tabs.length];
-              if (e.key === 'Home') next = tabs[0];
-              if (e.key === 'End') next = tabs[tabs.length - 1];
-              if (next) { e.preventDefault(); select(next, true); }
+        var dialog = document.getElementById('page-preview-dialog');
+        // The cards keep their descriptions and link to the original images when dialogs are unavailable.
+        if (typeof dialog.showModal === 'function') {
+          var gallery = document.querySelector('.page-gallery');
+          var dialogTitle = document.getElementById('page-dialog-title');
+          var dialogBody = dialog.querySelector('.page-dialog-body');
+          gallery.querySelectorAll('.page-preview-link').forEach(function (link) {
+            link.setAttribute('aria-haspopup', 'dialog');
+            link.addEventListener('click', function (event) {
+              if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+              event.preventDefault();
+              var image = link.querySelector('img').cloneNode();
+              image.removeAttribute('loading');
+              dialogTitle.textContent = link.querySelector('h3').textContent;
+              dialogBody.replaceChildren(image, link.nextElementSibling.cloneNode(true));
+              link.focus({ preventScroll: true });
+              dialog.showModal();
+              dialog.scrollTop = 0;
             });
           });
-          tablist.hidden = false;
-        });
+          gallery.classList.add('has-dialog');
+        }
 
         // Copy the command without the prompt, which a shell would reject.
         Array.prototype.slice.call(document.querySelectorAll('.copy')).forEach(function (button) {
