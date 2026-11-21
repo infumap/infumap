@@ -30,7 +30,7 @@ import { XSizableItem, XSizableMixin } from './base/x-sizeable-item';
 import { YSizableItem, YSizableMixin } from './base/y-sizeable-item';
 import { ItemGeometry } from '../layout/item-geometry';
 import { PositionalMixin } from './base/positional-item';
-import { FlagsItem, FlagsMixin, NOTE_ALIGN_FLAGS, NoteFlags } from './base/flags-item';
+import { FlagsItem, FlagsMixin, NOTE_ALIGN_FLAGS, NoteFlags, noteHasListStyle } from './base/flags-item';
 import { VeFns, VisualElement } from '../layout/visual-element';
 import { StoreContextModel } from '../store/StoreProvider';
 import { calcBoundsInCell, calcBoundsInCellFromSizeBl, handleListPageLineItemClickMaybe, isInsidePopupHierarchy, isInsideReadOnlyDocumentPage } from './base/item-common-fns';
@@ -623,7 +623,11 @@ function noteFaviconUrl(note: NoteMeasurable): string | null {
 
 function noteIconKind(note: NoteMeasurable, context: ItemIconRenderContext): ItemIconMode.None | ItemIconMode.Symbol | ItemIconMode.Favicon {
   const hasFaviconUrl = noteFaviconUrl(note) != null;
-  if (note.iconMode == ItemIconMode.Auto && hasFaviconUrl && context != ItemIconRenderContext.TableAttachment) {
+  // A link at the start of the text brings in a favicon, which sits before the text. On a bullet or numbered note
+  // it would land before the list marker, and moving it after the marker would misalign the text of list items with
+  // and without a leading link, so leave it out. Line items keep it: there it fills the icon column every row has.
+  if (note.iconMode == ItemIconMode.Auto && hasFaviconUrl && context != ItemIconRenderContext.TableAttachment &&
+      !noteHasListStyle(note.flags)) {
     return ItemIconMode.Favicon;
   }
   return itemIconKind(note.iconMode, context, hasFaviconUrl);
