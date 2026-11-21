@@ -25,7 +25,6 @@
   --item-line: #c9d5e2;        /* --color-item-line */
   --chrome-line: #e1e3e1;      /* --color-chrome-line */
   --table-head: #e7eaef;       /* page colour at 12%, tableHeaderBackgroundColor */
-  --table-line: #bac2cf;       /* page colour at 35%, tablePageLineColor */
   --selected: #d4d9e1;         /* --color-control-selected */
   --hover: #e8e8e8;            /* --color-control-hover */
   --focus: rgb(0 82 255 / 0.9);/* --color-focus */
@@ -33,7 +32,6 @@
   --sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", Helvetica, Arial, sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 
-  --shadow: 0 2px 6px rgb(40 48 60 / 0.10), 0 10px 24px -12px rgb(40 48 60 / 0.22);
   --radius: 4px;
   --gutter: clamp(16px, 4vw, 48px);
   --max: 1280px;
@@ -54,9 +52,6 @@ code { font-family: var(--mono); font-size: 0.92em; background: var(--table-head
 
 .skip-link { position: absolute; left: 16px; top: -64px; z-index: 10; padding: 10px 16px; background: var(--blue); color: #fff; border-radius: var(--radius); }
 .skip-link:focus { top: 12px; }
-
-/* An Infumap item: a thin outline and a soft shadow. */
-.item { position: relative; background: var(--ground); border: 1px solid var(--item-border); border-radius: 2px; box-shadow: var(--shadow); }
 
 /* Title bar: the app's page chrome, with the page name in the page colour. */
 .titlebar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 56px; padding: 8px var(--gutter); background: var(--chrome); border-bottom: 1px solid var(--item-line); }
@@ -85,8 +80,8 @@ main { max-width: calc(var(--max) + 2 * var(--gutter)); margin: 0 auto; padding:
 .button-primary:focus-visible { outline-offset: 3px; }
 
 /* Shared item title bars */
-.item-titlebar { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; padding: 10px 16px; background: var(--chrome); border-bottom: 1px solid var(--table-line); }
-.item-titlebar h2, .item-titlebar h3 { color: var(--blue); font-size: 20px; font-weight: 600; letter-spacing: -0.005em; }
+.item-titlebar { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; padding: 10px 16px; background: var(--chrome); }
+.item-titlebar h3 { color: var(--blue); font-size: 20px; font-weight: 600; letter-spacing: -0.005em; }
 .item-titlebar p { color: var(--muted); font-size: 15px; }
 
 /* Section heads */
@@ -98,40 +93,38 @@ main { max-width: calc(var(--max) + 2 * var(--gutter)); margin: 0 auto; padding:
 .feature-section { margin-top: clamp(64px, 9vw, 112px); }
 .feature-table { width: 100%; margin-top: 16px; table-layout: fixed; border-collapse: collapse; }
 .feature-table th, .feature-table td { padding: clamp(12px, 2vw, 24px); text-align: left; vertical-align: top; }
-.feature-table th { background: var(--table-head); border-bottom: 1px solid var(--table-line); color: var(--ink); }
-.feature-table tr > :first-child { width: 38%; border-right: 1px solid var(--table-line); }
+.feature-table th { border-bottom: 1px solid var(--chrome-line); color: var(--muted); font-weight: 600; }
+.feature-table th:first-child { width: 38%; }
 .feature-table tr + tr td { border-top: 1px solid var(--chrome-line); }
 .feature-table h3 { color: var(--blue); font-size: 18px; }
 .feature-table td p { margin-top: 6px; max-width: 65ch; overflow-wrap: break-word; }
-.feature-example { padding: clamp(8px, 2vw, 20px); background: var(--chrome); border: 1px solid var(--item-line); border-radius: var(--radius); overflow-wrap: break-word; }
+.feature-example { padding: clamp(8px, 2vw, 20px); background: var(--chrome); border-radius: var(--radius); overflow-wrap: break-word; }
 .feature-example figcaption { color: var(--muted); font-size: 14px; font-weight: 600; }
 .feature-example blockquote { margin: 8px 0 0; color: var(--ink); font-size: clamp(15px, 2vw, 21px); }
 .feature-example ul { margin-top: 8px; padding-inline-start: 1.1em; }
 .feature-table .feature-command { margin: 0; overflow-wrap: anywhere; }
-.feature-table img, .page-dialog img { border: 1px solid var(--chrome-line); background: var(--ground); }
+.pages-overview { display: grid; grid-template-columns: minmax(0, 38fr) minmax(0, 62fr); gap: clamp(16px, 3vw, 48px); align-items: start; }
 
-/* An opened page: its title bar takes a light tint of the page colour, as a page's title does in Infumap. */
-.panel { margin-top: 16px; }
-.panel .item-titlebar { background: color-mix(in srgb, var(--page) 9%, white); border-bottom-color: color-mix(in srgb, var(--page) 35%, white); }
-.panel .item-titlebar h2 { color: color-mix(in srgb, var(--page) 85%, black); font-size: 22px; }
-.panel-body { padding: clamp(20px, 3vw, 32px); }
+/* Page arrangement previews */
 .panel-copy > * + * { margin-top: 12px; }
-.page-intro { padding: 20px clamp(20px, 6vw, 32px); }
-.page-intro p { font-size: 17px; }
-.page-gallery { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(10px, 2vw, 24px); padding: 0 clamp(16px, 3vw, 32px) clamp(16px, 3vw, 32px); }
-.page-preview-link { display: block; background: var(--chrome); text-decoration: none; }
-.page-preview-link:hover { background: var(--selected); }
-.page-gallery.has-dialog .page-preview-link { cursor: zoom-in; }
-.page-preview-link h3 { padding: 8px 12px; font-size: 16px; }
-.page-preview-link img { width: 100%; aspect-ratio: 16 / 10; object-fit: contain; background: var(--ground); border-top: 1px solid var(--item-line); }
-.page-preview-copy { padding: 12px; }
-.page-gallery.has-dialog .page-preview-copy { display: none; }
-.page-dialog { position: fixed; inset: 0; margin: auto; width: min(1120px, calc(100% - var(--gutter))); max-height: calc(100% - var(--gutter)); padding: 0; color: var(--text); }
+.page-gallery { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(12px, 2.5vw, 32px); }
+.section-head + .page-gallery { margin-top: 24px; }
+.page-gallery-compact { gap: clamp(8px, 1.25vw, 16px); }
+.page-preview-link { display: block; text-decoration: none; }
+.page-preview-link:hover .page-preview-label { text-decoration: underline; }
+.page-preview-link[aria-haspopup="dialog"] { cursor: zoom-in; }
+.page-preview-label { display: block; margin-top: 6px; font-size: 16px; font-weight: 600; }
+.page-gallery-compact .page-preview-label { margin-top: 4px; font-size: 13px; overflow-wrap: anywhere; }
+.page-preview-link img { width: 100%; aspect-ratio: 16 / 10; object-fit: contain; background: var(--chrome); }
+.page-preview-copy { margin-top: 12px; }
+.page-preview-link[aria-haspopup="dialog"] + .page-preview-copy { display: none; }
+.page-dialog { position: fixed; inset: 0; margin: auto; width: min(1120px, calc(100% - var(--gutter))); max-height: calc(100% - var(--gutter)); padding: 0; border: 0; border-radius: var(--radius); color: var(--text); background: var(--ground); }
 .page-dialog:not([open]) { display: none; }
 .page-dialog::backdrop { background: rgb(29 33 40 / 0.55); }
-.page-dialog .item-titlebar { position: sticky; top: 0; z-index: 1; justify-content: space-between; align-items: center; }
+.page-dialog .item-titlebar { position: sticky; top: 0; z-index: 1; justify-content: space-between; align-items: center; background: var(--ground); }
+.page-dialog-body { padding: clamp(16px, 3vw, 32px); }
 .page-dialog-body img { margin: auto; width: auto; max-height: 68vh; }
-.page-dialog-body .page-preview-copy { margin: 20px auto 0; max-width: 65ch; padding: 0; }
+.page-dialog-body .page-preview-copy { margin: 20px auto 0; max-width: 65ch; }
 
 /* Download */
 .download { margin-top: clamp(64px, 9vw, 112px); padding-bottom: clamp(56px, 8vw, 96px); }
@@ -170,7 +163,8 @@ main { max-width: calc(var(--max) + 2 * var(--gutter)); margin: 0 auto; padding:
   .tool:not(.tool-primary) { padding: 0 10px; }
   .hero-actions .button { width: 100%; }
   .hero { gap: 20px; padding: 20px 0 24px; }
-  .page-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pages-overview { grid-template-columns: 1fr; }
+  .section-head + .page-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .footer ul { margin-left: 0; }
 }
 
