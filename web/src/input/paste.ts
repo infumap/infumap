@@ -19,7 +19,8 @@
 import { StoreContextModel } from "../store/StoreProvider";
 import { acceptClipboardTextForPendingTextItem } from "./text_clipboard_create";
 import { edit_replaceNoteSelection, edit_structuralClipboardGuard } from "./edit";
-import { clipboardTextForSingleLine, normalizeLineBreaks } from "../util/editable_text";
+import { normalizeLineBreaks, singleLineTextForPaste } from "../util/editable_text";
+import { ItemType } from "../items/base/item";
 import { textEditElementId } from "./text_edit_session";
 import { parsePastedLines, pasteLinesIntoContainer, pasteLinesTargetMaybe, showPasteMessage } from "./paste_lines";
 import { pasteBlocksIntoNote, pasteParagraphsIntoNote } from "./paste_markdown";
@@ -93,8 +94,9 @@ export function pasteHandler(store: StoreContextModel, ev: ClipboardEvent) {
   const noteText = noteTextForPaste(store, clipboardText);
   // Only whitespace, which would otherwise replace a selection with nothing.
   if (noteText == "") { return; }
-  if (edit_replaceNoteSelection(store, ev, noteText, "Paste")) { return; }
-  document.execCommand("insertText", false, clipboardTextForSingleLine(clipboardText));
+  if (noteText != null && edit_replaceNoteSelection(store, ev, noteText, "Paste")) { return; }
+  const text = singleLineTextForPaste(clipboardText, editInfo?.itemType == ItemType.Password);
+  if (text != "") { document.execCommand("insertText", false, text); }
 }
 
 /**

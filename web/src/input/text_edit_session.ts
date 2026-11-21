@@ -25,7 +25,7 @@ import { ArrangeAlgorithm, asPageItem, isPage, PageFns } from "../items/page-ite
 import { asTableItem, TableFns } from "../items/table-item";
 import { asPasswordItem } from "../items/password-item";
 import { isClipboardTextCreateItem } from "../items/text-item";
-import { asNoteItem, concatNoteInlineMarks, concatNoteUrls, NoteFns, noteUrlForInsertedText, splitNoteInlineMarks, splitNoteUrls, updateNoteInlineMarksForTextChange, updateNoteUrlsForTextChange } from "../items/note-item";
+import { asNoteItem, isNote, concatNoteInlineMarks, concatNoteUrls, NoteFns, noteUrlForInsertedText, splitNoteInlineMarks, splitNoteUrls, updateNoteInlineMarksForTextChange, updateNoteUrlsForTextChange } from "../items/note-item";
 import { getQueryText, setQueryText } from "../items/query-item";
 import { requestArrange } from "../layout/arrange";
 import { VesCache } from "../layout/ves-cache";
@@ -35,13 +35,15 @@ import { itemState } from "../store/ItemState";
 import type { StoreContextModel } from "../store/StoreProvider";
 import type { NetworkFailureReason } from "../store/StoreProvider_General";
 import type { TextEditInfo } from "../store/StoreProvider_Overlay";
-import { getTextOffsetWithinElement } from "../util/caret";
-import { readEditableText } from "../util/editable_text";
+import { getTextOffsetWithinElement, setCaretPosition } from "../util/caret";
+import { joinInsertedLineBreaks, normalizeLineBreaks, readEditableText } from "../util/editable_text";
 import { appendNewlineIfEmpty } from "../util/string";
 import { finishPendingClipboardTextItem } from "./text_clipboard_create";
 
 import { captureEditorSelection, historyCaret, historyOwnsTextEdit, type EditorSelection } from "./editor_history";
 import { deleteEmptyNoteMaybe, isEmptyNoteCleanupContext } from "./empty_note";
+import { reconcileNoteEditableDom } from "./note_editable_dom";
+import { noteVeShowsOneLine } from "./note_line_breaks";
 
 const SAVE_DELAY_MS = 500;
 const RETRY_FIRST_DELAY_MS = 2000;
@@ -165,6 +167,36 @@ function normalizeNoteEditorLineBreaks(element: HTMLElement): void {
       lineBreak.lastIndex = match.index + 1;
     }
   }
+}
+
+/**
+ * Whether the field being edited shows one line, so a line break can't be added to it: any title, column name or
+ * password, and a note where it is shown on one line (see note_line_breaks.ts). Query text can have several lines.
+ */
+function editShowsOneLine(item: Item, info: TextEditInfo): boolean {
+  if (info.itemType == ItemType.Search) { return false; }
+  if (info.itemType != ItemType.Note || info.colNum != null) { return true; }
+  const noteVe = VesCache.current.readNode(info.itemPath);
+  return noteVe != null && isNote(item) && noteVeShowsOneLine(noteVe);
+}
+
+/** The editor, after line breaks were joined in what was put into it, showing the text as it is now (modelText). */
+function showJoinedLineBreaks(element: HTMLElement, item: Item, modelText: string, caret: number): void {
+  if (element.hasAttribute("data-note-editor")) {
+    reconcileNoteEditableDom(element, asNoteItem(item));
+  } else {
+    const text = appendNewlineIfEmpty(modelText);
+    // Solid owns the text node it rendered, so keep it, if the browser left it at the top. The line breaks a drop
+    // brings into a contenteditable span are <br>s, or <div>s.
+    const solidText = Array.from(element.childNodes).find((child): child is Text => child instanceof Text);
+    for (const child of Array.from(element.childNodes)) {
+      if (child !== solidText && (child instanceof Text || (child instanceof HTMLElement && ["BR", "DIV", "P"].includes(child.tagName)))) {
+        child.remove();
+      }
+    }
+    if (solidText != null) { solidText.data = text; } else { element.textContent = text; }
+  }
+  setCaretPosition(element, caret);
 }
 
 /** The table showing the row at itemPath, and the index of that row in it. */
@@ -391,13 +423,23 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
       };
     }
     session.typingFlags = typingFlags;
-    const newText = readEditableText(element);
+    let newText = readEditableText(element);
+    // A drop can bring line breaks into a field that shows one line. (A paste can't: paste.ts makes it one line.)
+    const joined = editShowsOneLine(item, session.info)
+      ? joinInsertedLineBreaks(modelText(getStore(), item, session.info), normalizeLineBreaks(newText))
+      : null;
+    if (joined != null) { newText = joined.text; }
+    // The editor still has the line breaks, until it is given the text as it is now.
+    const done = (): TextEditSession => {
+      if (joined != null) { showJoinedLineBreaks(element, item, modelText(getStore(), item, session.info), joined.insertedEnd); }
+      return session;
+    };
     // Do not overwrite a split/join or toolbar change with unchanged, stale DOM.
-    if (newText == session.lastText) { return session; }
+    if (newText == session.lastText) { return done(); }
     session.lastText = newText;
     if (modelText(getStore(), item, session.info) == newText) {
       markDirty(item, session.field);
-      return session;
+      return done();
     }
 
     const info = session.info;
@@ -411,7 +453,7 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
       setQueryText(getStore(), item.id, newText.replace(/\u200B/g, ""));
     } else if (info.colNum != null) {
       const columns = info.itemType == ItemType.Page ? asPageItem(item).tableColumns : asTableItem(item).tableColumns;
-      if (columns[info.colNum] == null) { return session; }
+      if (columns[info.colNum] == null) { return done(); }
       columns[info.colNum].name = newText;
     } else if (info.itemType == ItemType.Note) {
       const caretAfter = session.selection != null && session.selection.anchor == session.selection.focus ? session.selection.focus : null;
@@ -423,7 +465,7 @@ export function makeTextEditStore(getStore: () => StoreContextModel): TextEditSt
     }
     markDirty(item, session.field);
     history.commit(token);
-    return session;
+    return done();
   };
 
   const captureActive = () => {

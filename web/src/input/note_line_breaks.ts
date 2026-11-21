@@ -65,15 +65,14 @@ export function noteLineBreakRefusal(noteVe: VisualElement): string | null {
  * Text pasted into the note being edited as it is to be inserted, with its line breaks normalized. The whitespace and
  * line breaks around it are dropped: they are almost always an artifact of the copy, such as a terminal line's newline.
  * Code keeps the indentation of its first line, which lines up with the others. Where the note shows one line, the line
- * breaks (and the whitespace around them) become spaces. Text pasted into something other than a note is returned with
- * only its line breaks normalized.
+ * breaks (and the whitespace around them) become spaces. Null if no note is being edited.
  */
-export function noteTextForPaste(store: StoreContextModel, pastedText: string): string {
+export function noteTextForPaste(store: StoreContextModel, pastedText: string): string | null {
   const text = normalizeLineBreaks(pastedText);
   const info = store.overlay.textEditInfo();
   const noteVe = info?.itemType == ItemType.Note && info.colNum == null ? VesCache.current.readNode(info.itemPath) : null;
   const item = noteVe == null ? null : itemState.get(VeFns.veidFromPath(info!.itemPath).itemId);
-  if (noteVe == null || item == null || !isNote(item)) { return text; }
+  if (noteVe == null || item == null || !isNote(item)) { return null; }
   const code = !!(asNoteItem(item).flags & NoteFlags.Code);
   const trimmed = code ? text.replace(/^(?:[^\S\n]*\n)+/, "").trimEnd() : text.trim();
   return noteVeShowsOneLine(noteVe) ? trimmed.replace(/\s*\n\s*/g, " ") : trimmed;

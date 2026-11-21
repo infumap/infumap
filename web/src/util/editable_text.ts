@@ -55,6 +55,30 @@ export function normalizeLineBreaks(text: string): string {
   return text.replace(/\r\n?|[\u2028\u2029]/g, "\n");
 }
 
-export function clipboardTextForSingleLine(text: string): string {
-  return normalizeLineBreaks(text).replace(/[\n\t]/g, " ");
+/**
+ * Pasted text for a field that holds one line, such as a title. Each run of whitespace with a line break in it becomes
+ * a space, as do tabs. The whitespace around the text is dropped: it's almost always an artifact of the copy, such as a
+ * terminal line's newline. A password keeps the spaces around it, which can be part of it, and drops only line breaks.
+ */
+export function singleLineTextForPaste(text: string, keepOuterSpaces: boolean = false): string {
+  const normalized = normalizeLineBreaks(text);
+  const outerTrimmed = keepOuterSpaces ? normalized.replace(/^\n+|\n+$/g, "") : normalized.trim();
+  return outerTrimmed.replace(/\s*\n\s*/g, " ").replace(/\t/g, " ");
+}
+
+/**
+ * newText, an edit of oldText that inserted text with line breaks in it (a drop can), with each run of whitespace with
+ * a line break in the inserted text made a space, and where the inserted text now ends. Null if no line break was
+ * inserted. Only the inserted text changes, so a line break the text already had stays.
+ */
+export function joinInsertedLineBreaks(oldText: string, newText: string): { text: string, insertedEnd: number } | null {
+  let prefix = 0;
+  while (prefix < oldText.length && prefix < newText.length && oldText[prefix] == newText[prefix]) { ++prefix; }
+  let suffix = 0;
+  while (suffix < Math.min(oldText.length, newText.length) - prefix &&
+         oldText[oldText.length - 1 - suffix] == newText[newText.length - 1 - suffix]) { ++suffix; }
+  const inserted = newText.substring(prefix, newText.length - suffix);
+  if (!inserted.includes("\n")) { return null; }
+  const joined = inserted.replace(/\s*\n\s*/g, " ");
+  return { text: newText.substring(0, prefix) + joined + newText.substring(newText.length - suffix), insertedEnd: prefix + joined.length };
 }
