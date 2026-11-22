@@ -61,7 +61,12 @@
             <col class="feature-example-col">
             <col>
           </colgroup>
+          <!-- Grouped by role rather than listed by type: a type-by-type list gave a divider the same room as pages,
+               and never showed items combining, which is what the heading claims. -->
           <tbody>
+            <tr class="feature-group">
+              <th colspan="2" scope="rowgroup"><h3>Containers</h3></th>
+            </tr>
             <tr>
               <td colspan="2">
                 <div class="pages-overview">
@@ -143,7 +148,7 @@
                     </div>
                   </div>
                   <div>
-                    <h3>Pages</h3>
+                    <h4>Pages</h4>
                     <p>There are eight page arrangement types. Each arrangement is just a different view of the same items.</p>
                   </div>
                 </div>
@@ -154,31 +159,36 @@
             <tr id="panel-tables">
               <td><img src="https://img.infumap.com/tables.jpg" width="726" height="415" loading="lazy" alt="An example of a table item in Infumap."></td>
               <td>
-                <h3>Tables</h3>
-                <p>Like pages, tables are container items. A table can hold any type of item as a child. Each child gets its own row, with the item in the first column and its attachments in the columns beside it.</p>
-                <p>Any item can be a child of a table.</p>
-              </td>
-            </tr>
-            <tr id="panel-notes">
-              <td><img src="https://img.infumap.com/notes.jpg" width="707" height="187" loading="lazy" alt=""></td>
-              <td>
-                <h3>Notes</h3>
-                <p>Write headings, paragraphs, and bullet or numbered lists nested up to three levels deep, with bold, italic and links inline. Mark a note as code to show it in monospace, with an optional copy button.</p>
-                <p>Each paragraph or list item is a note of its own, so any one of them can be moved, attached to another item, or dropped into a table.</p>
+                <h4>Tables</h4>
+                <p>Like pages, tables are containers, and they can hold any type of item. Each child is a row: the item in the first column, and the items <a href="#panel-attachments">attached</a> to it in the columns beside it.</p>
+                <p>Convert a table to a table page and back.</p>
               </td>
             </tr>
             <tr id="panel-composites">
               <td><img src="https://img.infumap.com/composite_1.jpg" width="445" height="363" loading="lazy" alt=""></td>
               <td>
-                <h3>Composites</h3>
-                <p>A composite is a small document that sits on a page: notes, images and other items stacked in one block that moves as a whole. Each part is still an item of its own.</p>
+                <h4>Composites</h4>
+                <p>A composite is a small document that sits on a page: notes, images and other items stacked in one block that moves as a whole. Each part is still an item of its own. Drop an item on the bottom edge of a note to start one.</p>
                 <p>When a composite outgrows its place, turn it into a document page. When a document page gets short, bring it back as a composite.</p>
+              </td>
+            </tr>
+          </tbody>
+          <tbody>
+            <tr class="feature-group">
+              <th colspan="2" scope="rowgroup"><h3>Content</h3></th>
+            </tr>
+            <tr id="panel-notes">
+              <td><img src="https://img.infumap.com/notes.jpg" width="707" height="187" loading="lazy" alt=""></td>
+              <td>
+                <h4>Notes</h4>
+                <p>Write headings, paragraphs, and bullet or numbered lists nested up to three levels deep, with bold, italic and links inline. Mark a note as code to show it in monospace, with an optional copy button.</p>
+                <p>Each paragraph or list item is a note of its own, so any one of them can be moved, attached to another item, or dropped into a table.</p>
               </td>
             </tr>
             <tr id="panel-images">
               <td><img src="https://img.infumap.com/image.jpg" width="827" height="750" loading="lazy" alt=""></td>
               <td>
-                <h3>Images</h3>
+                <h4>Images</h4>
                 <p>Supports JPEG, PNG, WebP, GIF, HEIC and more.</p>
                 <p>AI-generated descriptions, text recognition, and capture date and place, all searchable. Requires a configured AI model.</p>
               </td>
@@ -186,46 +196,49 @@
             <tr id="panel-files">
               <td><img src="https://img.infumap.com/file.jpg" width="372" height="78" loading="lazy" alt=""></td>
               <td>
-                <h3>Files</h3>
-                <p>Any file type. Click to open in a new browser tab.</p>
-                <p>Text is extracted from PDFs, making them searchable and attachable to a chat. Requires a configured AI model.</p>
+                <h4>Files</h4>
+                <p>Any file type. Click to open in a new browser tab. Plain text and Markdown, uploaded or pasted, open as a read-only document instead, with Markdown formatted.</p>
+                <p>Text and Markdown contents are searchable. Text is extracted from PDFs for search and chats, which requires a configured AI model.</p>
               </td>
             </tr>
-            <tr id="panel-text">
-              <td><img src="https://img.infumap.com/tables.jpg" width="726" height="415" loading="lazy" alt=""></td>
+          </tbody>
+          <tbody>
+            <tr class="feature-group">
+              <th colspan="2" scope="rowgroup"><h3>Connecting items</h3></th>
+            </tr>
+            <!-- Placeholder image. Wanted: a note with a password and a rating attached, on a spatial page. -->
+            <tr id="panel-attachments">
+              <td><img src="https://img.infumap.com/file.jpg" width="372" height="78" loading="lazy" alt="A PDF file item with a page and another item attached along its top edge."></td>
               <td>
-                <h3>Text Files</h3>
-                <p>Plain text and Markdown, uploaded or pasted. Opens as a read-only document, with Markdown formatted.</p>
-                <p>Contents are searchable.</p>
+                <h4>Attachments</h4>
+                <p>Drop an item on the top edge of another, near its right corner, to attach it. Attachments sit along that edge, move with the item, and open in a popup when clicked.</p>
+                <p>Any item except a rating or divider can have attachments. In a table, they fill the columns beside their item.</p>
               </td>
             </tr>
+            <!-- Placeholder image. Wanted: an item and a link to it, side by side. -->
             <tr id="panel-links">
-              <td><img src="https://img.infumap.com/tables.jpg" width="726" height="415" loading="lazy" alt=""></td>
+              <td><img src="https://img.infumap.com/notes.jpg" width="707" height="187" loading="lazy" alt=""></td>
               <td>
-                <h3>Links</h3>
+                <h4>Links</h4>
                 <p>Show any item in a second place, at its own size and position. There is still only one item.</p>
                 <p>Links can point to items on other Infumap servers.</p>
               </td>
             </tr>
-            <tr id="panel-ratings">
-              <td><img src="https://img.infumap.com/tables.jpg" width="726" height="415" loading="lazy" alt=""></td>
+          </tbody>
+          <tbody>
+            <tr class="feature-group">
+              <th colspan="2" scope="rowgroup"><h3>Small items</h3></th>
+            </tr>
+            <!-- One row for three types that each have little to show. Placeholder image. Wanted: the rating styles,
+                 a password and a divider together. -->
+            <tr id="panel-small-items">
+              <td><img src="https://img.infumap.com/composite_1.jpg" width="445" height="363" loading="lazy" alt=""></td>
               <td>
-                <h3>Ratings</h3>
+                <h4 id="panel-ratings">Ratings</h4>
                 <p>Zero to five, shown as stars, a number, or a horizontal or vertical bar. Click to change.</p>
-              </td>
-            </tr>
-            <tr id="panel-passwords">
-              <td><img src="https://img.infumap.com/tables.jpg" width="726" height="415" loading="lazy" alt=""></td>
-              <td>
-                <h3>Passwords</h3>
-                <p>Masked until revealed. Copy without revealing.</p>
-                <p>Kept out of search and chats.</p>
-              </td>
-            </tr>
-            <tr id="panel-dividers">
-              <td><img src="https://img.infumap.com/tables.jpg" width="726" height="415" loading="lazy" alt=""></td>
-              <td>
-                <h3>Dividers</h3>
+                <h4 id="panel-passwords">Passwords</h4>
+                <p>Masked until revealed. Copy without revealing. Kept out of search and chats.</p>
+                <h4 id="panel-dividers">Dividers</h4>
                 <p>Horizontal or vertical. Always horizontal in documents and lists.</p>
               </td>
             </tr>
@@ -263,7 +276,7 @@
               </td>
               <td>
                 <h3 id="ai-title">AI Integration</h3>
-                <p>Open Queries, choose a model you’ve configured, and pick the collection it can search. Attach a specific note or PDF to ask about it directly.</p>
+                <p>Open Queries, choose a model you’ve configured, and pick the collection it can search. Add a specific note or PDF to your message to ask about it directly.</p>
                 <p>Start a deep research run when you want a fuller answer. Save finished reports and chats alongside the items they refer to.</p>
                 <p><a href="https://github.com/infumap/infumap/blob/master/docs/chats.md">Read about chats and deep research</a></p>
               </td>

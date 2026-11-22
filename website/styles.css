@@ -43,7 +43,7 @@
 *, *::before, *::after { box-sizing: border-box; }
 html { scroll-behavior: smooth; scroll-padding-top: 72px; -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--ground); color: var(--text); font: 16px/1.55 var(--sans); -webkit-font-smoothing: antialiased; }
-h1, h2, h3, p, ol, ul, figure { margin: 0; }
+h1, h2, h3, h4, p, ol, ul, figure { margin: 0; }
 img { display: block; max-width: 100%; height: auto; }
 a { color: var(--blue); text-underline-offset: 3px; text-decoration-thickness: 1px; }
 a:hover { text-decoration-thickness: 2px; }
@@ -98,13 +98,18 @@ main { max-width: calc(var(--max) + 2 * var(--gutter)); margin: 0 auto; padding:
 .feature-section { margin-top: clamp(64px, 9vw, 112px); }
 .feature-table { width: 100%; margin-top: 16px; table-layout: fixed; border-collapse: collapse; }
 .feature-table td { padding: clamp(12px, 2vw, 24px); text-align: left; vertical-align: top; }
-/* Set on a <col> because there is no heading row and the first Building blocks row spans both columns. */
+/* Set on a <col> because no row has a cell per column to size from: a table's first rows span both columns. */
 .feature-table .feature-example-col { width: 38%; }
 /* Rows rule off from each other so each example reads with its own description; the first and last rules bound the
    table. No column rule: the gap already separates example from text. */
 .feature-table td { border-top: 1px solid var(--rule); }
 .feature-table tr:last-child > td { border-bottom: 1px solid var(--rule); }
-.feature-table h3 { color: var(--blue); font-size: 18px; }
+.feature-table h3, .feature-table h4 { color: var(--blue); font-size: 18px; }
+.feature-table td p + h4 { margin-top: 18px; }
+/* Group heads in a section whose rows are grouped (h3 group, h4 rows). Tinted like the header row of a table in the
+   app, so a group reads as a heading over its rows rather than as another row. */
+.feature-group th { padding: 8px clamp(12px, 2vw, 24px); text-align: left; background: var(--table-head); border-top: 1px solid var(--rule); }
+.feature-table .feature-group h3 { color: var(--ink); font-size: 15px; font-weight: 600; }
 .feature-table td p { margin-top: 6px; max-width: 65ch; overflow-wrap: break-word; }
 .feature-example { padding: clamp(8px, 2vw, 20px); background: var(--chrome); border-radius: var(--radius); overflow-wrap: break-word; }
 .feature-example figcaption { color: var(--muted); font-size: 14px; font-weight: 600; }
