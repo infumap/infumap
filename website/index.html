@@ -54,7 +54,7 @@
       <section class="feature-section" aria-labelledby="forms-title">
         <div class="section-head">
           <h2 id="forms-title">Everything is an item</h2>
-          <p>Notes, images, files, and pages are all items. A page can hold any of them, and it can sit on another page, be a row in a table, or attach to a note.</p>
+          <p>Notes, images, files and pages are all items. Each item sits inside a container, such as a page or table, or is attached to another item, and links can show it in other places too. Pages are items as well, so a page can be a row in a table or attached to a note.</p>
         </div>
         <table class="feature-table">
           <colgroup>
@@ -168,7 +168,7 @@
               <td><img src="https://img.infumap.com/composite_1.jpg" width="445" height="363" loading="lazy" alt=""></td>
               <td>
                 <h4>Composites</h4>
-                <p>A composite is a small document that sits on a page: notes, images and other items stacked in one block that moves as a whole. Each part is still an item of its own. Drop an item on the bottom edge of a note to start one.</p>
+                <p>A composite is a small document that sits on a page: notes, images and other items stacked in one block that moves as a whole.</p>
                 <p>When a composite outgrows its place, turn it into a document page. When a document page gets short, bring it back as a composite.</p>
               </td>
             </tr>
@@ -193,19 +193,24 @@
                 <p>AI-generated descriptions, text recognition, and capture date and place, all searchable. Requires a configured AI model.</p>
               </td>
             </tr>
-            <tr id="panel-files">
-              <td><img src="https://img.infumap.com/file.jpg" width="372" height="78" loading="lazy" alt=""></td>
+            <!-- Directly above the grouped row so it sits next to Files, the type readers will see it as a kind of.
+                 Placeholder image. Wanted: a Markdown text file open as a document. -->
+            <tr id="panel-text">
+              <td><img src="https://img.infumap.com/tables.jpg" width="726" height="415" loading="lazy" alt=""></td>
               <td>
-                <h4>Files</h4>
-                <p>Any file type. Click to open in a new browser tab. Plain text and Markdown, uploaded or pasted, open as a read-only document instead, with Markdown formatted.</p>
-                <p>Text and Markdown contents are searchable. Text is extracted from PDFs for search and chats, which requires a configured AI model.</p>
+                <h4>Text files</h4>
+                <p>Plain text and Markdown, uploaded or pasted. Opens as a read-only document, with Markdown formatted.</p>
+                <p>Contents are searchable.</p>
               </td>
             </tr>
-            <!-- One row for three types that each have little to show. Placeholder image. Wanted: the rating styles,
-                 a password and a divider together. -->
+            <!-- One row for the types that render as about a line and have little to show, whatever their importance;
+                 a row each left file.jpg as a thin strip beside the large images. Placeholder image. Wanted: a file,
+                 the rating styles, a password and a divider together. -->
             <tr id="panel-small-items">
-              <td><img src="https://img.infumap.com/composite_1.jpg" width="445" height="363" loading="lazy" alt=""></td>
+              <td><img src="https://img.infumap.com/file.jpg" width="372" height="78" loading="lazy" alt=""></td>
               <td>
+                <h4 id="panel-files">Files</h4>
+                <p>Any file type. Click to open in a new browser tab. Text is extracted from PDFs for search and chats, which requires a configured AI model.</p>
                 <h4 id="panel-ratings">Ratings</h4>
                 <p>Zero to five, shown as stars, a number, or a horizontal or vertical bar. Click to change.</p>
                 <h4 id="panel-passwords">Passwords</h4>
