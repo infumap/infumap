@@ -129,17 +129,24 @@ main { max-width: calc(var(--max) + 2 * var(--gutter)); margin: 0 auto; padding:
 .page-preview-link:hover .page-preview-label { text-decoration: underline; }
 .page-preview-link[aria-haspopup="dialog"] { cursor: zoom-in; }
 .page-preview-label { display: block; padding: 8px 12px; font-size: 16px; font-weight: 600; }
-.page-gallery-compact .page-preview-label { padding: 4px 6px; font-size: 13px; overflow-wrap: anywhere; }
-.page-preview-link img { width: 100%; aspect-ratio: 16 / 10; object-fit: contain; background: var(--chrome); }
-.page-dialog { position: fixed; inset: 0; margin: auto; width: min(1120px, calc(100% - var(--gutter))); max-height: calc(100% - var(--gutter)); padding: 0; border: 0; border-radius: var(--radius); color: var(--text); background: var(--ground); }
+.page-gallery-compact .page-preview-label { padding: 4px 8px; font-size: 13px; overflow-wrap: anywhere; }
+/* The screenshot is inset to line up with the label, with a light frame of its own: edge to edge, its content ran
+   into the card border. */
+.page-preview-link img { box-sizing: border-box; width: calc(100% - 24px); margin: 0 12px 12px; aspect-ratio: 16 / 10; object-fit: contain; background: var(--chrome); border: 1px solid var(--chrome-line); }
+.page-gallery-compact .page-preview-link img { width: calc(100% - 16px); margin: 0 8px 8px; }
+.page-dialog { position: fixed; inset: 0; margin: auto; width: min(1320px, calc(100% - var(--gutter))); max-height: calc(100% - var(--gutter)); padding: 0; border: 0; border-radius: var(--radius); color: var(--text); background: var(--ground); }
 .page-dialog:not([open]) { display: none; }
 .page-dialog::backdrop { background: rgb(29 33 40 / 0.55); }
 .page-dialog .item-titlebar { position: sticky; top: 0; z-index: 1; justify-content: space-between; align-items: center; background: var(--ground); border-bottom: 1px solid var(--rule); }
 .page-dialog-close { justify-content: center; width: 44px; min-height: 44px; padding: 0; border: 0; cursor: pointer; }
 .page-dialog-close .icon { width: 20px; height: 20px; }
 .page-dialog-body { padding: clamp(16px, 3vw, 32px); }
-.page-dialog-body img { margin: auto; width: auto; max-height: 68vh; }
-.page-dialog-body .page-preview-copy { margin: 20px auto 0; max-width: 65ch; }
+/* The text sits beside the screenshot rather than under it: below, it was off screen until scrolled, and centred
+   under a wider image it looked unanchored. The frame marks the screenshot's edge, as its own white background
+   otherwise runs into the dialog's. */
+.page-dialog-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 300px); gap: clamp(20px, 3vw, 32px); align-items: start; }
+.page-dialog-body img { width: 100%; height: auto; max-height: calc(100vh - 160px); object-fit: contain; object-position: top left; border: 1px solid var(--chrome-line); }
+.page-dialog-body .page-preview-copy { font-size: 16px; }
 
 /* Download */
 .download { margin-top: clamp(64px, 9vw, 112px); padding-bottom: clamp(56px, 8vw, 96px); }
@@ -173,6 +180,8 @@ main { max-width: calc(var(--max) + 2 * var(--gutter)); margin: 0 auto; padding:
 
 @media (max-width: 900px) {
   .platforms { grid-template-columns: 1fr; }
+  .page-dialog-body { grid-template-columns: 1fr; }
+  .page-dialog-body .page-preview-copy { max-width: 65ch; }
 }
 
 @media (max-width: 720px) {
