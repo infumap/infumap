@@ -484,6 +484,9 @@ export const TableFns = {
     return "[table] " + tableItem.title;
   },
 
+  // orderChildrenBy isn't included because no heading shows the sort (a sort arrow was tried and dropped: it clashed
+  // with the column menu chevrons). If a heading ever shows it, add it here and in PageFns.getFingerprint, or the
+  // heading won't re-render when the sort changes.
   getFingerprint: (tableItem: TableItem): string => {
     let tableColText = "";
     for (let i = 0; i < tableItem.tableColumns.length; ++i) { tableColText += tableItem.tableColumns[i].name + "!$!!@"; }

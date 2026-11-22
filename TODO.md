@@ -19,6 +19,9 @@
   reach layout or editing code ([note-item.ts](web/src/items/note-item.ts),
   [table-item.ts](web/src/items/table-item.ts), and the other item parsers).
 
+- Column-sorted tables: a link to a row shown elsewhere isn't re-sorted when that row's cells change
+  ([sort_order.ts](web/src/input/sort_order.ts)).
+
 - Recovered orphan placement during compaction: unreachable items are currently reparented directly to the home
   page at position `(0, 0)`. Put them in a dedicated recovery page so they can be inspected without piling up over
   existing content ([item_db.rs](infumap/src/storage/db/item_db.rs)).

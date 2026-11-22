@@ -26,6 +26,8 @@ export function setSortOrder(store: StoreContextModel, container: ContainerItem,
  * Keep a table sorted by a column sorted by the same cells when its columns change. map gives the new index of a
  * column, or null when the column goes (it's deleted, or hidden), which sorts by column 0 instead. Changes
  * orderChildrenBy and re-sorts, but leaves saving the item to the caller, which has changed its columns too.
+ * The stored column is changed outright. Keeping the stored column and deriving an effective one (so a column
+ * coming back restores its sort) was rejected as too magic.
  */
 export function remapSortColumn(container: ContainerItem, map: (col: number) => number | null): void {
   const order = parseSortOrder(container.orderChildrenBy);
