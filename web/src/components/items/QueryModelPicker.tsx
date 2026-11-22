@@ -4,7 +4,7 @@ import { For, Show, createMemo, createSignal, onMount } from "solid-js";
 import { queryChatModelSelection, setQueryChatModelSelection } from "../../items/chat";
 import { getQueryRuntime } from "../../items/query-item";
 import type { QueryModelFavorite } from "../../items/query-configuration";
-import type { ChatModelInfo } from "../../server";
+import type { ChatBackendInfo, ChatModelInfo } from "../../server";
 import { useStore } from "../../store/StoreProvider";
 import { QueryPickerPopover, type QueryPickerProps } from "./QueryPickerPopover";
 import { DIALOG_INPUT_CLASS, DIALOG_NOTE_CLASS, DialogHeader } from "../library/dialogStyle";
@@ -41,8 +41,11 @@ interface ModelChoice extends QueryModelFavorite {
 export function QueryModelPicker(props: QueryPickerProps) {
   const store = useStore();
   const [filter, setFilter] = createSignal("");
+  const [providerId, setProviderId] = createSignal<string | null>(null);
   const [favoriteBusy, setFavoriteBusy] = createSignal(false);
   const [favoriteError, setFavoriteError] = createSignal<string | null>(null);
+  let searchInput: HTMLInputElement | undefined;
+  let modelList: HTMLDivElement | undefined;
   onMount(() => { void store.general.queryProfiles.retrieve(); void store.general.retrieveChatBackends(); });
   const selection = createMemo(() => queryChatModelSelection(store, props.queryItem()));
   const selectionIssues = () => queryModelIssues(store, selection());
@@ -51,41 +54,68 @@ export function QueryModelPicker(props: QueryPickerProps) {
   const canChange = () => ready() && props.disabled?.() != true && blockedReason() == null;
   const favorites = createMemo(() => store.general.queryProfiles.collection()?.preferences.modelFavorites ?? []);
   const favoriteKeys = createMemo(() => new Set(favorites().map(keyFor)));
+  const backends = createMemo(() => store.general.chatBackends()?.backends ?? []);
+  const browsedProvider = createMemo(() => backends().find(backend => backend.id == providerId()));
+  const searchText = createMemo(() => filter().trim().toLowerCase());
   const catalogChoices = createMemo(() => {
-    const result: ModelChoice[] = [];
-    const backends = store.general.chatBackends()?.backends ?? [];
-    for (const backend of backends) {
+    const result = new Map<string, ModelChoice>();
+    for (const backend of backends()) {
       for (const model of backend.models) {
-        result.push({ backend: backend.id, model: model.id, name: model.name, provider: backend.label,
-          info: model, available: backend.available, reason: backend.unavailableReason ?? null });
+        const choice = { backend: backend.id, model: model.id, name: model.name, provider: backend.label,
+          info: model, available: backend.available, reason: backend.unavailableReason ?? null };
+        result.set(keyFor(choice), choice);
       }
     }
-    const retained = [...favorites(), ...(selection() == null ? [] : [selection()!])];
+    const current = selection();
+    const retained = current == null ? favorites() : [...favorites(), current];
     for (const model of retained) {
-      if (result.some(choice => keyFor(choice) == keyFor(model))) { continue; }
-      const backend = backends.find(backend => backend.id == model.backend);
-      result.push({ ...model, name: model.model ?? queryProviderLabel(store, model.backend), provider: queryProviderLabel(store, model.backend),
-        available: backend?.available == true && (model.model == null || backend.modelsError != null),
-        reason: store.general.chatBackends() == null ? "Loading the model catalog…"
-          : backend == null ? "Provider is not configured" : !backend.available ? backend.unavailableReason ?? "Provider unavailable"
-          : model.model == null ? null : backend.modelsError ?? "Model is not in the current catalog" });
+      const key = keyFor(model);
+      if (result.has(key)) { continue; }
+      const provider = queryProviderLabel(store, model.backend);
+      const issues = queryModelIssues(store, { backend: model.backend, model: model.model, reasoningEffort: null });
+      result.set(key, { ...model, name: model.model ?? provider, provider,
+        available: !issues.some(issue => issue.status == "unavailable"), reason: issues.map(issue => issue.message).join(" ") || null });
     }
-    return result.map(choice => {
-      // Catalog entries already carry their provider's availability; only retained choices need lookup.
-      if (choice.info != null) { return choice; }
-      const issues = queryModelIssues(store, { backend: choice.backend, model: choice.model, reasoningEffort: null });
-      return { ...choice, available: !issues.some(issue => issue.status == "unavailable"), reason: issues.length > 0 ? issues.map(issue => issue.message).join(" ") : choice.reason };
-    });
+    return result;
   });
+  // Start with providers so a discovered catalog can never crowd out a single-model endpoint.
+  const browseProviders = () => browsedProvider() == null && searchText() == "";
+  const matchesFilter = (choice: ModelChoice) => {
+    const name = browsedProvider() == null ? `${choice.name} ${choice.provider} ${choice.backend}` : choice.name;
+    return `${name} ${choice.model ?? ""}`.toLowerCase().includes(searchText());
+  };
   const choices = createMemo(() => {
-    const text = filter().trim().toLowerCase();
-    return catalogChoices().filter(choice => `${choice.name} ${choice.provider} ${choice.backend} ${choice.model ?? ""}`.toLowerCase().includes(text))
+    if (browseProviders()) { return []; }
+    const provider = browsedProvider();
+    return Array.from(catalogChoices().values()).filter(choice => (provider == null || choice.backend == provider.id) && matchesFilter(choice))
       .sort((a, b) => a.name.localeCompare(b.name) || a.provider.localeCompare(b.provider));
   });
-  const favoriteChoices = () => favorites().map(favorite => choices().find(choice => keyFor(choice) == keyFor(favorite)))
-    .filter((choice): choice is ModelChoice => choice != null);
-  const otherChoices = () => choices().filter(choice => !favoriteKeys().has(keyFor(choice)));
-  const backend = () => store.general.chatBackends()?.backends.find(backend => backend.id == selection()?.backend);
+  const favoriteChoices = createMemo(() => favorites().map(favorite => catalogChoices().get(keyFor(favorite)))
+    .filter((choice): choice is ModelChoice => choice != null && matchesFilter(choice)));
+  const resultChoices = () => browsedProvider() != null ? choices() : choices().filter(choice => !favoriteKeys().has(keyFor(choice)));
+  const retainedSelection = () => {
+    const current = selection();
+    if (current == null || favoriteKeys().has(keyFor(current))) { return undefined; }
+    const choice = catalogChoices().get(keyFor(current));
+    return choice?.info == null ? choice : undefined;
+  };
+  const browse = (id: string | null) => {
+    setProviderId(id);
+    setFilter("");
+    if (modelList != null) { modelList.scrollTop = 0; }
+    searchInput?.focus();
+  };
+  const enabledOptions = () => Array.from(modelList?.querySelectorAll<HTMLButtonElement>("[data-model-picker-choice]:not([disabled])") ?? []);
+  const navigateProviders = (ev: KeyboardEvent) => {
+    if (!browseProviders() || (ev.key != "ArrowDown" && ev.key != "ArrowUp") || !(ev.target instanceof HTMLButtonElement)) { return; }
+    const options = enabledOptions();
+    const index = options.indexOf(ev.target);
+    if (index < 0) { return; }
+    ev.preventDefault();
+    ev.stopPropagation();
+    options[(index + (ev.key == "ArrowDown" ? 1 : -1) + options.length) % options.length].focus();
+  };
+  const backend = () => backends().find(backend => backend.id == selection()?.backend);
   const model = () => backend()?.models.find(model => model.id == selection()?.model);
   const label = () => {
     if (!ready()) { return store.general.queryProfiles.error() != null || store.general.chatBackendsError() != null ? "Unavailable" : "Loading…"; }
@@ -113,28 +143,56 @@ export function QueryModelPicker(props: QueryPickerProps) {
     catch (error) { setFavoriteError(error instanceof Error ? error.message : String(error)); }
     finally { setFavoriteBusy(false); }
   };
-  const rows = (rows: () => ModelChoice[], close: () => void) => <For each={rows()}>{choice =>
-    <div class="flex items-center gap-1 px-2">
-      <button type="button" role="radio" aria-checked={selection() != null && keyFor(selection()!) == keyFor(choice)}
+  const row = (choice: ModelChoice, close: () => void, showProvider = true) => {
+    const key = keyFor(choice);
+    const selected = () => selection() != null && keyFor(selection()!) == key;
+    const isFavorite = () => favoriteKeys().has(key);
+    return <div class="flex items-center gap-1 px-2">
+      <button type="button" data-model-picker-choice role={browseProviders() ? undefined : "radio"}
+        aria-checked={browseProviders() ? undefined : selected()} aria-current={browseProviders() && selected() ? true : undefined}
         disabled={!canChange() || !choice.available}
         class="flex min-w-0 grow items-start gap-2 cursor-pointer rounded px-2 py-1.5 text-left hover:bg-control-hover disabled:cursor-default disabled:opacity-50"
         onClick={() => select(choice, close)}>
         <div class="min-w-0 grow">
-          <div class="truncate text-[13px]">{choice.backend}: {choice.name}</div>
+          <div class="truncate text-[13px]">{showProvider ? `${choice.provider}: ${choice.name}` : choice.name}</div>
           <Show when={choice.info}><div class="text-[11px] text-neutral-500">{modelDetails(choice.info!)}</div></Show>
           <Show when={choice.reason != null}><div class="text-[11px] text-amber-700">{choice.reason}</div></Show>
         </div>
-        <Show when={selection() != null && keyFor(selection()!) == keyFor(choice)}><i class="bi-check-lg shrink-0 text-neutral-700" /></Show>
+        <Show when={selected()}><i class="bi-check-lg shrink-0 text-neutral-700" aria-hidden="true" /></Show>
       </button>
       <button type="button" class="h-7 w-7 shrink-0 rounded text-neutral-400 hover:bg-control-hover disabled:opacity-40"
         disabled={favoriteBusy() || store.general.queryProfiles.collection() == null}
-        aria-pressed={favoriteKeys().has(keyFor(choice))}
-        aria-label={`${favoriteKeys().has(keyFor(choice)) ? "Remove" : "Add"} favorite: ${choice.backend}: ${choice.name}`}
+        aria-pressed={isFavorite()}
+        aria-label={`${isFavorite() ? "Remove" : "Add"} favorite: ${choice.provider}: ${choice.name}`}
         onClick={() => { void toggleFavorite(choice); }}>
-        <i class={favoriteKeys().has(keyFor(choice)) ? "bi-star-fill text-amber-600" : "bi-star"} />
+        <i class={isFavorite() ? "bi-star-fill text-amber-600" : "bi-star"} aria-hidden="true" />
       </button>
-    </div>
-  }</For>;
+    </div>;
+  };
+  const providerRow = (provider: ChatBackendInfo, close: () => void) => {
+    const singleModel = () => provider.models.length == 1
+      ? catalogChoices().get(keyFor({ backend: provider.id, model: provider.models[0].id })) : undefined;
+    return <>
+      <Show when={singleModel()} fallback={
+        <div class="px-2">
+          <Show when={provider.models.length > 1} fallback={<div class="px-2 py-1.5">
+            <div class="truncate text-[13px]">{provider.label}</div>
+            <div class="text-[11px] text-neutral-500">{provider.unavailableReason ?? provider.modelsError ?? "No models available"}</div>
+          </div>}>
+            <button type="button" data-model-picker-choice class="flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-control-hover"
+              onClick={() => browse(provider.id)}>
+              <span class="min-w-0 grow truncate text-[13px]">{provider.label}</span>
+              <span class="shrink-0 text-[11px] text-neutral-500">{provider.models.length} models</span>
+              <i class="bi-chevron-right shrink-0 text-[10px] text-neutral-500" aria-hidden="true" />
+            </button>
+          </Show>
+        </div>
+      }>{choice => row(choice(), close)}</Show>
+      <Show when={provider.models.length > 0 && provider.modelsError}>
+        <div class="px-4 pb-1 text-[11px] text-amber-700">{provider.modelsError}</div>
+      </Show>
+    </>;
+  };
 
   return <QueryPickerPopover buttonRef={props.buttonRef} onTabKey={props.onTabKey} disabled={props.disabled?.() || blockedReason() != null}
     buttonClass="max-w-[260px] cursor-pointer" ariaLabel="Choose model and provider"
@@ -143,32 +201,60 @@ export function QueryModelPicker(props: QueryPickerProps) {
       {/* Short backend/model labels stay visible; the scope and tools pills give way first. */}
       <span class={label().length <= 12 ? "shrink-0" : "min-w-0 truncate"}>{label()}</span>
       <Show when={ready() && selectionIssues().length > 0}><i class="bi-exclamation-triangle shrink-0 text-[11px] text-amber-600" /></Show></>}
-    onOpen={() => { setFilter(""); setFavoriteError(null); void store.general.queryProfiles.refresh(); void store.general.refreshChatBackends(); }}>
+    onOpen={() => { setProviderId(null); setFilter(""); setFavoriteError(null); void store.general.queryProfiles.refresh(); void store.general.refreshChatBackends(); }}>
     {close => <>
-      <DialogHeader title="Model and provider">
+      <DialogHeader title={browsedProvider()?.label ?? "Model and provider"}>
+        <Show when={browsedProvider() != null}>
+          <button type="button" class="mt-1 flex cursor-pointer items-center gap-1 rounded px-1 py-0.5 text-[12px] text-neutral-700 hover:bg-control-hover"
+            onClick={() => browse(null)}><i class="bi-chevron-left text-[10px]" aria-hidden="true" />All providers</button>
+        </Show>
         <Show when={props.note?.()}><div class={`mt-1 ${DIALOG_NOTE_CLASS}`}>{props.note?.()}</div></Show>
         <For each={selectionIssues()}>{issue => <div role="status" class="mt-1 text-[11px] text-amber-700">{issue.message}</div>}</For>
-        <input data-picker-autofocus type="search" aria-label="Search models and providers" placeholder="Search models or providers…"
+        <input ref={searchInput} data-picker-autofocus type="search"
+          aria-label={browsedProvider() == null ? "Search models and providers" : `Search models from ${browsedProvider()?.label}`}
+          placeholder={browsedProvider() == null ? "Search models or providers…" : "Search this provider’s models…"}
           class={`mt-1.5 w-full ${DIALOG_INPUT_CLASS}`}
           value={filter()} onInput={ev => setFilter(ev.currentTarget.value)}
           onKeyDown={ev => {
             if (ev.key == "ArrowDown") {
               ev.preventDefault();
-              ev.currentTarget.closest("[role='dialog']")?.querySelector<HTMLButtonElement>("button[role='radio']:not([disabled])")?.focus();
+              enabledOptions()[0]?.focus();
             }
           }} />
       </DialogHeader>
-      <div class="min-h-0 grow overflow-y-auto py-1" role="radiogroup" aria-label="Model and provider combinations">
+      <div ref={modelList} class="min-h-0 grow overflow-y-auto py-1" role={browseProviders() ? "group" : "radiogroup"}
+        aria-label="Model and provider choices"
+        onKeyDown={navigateProviders}>
         <Show when={store.general.queryProfiles.error()}><div class="px-3 py-1 text-[12px] text-red-700">{store.general.queryProfiles.error()}</div></Show>
         <Show when={store.general.chatBackendsError()}><div class="px-3 py-1 text-[12px] text-red-700">{store.general.chatBackendsError()}</div></Show>
         <Show when={favoriteError()}><div class="px-3 py-1 text-[12px] text-red-700" role="alert">{favoriteError()}</div></Show>
         <Show when={store.general.chatBackends() == null && store.general.chatBackendsError() == null}><div class="px-3 py-2 text-[12px] text-neutral-500">Loading models…</div></Show>
-        <Show when={favoriteChoices().length > 0}><div class="px-3 py-1 text-[11px] font-medium text-neutral-500">Favorites</div>{rows(favoriteChoices, close)}</Show>
-        <Show when={otherChoices().length > 0}><div class="px-3 py-1 text-[11px] font-medium text-neutral-500">All models</div>{rows(otherChoices, close)}</Show>
-        <Show when={choices().length == 0 && store.general.chatBackends() != null}><div class="px-3 py-2 text-[12px] text-neutral-500">No matching models or providers.</div></Show>
-        <For each={store.general.chatBackends()?.backends.filter(backend => backend.modelsError != null) ?? []}>{backend =>
-          <div class="px-3 py-1 text-[12px] text-amber-700">{backend.label}: {backend.modelsError}</div>
-        }</For>
+        <Show when={browseProviders()}>
+          <Show when={backends().length > 0}>
+            <div class="px-3 py-1 text-[11px] font-medium text-neutral-500">Providers</div>
+            <For each={backends()}>{provider => providerRow(provider, close)}</For>
+          </Show>
+          <Show when={retainedSelection()}>{choice => <>
+            <div class="px-3 py-1 text-[11px] font-medium text-neutral-500">Saved selection</div>
+            {row(choice(), close)}
+          </>}</Show>
+          <Show when={backends().length == 0 && store.general.chatBackends() != null}>
+            <div class="px-3 py-2 text-[12px] text-neutral-500">No chat providers available.</div>
+          </Show>
+        </Show>
+        <Show when={browsedProvider() == null && favoriteChoices().length > 0}>
+          <div class="px-3 py-1 text-[11px] font-medium text-neutral-500">Favorites</div>
+          <For each={favoriteChoices()}>{choice => row(choice, close)}</For>
+        </Show>
+        <Show when={!browseProviders()}>
+          <For each={resultChoices()}>{choice => row(choice, close, browsedProvider() == null)}</For>
+          <Show when={choices().length == 0 && store.general.chatBackends() != null}>
+            <div class="px-3 py-2 text-[12px] text-neutral-500">{browsedProvider() == null ? "No matching models or providers." : "No matching models."}</div>
+          </Show>
+          <For each={backends().filter(provider => provider.modelsError != null && (browsedProvider() == null || provider.id == browsedProvider()?.id))}>{provider =>
+            <div class="px-3 py-1 text-[12px] text-amber-700">{provider.label}: {provider.modelsError}</div>
+          }</For>
+        </Show>
       </div>
       <Show when={efforts().length > 0 || selection()?.reasoningEffort != null}>
         <div class="shrink-0 border-t border-chrome-line px-3 py-2 text-[12px]">
