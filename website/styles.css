@@ -115,6 +115,9 @@ main { max-width: calc(var(--max) + 2 * var(--gutter)); margin: 0 auto; padding:
 .feature-example figcaption { color: var(--muted); font-size: 14px; font-weight: 600; }
 .feature-example blockquote { margin: 8px 0 0; color: var(--ink); font-size: clamp(15px, 2vw, 21px); }
 .feature-example ul { margin-top: 8px; padding-inline-start: 1.1em; }
+/* No wrapping: an indented listing or a settings line broken across lines reads as different content. */
+.feature-example pre { margin: 8px 0 0; overflow-x: auto; color: var(--ink); font: 14px/1.6 var(--mono); }
+.feature-example var { font-style: italic; }
 .feature-table .feature-command { margin: 0; overflow-wrap: anywhere; }
 .pages-overview { display: grid; grid-template-columns: minmax(0, 38fr) minmax(0, 62fr); gap: clamp(16px, 3vw, 48px); align-items: start; }
 

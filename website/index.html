@@ -252,6 +252,81 @@
         </dialog>
       </section>
 
+      <section class="feature-section" aria-labelledby="durable-title">
+        <div class="section-head">
+          <h2 id="durable-title">Durable by design</h2>
+          <p>Infumap runs on your own computer or server and is free software. Backups and copies of your files go to storage services you choose, encrypted.</p>
+        </div>
+        <table class="feature-table">
+          <colgroup>
+            <col class="feature-example-col">
+            <col>
+          </colgroup>
+          <tbody>
+            <tr>
+              <td>
+                <figure class="feature-example">
+                  <figcaption>Data directory</figcaption>
+                  <pre>user_<var>id</var>/
+  items.json
+  user.json
+  files/</pre>
+                </figure>
+              </td>
+              <td>
+                <h3>Your own disk</h3>
+                <p>Items are kept in a data directory on the machine Infumap runs on: a Mac, a Linux server or a Raspberry Pi. Every change is appended to a JSON log file.</p>
+                <p>Search indexes and other derived data are rebuilt automatically if lost.</p>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <figure class="feature-example">
+                  <figcaption>settings.toml</figcaption>
+                  <pre>enable_s3_backup = true
+backup_period_minutes = 60</pre>
+                </figure>
+              </td>
+              <td>
+                <h3>Encrypted backups</h3>
+                <p>The item database is backed up to an S3-compatible object store, such as Backblaze B2, hourly by default when it has changed. Backups are encrypted before upload.</p>
+                <p>The latest backup is always kept, and older ones at intervals of 30 days.</p>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <figure class="feature-example">
+                  <figcaption>Object stores</figcaption>
+                  <ul>
+                    <li>Local disk</li>
+                    <li>Primary S3-compatible store</li>
+                    <li>Secondary S3-compatible store</li>
+                  </ul>
+                </figure>
+              </td>
+              <td>
+                <h3>Files in up to three places</h3>
+                <p>Files and images can be written to local disk and to two S3-compatible object stores at once. If a read from one fails, the next is tried.</p>
+                <p>Each user's files are encrypted with their own key, so a storage provider sees only encrypted data.</p>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div class="command feature-command">
+                  <span class="prompt" aria-hidden="true">$</span>
+                  <code>infumap emergency …</code>
+                </div>
+              </td>
+              <td>
+                <h3>Recovery</h3>
+                <p>If your server fails, one command fetches the latest backup and sets up a separate instance that reads files straight from your object store. Running it now and then is a simple disaster-recovery test.</p>
+                <p><a href="https://github.com/infumap/infumap/blob/master/docs/cli.md#emergency">Read about emergency recovery</a></p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
       <section class="feature-section" aria-labelledby="features-title">
         <div class="section-head">
           <h2 id="features-title">More features</h2>
