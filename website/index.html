@@ -201,6 +201,19 @@
                 <p>Text and Markdown contents are searchable. Text is extracted from PDFs for search and chats, which requires a configured AI model.</p>
               </td>
             </tr>
+            <!-- One row for three types that each have little to show. Placeholder image. Wanted: the rating styles,
+                 a password and a divider together. -->
+            <tr id="panel-small-items">
+              <td><img src="https://img.infumap.com/composite_1.jpg" width="445" height="363" loading="lazy" alt=""></td>
+              <td>
+                <h4 id="panel-ratings">Ratings</h4>
+                <p>Zero to five, shown as stars, a number, or a horizontal or vertical bar. Click to change.</p>
+                <h4 id="panel-passwords">Passwords</h4>
+                <p>Masked until revealed. Copy without revealing. Kept out of search and chats.</p>
+                <h4 id="panel-dividers">Dividers</h4>
+                <p>Horizontal or vertical. Always horizontal in documents and lists.</p>
+              </td>
+            </tr>
           </tbody>
           <tbody>
             <tr class="feature-group">
@@ -222,24 +235,6 @@
                 <h4>Links</h4>
                 <p>Show any item in a second place, at its own size and position. There is still only one item.</p>
                 <p>Links can point to items on other Infumap servers.</p>
-              </td>
-            </tr>
-          </tbody>
-          <tbody>
-            <tr class="feature-group">
-              <th colspan="2" scope="rowgroup"><h3>Small items</h3></th>
-            </tr>
-            <!-- One row for three types that each have little to show. Placeholder image. Wanted: the rating styles,
-                 a password and a divider together. -->
-            <tr id="panel-small-items">
-              <td><img src="https://img.infumap.com/composite_1.jpg" width="445" height="363" loading="lazy" alt=""></td>
-              <td>
-                <h4 id="panel-ratings">Ratings</h4>
-                <p>Zero to five, shown as stars, a number, or a horizontal or vertical bar. Click to change.</p>
-                <h4 id="panel-passwords">Passwords</h4>
-                <p>Masked until revealed. Copy without revealing. Kept out of search and chats.</p>
-                <h4 id="panel-dividers">Dividers</h4>
-                <p>Horizontal or vertical. Always horizontal in documents and lists.</p>
               </td>
             </tr>
           </tbody>
@@ -301,13 +296,14 @@
               <td>
                 <div class="command feature-command">
                   <span class="prompt" aria-hidden="true">$</span>
-                  <code>infumap ls</code>
+                  <code>infumap upload ~/scans -c &lt;page id&gt;</code>
                 </div>
               </td>
               <td>
                 <h3>CLI</h3>
-                <p>Run Infumap from the terminal. Start a server or sign in to a running instance to list items, add notes, and upload files in bulk.</p>
-                <p><a href="https://github.com/infumap/infumap/blob/master/docs/cli.md">See the CLI commands</a></p>
+                <p>Upload a whole directory into a page. Images, text and Markdown files, and other files each become the matching item type. If an upload stops partway, run it again with <code>--resume</code> to skip the files already uploaded.</p>
+                <p>The CLI also starts the server, lists items and adds notes.</p>
+                <p><a href="https://github.com/infumap/infumap/blob/master/docs/cli.md#upload">See the upload options</a> or <a href="https://github.com/infumap/infumap/blob/master/docs/cli.md">all CLI commands</a></p>
               </td>
             </tr>
           </tbody>
