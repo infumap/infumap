@@ -16,7 +16,7 @@
   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { applyEditorFormatCommand, captureEditorSelection, historyOwnsTextEdit, restoreEditorSelection } from "./editor_history";
+import { applyEditorFormatCommand, captureEditorSelection, HistoryToken, historyOwnsTextEdit, restoreEditorSelection } from "./editor_history";
 import { server, serverOrRemote } from "../server";
 import {
   NoteFns,
@@ -44,8 +44,8 @@ import { isFile } from "../items/file-item";
 import { isText } from "../items/text-item";
 import { ItemType } from "../items/base/item";
 import { GroupFns } from "../items/base/group-item";
-import { asPositionalItem } from "../items/base/positional-item";
-import { asXSizableItem } from "../items/base/x-sizeable-item";
+import { asPositionalItem, isPositionalItem } from "../items/base/positional-item";
+import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asPasswordItem, isPassword } from "../items/password-item";
 import { isArrowKey } from "../input/key";
 import { isTable, TableFns } from "../items/table-item";
@@ -659,10 +659,11 @@ function guardLinearBoundaryDeletion(store: StoreContextModel, ev: Event, elemen
   const adjacentPath = adjacentStructuralPath(context, backward);
   if (adjacentPath == null) { return true; }
   if (joinItemsMaybeHandler(store, backward)) { return true; }
-  if (textLength == 0 && isDocumentPage(context.containerVe)) {
-    // Never remove the last item of a document, but don't complain about it either.
-    if (documentPageHasSingleChild(context.containerVe)) { return true; }
-    if (deleteEmptyDocumentNoteMaybe(store, context, backward)) { return true; }
+  // An empty note can't be joined to a neighbour that isn't a note (a file, an image, ...), so delete it instead.
+  if (textLength == 0 && (isDocumentPage(context.containerVe) || isComposite(context.containerVe.displayItem))) {
+    // Never remove the last item of a document or composite, but don't complain about it either.
+    if (containerHasSingleChild(context.containerVe)) { return true; }
+    if (deleteEmptyLinearNoteMaybe(store, context, backward)) { return true; }
   }
   return blockStructuralTextEvent(store, ev, STRUCTURAL_TEXT_BOUNDARY_MESSAGE);
 }
@@ -671,9 +672,9 @@ function isDocumentPage(ve: VisualElement): boolean {
   return isPage(ve.displayItem) && asPageItem(ve.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document;
 }
 
-function documentPageHasSingleChild(pageVe: VisualElement): boolean {
-  const page = itemState.get(pageVe.displayItem.id);
-  return page != null && asContainerItem(page).computed_children.length <= 1;
+function containerHasSingleChild(containerVe: VisualElement): boolean {
+  const container = itemState.get(containerVe.displayItem.id);
+  return container != null && asContainerItem(container).computed_children.length <= 1;
 }
 
 /** Nearest item in the document that can take the caret, preferring the deletion direction. */
@@ -693,7 +694,7 @@ function caretTargetAfterRemovingLinearPath(context: LinearEditContext, backward
   return null;
 }
 
-function deleteEmptyDocumentNoteMaybe(store: StoreContextModel, context: LinearEditContext, backward: boolean): boolean {
+function deleteEmptyLinearNoteMaybe(store: StoreContextModel, context: LinearEditContext, backward: boolean): boolean {
   const note = structuralTextNote(store, context.editingVe, context.containerVe);
   if (note == null) { return false; }
   store.textEdit.flushActive();
@@ -706,12 +707,58 @@ function deleteEmptyDocumentNoteMaybe(store: StoreContextModel, context: LinearE
   store.history.setFocus(target?.path ?? context.containerPath);
   itemState.delete(note.id);
   store.editorHistory.track(server.deleteItem(note.id));
-  arrangeNow(store, "document-delete-empty-note");
-  if (target != null) {
+  const collapsed = collapseSingleChildCompositeMaybe(store, context, token);
+  arrangeNow(store, "linear-delete-empty-note");
+  if (collapsed != null) {
+    // The only possible target was the composite's other child, which is now in the composite's parent.
+    if (target != null) { focusItemInLinearContainer(store, collapsed.parentPath, collapsed.childId, target.caretPosition); }
+  } else if (target != null) {
     focusTextEditPathInfo(store, { path: target.path, type: EditElementType.Title, colNumMaybe: null }, target.caretPosition);
   }
   store.editorHistory.commit(token);
   return true;
+}
+
+/**
+ * Replaces a composite left with one child by that child, as dragging items out of a composite does. The caller has
+ * already removed the other children locally. Returns where the child went, or null if the composite was kept.
+ */
+function collapseSingleChildCompositeMaybe(
+  store: StoreContextModel,
+  context: LinearEditContext,
+  token: HistoryToken | null,
+): { parentPath: string, childId: string } | null {
+  if (!isComposite(context.containerVe.displayItem)) { return null; }
+  const compositeItem = asCompositeItem(itemState.get(context.containerVe.displayItem.id)!);
+  const parentPath = VeFns.parentPath(context.containerPath);
+  const parentVe = parentPath ? VesCache.current.readNode(parentPath) : null;
+  const child = compositeItem.computed_children.length == 1 ? itemState.get(compositeItem.computed_children[0]) : null;
+  if (child == null || !isPositionalItem(child) || !itemCanMove(child) ||
+      CompositeFns.hasOwnTitle(compositeItem) || GroupFns.effectiveGroupId(compositeItem) != null ||
+      compositeItem.computed_attachments.length > 0 || !itemCanMove(compositeItem) ||
+      !itemCanMove(context.containerVe.displayItem) ||
+      compositeItem.relationshipToParent != RelationshipToParent.Child ||
+      parentVe == null || parentPath == null ||
+      parentVe.displayItem.id != compositeItem.parentId || !structuralTextContainerIsEditable(store, parentVe)) {
+    return null;
+  }
+
+  store.editorHistory.include(token, child.id);
+  store.editorHistory.include(token, compositeItem.parentId);
+  itemState.moveToNewParent(child, compositeItem.parentId, RelationshipToParent.Child, compositeItem.ordering);
+  asPositionalItem(child).spatialPositionGr = compositeItem.spatialPositionGr;
+  if (isXSizableItem(child)) { asXSizableItem(child).spatialWidthGr = compositeItem.spatialWidthGr; }
+  child.pinnedTo = compositeItem.pinnedTo;
+  // Queue the parent change now, even if a text autosave is in flight.
+  // Deleting the composite before that move reaches the server would fail
+  // because the server would still see its surviving child inside it.
+  store.textEdit.saveItem(child, false);
+  const saveMove = server.updateItem(child);
+  store.history.setFocus(parentPath);
+  itemState.delete(compositeItem.id);
+  void store.editorHistory.track(saveMove.then(() => server.deleteItem(compositeItem.id)))
+    .catch(error => console.warn("Failed to persist composite collapse:", error));
+  return { parentPath, childId: child.id };
 }
 
 function guardLinearEnter(store: StoreContextModel, ev: Event): boolean {
@@ -1466,37 +1513,12 @@ const joinItemsMaybeHandler = (store: StoreContextModel, backward: boolean): boo
   itemState.delete(rightNote.id);
   store.editorHistory.track(server.deleteItem(rightNote.id));
 
-  if (isComposite(context.containerVe.displayItem)) {
-    const compositeItem = asCompositeItem(itemState.get(context.containerVe.displayItem.id)!);
-    const compositeParentPath = VeFns.parentPath(context.containerPath);
-    const parentVe = compositeParentPath ? VesCache.current.readNode(compositeParentPath) : null;
-    if (compositeItem.computed_children.length == 1 && !CompositeFns.hasOwnTitle(compositeItem) && GroupFns.effectiveGroupId(compositeItem) == null &&
-        compositeItem.computed_attachments.length == 0 && itemCanMove(compositeItem) &&
-        itemCanMove(context.containerVe.displayItem) &&
-        compositeItem.relationshipToParent == RelationshipToParent.Child &&
-        parentVe != null && compositeParentPath != null &&
-        parentVe.displayItem.id == compositeItem.parentId && structuralTextContainerIsEditable(store, parentVe)) {
-
-      const posGr = compositeItem.spatialPositionGr;
-      const widthGr = compositeItem.spatialWidthGr;
-      itemState.moveToNewParent(leftNote, compositeItem.parentId, RelationshipToParent.Child, compositeItem.ordering);
-      asPositionalItem(leftNote).spatialPositionGr = posGr;
-
-      asXSizableItem(leftNote).spatialWidthGr = widthGr;
-      // Queue the parent change now, even if a text autosave is in flight.
-      // Deleting the composite before that move reaches the server would fail
-      // because the server would still see its surviving child inside it.
-      store.textEdit.saveItem(leftNote, false);
-      const saveMove = server.updateItem(leftNote);
-      store.history.setFocus(compositeParentPath);
-      itemState.delete(compositeItem.id);
-      void store.editorHistory.track(saveMove.then(() => server.deleteItem(compositeItem.id)))
-        .catch(error => console.warn("Failed to persist composite collapse after joining notes:", error));
-      arrangeNow(store, "join-items-collapse-composite");
-      focusItemInLinearContainer(store, compositeParentPath, leftNote.id, joinOffset);
-      store.editorHistory.commit(token);
-      return true;
-    }
+  const collapsed = collapseSingleChildCompositeMaybe(store, context, token);
+  if (collapsed != null) {
+    arrangeNow(store, "join-items-collapse-composite");
+    focusItemInLinearContainer(store, collapsed.parentPath, leftNote.id, joinOffset);
+    store.editorHistory.commit(token);
+    return true;
   }
 
   arrangeNow(store, "join-items-restore-edit-focus");
