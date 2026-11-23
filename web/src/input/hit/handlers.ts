@@ -119,7 +119,9 @@ const _tableHandler: HitHandler = {
           }
         }
       }
-      {
+      // As for the rows above, the cells of an ignored table or row aren't hit. A table being dragged is drawn under the
+      // pointer and ignored, and a hit on one of its cells made a drop rejected as "inside itself".
+      if (!ignoreItems.has(tableVe.displayItem.id) && !ignoreItems.has(tableChildVe.displayItem.id)) {
         const hit = findTableRowAttachmentHit(tableChildVe, posRelativeToTableChildAreaPx, ignoreItems, hitboxOptions);
         if (hit) {
           const tableParentVe = parentVe(tableVe);
