@@ -58,6 +58,7 @@ import { DocumentPageTitle } from "./DocumentPageTitle";
 import { previewTextIsDetailed } from "../../layout/arrange/util";
 import { ListPageBand, ListPageBandOverlays } from "./ListPageBand";
 import { CalendarRangeOverlays } from "./CalendarRangeOverlays";
+import { CalendarItemAttachments } from "./CalendarItemAttachments";
 import { Page_TableContent } from "./Page_TableContent";
 import { AttachmentsOverflowMarker } from "./HiddenAttachmentsMarker";
 
@@ -504,7 +505,10 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
             const childVe = () => childVes.get();
             return (
               <Show when={childVe().flags & VisualElementFlags.Moving}
-                fallback={<VisualElement_LineItem visualElement={childVe()} />}>
+                fallback={<>
+                  <VisualElement_LineItem visualElement={childVe()} />
+                  <CalendarItemAttachments itemVe={childVe()} />
+                </>}>
                 <VisualElement_Desktop visualElement={childVe()} />
               </Show>
             );

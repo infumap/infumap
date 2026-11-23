@@ -53,6 +53,7 @@ import { PageGroupBoxes } from "./PageGroupBoxes";
 import { ListPageBand, ListPageBandOverlays } from "./ListPageBand";
 import { LinearSelectionGapCover, linearSelectionGapAfterBoundsPx } from "./LinearSelectionGapCover";
 import { CalendarRangeOverlays } from "./CalendarRangeOverlays";
+import { CalendarItemAttachments } from "./CalendarItemAttachments";
 import { Page_TableContent } from "./Page_TableContent";
 import { printScrollWritesSuppressed } from "../../print";
 import { printLayout } from "../../layout/print-bands";
@@ -802,7 +803,10 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
             const childVe = () => childVes.get();
             return (
               <Show when={childVe().flags & VisualElementFlags.Moving}
-                fallback={<VisualElement_LineItem visualElement={childVe()} />}>
+                fallback={<>
+                  <VisualElement_LineItem visualElement={childVe()} />
+                  <CalendarItemAttachments itemVe={childVe()} />
+                </>}>
                 <VisualElement_Desktop visualElement={childVe()} />
               </Show>
             );

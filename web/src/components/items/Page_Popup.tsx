@@ -61,6 +61,7 @@ import { MouseAction, MouseActionState } from "../../input/state";
 import { PageGroupBoxes } from "./PageGroupBoxes";
 import { ListPageBand, ListPageBandOverlays } from "./ListPageBand";
 import { CalendarRangeOverlays } from "./CalendarRangeOverlays";
+import { CalendarItemAttachments } from "./CalendarItemAttachments";
 import { Page_TableContent } from "./Page_TableContent";
 import { PageAttachments } from "./PageAttachments";
 import { LinearSelectionGapCover, linearSelectionGapAfterBoundsPx } from "./LinearSelectionGapCover";
@@ -759,7 +760,10 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
             const childVe = () => childVes.get();
             return (
               <Show when={childVe().flags & VisualElementFlags.Moving}
-                fallback={<VisualElement_LineItem visualElement={childVe()} />}>
+                fallback={<>
+                  <VisualElement_LineItem visualElement={childVe()} />
+                  <CalendarItemAttachments itemVe={childVe()} />
+                </>}>
                 <VisualElement_Desktop visualElement={childVe()} />
               </Show>
             );

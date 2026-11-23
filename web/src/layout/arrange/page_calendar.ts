@@ -65,6 +65,9 @@ import { getMovingTreeItemInParentMaybe } from "./util";
 import { movingItemCellBoundsInPagePx } from "./moving";
 import { linkHasTriangle, linkTriangleHitbox } from "../link-triangle";
 import { getMonthInfo } from "../../util/time";
+import { asAttachmentsItem, calcSpatialAttachmentStripWidthPx, isAttachmentsItem } from "../../items/base/attachments-item";
+import { itemCanEdit } from "../../items/base/capabilities-item";
+import { attachmentsStripWidthBl, planItemAttachments } from "./attachments";
 
 function openPopupHitboxes(
   popupClickAreaBoundsPx: { x: number, y: number, w: number, h: number },
@@ -122,6 +125,66 @@ function calendarItemHitboxes(
   }
 
   return hitboxes;
+}
+
+/**
+ * The attachments of an item in a calendar page are laid out as for a spatial item, right to left from its top right
+ * corner, but inside its line, centred on it, rather than straddling its top edge: the item above is directly there.
+ * They are sized to the line. Their bounds are relative to the item, as for a spatial item, so hit testing and popup
+ * placement treat them as such, but the line item components don't draw attachments, so the page draws them
+ * (CalendarItemAttachments). The item's text stops short of them, and the strip they occupy, plus one free slot, is
+ * where other items can be dropped to attach them.
+ */
+function arrangeCalendarItemAttachments(
+  store: StoreContextModel,
+  displayItem: Item,
+  itemVePath: VisualElementPath,
+  itemSpec: VisualElementSpec,
+): Array<VisualElementPath> {
+  if (!isAttachmentsItem(displayItem)) { return []; }
+  const attachmentIds = asAttachmentsItem(displayItem).computed_attachments;
+  const itemBoundsPx = itemSpec.boundsPx;
+  const attachmentBlockSizePx = itemBoundsPx.h;
+  const iconBlockWidthPx = itemSpec.blockSizePx?.w ?? attachmentBlockSizePx;
+  // The first block shows the item's icon (which opens it), so is left free.
+  const availableWidthPx = Math.max(0, itemBoundsPx.w - iconBlockWidthPx);
+  if (attachmentBlockSizePx <= 0 || availableWidthPx < attachmentBlockSizePx) { return []; }
+
+  itemSpec.attachmentBlockSizePx = attachmentBlockSizePx;
+  if (itemCanEdit(displayItem)) {
+    const stripWidthPx = calcSpatialAttachmentStripWidthPx(availableWidthPx, attachmentBlockSizePx, attachmentIds.length);
+    itemSpec.hitboxes = [
+      ...(itemSpec.hitboxes ?? []),
+      HitboxFns.create(HitboxFlags.Attach, {
+        x: itemBoundsPx.w - stripWidthPx,
+        y: 0,
+        w: stripWidthPx,
+        h: itemBoundsPx.h,
+      }),
+    ];
+  }
+  if (attachmentIds.length == 0) { return []; }
+
+  // Laid out in the part of the item right of the icon block, then shifted into place.
+  const planned = planItemAttachments(
+    store, attachmentIds, { w: 1, h: 1 }, { x: 0, y: 0, w: availableWidthPx, h: itemBoundsPx.h }, itemVePath,
+    attachmentBlockSizePx);
+  const dx = iconBlockWidthPx;
+  const dy = attachmentBlockSizePx / 2;
+  const paths: Array<VisualElementPath> = [];
+  for (const attachment of planned.attachments) {
+    const boundsPx = attachment.spec.boundsPx;
+    attachment.spec.boundsPx = { ...boundsPx, x: boundsPx.x + dx, y: boundsPx.y + dy };
+    VesCache.arrange.writeVisualElement(attachment.spec, attachment.relationships, attachment.path);
+    paths.push(attachment.path);
+  }
+  const marker = planned.overflowMarkerPx;
+  itemSpec.attachmentsOverflowMarkerPx = marker == null
+    ? null
+    : { ...marker, rightX: marker.rightX + dx, centerY: marker.centerY + dy };
+  itemSpec.lineItemTextRightPaddingPx = (itemSpec.lineItemTextRightPaddingPx ?? 0) +
+    attachmentsStripWidthBl(attachmentIds, availableWidthPx / attachmentBlockSizePx) * attachmentBlockSizePx;
+  return paths;
 }
 
 function miniCalendarHostScale(
@@ -421,7 +484,8 @@ function arrangeMiniCalendarPage(
         lineItemTextRightPaddingPx,
       };
 
-      VesCache.arrange.writeVisualElement(calendarItemVeSpec, {}, childPath);
+      const attachmentsPaths = arrangeCalendarItemAttachments(store, displayItem, childPath, calendarItemVeSpec);
+      VesCache.arrange.writeVisualElement(calendarItemVeSpec, { attachmentsPaths }, childPath);
       calendarChildPaths.push(childPath);
     });
   }
@@ -864,7 +928,12 @@ export function arrange_calendar_page(
         lineItemTextRightPaddingPx,
       };
 
-      const calendarItemRelationships: VisualElementRelationships = {};
+      // Not in a preview too small for its items' text to be legible, where they are drawn as outlines.
+      const calendarItemRelationships: VisualElementRelationships = {
+        attachmentsPaths: itemOutlineFlags == VisualElementFlags.None
+          ? arrangeCalendarItemAttachments(store, displayItem, childPath, calendarItemVeSpec)
+          : [],
+      };
       VesCache.arrange.writeVisualElement(calendarItemVeSpec, calendarItemRelationships, childPath);
       calendarChildPaths.push(childPath);
     });

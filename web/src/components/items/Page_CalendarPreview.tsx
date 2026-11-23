@@ -38,6 +38,7 @@ import {
 } from "../../util/calendar-layout";
 import { VisualElementProps, VisualElement_LineItem } from "../VisualElement";
 import { CalendarRangeOverlays } from "./CalendarRangeOverlays";
+import { CalendarItemAttachments } from "./CalendarItemAttachments";
 import { outlineTextWidthPx } from "./LineItemOutline";
 import { desktopStackRootStyle } from "./helper";
 
@@ -127,7 +128,10 @@ export const Page_CalendarPreview: Component<VisualElementProps> = (props: Visua
       }}</For>
       <CalendarRangeOverlays visualElement={props.visualElement} />
       <For each={VesCache.render.getChildren(vePath())()}>{childVes =>
-        <VisualElement_LineItem visualElement={childVes.get()} />
+        <>
+          <VisualElement_LineItem visualElement={childVes.get()} />
+          <CalendarItemAttachments itemVe={childVes.get()} />
+        </>
       }</For>
     </div>
   );
