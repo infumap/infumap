@@ -273,13 +273,17 @@ export function makeHistoryStore(beforeNavigation: () => void): HistoryStoreCont
     const entry = entryId == null ? null : browserEntries.get(entryId);
     const current = entry?.breadcrumbs[entry.breadcrumbs.length - 1];
     if (!entry || !current) { return false; }
-    // Ancestors are used by keyboard navigation as well as the current page.
-    // If they were evicted, the URL loader will rebuild a safe single-page chain.
-    if (entry.breadcrumbs.some(breadcrumb =>
-      !itemState.get(breadcrumb.sourceItemId) ||
-      (breadcrumb.pageVeid.itemId != SOLO_ITEM_HOLDER_PAGE_UID && !isPage(itemState.get(breadcrumb.pageVeid.itemId))) ||
-      (breadcrumb.pageVeid.linkIdMaybe && !itemState.get(breadcrumb.pageVeid.linkIdMaybe)))) {
-      return false;
+    const breadcrumbIsAvailable = (breadcrumb: PageBreadcrumb): boolean =>
+      !!itemState.get(breadcrumb.sourceItemId) &&
+      (breadcrumb.pageVeid.itemId == SOLO_ITEM_HOLDER_PAGE_UID || isPage(itemState.get(breadcrumb.pageVeid.itemId))) &&
+      (!breadcrumb.pageVeid.linkIdMaybe || !!itemState.get(breadcrumb.pageVeid.linkIdMaybe));
+    if (!breadcrumbIsAvailable(current)) { return false; }
+    // Ancestors are used by keyboard navigation (the previous page), so the chain must not include one that was
+    // deleted or converted. Drop the chain up to the last such page rather than all of it: a session's chain is long
+    // (Home doesn't reset it), and rejecting the whole entry made the URL loader start over with a single page.
+    let chainStart = 0;
+    for (let i = entry.breadcrumbs.length - 2; i >= 0; --i) {
+      if (!breadcrumbIsAvailable(entry.breadcrumbs[i])) { chainStart = i + 1; break; }
     }
     const sourceItem = itemState.get(current.sourceItemId);
     if (!sourceItem) { return false; }
@@ -296,7 +300,7 @@ export function makeHistoryStore(beforeNavigation: () => void): HistoryStoreCont
         !pathItemsAreAvailable(popup.vePath))) {
       return false;
     }
-    setBreadcrumbs(entry.breadcrumbs.slice());
+    setBreadcrumbs(entry.breadcrumbs.slice(chainStart));
     displayedBrowserEntryId = entryId!;
     return true;
   };
