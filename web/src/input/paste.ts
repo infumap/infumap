@@ -23,7 +23,8 @@ import { normalizeLineBreaks, singleLineTextForPaste } from "../util/editable_te
 import { ItemType } from "../items/base/item";
 import { textEditElementId } from "./text_edit_session";
 import { parsePastedLines, pasteLinesIntoContainer, pasteLinesTargetMaybe, showPasteMessage } from "./paste_lines";
-import { pasteBlocksIntoNote, pasteParagraphsIntoNote } from "./paste_markdown";
+import { pasteBlocksIntoNote, pasteCopiedPiecesIntoNote, pasteParagraphsIntoNote } from "./paste_markdown";
+import { copiedPiecesFromClipboard } from "./note_clipboard";
 import { parsePastedHtmlBlocks } from "./paste_html";
 import { pasteFilesMaybe } from "../upload";
 import { noteTextForPaste } from "./note_line_breaks";
@@ -83,6 +84,9 @@ export function pasteHandler(store: StoreContextModel, ev: ClipboardEvent) {
     if (acceptClipboardTextForPendingTextItem(store, editInfo.itemPath, clipboardText)) {
       return;
     }
+    // A copy of notes from Infumap has all of them, which its html doesn't.
+    const copiedPieces = plain ? null : copiedPiecesFromClipboard(clipboardData);
+    if (copiedPieces != null && pasteCopiedPiecesIntoNote(store, editingElement, copiedPieces)) { return; }
     // A copy from a web page, Google Docs etc. has html too, with the structure its plain text has lost.
     const htmlBlocks = plain || !clipboardData.types.includes("text/html")
       ? null

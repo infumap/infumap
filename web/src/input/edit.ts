@@ -436,7 +436,11 @@ export function currentLinearEditContext(store: StoreContextModel): LinearEditCo
   };
 }
 
-function structuralPathsInLinearContainer(context: LinearEditContext): Array<string> {
+/**
+ * The paths of the blocks of the linear container being edited, in order: the document title, if shown, then every
+ * child.
+ */
+export function structuralPathsInLinearContainer(context: LinearEditContext): Array<string> {
   const orderedPaths: Array<string> = [];
   if (isPage(context.containerVe.displayItem) &&
     asPageItem(context.containerVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document &&
@@ -521,6 +525,44 @@ function maybeBuildLinearSelectionDeleteSpec(store: StoreContextModel, range: Ab
     startIndex,
     endIndex,
   };
+}
+
+/**
+ * Cut across notes of the linear container being edited: calls writeClipboard, then deletes from startOffset in the
+ * note at startPath to endOffset in the note at endPath, joining the two as Delete does. If the range can't be deleted
+ * that way, because it crosses something other than a directly editable note, nothing is written or deleted and the
+ * user is told why.
+ */
+export function edit_cutLinearRange(
+  store: StoreContextModel,
+  ev: Event,
+  context: LinearEditContext,
+  startPath: string,
+  startOffset: number,
+  endPath: string,
+  endOffset: number,
+  writeClipboard: () => void,
+): void {
+  const orderedPaths = structuralPathsInLinearContainer(context);
+  const startIndex = orderedPaths.indexOf(startPath);
+  const endIndex = orderedPaths.indexOf(endPath);
+  let deletable = startIndex >= 0 && endIndex > startIndex;
+  for (let i = startIndex; deletable && i <= endIndex; ++i) {
+    deletable = structuralTextNote(store, VesCache.current.readNode(orderedPaths[i]), context.containerVe) != null;
+  }
+  if (!deletable) {
+    blockStructuralTextEvent(store, ev, STRUCTURAL_TEXT_BOUNDARY_MESSAGE);
+    return;
+  }
+  writeClipboard();
+  stopStructuralTextEvent(ev);
+  const boundary = (path: string, offset: number): LinearSelectionBoundary =>
+    ({ pathInfo: { path, type: EditElementType.Title, colNumMaybe: null }, offset });
+  deleteLinearSelectionMaybe(store, {
+    context, orderedPaths, startIndex, endIndex,
+    start: boundary(startPath, startOffset),
+    end: boundary(endPath, endOffset),
+  });
 }
 
 const STRUCTURAL_TEXT_BOUNDARY_MESSAGE = "Only adjacent, directly editable local notes without attachments or groups can be joined or deleted together";

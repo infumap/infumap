@@ -54,6 +54,7 @@ import { MOUSE_RIGHT, mouseDownHandler } from "../input/mouse_down";
 import { shouldOpenNativeTextContextMenu } from "../input/native_text_context_menu";
 import { keyDownHandler, keyUpHandler } from "../input/key";
 import { readOnlyDocumentCopyText } from "../input/read_only_document_copy";
+import { noteClipboardCopyOrCutHandler } from "../input/note_clipboard";
 import { requestArrange } from "../layout/arrange";
 import { startImageFetchBlockageWatch } from "../imageFetchWatch";
 import { imageFetchesPending } from "../imageManager";
@@ -284,6 +285,7 @@ export const Main: Component = () => {
     window.addEventListener('compositionstart', compositionStartListener, true);
     window.addEventListener('compositionend', compositionEndListener, true);
     window.addEventListener('beforeinput', structuralBeforeInputListener, true);
+    window.addEventListener('copy', structuralClipboardListener, true);
     window.addEventListener('cut', structuralClipboardListener, true);
     window.addEventListener('paste', structuralClipboardListener, true);
     document.addEventListener('copy', readOnlyDocumentCopyListener);
@@ -337,6 +339,7 @@ export const Main: Component = () => {
     window.removeEventListener('compositionstart', compositionStartListener, true);
     window.removeEventListener('compositionend', compositionEndListener, true);
     window.removeEventListener('beforeinput', structuralBeforeInputListener, true);
+    window.removeEventListener('copy', structuralClipboardListener, true);
     window.removeEventListener('cut', structuralClipboardListener, true);
     window.removeEventListener('paste', structuralClipboardListener, true);
     document.removeEventListener('copy', readOnlyDocumentCopyListener);
@@ -396,7 +399,11 @@ export const Main: Component = () => {
   const compositionStartListener = (ev: CompositionEvent) => { edit_compositionStartHandler(store, ev); };
   const compositionEndListener = (ev: CompositionEvent) => { edit_compositionEndHandler(store, ev); };
   const structuralBeforeInputListener = (ev: InputEvent) => { edit_structuralBeforeInputGuard(store, ev); };
-  const structuralClipboardListener = (ev: ClipboardEvent) => { edit_structuralClipboardGuard(store, ev); };
+  const structuralClipboardListener = (ev: ClipboardEvent) => {
+    if (noteClipboardCopyOrCutHandler(store, ev)) { return; }
+    // A copy changes nothing, so needs no guarding.
+    if (ev.type != "copy") { edit_structuralClipboardGuard(store, ev); }
+  };
   const readOnlyDocumentCopyListener = (ev: ClipboardEvent) => {
     if (ev.clipboardData == null) { return; }
     const text = readOnlyDocumentCopyText(window.getSelection());

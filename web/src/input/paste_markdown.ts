@@ -19,7 +19,7 @@
 import { GRID_SIZE } from "../constants";
 import { itemCanMove } from "../items/base/capabilities-item";
 import { asContainerItem } from "../items/base/container-item";
-import { NoteFlags } from "../items/base/flags-item";
+import { NOTE_ALIGN_FLAGS, NoteFlags } from "../items/base/flags-item";
 import { GroupFns } from "../items/base/group-item";
 import { Item, ItemType } from "../items/base/item";
 import { asXSizableItem } from "../items/base/x-sizeable-item";
@@ -45,6 +45,7 @@ import {
 } from "./edit";
 import { historyCaret } from "./editor_history";
 import { editNoteInNewComposite, wrapNoteInNewComposite } from "./note_composite";
+import type { CopiedPiece } from "./note_clipboard";
 import { CONFIRM_LINE_COUNT, MAX_LINE_COUNT, showPasteMessage } from "./paste_lines";
 import { locallyEditable, structuralTextNote } from "./structural_text_edit";
 
@@ -53,12 +54,20 @@ import { locallyEditable, structuralTextNote } from "./structural_text_edit";
 const BLOCK_STYLE_FLAGS = NoteFlags.Heading1 | NoteFlags.Heading2 | NoteFlags.Heading3 | NoteFlags.Heading4 |
   NoteFlags.Bullet1 | NoteFlags.Numbered | NoteFlags.Indent1 | NoteFlags.Indent2 | NoteFlags.Code;
 
+/** The flags of notes copied from Infumap that a paste of them keeps: all but those about the note's own size. */
+const COPIED_NOTE_FLAGS = BLOCK_STYLE_FLAGS | NOTE_ALIGN_FLAGS | NoteFlags.HideBorder | NoteFlags.ShowCopyIcon;
+
 type PastedNote = {
   kind: "note",
   title: string,
   inlineMarks: Array<NoteInlineMark>,
   urls: Array<NoteUrl>,
   flags: number,
+  /**
+   * The flags are the note's, copied from Infumap: a plain paragraph stays one, rather than continuing the list it's
+   * pasted into, and alignment is kept.
+   */
+  exactFlags?: boolean,
 };
 
 type PastedPiece = PastedNote | { kind: "divider" } | { kind: "table", block: TextDocumentTableBlock };
@@ -83,6 +92,13 @@ type PasteTarget =
  */
 export function pasteParagraphsIntoNote(store: StoreContextModel, element: HTMLElement, text: string, parseMarkdown: boolean): boolean {
   return pastePiecesIntoNote(store, element, parseMarkdown ? piecesFromBlocks(parsePastedMarkdownBlocks(text)) : piecesFromLines(text));
+}
+
+/** As pasteParagraphsIntoNote, for notes copied from a composite or document page (see note_clipboard.ts). */
+export function pasteCopiedPiecesIntoNote(store: StoreContextModel, element: HTMLElement, pieces: Array<CopiedPiece>): boolean {
+  return pastePiecesIntoNote(store, element, pieces.map((piece): PastedPiece => piece.kind == "divider"
+    ? piece
+    : { kind: "note", title: piece.title, inlineMarks: piece.inlineMarks, urls: piece.urls, flags: piece.flags & COPIED_NOTE_FLAGS, exactFlags: true }));
 }
 
 /** As pasteParagraphsIntoNote, for blocks already parsed, e.g. from pasted html. */
@@ -143,7 +159,11 @@ function pastePiecesIntoNote(store: StoreContextModel, element: HTMLElement, pie
     : wrapNoteInNewComposite(store, note, token).id;
 
   // A heading or list item pasted at the start of a note makes the note one too.
-  if (split.beforeText == "" && (notePiece.flags & BLOCK_STYLE_FLAGS) != 0) {
+  if (split.beforeText == "" && notePiece.exactFlags) {
+    // The note's border and copy icon are its own, as they would be when typing into it.
+    const kept = BLOCK_STYLE_FLAGS | NOTE_ALIGN_FLAGS;
+    note.flags = (note.flags & ~kept) | (notePiece.flags & kept);
+  } else if (split.beforeText == "" && (notePiece.flags & BLOCK_STYLE_FLAGS) != 0) {
     note.flags = (note.flags & ~BLOCK_STYLE_FLAGS) | notePiece.flags;
   }
   note.inlineMarks = notePiece.inlineMarks;
@@ -197,7 +217,7 @@ function itemsForPiece(note: NoteItem, parentId: Uid, piece: PastedPiece, orderi
     return createMarkdownTableItems(note.ownerId, parentId, pastedItemWidthGr(parentId), piece.block, ordering);
   }
   const newNote = NoteFns.create(note.ownerId, parentId, RelationshipToParent.Child, piece.title, ordering);
-  newNote.flags = (piece.flags & BLOCK_STYLE_FLAGS) != 0 ? piece.flags : continuationFlags;
+  newNote.flags = piece.exactFlags || (piece.flags & BLOCK_STYLE_FLAGS) != 0 ? piece.flags : continuationFlags;
   newNote.inlineMarks = piece.inlineMarks;
   newNote.urls = piece.urls;
   NoteFns.ensureTitleUrl(newNote);
@@ -211,6 +231,7 @@ function joinedNotes(a: PastedNote, b: PastedNote, flags: number): PastedNote {
     inlineMarks: concatNoteInlineMarks(a.inlineMarks, a.title, b.inlineMarks, b.title),
     urls: concatNoteUrls(a.urls, a.title, b.urls, b.title),
     flags,
+    exactFlags: a.exactFlags || b.exactFlags,
   };
 }
 
