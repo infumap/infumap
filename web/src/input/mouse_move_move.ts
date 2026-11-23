@@ -174,6 +174,74 @@ function cloneDescendantsForCopy(source: Item, cloned: Item): Array<string> {
 }
 
 /**
+ * Copies what comes with `source` under its shift-drag copy `cloned`, so the copy shows the same content: its
+ * attachments, and if it's a composite, its children. A composite is the one container whose children are copied: a
+ * page or table copy is deliberately an empty one with the same settings (see addShiftDragClone), but an empty
+ * composite keeps nothing worth having. An item whose content isn't held in the item itself (a page, table, image, file
+ * or text item) is linked to rather than copied. The client can't copy a data item's content, and a page or table
+ * copy would be empty, which isn't what anyone wants in the middle of copied content. Returns the new items' ids,
+ * parents first, for adding them after `cloned`.
+ */
+function copyContentsForShiftDrag(source: Item, cloned: Item): Array<string> {
+  const ids: Array<string> = [];
+  const now = currentUnixTimeSeconds();
+  const copyInto = (sourceParent: Item, clonedParent: Item): void => {
+    if (isContainer(clonedParent)) {
+      asContainerItem(clonedParent).computed_children = [];
+      asContainerItem(clonedParent).childrenLoaded = true;
+      markChildrenLoadAsInitiatedOrComplete(clonedParent.id);
+    }
+    if (isAttachmentsItem(clonedParent)) {
+      asAttachmentsItem(clonedParent).computed_attachments = [];
+    }
+    const childIds = isContainer(sourceParent) ? asContainerItem(sourceParent).computed_children : [];
+    const attachmentIds = isAttachmentsItem(sourceParent) ? asAttachmentsItem(sourceParent).computed_attachments : [];
+    for (const id of [...childIds, ...attachmentIds]) {
+      const sourceItem = itemState.get(id);
+      if (sourceItem == null) { continue; }
+      if (isContainer(sourceItem) || isDataItem(sourceItem)) {
+        const link = LinkFns.createFromItem(
+          sourceItem, clonedParent.id, sourceItem.relationshipToParent, new Uint8Array(sourceItem.ordering));
+        itemState.add(link);
+        ids.push(link.id);
+        continue;
+      }
+      const copy = ItemFns.fromObject(ItemFns.toObject(sourceItem), null);
+      copy.id = newUid();
+      copy.parentId = clonedParent.id;
+      copy.groupId = null;
+      copy.pinnedTo = null;
+      copy.creationDate = now;
+      copy.lastModifiedDate = now;
+      itemState.add(copy);
+      ids.push(copy.id);
+      copyInto(sourceItem, copy);
+    }
+  };
+  copyInto(source, cloned);
+  return ids;
+}
+
+/**
+ * Adds a shift-drag copy `cloned` of `source`. A copy is added to the server on drop, with what comes with it, rather
+ * than now, so an abandoned drag leaves nothing to clean up there. With `copyOnly`, `source` can be copied but not
+ * moved.
+ */
+function addShiftDragClone(cloned: Item, source: Item, copyOnly: boolean): void {
+  itemState.add(cloned);
+  if (copyOnly) {
+    MouseActionState.setItemCopyMove({ pendingItemId: cloned.id, pendingDescendantIds: cloneDescendantsForCopy(source, cloned) });
+  } else if (isContainer(source) && !isComposite(source)) {
+    // A page or table copy is an empty one with the same settings, which is intended: sometimes that's what's wanted.
+    // It's added now: while it's dragged, arrange can ask the server for its children, which fails for an item the
+    // server doesn't have yet.
+    server.addItem(cloned, null);
+  } else {
+    MouseActionState.setItemCopyMove({ pendingItemId: cloned.id, pendingDescendantIds: copyContentsForShiftDrag(source, cloned) });
+  }
+}
+
+/**
  * A copy of a chat attachment refers to the same attachment until it is added, when it is given the attachment's text
  * (`clientTextCopyData`). The reference is client only, so `toObject` leaves it out.
  */
@@ -481,13 +549,7 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
       cloned.dateTime = currentUnixTimeSeconds();
       cloned.ordering = newOrderingAtEndOfCurrentParent(cloned);
       prepareShiftDragClone(cloned, toClone);
-      itemState.add(cloned);
-      if (copyOnlyMove) {
-        const pendingDescendantIds = cloneDescendantsForCopy(toClone, cloned);
-        MouseActionState.setItemCopyMove({ pendingItemId: cloned.id, pendingDescendantIds });
-      } else {
-        server.addItem(cloned, null);
-      }
+      addShiftDragClone(cloned, toClone, copyOnlyMove);
 
       const activeParentPath = VeFns.parentPath(MouseActionState.getActiveElementPath()!);
       const newLinkVeid = VeFns.veidFromId(cloned.id);
@@ -1083,13 +1145,7 @@ function moving_activeItemToPage(store: StoreContextModel, moveToVe: VisualEleme
     cloned.parentId = moveToPage.id;
     prepareShiftDragClone(cloned, toClone);
     keepChatAttachmentSource(toClone, cloned);
-    itemState.add(cloned);
-    if (pendingCopy) {
-      const pendingDescendantIds = cloneDescendantsForCopy(toClone, cloned);
-      MouseActionState.setItemCopyMove({ pendingItemId: cloned.id, pendingDescendantIds });
-    } else {
-      server.addItem(cloned, null);
-    }
+    addShiftDragClone(cloned, toClone, pendingCopy);
 
     const clonedVeid = VeFns.veidFromId(cloned.id);
     MouseActionState.setActiveElementPath(VeFns.addVeidToPath(clonedVeid, moveToPath));
@@ -1221,8 +1277,7 @@ function moving_activeItemOutOfTable(store: StoreContextModel, shouldCreateLink:
     cloned.spatialPositionGr = itemPosInPageQuantizedGr;
     cloned.parentId = moveToPage.id;
     prepareShiftDragClone(cloned, toClone);
-    itemState.add(cloned);
-    server.addItem(cloned, null);
+    addShiftDragClone(cloned, toClone, false);
 
     const clonedVeid = VeFns.veidFromId(cloned.id);
     MouseActionState.setActiveElementPath(VeFns.addVeidToPath(clonedVeid, VeFns.veToPath(moveToPageVe)));

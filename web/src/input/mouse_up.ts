@@ -2503,8 +2503,9 @@ function mouseUpHandler_moving_compositeToComposite(store: StoreContextModel, ac
 }
 
 /**
- * Flattening is only done when nothing is lost. A titled composite would lose its title, and a
- * copy-drag clones the composite without its children, so there would be nothing to flatten.
+ * Flattening is only done when nothing is lost. A titled composite would lose its title. A copy-drag's children
+ * are only added to the server on drop, as descendants of the copy (enqueueUpdateItem), so they can't be moved into
+ * the target composite instead.
  */
 function rejectCompositeIntoCompositeIfNeeded(store: StoreContextModel, activeComposite: CompositeItem): boolean {
   let message: string | null = null;
