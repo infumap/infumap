@@ -1200,9 +1200,11 @@ function moving_handleOverComposite(store: StoreContextModel, overContainerVe: V
     );
     return;
   }
-  const activeItemId = MouseActionState.getActiveVisualElement()?.displayItem.id ?? null;
+  // By tree item, not display item: a ctrl-drag link's display item is the original, which is still a child here.
+  const activeVe = MouseActionState.getActiveVisualElement();
+  const activeTreeItemId = activeVe != null ? VeFns.treeItem(activeVe).id : null;
   const compositeChildren = VesCache.render.getChildren(VeFns.veToPath(overContainerVe))()
-    .filter(childVe => childVe.get().displayItem.id !== activeItemId);
+    .filter(childVe => VeFns.treeItem(childVe.get()).id !== activeTreeItemId);
   const insertIndex = append
     ? compositeChildren.length
     : stackedInsertionIndexFromDesktopPx(

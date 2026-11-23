@@ -140,11 +140,13 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
     if (moveOverIndex >= 0 && compositeIsCollapsed()) {
       return attachCompositeBoundsPx();
     }
-    const activeItemId = MouseActionState.isAction(MouseAction.Moving)
-      ? MouseActionState.getActiveVisualElement()?.displayItem.id ?? null
+    // By tree item, as in moving_handleOverComposite: a ctrl-drag link's display item is the original, still shown here.
+    const activeVe = MouseActionState.isAction(MouseAction.Moving)
+      ? MouseActionState.getActiveVisualElement()
       : null;
+    const activeTreeItemId = activeVe != null ? VeFns.treeItem(activeVe).id : null;
     const childVes = VesCache.render.getChildren(VeFns.veToPath(props.visualElement))()
-      .filter(childVe => childVe.get().displayItem.id !== activeItemId)
+      .filter(childVe => VeFns.treeItem(childVe.get()).id !== activeTreeItemId)
       .map(childVe => childVe.get());
     return stackedInsertionLineBoundsPx(childVes, Math.max(0, boundsPx().w - 2), moveOverIndex);
   };
