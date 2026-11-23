@@ -137,6 +137,11 @@ export interface HistoryStoreContextModel {
 }
 
 
+// Each browser entry saves a copy of the breadcrumb chain, so without a cap memory grows with the square of the number
+// of pages visited. Dropping the oldest pages doesn't limit Back: Back restores the previous entry's own copy, which
+// was capped when it was written and so still reaches one page further back.
+const MAX_BREADCRUMBS = 200;
+
 export function makeHistoryStore(beforeNavigation: () => void): HistoryStoreContextModel {
   const [breadcrumbs, setBreadcrumbs] = createSignal<Array<PageBreadcrumb>>([], { equals: false });
   const [focusRingSuppressedPath, setFocusRingSuppressedPath] = createSignal<VisualElementPath | null>(null);
@@ -372,6 +377,9 @@ export function makeHistoryStore(beforeNavigation: () => void): HistoryStoreCont
       popupBreadcrumbs: [],
       focusPath: actualFocusPath
     });
+    if (breadcrumbs().length > MAX_BREADCRUMBS) {
+      breadcrumbs().splice(0, breadcrumbs().length - MAX_BREADCRUMBS);
+    }
     setBreadcrumbs(breadcrumbs());
   };
 
@@ -400,7 +408,9 @@ export function makeHistoryStore(beforeNavigation: () => void): HistoryStoreCont
     }
     if (previous == null || previousId == null) { return null; }
     const chain = previous.breadcrumbs;
-    if (chain.length == 0 || chain.length != breadcrumbs().length - 1 ||
+    // At the cap, the previous page's chain has the same length as this one: the push trimmed the oldest page.
+    const expectedLength = breadcrumbs().length == MAX_BREADCRUMBS ? [MAX_BREADCRUMBS - 1, MAX_BREADCRUMBS] : [breadcrumbs().length - 1];
+    if (chain.length == 0 || !expectedLength.includes(chain.length) ||
       VeFns.compareVeids(chain[chain.length - 1].pageVeid, expectedVeid) != 0) {
       return null;
     }
