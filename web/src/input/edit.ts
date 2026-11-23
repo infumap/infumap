@@ -658,6 +658,10 @@ function guardLinearBoundaryDeletion(store: StoreContextModel, ev: Event, elemen
   if (context == null) { return true; }
   const adjacentPath = adjacentStructuralPath(context, backward);
   if (adjacentPath == null) { return true; }
+  // A document's title isn't a paragraph: the first note never joins into it, and stays there even when empty. Enter
+  // at the end of the title adds a first note, but that isn't undone this way, as one keystroke would make body text
+  // the title.
+  if (adjacentPath == context.containerPath || context.editingPath == context.containerPath) { return true; }
   if (joinItemsMaybeHandler(store, backward)) { return true; }
   // An empty note can't be joined to a neighbour that isn't a note (a file, an image, ...), so delete it instead.
   if (textLength == 0 && (isDocumentPage(context.containerVe) || isComposite(context.containerVe.displayItem))) {
@@ -687,7 +691,7 @@ function caretTargetAfterRemovingLinearPath(context: LinearEditContext, backward
   for (const candidate of backward ? [...before, ...after] : [...after, ...before]) {
     const pathInfo = { path: candidate.path, type: EditElementType.Title, colNumMaybe: null };
     if (textEditInfoForPathInfo(pathInfo) == null || document.getElementById(editPathInfoToDomId(pathInfo)) == null) { continue; }
-    const textLength = textLengthForLinearPath(context, candidate.path);
+    const textLength = textLengthForPath(candidate.path);
     if (textLength == null) { continue; }
     return { path: candidate.path, caretPosition: candidate.atEnd ? textLength : 0 };
   }
@@ -761,19 +765,33 @@ function collapseSingleChildCompositeMaybe(
   return { parentPath, childId: child.id };
 }
 
+/** Whether Enter splits the document page title being edited into a first note. */
+function enterSplitsDocumentTitle(store: StoreContextModel, context: LinearEditContext | null): boolean {
+  return context != null && store.overlay.textEditInfo()?.colNum == null &&
+    context.editingPath == context.containerPath && isPage(context.containerVe.displayItem) &&
+    structuralTextContainerIsEditable(store, context.containerVe);
+}
+
+/**
+ * The titles of items other than notes (files, pages, composites, tables, ...) are labels: Enter finishes renaming
+ * without splitting the item. Inside a document page or composite, the key goes to the container's contenteditable
+ * rather than to the title, so the title's own Enter handling never runs and this has to.
+ */
+function commitTitleOnEnterMaybe(store: StoreContextModel, ev: Event): boolean {
+  const info = store.overlay.textEditInfo();
+  if (info == null || info.itemType == ItemType.Note || info.colNum != null ||
+      enterSplitsDocumentTitle(store, currentLinearEditContext(store))) { return false; }
+  stopStructuralTextEvent(ev);
+  commitActiveTextEdit(store, true, "linear-title-enter-commit");
+  return true;
+}
+
 function guardLinearEnter(store: StoreContextModel, ev: Event): boolean {
   const context = currentLinearEditContext(store);
   const info = store.overlay.textEditInfo();
-  if (context != null && info?.colNum == null &&
-      ((context.editingPath == context.containerPath && isPage(context.containerVe.displayItem) &&
-        structuralTextContainerIsEditable(store, context.containerVe)) ||
-       structuralTextNote(store, context.editingVe, context.containerVe) != null)) { return false; }
-  // File/text titles are labels: Enter finishes renaming without splitting the asset.
-  if (context != null && (isFile(context.editingVe.displayItem) || isText(context.editingVe.displayItem))) {
-    stopStructuralTextEvent(ev);
-    commitActiveTextEdit(store, true, "linear-title-enter-commit");
-    return true;
-  }
+  if (enterSplitsDocumentTitle(store, context) ||
+      (context != null && info?.colNum == null && structuralTextNote(store, context.editingVe, context.containerVe) != null)) { return false; }
+  if (commitTitleOnEnterMaybe(store, ev)) { return true; }
   return blockStructuralTextEvent(store, ev, "This item cannot be split into paragraphs. Use an editable note without attachments.");
 }
 
@@ -931,8 +949,14 @@ function deleteLinearSelectionMaybe(store: StoreContextModel, deleteSpec: Linear
     store.editorHistory.track(server.deleteItem(item.id));
   }
 
+  // As for a join, a composite left with one item is replaced by it.
+  const collapsed = collapseSingleChildCompositeMaybe(store, deleteSpec.context, token);
   arrangeNow(store, "linear-delete-selection");
-  focusTextEditPathInfo(store, deleteSpec.start.pathInfo, startOffset);
+  if (collapsed != null) {
+    focusItemInLinearContainer(store, collapsed.parentPath, startNote.id, startOffset);
+  } else {
+    focusTextEditPathInfo(store, deleteSpec.start.pathInfo, startOffset);
+  }
   store.editorHistory.commit(token);
   return true;
 }
@@ -989,56 +1013,54 @@ function isCaretAtLinearBoundary(textElement: HTMLElement, caretPosition: number
   return isCaretAtHorizontalBoundary(textElement, caretPosition, key);
 }
 
-function adjacentEditableChildPathInLinearContainer(
-  containerVe: VisualElement,
-  currentPath: string,
-  key: LinearBoundaryNavigationKey,
-): string | null {
-  const containerPath = VeFns.veToPath(containerVe);
-  const childVes = VesCache.current.readStructuralChildren(containerPath);
-  const containerHasMirroredTitle = isPage(containerVe.displayItem) &&
-    asPageItem(containerVe.displayItem).arrangeAlgorithm == ArrangeAlgorithm.Document &&
-    !(asPageItem(containerVe.displayItem).flags & PageFlags.HideDocumentTitle);
+/**
+ * The paths of the titles the arrow keys move between around the item being edited, in reading order. A composite is
+ * read through, its title (if shown) and then its children, so a composite in a document page sits between the
+ * document's blocks before and after it. Null when the item isn't in a document page or composite, or is the title of
+ * one, the only block where the arrow keys move between items.
+ */
+function linearNavigationPaths(store: StoreContextModel): Array<string> | null {
+  const info = store.overlay.textEditInfo();
+  if (info == null) { return null; }
+  let rootVe = editingLinearContainerVeMaybe(store);
+  if (rootVe == null) {
+    // A composite's own title, when the composite isn't in a document page.
+    const editingVe = VesCache.current.readNode(info.itemPath);
+    if (editingVe == null || info.itemType != ItemType.Composite || !isComposite(editingVe.displayItem)) { return null; }
+    rootVe = editingVe;
+  }
+  if (isComposite(rootVe.displayItem)) {
+    const parentPath = VeFns.parentPath(VeFns.veToPath(rootVe));
+    const parentVe = parentPath ? VesCache.current.readNode(parentPath) : null;
+    if (parentVe != null && isDocumentPage(parentVe)) { rootVe = parentVe; }
+  }
 
-  if (currentPath == containerPath) {
-    if (linearBoundaryNavigationMovesBackward(key)) { return null; }
-    for (let i = 0; i < childVes.length; ++i) {
-      if (editableItemType(childVes[i]) == null) { continue; }
-      return VeFns.veToPath(childVes[i]);
+  const paths: Array<string> = [];
+  const addComposite = (compositeVe: VisualElement) => {
+    const compositePath = VeFns.veToPath(compositeVe);
+    if (CompositeFns.showTitle(asCompositeItem(compositeVe.displayItem))) { paths.push(compositePath); }
+    // A collapsed composite doesn't arrange its children, so only its title is reached.
+    for (const childVe of VesCache.current.readStructuralChildren(compositePath)) {
+      if (editableItemType(childVe) != null && !isComposite(childVe.displayItem)) { paths.push(VeFns.veToPath(childVe)); }
     }
-    return null;
+  };
+  const rootPath = VeFns.veToPath(rootVe);
+  if (isComposite(rootVe.displayItem)) {
+    addComposite(rootVe);
+    return paths;
   }
-
-  const currentIndex = childVes.findIndex(ve => VeFns.veToPath(ve) == currentPath);
-  if (currentIndex < 0) { return null; }
-
-  const step = linearBoundaryNavigationMovesBackward(key) ? -1 : 1;
-  for (let i = currentIndex + step; i >= 0 && i < childVes.length; i += step) {
-    const targetVe = childVes[i];
-    if (editableItemType(targetVe) == null) { continue; }
-    return VeFns.veToPath(targetVe);
+  if (!(asPageItem(rootVe.displayItem).flags & PageFlags.HideDocumentTitle)) { paths.push(rootPath); }
+  for (const childVe of VesCache.current.readStructuralChildren(rootPath)) {
+    if (isComposite(childVe.displayItem)) {
+      addComposite(childVe);
+    } else if (editableItemType(childVe) != null) {
+      paths.push(VeFns.veToPath(childVe));
+    }
   }
-
-  if (containerHasMirroredTitle && linearBoundaryNavigationMovesBackward(key) && currentIndex == 0) {
-    return containerPath;
-  }
-
-  return null;
+  return paths;
 }
 
-function adjacentEditableChildPathInCurrentLinearContext(
-  context: LinearEditContext,
-  key: LinearBoundaryNavigationKey,
-): string | null {
-  return adjacentEditableChildPathInLinearContainer(context.containerVe, context.editingPath, key);
-}
-
-function textLengthForLinearPath(context: LinearEditContext, path: string): number | null {
-  if (path == context.containerPath) {
-    if (!isPage(context.containerVe.displayItem)) { return null; }
-    return asPageItem(context.containerVe.displayItem).title.length;
-  }
-
+function textLengthForPath(path: string): number | null {
   const targetVe = VesCache.current.readNode(path);
   if (targetVe == null || editableItemType(targetVe) == null) { return null; }
 
@@ -1049,20 +1071,19 @@ function textLengthForLinearPath(context: LinearEditContext, path: string): numb
 }
 
 function targetCaretPositionForLinearBoundaryNavigation(
-  context: LinearEditContext,
   targetPath: string,
   key: LinearBoundaryNavigationKey,
   textElement: HTMLElement,
   caretPosition: number,
 ): number {
   if (key == "ArrowLeft") {
-    return textLengthForLinearPath(context, targetPath) ?? Number.MAX_SAFE_INTEGER;
+    return textLengthForPath(targetPath) ?? Number.MAX_SAFE_INTEGER;
   }
   if (key == "ArrowRight") { return 0; }
 
   const fallbackPosition = key == "ArrowDown"
     ? 0
-    : textLengthForLinearPath(context, targetPath) ?? Number.MAX_SAFE_INTEGER;
+    : textLengthForPath(targetPath) ?? Number.MAX_SAFE_INTEGER;
   const targetElement = document.getElementById(targetPath + ":title");
   if (!(targetElement instanceof HTMLElement) || readEditableText(targetElement) == "") {
     return fallbackPosition;
@@ -1082,25 +1103,6 @@ function targetCaretPositionForLinearBoundaryNavigation(
     x: sourceCaretXPx,
     y: targetBoundaryLineRect.top + targetBoundaryLineRect.height / 2,
   });
-}
-
-function linearEdgeBoundaryCaretPositionMaybe(
-  context: LinearEditContext,
-  key: LinearBoundaryNavigationKey,
-  textElement: HTMLElement,
-): number | null {
-  if (key != "ArrowUp" && key != "ArrowDown") { return null; }
-  // The whole container is one contenteditable, so native movement past the
-  // first/last child would leave the editing element and be reverted.
-  if (context.editingPath == context.containerPath) { return null; }
-
-  const childVes = VesCache.current.readStructuralChildren(context.containerPath);
-  const currentIndex = childVes.findIndex(ve => VeFns.veToPath(ve) == context.editingPath);
-  if (currentIndex < 0) { return null; }
-  if (key == "ArrowUp" && currentIndex != 0) { return null; }
-  if (key == "ArrowDown" && currentIndex != childVes.length - 1) { return null; }
-
-  return key == "ArrowUp" ? 0 : readEditableText(textElement).length;
 }
 
 function itemPathInLinearContainer(itemId: string, containerPath: string): string | null {
@@ -1217,32 +1219,33 @@ function maybeBuildLinearBoundaryNavigation(
   caretPosition: number,
   modifiers: LinearBoundaryNavigationModifiers,
 ): PendingBoundaryNavigation | null {
-  const context = currentLinearEditContext(store);
-  if (context == null) {
-    return null;
-  }
   if (!isLinearBoundaryNavigationKey(key)) { return null; }
+  const editingPath = store.overlay.textEditInfo()?.itemPath;
+  const paths = linearNavigationPaths(store);
+  if (editingPath == null || paths == null) { return null; }
   if (shouldKeepNativeHorizontalArrowBehavior(key, modifiers)) { return null; }
   if (isHorizontalBoundaryNavigationKey(key) && !currentSelectionIsCollapsed()) { return null; }
   if (!isCaretAtLinearBoundary(textElement, caretPosition, key)) { return null; }
 
-  const targetPath = adjacentEditableChildPathInCurrentLinearContext(context, key);
+  const index = paths.indexOf(editingPath);
+  if (index < 0) { return null; }
+  const targetPath = paths[index + (linearBoundaryNavigationMovesBackward(key) ? -1 : 1)];
   if (targetPath == null) {
-    const fallbackCaretPosition = linearEdgeBoundaryCaretPositionMaybe(context, key, textElement);
-    if (fallbackCaretPosition != null) {
-      return {
-        targetPath: context.editingPath,
-        targetCaretPosition: fallbackCaretPosition,
-      };
-    }
-    return null;
+    // A document page or composite being edited is one contenteditable, so native movement past its first or last
+    // block would leave the editing element and be reverted. Move to the start or end of the text instead.
+    const parentPath = VeFns.parentPath(editingPath);
+    const parentVe = parentPath ? VesCache.current.readNode(parentPath) : null;
+    if ((key != "ArrowUp" && key != "ArrowDown") || parentVe == null || !isLinearEditableContainer(parentVe)) { return null; }
+    return {
+      targetPath: editingPath,
+      targetCaretPosition: key == "ArrowUp" ? 0 : readEditableText(textElement).length,
+    };
   }
 
-  const navigation = {
+  return {
     targetPath,
-    targetCaretPosition: targetCaretPositionForLinearBoundaryNavigation(context, targetPath, key, textElement, caretPosition),
+    targetCaretPosition: targetCaretPositionForLinearBoundaryNavigation(targetPath, key, textElement, caretPosition),
   };
-  return navigation;
 }
 
 function clearArrowKeyTracking(): void {
@@ -1474,6 +1477,7 @@ export const edit_keyDownHandler = (store: StoreContextModel, visualElement: Vis
 
   switch (ev.key) {
     case "Enter":
+      if (commitTitleOnEnterMaybe(store, ev)) { return; }
       enterKeyHandler(store);
       ev.preventDefault();
       ev.stopPropagation();
