@@ -99,6 +99,11 @@ export interface HistoryStoreContextModel {
   setHistoryToSinglePage: (currentPage: Veid, focusPath?: VisualElementPath, sourceItemId?: Uid) => void,
   pushPageVeid: (veid: Veid, focusPath?: VisualElementPath, sourceItemId?: Uid) => void,
   replacePageVeid: (veid: Veid, focusPath?: VisualElementPath, sourceItemId?: Uid) => void,
+  /**
+   * Synchronously shows the previous browser entry if it is the previous page in the breadcrumb chain and that page
+   * is expectedVeid, as Back would. Returns that entry's URL path, or null (nothing changed) if it can't.
+   */
+  returnToPreviousPage: (expectedVeid: Veid) => string | null,
   currentPageVeid: () => Veid | null,
   currentPagePath: () => string | null,
   peekPrevPageVeid: () => Veid | null,
@@ -375,6 +380,32 @@ export function makeHistoryStore(beforeNavigation: () => void): HistoryStoreCont
       popupBreadcrumbs: [],
     };
     setBreadcrumbs([...breadcrumbs().slice(0, -1), replacement]);
+  };
+
+  // Back is asynchronous (the browser traverses, then popstate restores). This is for callers that must leave the
+  // current page at once, e.g. because it was converted to a table and can no longer be shown as a page. Like
+  // returnFromPopup, it shows the entry now and has the browser catch up. Replacing the current entry with the
+  // previous page instead would leave that page in the history twice in a row, and Back would appear to do nothing.
+  const returnToPreviousPage = (expectedVeid: Veid): string | null => {
+    if (activeBrowserEntry == null || !isCurrentBrowserEntryReady()) { return null; }
+    const position = activeBrowserEntry.infumapHistory.position;
+    let previousId: Uid | null = null;
+    let previous: BrowserEntry | null = null;
+    for (const [id, entry] of browserEntries) {
+      if (entry.position == position - 1) { previousId = id; previous = entry; break; }
+    }
+    if (previous == null || previousId == null) { return null; }
+    const chain = previous.breadcrumbs;
+    if (chain.length == 0 || chain.length != breadcrumbs().length - 1 ||
+      VeFns.compareVeids(chain[chain.length - 1].pageVeid, expectedVeid) != 0) {
+      return null;
+    }
+    beginNavigationRequest();
+    setBreadcrumbs(chain.slice());
+    activeBrowserEntry = { infumapHistory: { version: 1, entryId: previousId, position: previous.position } };
+    displayedBrowserEntryId = previousId;
+    queueBrowserAction({ type: "traverse", state: activeBrowserEntry });
+    return new URL(previous.url).pathname;
   };
 
   const currentPageVeid = (): Veid | null => {
@@ -693,6 +724,7 @@ export function makeHistoryStore(beforeNavigation: () => void): HistoryStoreCont
     isCurrentBrowserEntryReady,
     setHistoryToSinglePage,
     pushPageVeid,
+    returnToPreviousPage,
     replacePageVeid,
     currentPageVeid,
     currentPagePath,

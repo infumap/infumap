@@ -27,12 +27,12 @@ export const Toolbar_Navigation: Component = () => {
   const store = useStore();
 
   const handleHome = () => {
-    void navigateToLocalRoot(store);
+    void navigateToLocalRoot(store, "push");
   };
 
   const handleBack = async () => { await navigateBack(store); };
 
-  const handleUp = async () => { await navigateUp(store); };
+  const handleUp = async () => { await navigateUp(store, "push"); };
 
   const handleSearchClick = async () => {
     await navigateToQueries(store, true);

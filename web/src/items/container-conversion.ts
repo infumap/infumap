@@ -21,7 +21,7 @@ import { VeFns, VisualElementPath } from "../layout/visual-element";
 import { VesCache } from "../layout/ves-cache";
 import { requestArrange } from "../layout/arrange";
 import { initiateLoadChildItemsMaybe } from "../layout/load";
-import { navigateToLocalRoot, switchToPage } from "../layout/navigation";
+import { navigateToLocalRoot, returnToPreviousPageMaybe, switchToPage } from "../layout/navigation";
 import { itemState } from "../store/ItemState";
 import { StoreContextModel } from "../store/StoreProvider";
 import { EMPTY_UID, SOLO_ITEM_HOLDER_PAGE_UID, UMBRELLA_PAGE_UID, Uid } from "../util/uid";
@@ -144,9 +144,16 @@ export async function applyConvertedItem(
   if (isPage(source) && store.history.currentPageVeid()?.itemId == source.id &&
     parent.id == store.user.getUserMaybe()?.dockPageId) {
     // The dock is never navigated to as a page (see navigateUp), so go home, where the dock is still shown.
-    await navigateToLocalRoot(store);
+    // Only the converted page's entry is invalid: go back if the user came from home, otherwise replace it.
+    const homePageId = store.user.getUserMaybe()!.homePageId;
+    if (!returnToPreviousPageMaybe(store, VeFns.veidFromId(homePageId))) {
+      await navigateToLocalRoot(store, "replace");
+    }
   } else if (isPage(source) && store.history.currentPageVeid()?.itemId == source.id) {
-    switchToPage(store, VeFns.veidFromId(parent.id), true, true, false);
+    // Only the converted page's entry is invalid: go back if the user came from the parent, otherwise replace it.
+    if (!returnToPreviousPageMaybe(store, VeFns.veidFromId(parent.id))) {
+      switchToPage(store, VeFns.veidFromId(parent.id), true, false, true);
+    }
     await initiateLoadChildItemsMaybe(store, VeFns.veidFromId(parent.id));
     const parentPath = store.history.currentPagePath();
     if (parentPath != null) {

@@ -76,7 +76,14 @@ function currentUrl(store: StoreContextModel, overrideItemId: Uid | null): strin
   return `/${user.username}`;
 }
 
-export function switchToItem(store: StoreContextModel, itemId: Uid, clearHistory: boolean, updateHistory: boolean = true) {
+/**
+ * How a navigation changes the in-app breadcrumb history. Every move other than Back pushes, so Back returns to where
+ * the user was. "replace" is for moves that stand in for the current entry (the current page was converted, or a
+ * no-history fallback, see navigateUp). "clear" is for when earlier entries can't be trusted.
+ */
+export type NavigationHistoryMode = "push" | "replace" | "clear";
+
+export function switchToItem(store: StoreContextModel, itemId: Uid, clearHistory: boolean, updateHistory: boolean = true, replace: boolean = false) {
   const selectedItem = itemState.get(itemId)!;
   assert(!isPage(selectedItem), "cannot call switchToItem on page item");
 
@@ -84,6 +91,8 @@ export function switchToItem(store: StoreContextModel, itemId: Uid, clearHistory
   asPageItem(itemState.get(SOLO_ITEM_HOLDER_PAGE_UID)!).computed_children = [itemId];
   if (clearHistory) {
     store.history.setHistoryToSinglePage(VeFns.veidFromId(SOLO_ITEM_HOLDER_PAGE_UID), undefined, itemId);
+  } else if (replace) {
+    store.history.replacePageVeid(VeFns.veidFromId(SOLO_ITEM_HOLDER_PAGE_UID), undefined, itemId);
   } else {
     store.history.pushPageVeid(VeFns.veidFromId(SOLO_ITEM_HOLDER_PAGE_UID), undefined, itemId);
   }
@@ -91,7 +100,7 @@ export function switchToItem(store: StoreContextModel, itemId: Uid, clearHistory
   requestContainerSyncSoon(store);
 
   const url = currentUrl(store, itemId);
-  store.history.writeBrowserEntry(url, updateHistory ? "push" : "restore");
+  store.history.writeBrowserEntry(url, updateHistory ? (replace && !clearHistory ? "replace" : "push") : "restore");
   store.currentUrlPath.set(updateHistory ? url : window.location.pathname);
 }
 
@@ -141,7 +150,7 @@ async function navigateToContainingPageOfItemWithOptions(
         return fallbackToItem(store, targetItem);
       }
       if (targetIsRemote) {
-        await navigateToLocalRoot(store);
+        await navigateToLocalRoot(store, "push");
         return true;
       }
       return false;
@@ -153,7 +162,7 @@ async function navigateToContainingPageOfItemWithOptions(
         return fallbackToItem(store, targetItem);
       }
       if (targetIsRemote) {
-        await navigateToLocalRoot(store);
+        await navigateToLocalRoot(store, "push");
         return true;
       }
       return false;
@@ -171,7 +180,7 @@ async function navigateToContainingPageOfItemWithOptions(
       if (options.fallbackToItem) {
         return fallbackToItem(store, targetItem);
       }
-      await navigateToLocalRoot(store);
+      await navigateToLocalRoot(store, "push");
       return true;
     }
 
@@ -499,7 +508,25 @@ function showQueryEntry(store: StoreContextModel, queriesPageId: Uid, queryItemI
 }
 
 
-export async function navigateToLocalRoot(store: StoreContextModel): Promise<void> {
+/**
+ * Goes back to targetVeid if it is the previous page in the history, synchronously (see
+ * HistoryStoreContextModel.returnToPreviousPage). For leaving a page that was converted and can no longer be shown
+ * as a page; if this returns false, the caller replaces the current entry instead.
+ */
+export function returnToPreviousPageMaybe(store: StoreContextModel, targetVeid: Veid): boolean {
+  const urlPath = store.history.returnToPreviousPage(targetVeid);
+  if (urlPath == null) { return false; }
+  arrangeNow(store, "return-to-previous-page");
+  requestContainerSyncSoon(store);
+  store.currentUrlPath.set(urlPath);
+  return true;
+}
+
+function switchToPageWithHistoryMode(store: StoreContextModel, pageVeid: Veid, mode: NavigationHistoryMode) {
+  switchToPage(store, pageVeid, true, mode == "clear", mode == "replace");
+}
+
+export async function navigateToLocalRoot(store: StoreContextModel, mode: NavigationHistoryMode): Promise<void> {
   store.history.beginNavigationRequest();
   const userMaybe = store.user.getUserMaybe();
   if (!userMaybe) {
@@ -507,6 +534,15 @@ export async function navigateToLocalRoot(store: StoreContextModel): Promise<voi
     return;
   }
   const user = userMaybe;
+  const homeVeid = { itemId: user.homePageId, linkIdMaybe: null };
+  const currentPageVeid = store.history.currentPageVeid();
+  if (mode != "clear" && currentPageVeid != null && VeFns.compareVeids(currentPageVeid, homeVeid) == 0 &&
+    store.history.currentPopupSpec() == null) {
+    // Already home: navigating again would stack a duplicate entry, and Back would then appear to do nothing.
+    store.history.setFocus(VeFns.addVeidToPath(homeVeid, UMBRELLA_PAGE_UID));
+    arrangeNow(store, "navigate-to-local-root-already-home");
+    return;
+  }
   let homePageItem = itemState.get(user.homePageId);
   if (!homePageItem) {
     const loadResult = await initiateLoadItemMaybe(store, user.homePageId);
@@ -521,7 +557,7 @@ export async function navigateToLocalRoot(store: StoreContextModel): Promise<voi
     homePageItem = itemState.get(user.homePageId);
   }
   if (homePageItem) {
-    switchToPage(store, { itemId: user.homePageId, linkIdMaybe: null }, true, true, false);
+    switchToPageWithHistoryMode(store, homeVeid, mode);
   }
 }
 
@@ -557,7 +593,9 @@ export async function navigateBack(store: StoreContextModel, focusRootPageOnPopu
   if (currentPageVeid != null) {
     const currentItem = itemState.get(currentPageVeid.itemId);
     if (currentItem && currentItem.origin != null) {
-      await navigateToLocalRoot(store);
+      // Replace, not push: this only runs with no history, and a pushed entry would send the next Back (right-click)
+      // straight back to the remote page.
+      await navigateToLocalRoot(store, "replace");
       return true;
     }
   }
@@ -567,7 +605,13 @@ export async function navigateBack(store: StoreContextModel, focusRootPageOnPopu
 
 
 let navigateUpInProgress = false;
-export async function navigateUp(store: StoreContextModel) {
+/**
+ * Goes to the page containing the current one. An explicit Up (the toolbar button) pushes, so Back returns to the
+ * child. Right-click is "Back, else Up" and must replace: it only falls back to Up when there is no history, and a
+ * pushed entry would make the next right-click go Back down to the child, so repeated right-clicks would oscillate
+ * between the two instead of climbing.
+ */
+export async function navigateUp(store: StoreContextModel, mode: NavigationHistoryMode) {
   const currentPageVeid = store.history.currentPageVeid();
   if (currentPageVeid == null) { return; }
 
@@ -577,7 +621,7 @@ export async function navigateUp(store: StoreContextModel) {
 
   const userMaybe = store.user.getUserMaybe();
   if (userMaybe && currentPageVeid.itemId == userMaybe.queriesPageId && currentPageVeid.linkIdMaybe == null) {
-    await navigateToLocalRoot(store);
+    await navigateToLocalRoot(store, mode);
     navigateUpInProgress = false;
     return;
   }
@@ -604,7 +648,7 @@ export async function navigateUp(store: StoreContextModel) {
     // check if already at top.
     if (parentId == EMPTY_UID) {
       if (isRemote) {
-        await navigateToLocalRoot(store);
+        await navigateToLocalRoot(store, mode);
       }
       navigateUpInProgress = false;
       return;
@@ -612,7 +656,7 @@ export async function navigateUp(store: StoreContextModel) {
     if (userMaybe) {
       if (parentId == userMaybe!.dockPageId) {
         if (isRemote) {
-          await navigateToLocalRoot(store);
+          await navigateToLocalRoot(store, mode);
         }
         navigateUpInProgress = false;
         return;
@@ -623,13 +667,13 @@ export async function navigateUp(store: StoreContextModel) {
     if (parentPageMaybe) {
       if (isRemote) {
         if (parentPageMaybe.origin !== currentItem.origin) {
-          await navigateToLocalRoot(store);
+          await navigateToLocalRoot(store, mode);
           navigateUpInProgress = false;
           return;
         }
       }
       if (isPage(parentPageMaybe) && relationshipToParent === RelationshipToParent.Child) {
-        switchToPage(store, { itemId: parentId, linkIdMaybe: null }, true, true, false);
+        switchToPageWithHistoryMode(store, { itemId: parentId, linkIdMaybe: null }, mode);
         navigateUpInProgress = false;
         return;
       } else {
@@ -640,7 +684,7 @@ export async function navigateUp(store: StoreContextModel) {
     }
 
     if (isRemote) {
-      await navigateToLocalRoot(store);
+      await navigateToLocalRoot(store, mode);
       navigateUpInProgress = false;
       return;
     }

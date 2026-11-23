@@ -1368,6 +1368,7 @@ export async function mouseRightDownHandler(store: StoreContextModel) {
     store.history.currentPopupSpec() != null && !store.history.hasPopupParent(),
   );
   if (!changedPages) {
-    await navigateUp(store);
+    // Replace: see navigateUp for why the no-history fallback must not push.
+    await navigateUp(store, "replace");
   }
 }

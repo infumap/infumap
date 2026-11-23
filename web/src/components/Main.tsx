@@ -389,7 +389,7 @@ export const Main: Component = () => {
     if (ev.code == "KeyH" && (ev.ctrlKey || ev.metaKey) && ev.shiftKey && !ev.altKey && store.user.getUserMaybe()) {
       ev.preventDefault();
       ev.stopPropagation();
-      void navigateToLocalRoot(store);
+      void navigateToLocalRoot(store, "push");
     }
   };
   const compositionKeyUpListener = (ev: KeyboardEvent) => { edit_compositionKeyGuard(store, ev); };

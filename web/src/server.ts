@@ -39,7 +39,7 @@ import {
 } from "./util/localSession";
 import { RelationshipToParent } from "./layout/relationship-to-parent";
 import { VeFns, Veid } from "./layout/visual-element";
-import { navigateToLocalRoot, switchToItem, switchToPage } from "./layout/navigation";
+import { navigateToLocalRoot, returnToPreviousPageMaybe, switchToItem, switchToPage } from "./layout/navigation";
 import { childrenLoadedBySync, initiateLoadChildItemsMaybe } from "./layout/load";
 
 interface NetworkRequestTracker {
@@ -2028,7 +2028,8 @@ async function reconcileFailedItems(store: StoreContextModel): Promise<boolean> 
 
   if (goneIds.size > 0) {
     if (currentPageWithin(store, goneIds)) {
-      void navigateToLocalRoot(store);
+      // Clear, unlike other navigation: earlier entries may be inside the deleted subtree too.
+      void navigateToLocalRoot(store, "clear");
     }
     if (currentPageWithin(store, goneIds)) {
       // The home page is being loaded. Remove them once it is shown.
@@ -2243,17 +2244,21 @@ async function performContainerSync(store: StoreContextModel): Promise<void> {
       itemState.get(currentPageId)?.itemType == ItemType.Table) {
       const convertedTable = itemState.get(currentPageId)!;
       const parent = itemState.get(convertedTable.parentId);
+      // Only the converted page's entry is invalid: go back if the user came from the parent, otherwise replace it.
       if (parent?.itemType == ItemType.Page) {
-        switchToPage(store, { itemId: parent.id, linkIdMaybe: null }, true, true, false);
-        await initiateLoadChildItemsMaybe(store, { itemId: parent.id, linkIdMaybe: null });
+        const parentVeid = { itemId: parent.id, linkIdMaybe: null };
+        if (!returnToPreviousPageMaybe(store, parentVeid)) {
+          switchToPage(store, parentVeid, true, false, true);
+        }
+        await initiateLoadChildItemsMaybe(store, parentVeid);
       } else {
-        switchToItem(store, convertedTable.id, true, false);
+        switchToItem(store, convertedTable.id, false, false, true);
       }
       shouldArrange = false;
     } else if (currentPageId == SOLO_ITEM_HOLDER_PAGE_UID && soloItemTypeBeforeSync == ItemType.Table) {
       const soloItemId = itemState.getAsContainerItem(SOLO_ITEM_HOLDER_PAGE_UID)?.computed_children[0];
       if (soloItemId && soloItemId == soloItemIdBeforeSync && itemState.get(soloItemId)?.itemType == ItemType.Page) {
-        switchToPage(store, { itemId: soloItemId, linkIdMaybe: null }, false, true, false);
+        switchToPage(store, { itemId: soloItemId, linkIdMaybe: null }, false, false, true);
         shouldArrange = false;
       }
     }
