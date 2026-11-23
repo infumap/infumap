@@ -48,7 +48,7 @@ import { stackedInsertionLineBoundsPx } from "../../layout/stacked-insertion";
 import { calcCatalogLayout, CATALOG_DETAIL_COLUMN_PADDING_PX } from "../../layout/catalog";
 import { ItemType } from "../../items/base/item";
 import { catalogPageDisplayContext, type CatalogRowFragmentDisplay } from "../../layout/catalog-display";
-import { documentPageMoveOutBoxPxMaybe } from "./helper";
+import { documentPageMoveOutBoxPxMaybe, shouldShowMoveOutHandle } from "./helper";
 import { OUTLINE_COLOR, SELECTED_LIGHT } from "../../style";
 import { calcJustifiedBoxSpacingPx, calcJustifiedPagePaddingPx } from "../../layout/arrange/justified_metrics";
 import { justifiedInsertionLineBoundsPx } from "../../layout/justified-insertion";
@@ -325,12 +325,7 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       return stackedInsertionLineBoundsPx(childVes, widthPx, moveOverIndex);
     },
 
-    showMoveOutOfCompositeArea: () =>
-      store.user.getUserMaybe() != null &&
-      (store.perVe.getMouseIsOver(pageFns.vePath()) || store.perVe.getMouseIsOverDocumentRowSide(pageFns.vePath())) &&
-      !store.anItemIsMoving.get() &&
-      store.overlay.textEditInfo() == null &&
-      (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) != 0,
+    showMoveOutOfCompositeArea: () => shouldShowMoveOutHandle(store, props.visualElement),
 
     lineChildren: () => VesCache.render.getLineChildren(VeFns.veToPath(props.visualElement))(),
 

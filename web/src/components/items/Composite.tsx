@@ -33,7 +33,7 @@ import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { MouseAction, MouseActionState } from "../../input/state";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR, FOCUS_RING_BOX_SHADOW } from "../../style";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, isInsideTranslucentPage, parentDocumentPageMaybe, shouldShowFocusRingForVisualElement } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, isInsideTranslucentPage, parentDocumentPageMaybe, shouldShowFocusRingForVisualElement, shouldShowMoveOutHandle } from "./helper";
 import { stackedInsertionLineBoundsPx } from "../../layout/stacked-insertion";
 import { LinearSelectionGapCover, linearSelectionGapAfterBoundsPx } from "./LinearSelectionGapCover";
 import { appendNewlineIfEmpty } from "../../util/string";
@@ -156,14 +156,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
   const showCollapseControl = () => isDirectDocumentChild() && compositeItem().computed_children.length > 0;
 
   const showBorder = () => !(compositeItem().flags & CompositeFlags.HideBorder);
-  const isInCompositeOrDocument = () =>
-    (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) != 0;
-  const showMoveOutOfCompositeArea = () =>
-    store.user.getUserMaybe() != null &&
-    store.perVe.getMouseIsOver(vePath()) &&
-    !store.anItemIsMoving.get() &&
-    store.overlay.textEditInfo() == null &&
-    isInCompositeOrDocument();
+  const showMoveOutOfCompositeArea = () => shouldShowMoveOutHandle(store, props.visualElement);
   const isFocused = () => {
     const focusPath = store.history.getFocusPathMaybe();
     const textEditInfo = store.overlay.textEditInfo();

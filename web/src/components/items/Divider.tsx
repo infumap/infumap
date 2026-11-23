@@ -31,7 +31,7 @@ import { useStore } from "../../store/StoreProvider";
 import { FOCUS_RING_BOX_SHADOW } from "../../style";
 import { BoundingBox } from "../../util/geometry";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, dividerIsAlwaysHorizontal, documentPageMoveOutBoxPxMaybe, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, dividerIsAlwaysHorizontal, documentPageMoveOutBoxPxMaybe, shouldShowFocusRingForVisualElement, highlightStyle, shouldShowMoveOutHandle } from "./helper";
 
 
 const DIVIDER_COLOR = "#64748b";
@@ -60,12 +60,7 @@ export const Divider_Desktop: Component<VisualElementProps> = (props: VisualElem
     };
   };
 
-  const showMoveOutOfCompositeArea = () =>
-    store.user.getUserMaybe() != null &&
-    store.perVe.getMouseIsOver(vePath()) &&
-    !store.anItemIsMoving.get() &&
-    store.overlay.textEditInfo() == null &&
-    (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) != 0;
+  const showMoveOutOfCompositeArea = () => shouldShowMoveOutHandle(store, props.visualElement);
 
   const renderLine = () =>
     <Show

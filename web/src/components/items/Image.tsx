@@ -41,7 +41,7 @@ import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { PopupActionStrip } from "../library/PopupActionStrip";
 import { calcPopupActionStripLayout } from "../../util/popupHeaderActions";
 import { appendNewlineIfEmpty } from "../../util/string";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, isInsideTranslucentPage, isInsidePopup, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, isInsideTranslucentPage, isInsidePopup, shouldShowFocusRingForVisualElement, highlightStyle, shouldShowMoveOutHandle } from "./helper";
 import { AttachmentsOverflowMarker } from "./HiddenAttachmentsMarker";
 
 
@@ -467,12 +467,7 @@ export const Image_Desktop: Component<VisualElementProps> = (props: VisualElemen
       asPageItem(compositeParent).arrangeAlgorithm == ArrangeAlgorithm.Document;
   };
 
-  const showMoveOutOfCompositeArea = () =>
-    store.user.getUserMaybe() != null &&
-    (store.perVe.getMouseIsOver(vePath()) || store.perVe.getMouseIsOverDocumentRowSide(vePath())) &&
-    !store.anItemIsMoving.get() &&
-    store.overlay.textEditInfo() == null &&
-    (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) != 0;
+  const showMoveOutOfCompositeArea = () => shouldShowMoveOutHandle(store, props.visualElement);
 
   // Check if this image is currently focused (via focusPath)
   const isFocused = () => {

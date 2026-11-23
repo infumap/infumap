@@ -54,7 +54,7 @@ import { newOrdering } from "../../util/ordering";
 import { NoteFns } from "../../items/note-item";
 import { ItemType } from "../../items/base/item";
 import { asLinkItem, isLink } from "../../items/link-item";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, isInsideTranslucentPage, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, isInsideTranslucentPage, shouldShowFocusRingForVisualElement, highlightStyle, shouldShowMoveOutHandle } from "./helper";
 import { finishActivePendingClipboardTextItem } from "../../input/text_clipboard_create";
 import { AttachmentsOverflowMarker } from "./HiddenAttachmentsMarker";
 
@@ -282,12 +282,7 @@ export const Text: Component<VisualElementProps> = (props: VisualElementProps) =
     props.visualElement.parentPath != null &&
     isComposite(itemState.get(VeFns.veidFromPath(props.visualElement.parentPath).itemId));
 
-  const showMoveOutOfCompositeArea = () =>
-    store.user.getUserMaybe() != null &&
-    store.perVe.getMouseIsOver(vePath()) &&
-    !store.anItemIsMoving.get() &&
-    store.overlay.textEditInfo() == null &&
-    isInCompositeOrDocument();
+  const showMoveOutOfCompositeArea = () => shouldShowMoveOutHandle(store, props.visualElement);
 
   const isInCompositeOrDocument = () =>
     (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) != 0;

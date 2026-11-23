@@ -60,7 +60,7 @@ import { panic } from "../../util/lang";
 import { ItemType } from "../../items/base/item";
 import { isXSizableItem } from "../../items/base/x-sizeable-item";
 import { asLinkItem, isLink } from "../../items/link-item";
-import { OPAQUE_PAGE_BOX_INSET_PX, autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, isInsideTranslucentPage, parentDocumentPageMaybe, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
+import { OPAQUE_PAGE_BOX_INSET_PX, autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, isInsideTranslucentPage, parentDocumentPageMaybe, shouldShowFocusRingForVisualElement, highlightStyle, shouldShowMoveOutHandle } from "./helper";
 import { NoteIconGlyph } from "./NoteIconGlyph";
 import { NoteInlineText } from "./NoteInlineText";
 import { READ_ONLY_DOCUMENT_ROW_END } from "../../input/read_only_document_copy";
@@ -357,12 +357,7 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
 
   const infuTextStyle = () => getTextStyleForNote(noteItem().flags);
 
-  const showMoveOutOfCompositeArea = () =>
-    store.user.getUserMaybe() != null &&
-    store.perVe.getMouseIsOver(vePath()) &&
-    !store.anItemIsMoving.get() &&
-    store.overlay.textEditInfo() == null &&
-    isInCompositeOrDocument();
+  const showMoveOutOfCompositeArea = () => shouldShowMoveOutHandle(store, props.visualElement);
 
   const isInCompositeOrDocument = () =>
     (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) != 0;

@@ -26,7 +26,7 @@ import { InfuLinkTriangle } from "../library/InfuLinkTriangle";
 import { useStore } from "../../store/StoreProvider";
 import { BoundingBox } from "../../util/geometry";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, highlightStyle } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, highlightStyle, shouldShowMoveOutHandle } from "./helper";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -62,12 +62,7 @@ export const Rating_Desktop: Component<VisualElementProps> = (props: VisualEleme
     });
   };
 
-  const showMoveOutOfCompositeArea = () =>
-    store.user.getUserMaybe() != null &&
-    (store.perVe.getMouseIsOver(vePath()) || store.perVe.getMouseIsOverDocumentRowSide(vePath())) &&
-    !store.anItemIsMoving.get() &&
-    store.overlay.textEditInfo() == null &&
-    (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) != 0;
+  const showMoveOutOfCompositeArea = () => shouldShowMoveOutHandle(store, props.visualElement);
 
 
   // TODO (LOW): perhaps different rendering for non-detailed element, or no rendering at all.

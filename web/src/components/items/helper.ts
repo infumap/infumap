@@ -17,7 +17,7 @@
 */
 
 import { ArrangeAlgorithm } from "../../items/page-item";
-import { itemCanEdit } from "../../items/base/capabilities-item";
+import { itemCanCopy, itemCanEdit, itemCanMove } from "../../items/base/capabilities-item";
 import { RelationshipToParent } from "../../layout/relationship-to-parent";
 import { isEmptyVeid, isVeTranslucentPage, VeFns, VisualElement, VisualElementFlags } from "../../layout/visual-element";
 import { commitActiveTextEdit, edit_inputListener, edit_keyDownHandler, edit_keyUpHandler, edit_tableTabKeyHandler, selectEditedListPageLineItemMaybe } from "../../input/edit";
@@ -223,6 +223,23 @@ export const effectiveFlowItemWidthGrMaybe = (visualElement: VisualElement): num
     return null;
   }
   return (visualElement.boundsPx.w / visualElement.blockSizePx.w) * GRID_SIZE;
+}
+
+/**
+ * Whether to draw visualElement's move handle: it is in a composite or document page, the pointer is over it (or beside
+ * it, see setMouseIsOverDocumentRowSide), and a drag from the handle can do something. An item that can be neither moved
+ * nor copied, such as a table in a chat answer, has no handle: a drag from one did nothing, and the hit test drops its
+ * hitbox, so the handle hid as the pointer reached it.
+ */
+export const shouldShowMoveOutHandle = (store: StoreContextModel, visualElement: VisualElement): boolean => {
+  if (!(visualElement.flags & VisualElementFlags.InsideCompositeOrDoc)) { return false; }
+  const vePath = VeFns.veToPath(visualElement);
+  const treeItem = VeFns.treeItem(visualElement);
+  return store.user.getUserMaybe() != null &&
+    (store.perVe.getMouseIsOver(vePath) || store.perVe.getMouseIsOverDocumentRowSide(vePath)) &&
+    !store.anItemIsMoving.get() &&
+    store.overlay.textEditInfo() == null &&
+    (itemCanMove(treeItem) || itemCanCopy(treeItem));
 }
 
 /**

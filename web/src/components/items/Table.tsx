@@ -39,7 +39,7 @@ import { arrangeNow } from "../../layout/arrange";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { AttachmentsOverflowMarker, HiddenAttachmentsMarker } from "./HiddenAttachmentsMarker";
 import { TableCellAttachments } from "./TableCellAttachments";
-import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
+import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, shouldShowFocusRingForVisualElement, highlightStyle, shouldShowMoveOutHandle } from "./helper";
 import { TableHeaderMarks } from "./TableHeaderMarks";
 
 
@@ -215,15 +215,7 @@ export const Table_Desktop: Component<VisualElementProps> = (props: VisualElemen
     }));
   });
 
-  const isInCompositeOrDocument = () =>
-    (props.visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) != 0;
-
-  const showMoveOutOfCompositeArea = () =>
-    store.user.getUserMaybe() != null &&
-    (store.perVe.getMouseIsOver(vePath()) || store.perVe.getMouseIsOverDocumentRowSide(vePath())) &&
-    !store.anItemIsMoving.get() &&
-    store.overlay.textEditInfo() == null &&
-    isInCompositeOrDocument();
+  const showMoveOutOfCompositeArea = () => shouldShowMoveOutHandle(store, props.visualElement);
 
   const keyDownHandler = (ev: KeyboardEvent) => {
     if (ev.key === "Escape") {
