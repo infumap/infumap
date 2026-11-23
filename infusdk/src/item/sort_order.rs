@@ -70,46 +70,55 @@ impl SortOrder {
   }
 }
 
-/// What an item is sorted by, under the value key. None (as Option<SortValue>) is empty: no title, a missing cell,
-/// an unsortable item.
+/// What an item is sorted by, under the value key: the number the text starts with, if any, and the text after it
+/// (all of it when there is no number). None (as Option<SortValue>) is empty: no title, a missing cell, an unsortable
+/// item. Text that is just a number and text that starts with one sort together, by the number first, so "20270102"
+/// sorts before "20270102-20270105". The client's SortValue says why numbers aren't split from text.
 #[derive(Debug, Clone, PartialEq)]
-pub enum SortValue {
-  Number(f64),
-  Text(String),
+pub struct SortValue {
+  pub number: Option<f64>,
+  pub text: String,
 }
 
-/// The sort value of text a person typed: a number when it is just one, so "9" sorts before "10" and "-1".
+/// The sort value of text a person typed.
 pub fn text_sort_value(text: &str) -> Option<SortValue> {
   let trimmed = text.trim();
   if trimmed.is_empty() {
     return None;
   }
-  if is_plain_decimal(trimmed) {
-    if let Ok(number) = trimmed.parse::<f64>() {
-      return Some(SortValue::Number(number));
+  let len = leading_number_len(trimmed);
+  if len > 0 {
+    if let Ok(number) = trimmed[..len].parse::<f64>() {
+      return Some(SortValue { number: Some(number), text: trimmed[len..].to_owned() });
     }
   }
-  Some(SortValue::Text(trimmed.to_owned()))
+  Some(SortValue { number: None, text: trimmed.to_owned() })
 }
 
-/// Only plain decimals. Anything else ("1,000", "3 kg", "1e3") is text.
-fn is_plain_decimal(text: &str) -> bool {
-  let unsigned = text.strip_prefix(['-', '+']).unwrap_or(text);
-  let (integer, fraction) = match unsigned.split_once('.') {
-    Some((integer, fraction)) => (integer, Some(fraction)),
-    None => (unsigned, None),
-  };
-  let all_digits = |s: &str| s.bytes().all(|c| c.is_ascii_digit());
-  all_digits(integer)
-    && fraction.is_none_or(all_digits)
-    && (!integer.is_empty() || fraction.is_some_and(|fraction| !fraction.is_empty()))
+/// The length of the plain decimal text starts with, 0 if none ("1,000" starts with 1, "1e3" with 1). Not part of a
+/// version or address: "1.10.0" starts with 1, so that the rest, ".10.0", sorts after ".9.0" in natural order.
+fn leading_number_len(text: &str) -> usize {
+  let bytes = text.as_bytes();
+  let digits_from = |i: usize| bytes[i..].iter().take_while(|c| c.is_ascii_digit()).count();
+  let sign = usize::from(matches!(bytes.first(), Some(b'-' | b'+')));
+  let integer = digits_from(sign);
+  let mut end = sign + integer;
+  if bytes.get(end) == Some(&b'.') {
+    let fraction = digits_from(end + 1);
+    let after = end + 1 + fraction;
+    let dotted = bytes.get(after) == Some(&b'.') && bytes.get(after + 1).is_some_and(u8::is_ascii_digit);
+    if !dotted && (integer > 0 || fraction > 0) {
+      end = after;
+    }
+  }
+  if end == sign { 0 } else { end }
 }
 
 /// What item shows, as it is sorted by value. A password's text is secret, so it has no value. Nor do items that
 /// show nothing (dividers, placeholders).
 pub fn item_sort_value(item: &Item) -> Option<SortValue> {
   match item.item_type {
-    ItemType::Rating => item.rating.map(|rating| SortValue::Number(rating as f64)),
+    ItemType::Rating => item.rating.map(|rating| SortValue { number: Some(rating as f64), text: String::new() }),
     ItemType::Page
     | ItemType::Table
     | ItemType::Composite
@@ -122,7 +131,8 @@ pub fn item_sort_value(item: &Item) -> Option<SortValue> {
   }
 }
 
-/// Compares sort values: numbers before text, and empty last whatever the direction, as in a spreadsheet.
+/// Compares sort values: text that starts with a number before text that doesn't, by the number then the rest, and
+/// empty last whatever the direction, as in a spreadsheet.
 pub fn compare_sort_values(a: &Option<SortValue>, b: &Option<SortValue>, descending: bool) -> Ordering {
   let (a, b) = match (a, b) {
     (None, None) => return Ordering::Equal,
@@ -130,11 +140,11 @@ pub fn compare_sort_values(a: &Option<SortValue>, b: &Option<SortValue>, descend
     (Some(_), None) => return Ordering::Less,
     (Some(a), Some(b)) => (a, b),
   };
-  let cmp = match (a, b) {
-    (SortValue::Number(a), SortValue::Number(b)) => a.partial_cmp(b).unwrap_or(Ordering::Equal),
-    (SortValue::Number(_), SortValue::Text(_)) => Ordering::Less,
-    (SortValue::Text(_), SortValue::Number(_)) => Ordering::Greater,
-    (SortValue::Text(a), SortValue::Text(b)) => compare_text(a, b),
+  let cmp = match (a.number, b.number) {
+    (Some(an), Some(bn)) => an.partial_cmp(&bn).unwrap_or(Ordering::Equal).then_with(|| compare_text(&a.text, &b.text)),
+    (Some(_), None) => Ordering::Less,
+    (None, Some(_)) => Ordering::Greater,
+    (None, None) => compare_text(&a.text, &b.text),
   };
   if descending { cmp.reverse() } else { cmp }
 }
@@ -196,26 +206,56 @@ mod tests {
   }
 
   #[test]
-  fn text_values_are_numbers_only_when_plain_decimals() {
-    assert_eq!(text_sort_value("  42 "), Some(SortValue::Number(42.0)));
-    assert_eq!(text_sort_value("-1.25"), Some(SortValue::Number(-1.25)));
-    assert_eq!(text_sort_value(".5"), Some(SortValue::Number(0.5)));
-    assert_eq!(text_sort_value("5."), Some(SortValue::Number(5.0)));
-    for text in ["1,000", "3 kg", "1e3", ".", "-", "1.2.3"] {
-      assert_eq!(text_sort_value(text), Some(SortValue::Text(text.to_owned())), "{text}");
+  fn text_values_split_off_a_leading_plain_decimal() {
+    let value = |number: Option<f64>, text: &str| Some(SortValue { number, text: text.to_owned() });
+    assert_eq!(text_sort_value("  42 "), value(Some(42.0), ""));
+    assert_eq!(text_sort_value("-1.25"), value(Some(-1.25), ""));
+    assert_eq!(text_sort_value(".5"), value(Some(0.5), ""));
+    assert_eq!(text_sort_value("5."), value(Some(5.0), ""));
+    assert_eq!(text_sort_value("+5 kg"), value(Some(5.0), " kg"));
+    assert_eq!(text_sort_value("20270102-20270105"), value(Some(20270102.0), "-20270105"));
+    assert_eq!(text_sort_value("1,000"), value(Some(1.0), ",000"));
+    assert_eq!(text_sort_value("1e3"), value(Some(1.0), "e3"));
+    assert_eq!(text_sort_value("1.10.0"), value(Some(1.0), ".10.0"));
+    assert_eq!(text_sort_value("10.0.0.2"), value(Some(10.0), ".0.0.2"));
+    assert_eq!(text_sort_value("5..3"), value(Some(5.0), "..3"));
+    for text in ["item 9", ".", "-", "- 5", ".5.3", "x1"] {
+      assert_eq!(text_sort_value(text), value(None, text), "{text}");
     }
     assert_eq!(text_sort_value("   "), None);
+  }
+
+  fn sorted<'a>(values: &[&'a str], descending: bool) -> Vec<&'a str> {
+    let mut values = values.iter().map(|v| (*v, text_sort_value(v))).collect::<Vec<_>>();
+    values.sort_by(|a, b| compare_sort_values(&a.1, &b.1, descending));
+    values.into_iter().map(|(v, _)| v).collect()
   }
 
   #[test]
   fn compares_numbers_then_text_with_empty_last() {
     let values = ["b", "", "10", "item 10", "-1", "A", "9", "item 9", "1.5", "1.25"];
-    let sorted = |descending| {
-      let mut values = values.iter().map(|v| (v, text_sort_value(v))).collect::<Vec<_>>();
-      values.sort_by(|a, b| compare_sort_values(&a.1, &b.1, descending));
-      values.into_iter().map(|(v, _)| *v).collect::<Vec<_>>()
-    };
-    assert_eq!(sorted(false), ["-1", "1.25", "1.5", "9", "10", "A", "b", "item 9", "item 10", ""]);
-    assert_eq!(sorted(true), ["item 10", "item 9", "b", "A", "10", "9", "1.5", "1.25", "-1", ""]);
+    assert_eq!(sorted(&values, false), ["-1", "1.25", "1.5", "9", "10", "A", "b", "item 9", "item 10", ""]);
+    assert_eq!(sorted(&values, true), ["item 10", "item 9", "b", "A", "10", "9", "1.5", "1.25", "-1", ""]);
+  }
+
+  #[test]
+  fn text_starting_with_a_number_sorts_among_numbers() {
+    let values =
+      ["20270103", "20270102-20270105", "20261215-20261220", "20270102", "10", "9.5 kg", "9", "1.10.0", "1.9.0"];
+    assert_eq!(
+      sorted(&values, false),
+      ["1.9.0", "1.10.0", "9", "9.5 kg", "10", "20261215-20261220", "20270102", "20270102-20270105", "20270103"]
+    );
+    assert_eq!(
+      sorted(&values, true),
+      ["20270103", "20270102-20270105", "20270102", "20261215-20261220", "10", "9.5 kg", "9", "1.10.0", "1.9.0"]
+    );
+  }
+
+  #[test]
+  fn mixed_values_sort_consistently() {
+    // Comparing a number with text by its digits alone ordered these in a cycle: "-5" < "-7x" < "-10" < "-5".
+    let values = ["-5", "-7x", "-10", "1.5", "1.20x", "1.25"];
+    assert_eq!(sorted(&values, false), ["-10", "-7x", "-5", "1.20x", "1.25", "1.5"]);
   }
 }

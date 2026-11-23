@@ -38,33 +38,46 @@ export function formatSortOrder(order: SortOrder | null): string {
 }
 
 
-/** What an item is sorted by, under the value key. null is empty: no title, a missing cell, an unsortable item. */
-export type SortValue = { number: number, text?: undefined } | { text: string, number?: undefined } | null;
+/**
+ * What an item is sorted by, under the value key: the number the text starts with, if any, and the text after it
+ * (all of it when there is no number). null is empty: no title, a missing cell, an unsortable item.
+ *
+ * Text that is just a number and text that starts with one sort together, by the number first, so "20270102" sorts
+ * before "20270102-20270105" and "9" before "9.5 kg" before "10". Splitting numbers from text instead, as a spreadsheet
+ * does, put every bare date after every date range when descending. Comparing a number with text by the number's
+ * digits alone was tried too, but isn't a consistent order: "-5" < "-7x" < "-10" < "-5".
+ */
+export type SortValue = { number: number | null, text: string } | null;
 
-// Only plain decimals. Anything else ("1,000", "3 kg", "1e3") is text.
-const NUMBER_REGEX = /^[-+]?([0-9]+(\.[0-9]*)?|\.[0-9]+)$/;
+// A plain decimal at the start ("1,000" starts with 1, "1e3" with 1). Not part of a version or address: "1.10.0"
+// starts with 1, so that the rest, ".10.0", sorts after ".9.0" in natural order.
+const LEADING_NUMBER_REGEX = /^[-+]?(?:[0-9]+(?:\.[0-9]*(?![0-9]|\.[0-9]))?|\.[0-9]+(?![0-9]|\.[0-9]))/;
 
-/** The sort value of text a person typed: a number when it is just one, so "9" sorts before "10" and "-1". */
+/** The sort value of text a person typed. */
 export function textSortValue(text: string): SortValue {
   const trimmed = text.trim();
   if (trimmed == "") { return null; }
-  if (NUMBER_REGEX.test(trimmed)) { return { number: parseFloat(trimmed) }; }
-  return { text: trimmed };
+  const match = LEADING_NUMBER_REGEX.exec(trimmed);
+  if (match == null) { return { number: null, text: trimmed }; }
+  return { number: parseFloat(match[0]), text: trimmed.substring(match[0].length) };
 }
 
 // numeric: digit runs compare as numbers, so "item 9" sorts before "item 10". Case is ignored, accents aren't.
 const textCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: "accent" });
 
 /**
- * Compares sort values: numbers before text, and empty last whatever the direction, as in a spreadsheet.
+ * Compares sort values: text that starts with a number before text that doesn't, by the number then the rest, and
+ * empty last whatever the direction, as in a spreadsheet.
  */
 export function compareSortValues(a: SortValue, b: SortValue, descending: boolean): number {
   if (a == null || b == null) { return a == null ? (b == null ? 0 : 1) : -1; }
   let cmp: number;
-  if (a.number != null) {
-    cmp = b.number != null ? Math.sign(a.number - b.number) : -1;
+  if (a.number != null && b.number != null) {
+    cmp = Math.sign(a.number - b.number) || textCollator.compare(a.text, b.text);
+  } else if (a.number != null || b.number != null) {
+    cmp = a.number != null ? -1 : 1;
   } else {
-    cmp = b.number != null ? 1 : textCollator.compare(a.text!, b.text!);
+    cmp = textCollator.compare(a.text, b.text);
   }
   return descending ? -cmp : cmp;
 }

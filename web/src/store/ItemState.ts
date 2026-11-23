@@ -183,7 +183,7 @@ function sortCell(row: Item, col: number): Item | null {
  */
 function itemSortValue(item: Item | null): SortValue {
   if (item == null) { return null; }
-  if (isRating(item)) { return { number: asRatingItem(item).rating }; }
+  if (isRating(item)) { return { number: asRatingItem(item).rating, text: "" }; }
   if (isTitledItem(item)) { return textSortValue(asTitledItem(item).title); }
   return null;
 }
