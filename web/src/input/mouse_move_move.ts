@@ -229,16 +229,21 @@ function copyContentsForShiftDrag(source: Item, cloned: Item): Array<string> {
  */
 function addShiftDragClone(cloned: Item, source: Item, copyOnly: boolean): void {
   itemState.add(cloned);
+  let pendingDescendantIds: Array<string>;
   if (copyOnly) {
-    MouseActionState.setItemCopyMove({ pendingItemId: cloned.id, pendingDescendantIds: cloneDescendantsForCopy(source, cloned) });
+    pendingDescendantIds = cloneDescendantsForCopy(source, cloned);
   } else if (isContainer(source) && !isComposite(source)) {
     // A page or table copy is an empty one with the same settings, which is intended: sometimes that's what's wanted.
-    // It's added now: while it's dragged, arrange can ask the server for its children, which fails for an item the
-    // server doesn't have yet.
-    server.addItem(cloned, null);
+    // Its children are marked loaded, so arrange doesn't ask the server for them while the server doesn't have it.
+    asContainerItem(cloned).computed_children = [];
+    asContainerItem(cloned).childrenLoaded = true;
+    markChildrenLoadAsInitiatedOrComplete(cloned.id);
+    if (isAttachmentsItem(cloned)) { asAttachmentsItem(cloned).computed_attachments = []; }
+    pendingDescendantIds = [];
   } else {
-    MouseActionState.setItemCopyMove({ pendingItemId: cloned.id, pendingDescendantIds: copyContentsForShiftDrag(source, cloned) });
+    pendingDescendantIds = copyContentsForShiftDrag(source, cloned);
   }
+  MouseActionState.setItemCopyMove({ pendingItemId: cloned.id, pendingDescendantIds });
 }
 
 /**
