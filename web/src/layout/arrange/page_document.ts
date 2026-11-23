@@ -32,7 +32,7 @@ import { asTableItem, isTable } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
 import { Dimensions, cloneBoundingBox, zeroBoundingBoxTopLeft } from "../../util/geometry";
-import { compositeMoveOutHitboxBoundsPx, documentContentRightPx, documentPageCompositeMoveOutHitboxPx, documentPageMoveOutBoxPx } from "../composite-move-out";
+import { compositeMoveOutHitboxBoundsPx, documentContentRightPx, DocumentMoveOutLane, documentMoveOutHandleBoxPx, documentPageCompositeMoveOutHitboxPx } from "../composite-move-out";
 import { DOCUMENT_GAP_16PX_BL, DOCUMENT_PAGE_TITLE_GAP_BL, documentGapBetweenBl } from "../document-spacing";
 import { HitboxFlags, HitboxFns } from "../hitbox";
 import { ItemGeometry } from "../item-geometry";
@@ -423,19 +423,19 @@ function alignDocumentMoveOutHitbox(
     return;
   }
 
+  const contentRightPx = documentContentRightPx(blockSizePx, documentContentWidthBl, leftMarginBl);
+  const handleBoundsPx = documentMoveOutHandleBoxPx(
+    geometry.boundsPx,
+    contentRightPx,
+    isComposite(displayItem) ? DocumentMoveOutLane.Outer : DocumentMoveOutLane.Inner);
   moveHitbox.boundsPx = isComposite(displayItem)
-    ? documentPageCompositeMoveOutHitboxPx(
-      geometry.boundsPx,
-      documentContentRightPx(blockSizePx, documentContentWidthBl, leftMarginBl))
-    : compositeMoveOutHitboxBoundsPx(documentPageMoveOutBoxPx(
-      geometry.boundsPx,
-      blockSizePx,
-      documentContentWidthBl,
-      leftMarginBl));
+    ? documentPageCompositeMoveOutHitboxPx(geometry.boundsPx, contentRightPx)
+    : compositeMoveOutHitboxBoundsPx(handleBoundsPx);
   moveHitbox.meta = {
     ...(moveHitbox.meta ?? {}),
     compositeMoveOut: true,
     allowOutsideBounds: true,
+    moveOutHandleBoundsPx: handleBoundsPx,
   };
 }
 

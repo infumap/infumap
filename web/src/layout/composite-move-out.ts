@@ -132,23 +132,19 @@ export function documentContentRightPx(
 }
 
 /**
- * The move handle box of a document page row (or of a child of a composite row), relative to the row.
- * childBoundsPx is the row's bounds in the document's child area.
+ * The move handle box of a document page row (or of a child of a composite row), relative to the row. rowBoundsPx and
+ * contentRightPx (the right edge of the document column) are in the same coordinates, e.g. both relative to the
+ * composite for a child of one.
  */
-export function documentPageMoveOutBoxPx(
-  childBoundsPx: BoundingBox,
-  blockSizePx: { w: number, h: number },
-  documentContentWidthBl: number,
-  documentLeftMarginBl: number,
+export function documentMoveOutHandleBoxPx(
+  rowBoundsPx: BoundingBox,
+  contentRightPx: number,
   lane: DocumentMoveOutLane = DocumentMoveOutLane.Inner,
 ): BoundingBox {
   const rightOffsetPx = lane == DocumentMoveOutLane.Outer
     ? DOCUMENT_PAGE_COMPOSITE_MOVE_OUT_HANDLE_RIGHT_OFFSET_PX
     : DOCUMENT_PAGE_MOVE_OUT_HANDLE_RIGHT_OFFSET_PX;
-  return compositeMoveOutBoxForRightEdgePx(
-    documentContentRightPx(blockSizePx, documentContentWidthBl, documentLeftMarginBl) - childBoundsPx.x + rightOffsetPx,
-    childBoundsPx.h,
-  );
+  return compositeMoveOutBoxForRightEdgePx(contentRightPx - rowBoundsPx.x + rightOffsetPx, rowBoundsPx.h);
 }
 
 /**

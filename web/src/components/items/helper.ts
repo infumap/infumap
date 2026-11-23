@@ -30,9 +30,7 @@ import { isQueryItem } from "../../items/query-item";
 import { POPUP_LINK_UID } from "../../util/uid";
 import { VesCache } from "../../layout/ves-cache";
 import { arrangeNow } from "../../layout/arrange";
-import { GRID_SIZE, PAGE_DOCUMENT_LEFT_MARGIN_BL } from "../../constants";
-import { DocumentMoveOutLane, documentPageMoveOutBoxPx } from "../../layout/composite-move-out";
-import { isComposite } from "../../items/composite-item";
+import { GRID_SIZE } from "../../constants";
 import { LIST_PAGE_MAIN_ITEM_LINK_ITEM } from "../../layout/arrange/page_list";
 import { FIND_HIGHLIGHT_COLOR, SELECTION_HIGHLIGHT_COLOR } from "../../style";
 
@@ -230,39 +228,10 @@ export const effectiveFlowItemWidthGrMaybe = (visualElement: VisualElement): num
 /**
  * The move handle box of a document page row, or of a child of a composite row (in the inner lane, like the other
  * rows; the composite's own handle is in the outer lane), relative to the visual element. Null otherwise.
+ * It's the box arrange put on the move hitbox (see HitboxMeta.moveOutHandleBoundsPx), so it is drawn where it's pressed.
  */
-export const documentPageMoveOutBoxPxMaybe = (visualElement: VisualElement): BoundingBox | null => {
-  const parentPage = parentDocumentPageMaybe(visualElement);
-  if (parentPage != null) {
-    if (visualElement.blockSizePx == null) { return null; }
-    return documentPageMoveOutBoxPx(
-      visualElement.boundsPx,
-      visualElement.blockSizePx,
-      parentPage.docWidthBl,
-      PAGE_DOCUMENT_LEFT_MARGIN_BL,
-      isComposite(visualElement.displayItem) ? DocumentMoveOutLane.Outer : DocumentMoveOutLane.Inner,
-    );
-  }
-
-  if (!(visualElement.flags & VisualElementFlags.InsideCompositeOrDoc) || visualElement.parentPath == null) {
-    return null;
-  }
-  const compositeVe = VesCache.render.getNode(visualElement.parentPath)?.get();
-  if (compositeVe == null || !isComposite(compositeVe.displayItem) || compositeVe.blockSizePx == null) {
-    return null;
-  }
-  const compositeParentPage = parentDocumentPageMaybe(compositeVe);
-  if (compositeParentPage == null) {
-    return null;
-  }
-  return documentPageMoveOutBoxPx(
-    { ...visualElement.boundsPx, x: compositeVe.boundsPx.x + visualElement.boundsPx.x },
-    compositeVe.blockSizePx,
-    compositeParentPage.docWidthBl,
-    PAGE_DOCUMENT_LEFT_MARGIN_BL,
-    DocumentMoveOutLane.Inner,
-  );
-}
+export const documentPageMoveOutBoxPxMaybe = (visualElement: VisualElement): BoundingBox | null =>
+  visualElement.hitboxes.find(hitbox => hitbox.meta?.moveOutHandleBoundsPx != null)?.meta!.moveOutHandleBoundsPx ?? null;
 
 export const createPageTitleEditHandlers = (
   store: StoreContextModel,

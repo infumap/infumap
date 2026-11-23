@@ -90,6 +90,13 @@ export interface HitboxMeta {
   allowOutsideBounds?: boolean,
   includeEdges?: boolean,
   compositeMoveOut?: boolean,
+  /**
+   * On the move hitbox of a document row: where its handle is drawn, relative to the row. It's set with the hitbox
+   * (in page_document.ts and composite.ts) rather than worked out again when drawing, so the two can't disagree. They
+   * did when it was: a table's own block width is narrower than the document's, which drew its handle up to 23px left
+   * of where it could be pressed.
+   */
+  moveOutHandleBoundsPx?: BoundingBox,
   compositeContentCollapse?: boolean,
   popupTitleTargetPath?: VisualElementPath,
   popupTitleEdit?: boolean,
@@ -150,6 +157,9 @@ export const HitboxFns = {
     if (typeof (meta.compositeMoveOut) != 'undefined') {
       result.compositeMoveOut = meta.compositeMoveOut;
     }
+    if (typeof (meta.moveOutHandleBoundsPx) != 'undefined') {
+      result.moveOutHandleBoundsPx = cloneBoundingBox(meta.moveOutHandleBoundsPx)!;
+    }
     if (typeof (meta.compositeContentCollapse) != 'undefined') {
       result.compositeContentCollapse = meta.compositeContentCollapse;
     }
@@ -187,6 +197,7 @@ export const HitboxFns = {
       if (a.meta.calendarRangeOccurrenceItemId != b.meta.calendarRangeOccurrenceItemId) { return 1; }
       if (a.meta.calendarRangeStartDateTime != b.meta.calendarRangeStartDateTime) { return 1; }
       if (a.meta.queryChatTurnMarkdown != b.meta.queryChatTurnMarkdown) { return 1; }
+      if (compareBoundingBox(a.meta.moveOutHandleBoundsPx ?? null, b.meta.moveOutHandleBoundsPx ?? null) != 0) { return 1; }
     }
     return compareBoundingBox(a.boundsPx, b.boundsPx);
   },

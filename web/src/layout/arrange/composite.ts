@@ -36,7 +36,7 @@ import { StoreContextModel } from "../../store/StoreProvider";
 import { Dimensions, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { VisualElementSignal } from "../../util/signals";
 import { ItemGeometry } from "../item-geometry";
-import { documentPageCompositeChildMoveOutHitboxPx } from "../composite-move-out";
+import { DocumentMoveOutLane, documentMoveOutHandleBoxPx, documentPageCompositeChildMoveOutHitboxPx } from "../composite-move-out";
 import { documentGapBetweenBl } from "../document-spacing";
 import { HitboxFlags, HitboxFns } from "../hitbox";
 import { assignFlowListItemNumbers } from "../list-numbering";
@@ -270,6 +270,7 @@ function alignDocumentCompositeChildMoveOutHitboxes(
       ...(moveHitbox.meta ?? {}),
       compositeMoveOut: true,
       allowOutsideBounds: true,
+      moveOutHandleBoundsPx: documentMoveOutHandleBoxPx(boundsPx, contentRightPx, DocumentMoveOutLane.Inner),
     };
   }
 }
