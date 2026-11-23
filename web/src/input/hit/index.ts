@@ -33,7 +33,7 @@ import { Uid } from "../../util/uid";
 import { HitboxScanOptions, HitInfo, RootInfo } from "./types";
 import { HitBuilder } from "./builder";
 import { HitHandlers } from "./handlers";
-import { findAttachmentHit, isIgnored, isInsideBoundsOrAllowedHitbox, scanHitboxes, toChildBoundsLocalFromViewport, toInnerAttachmentLocalInComposite } from "./utils";
+import { findAttachmentHit, findTableRowAttachmentHit, isIgnored, isInsideBoundsOrAllowedHitbox, scanHitboxes, toChildBoundsLocalFromViewport, toInnerAttachmentLocalInComposite } from "./utils";
 
 export type { HitInfo } from "./types";
 
@@ -462,7 +462,7 @@ function getHitInfoUnderRoot(
       const rowVes = VesCache.render.getChildren(VeFns.veToPath(rootVe))();
       for (let i = rowVes.length - 1; i >= 0; --i) {
         const rowVe = rowVes[i].get();
-        const attachmentHit = findAttachmentHit(VesCache.render.getAttachments(VeFns.veToPath(rowVe))(), rowPos, ignoreItems, false, hitboxOptions);
+        const attachmentHit = findTableRowAttachmentHit(rowVe, rowPos, ignoreItems, hitboxOptions);
         if (attachmentHit) {
           return new HitBuilder(parentRootVe, rootVes)
             .over(attachmentHit.attachmentVes).hitboxes(attachmentHit.flags, HitboxFlags.None)
@@ -861,7 +861,7 @@ function hitNonPagePopupMaybe(
       const tableBlockHeightPx = (rootVe.tableRowBlockSizePx ?? rootVe.blockSizePx)?.h ?? tableChildVe.boundsPx.h;
       const posRelativeToTableChildAreaPx = vectorSubtract(posRelativeToRootVeBoundsPx, { x: 0.0, y: (rootVe.viewportBoundsPx!.y - rootVe.boundsPx.y) - store.perItem.getTableScrollYPos(VeFns.veidFromVe(rootVe)) * tableBlockHeightPx });
       {
-        const attHit = findAttachmentHit(VesCache.render.getAttachments(VeFns.veToPath(tableChildVe))(), posRelativeToTableChildAreaPx, ignoreItems, false, hitboxOptions);
+        const attHit = findTableRowAttachmentHit(tableChildVe, posRelativeToTableChildAreaPx, ignoreItems, hitboxOptions);
         if (attHit) {
           const hitMaybe = {
             overVes: attHit.attachmentVes,

@@ -567,6 +567,14 @@ export const itemState = {
 
       if (isAttachmentsItem(childItem)) {
         itemState.applyAttachmentItemsSnapshotFromServerObjects(childItem.id, attachmentItemsByParentId[childItem.id] ?? [], origin);
+        // Attachments of attachments (shown on the attachment cells of table rows). Only where the snapshot has them,
+        // which may not be so for every source of one.
+        for (const attachmentId of asAttachmentsItem(childItem).computed_attachments) {
+          const nestedAttachmentObjects = attachmentItemsByParentId[attachmentId];
+          if (nestedAttachmentObjects != null && isAttachmentsItem(itemState.get(attachmentId)!)) {
+            itemState.applyAttachmentItemsSnapshotFromServerObjects(attachmentId, nestedAttachmentObjects, origin);
+          }
+        }
       }
     }
 

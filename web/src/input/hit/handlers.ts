@@ -27,7 +27,7 @@ import { VeFns, VisualElement, VisualElementFlags, isTableView, isVeTranslucentP
 import { VisualElementSignal } from "../../util/signals";
 import { HitHandler, HitInfo, HitTraversalContext } from "./types";
 import { HitBuilder } from "./builder";
-import { findAttachmentHit, isInsideBottomRightTriangle, isInsideBoundsOrAllowedHitbox, scanHitboxes, toCompositeChildAreaPos, toTableChildAreaPos } from "./utils";
+import { findTableRowAttachmentHit, isInsideBottomRightTriangle, isInsideBoundsOrAllowedHitbox, scanHitboxes, toCompositeChildAreaPos, toTableChildAreaPos } from "./utils";
 
 function parentVe(ve: VisualElement): VisualElement {
   return VesCache.current.readNode(ve.parentPath!)!;
@@ -120,7 +120,7 @@ const _tableHandler: HitHandler = {
         }
       }
       {
-        const hit = findAttachmentHit(VesCache.render.getAttachments(VeFns.veToPath(tableChildVe))(), posRelativeToTableChildAreaPx, ignoreItems, false, hitboxOptions);
+        const hit = findTableRowAttachmentHit(tableChildVe, posRelativeToTableChildAreaPx, ignoreItems, hitboxOptions);
         if (hit) {
           const tableParentVe = parentVe(tableVe);
           const tableIsInsideComposite = !!(tableVe.flags & VisualElementFlags.InsideCompositeOrDoc);

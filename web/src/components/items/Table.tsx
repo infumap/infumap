@@ -38,6 +38,7 @@ import { InfuResizeTriangle } from "../library/InfuResizeTriangle";
 import { arrangeNow } from "../../layout/arrange";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
 import { AttachmentsOverflowMarker, HiddenAttachmentsMarker } from "./HiddenAttachmentsMarker";
+import { TableCellAttachments } from "./TableCellAttachments";
 import { autoMovedIntoViewWarningStyle, desktopStackRootStyle, documentPageMoveOutBoxPxMaybe, effectiveFlowItemWidthGrMaybe, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
 import { TableHeaderMarks } from "./TableHeaderMarks";
 
@@ -568,7 +569,10 @@ const TableChildArea: Component<VisualElementProps> = (props: VisualElementProps
       <>
         <VisualElement_LineItem visualElement={childVes.get()} />
         <For each={VesCache.render.getAttachments(VeFns.veToPath(childVes.get()))()}>{attachment =>
-          <VisualElement_LineItem visualElement={attachment.get()} />
+          <>
+            <VisualElement_LineItem visualElement={attachment.get()} />
+            <TableCellAttachments cellVe={attachment.get()} />
+          </>
         }</For>
         <HiddenAttachmentsMarker rowVe={childVes.get()} rowWidthPx={viewportBoundsLocalPx().w} />
       </>

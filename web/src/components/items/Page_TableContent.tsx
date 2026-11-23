@@ -33,6 +33,7 @@ import { BoundingBox } from "../../util/geometry";
 import { VisualElement_Desktop, VisualElement_LineItem } from "../VisualElement";
 import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
 import { HiddenAttachmentsMarker } from "./HiddenAttachmentsMarker";
+import { TableCellAttachments } from "./TableCellAttachments";
 import { TableHeaderMarks } from "./TableHeaderMarks";
 
 // Darker than the header background, as the text it stands in for is.
@@ -218,7 +219,10 @@ export const Page_TableContent: Component<PageTableContentProps> = props => {
             <>
               <VisualElement_LineItem visualElement={childVe.get()} />
               <For each={VesCache.render.getAttachments(VeFns.veToPath(childVe.get()))()}>{attachment =>
-                <VisualElement_LineItem visualElement={attachment.get()} />
+                <>
+                  <VisualElement_LineItem visualElement={attachment.get()} />
+                  <TableCellAttachments cellVe={attachment.get()} />
+                </>
               }</For>
               <HiddenAttachmentsMarker rowVe={childVe.get()} rowWidthPx={bodyViewport().w} />
             </>

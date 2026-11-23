@@ -33,6 +33,7 @@ import { Hitbox, HitboxFlags, HitboxFns } from "./hitbox";
 import { initiateLoadChildItemsMaybe } from "./load";
 import { VeFns, VisualElementPath } from "./visual-element";
 import { getMovingTreeItemInParentMaybe, getVePropertiesForItem } from "./arrange/util";
+import { attachmentsStripWidthBl } from "./arrange/attachments";
 import { orderedGroupMoveItems } from "../input/move_group";
 import { linkHasTriangle } from "./link-triangle";
 
@@ -124,7 +125,10 @@ function wrappedRowHeightBl(
   for (const cell of columns.slice(1, attachmentCount + 1)) {
     const attachmentDisplayItem = attachmentDisplayItemAt(cell.index - 1);
     if (attachmentDisplayItem == null || !isNote(attachmentDisplayItem)) { continue; }
-    heightBl = Math.max(heightBl, NoteFns.calcTableCellHeightBl(asNoteItem(attachmentDisplayItem), cell.endBl - cell.startBl, true, false));
+    // The text stops short of the attachments of the cell's item, drawn along its top right.
+    const cellWidthBl = cell.endBl - cell.startBl;
+    const textWidthBl = cellWidthBl - attachmentsStripWidthBl(asAttachmentsItem(attachmentDisplayItem).computed_attachments, cellWidthBl);
+    heightBl = Math.max(heightBl, NoteFns.calcTableCellHeightBl(asNoteItem(attachmentDisplayItem), textWidthBl, true, false));
   }
   return Math.min(heightBl, TABLE_WRAPPED_ROW_MAX_HEIGHT_BL);
 }

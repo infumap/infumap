@@ -232,9 +232,21 @@ impl ContainerVersionReplayState {
     self.bump_containers(touched_container_ids);
   }
 
+  /// As for ItemDb::maybe_container_id_for_attachment_parent.
   fn maybe_container_id_for_attachment_parent(&self, parent_id: &Uid) -> Option<Uid> {
     let parent_item = self.item_by_id.get(parent_id)?;
-    if parent_item.relationship_to_parent == RelationshipToParent::Child { parent_item.parent_id.clone() } else { None }
+    match parent_item.relationship_to_parent {
+      RelationshipToParent::Child => parent_item.parent_id.clone(),
+      RelationshipToParent::Attachment => {
+        let grandparent_item = self.item_by_id.get(parent_item.parent_id.as_ref()?)?;
+        if grandparent_item.relationship_to_parent == RelationshipToParent::Child {
+          grandparent_item.parent_id.clone()
+        } else {
+          None
+        }
+      }
+      _ => None,
+    }
   }
 
   fn bump_containers(&mut self, container_ids: HashSet<Uid>) {
@@ -726,12 +738,23 @@ impl ItemDb {
     Ok(())
   }
 
+  /// The container whose snapshot includes an attachment of the item with id parent_id. Container snapshots include
+  /// the attachments of children and the attachments of those attachments.
   fn maybe_container_id_for_attachment_parent(&self, parent_id: &Uid) -> InfuResult<Option<Uid>> {
     let parent_item = self.get(parent_id)?;
-    if parent_item.relationship_to_parent == RelationshipToParent::Child {
-      Ok(parent_item.parent_id.clone())
-    } else {
-      Ok(None)
+    match parent_item.relationship_to_parent {
+      RelationshipToParent::Child => Ok(parent_item.parent_id.clone()),
+      RelationshipToParent::Attachment => {
+        let Some(grandparent_item) = parent_item.parent_id.as_ref().and_then(|id| self.get(id).ok()) else {
+          return Ok(None);
+        };
+        if grandparent_item.relationship_to_parent == RelationshipToParent::Child {
+          Ok(grandparent_item.parent_id.clone())
+        } else {
+          Ok(None)
+        }
+      }
+      _ => Ok(None),
     }
   }
 

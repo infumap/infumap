@@ -103,6 +103,16 @@ function calcVisibleAttachments(attachmentIds: Array<Uid>, anchorRightPx: number
   };
 }
 
+/**
+ * The width, in blocks, that the attachments of an item take along its top (including any overflow marker) when laid
+ * out from the top right corner of an item widthBl blocks wide.
+ */
+export function attachmentsStripWidthBl(attachmentIds: Array<Uid>, widthBl: number): number {
+  if (attachmentIds.length == 0) { return 0; }
+  const { visibleCount, overflowMarkerPx } = calcVisibleAttachments(attachmentIds, widthBl, 1);
+  return visibleCount + (overflowMarkerPx != null ? OVERFLOW_MARKER_SPACE_PROP : 0);
+}
+
 export function arrangeItemAttachments(
   store: StoreContextModel,
   attachmentIds: Array<Uid>,
@@ -111,6 +121,36 @@ export function arrangeItemAttachments(
   parentItemVePath: VisualElementPath,
   blockSizePxMaybe?: number,
   anchorRightPxMaybe?: number): ArrangedAttachments {
+  const planned = planItemAttachments(store, attachmentIds, parentItemSizeBl, parentItemBoundsPx, parentItemVePath, blockSizePxMaybe, anchorRightPxMaybe);
+  for (const attachment of planned.attachments) {
+    VesCache.arrange.writeVisualElement(attachment.spec, attachment.relationships, attachment.path);
+  }
+  return { paths: planned.attachments.map(a => a.path), overflowMarkerPx: planned.overflowMarkerPx };
+}
+
+export interface PlannedAttachment {
+  spec: VisualElementSpec,
+  relationships: VisualElementRelationships,
+  path: VisualElementPath,
+}
+
+export interface PlannedAttachments {
+  attachments: Array<PlannedAttachment>,
+  overflowMarkerPx: AttachmentsOverflowMarker | null,
+}
+
+/**
+ * As for arrangeItemAttachments, but returns the visual elements rather than writing them, for callers that
+ * materialize them themselves (tables, which also do this on scroll outside a full arrange).
+ */
+export function planItemAttachments(
+  store: StoreContextModel,
+  attachmentIds: Array<Uid>,
+  parentItemSizeBl: Dimensions,
+  parentItemBoundsPx: BoundingBox,
+  parentItemVePath: VisualElementPath,
+  blockSizePxMaybe?: number,
+  anchorRightPxMaybe?: number): PlannedAttachments {
 
   // Attachment geometry derives block size from parent bounds / parent size. Override the latter
   // to achieve a specific block size.
@@ -125,7 +165,7 @@ export function arrangeItemAttachments(
   const { visibleCount, overflowMarkerPx } =
     calcVisibleAttachments(attachmentIds, anchorRightPx, parentItemBoundsPx.w / parentItemSizeBl.w);
 
-  const attachmentPaths: Array<VisualElementPath> = [];
+  const attachments: Array<PlannedAttachment> = [];
   for (let i = 0; i < visibleCount; ++i) {
     const attachmentId = attachmentIds[i];
     const attachmentItem = itemState.get(attachmentId)!;
@@ -160,10 +200,8 @@ export function arrangeItemAttachments(
         (isSelected ? VisualElementFlags.ZAbove : VisualElementFlags.None),
       _arrangeFlags_useForPartialRearrangeOnly: ArrangeItemFlags.None,
     };
-    const veRelationships: VisualElementRelationships = {};
-    VesCache.arrange.writeVisualElement(veSpec, veRelationships, attachmentVePath);
-    attachmentPaths.push(attachmentVePath);
+    attachments.push({ spec: veSpec, relationships: {}, path: attachmentVePath });
   }
 
-  return { paths: attachmentPaths, overflowMarkerPx };
+  return { attachments, overflowMarkerPx };
 }

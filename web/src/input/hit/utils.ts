@@ -28,6 +28,7 @@ import { VisualElementSignal } from "../../util/signals";
 import { Uid } from "../../util/uid";
 import { itemState } from "../../store/ItemState";
 import { HitboxScanOptions } from "./types";
+import { VesCache } from "../../layout/ves-cache";
 
 
 export function isIgnored(id: Uid, ignoreItems: Set<Uid>): boolean {
@@ -130,6 +131,25 @@ export function findAttachmentHit(
     return { attachmentVes, flags, meta };
   }
   return null;
+}
+
+/**
+ * As for findAttachmentHit, for the attachment cells of a table row. The attachments of the item in each cell are
+ * drawn over the cell, so are checked first. Bounds of both are relative to the table child area.
+ */
+export function findTableRowAttachmentHit(
+  rowVe: VisualElement,
+  posRelativeToTableChildAreaPx: Vector,
+  ignoreItems: Set<Uid>,
+  hitboxOptions: HitboxScanOptions = {},
+): { attachmentVes: VisualElementSignal, flags: HitboxFlags, meta: HitboxMeta | null } | null {
+  const cellsVes = VesCache.render.getAttachments(VeFns.veToPath(rowVe))();
+  for (const cellVes of cellsVes) {
+    const cellAttachmentsVes = VesCache.render.getAttachments(VeFns.veToPath(cellVes.get()))();
+    const hit = findAttachmentHit(cellAttachmentsVes, posRelativeToTableChildAreaPx, ignoreItems, false, hitboxOptions);
+    if (hit) { return hit; }
+  }
+  return findAttachmentHit(cellsVes, posRelativeToTableChildAreaPx, ignoreItems, false, hitboxOptions);
 }
 
 function filteredHitboxType(ve: VisualElement, type: HitboxFlags, meta: HitboxMeta | null, hitboxOptions: HitboxScanOptions): HitboxFlags {

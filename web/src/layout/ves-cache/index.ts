@@ -196,6 +196,14 @@ export let VesCache = {
       for (let i = 0; i < existingAttachments.length; ++i) {
         const attachmentVe = existingAttachments[i].get();
         const attachmentVePath = VeFns.veToPath(attachmentVe);
+        // Attachments of the attachment cells of a table row.
+        const nestedAttachments = scene.render.getAttachments(attachmentVePath)();
+        for (let j = 0; j < nestedAttachments.length; ++j) {
+          const nestedAttachmentVePath = VeFns.veToPath(nestedAttachments[j].get());
+          if (scene.sceneHasNode(vesCacheState.currentScene, nestedAttachmentVePath)) {
+            VesCache.mutate.removeByPath(nestedAttachmentVePath);
+          }
+        }
         if (scene.sceneHasNode(vesCacheState.currentScene, attachmentVePath)) {
           VesCache.mutate.removeByPath(attachmentVePath);
         }

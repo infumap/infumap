@@ -1280,7 +1280,17 @@ function applyContainerSyncDelta(update: SyncContainerUpdate): boolean {
     itemState.pruneRelationshipSubtreeIfCurrent(childId, update.id, RelationshipToParent.Child);
   }
 
+  // Attachments of attachments are keyed by an attachment, which may itself only arrive in another entry, so apply
+  // those whose parent is not known yet after the rest.
+  const deferredAttachmentUpserts: Array<[string, Array<object>]> = [];
   for (const [parentId, attachmentObjects] of Object.entries(update.attachmentUpserts ?? {})) {
+    if (itemState.getAsAttachmentsItem(parentId) != null) {
+      itemState.applyAttachmentItemsSnapshotFromServerObjects(parentId, attachmentObjects, null);
+    } else {
+      deferredAttachmentUpserts.push([parentId, attachmentObjects]);
+    }
+  }
+  for (const [parentId, attachmentObjects] of deferredAttachmentUpserts) {
     if (itemState.getAsAttachmentsItem(parentId) != null) {
       itemState.applyAttachmentItemsSnapshotFromServerObjects(parentId, attachmentObjects, null);
     }

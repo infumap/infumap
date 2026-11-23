@@ -789,7 +789,21 @@ fn build_authoritative_child_attachment_snapshot(
     if !is_attachments_item_type(child.item_type) {
       continue;
     }
-    let item_attachments = attachments_to_api_json(get_attachments_authorized(db, &child.id, session_user_id_maybe)?)?;
+    let child_attachments = get_attachments_authorized(db, &child.id, session_user_id_maybe)?;
+    // Attachments of attachments too: the client shows them on the attachment cells of table rows. The container's
+    // sync version covers them (see ItemDb::maybe_container_id_for_attachment_parent).
+    for attachment in &child_attachments {
+      if !is_attachments_item_type(attachment.item_type) {
+        continue;
+      }
+      let nested_attachments =
+        attachments_to_api_json(get_attachments_authorized(db, &attachment.id, session_user_id_maybe)?)?;
+      attachments.insert(
+        attachment.id.clone(),
+        Value::Array(nested_attachments.into_iter().map(Value::from).collect::<Vec<_>>()),
+      );
+    }
+    let item_attachments = attachments_to_api_json(child_attachments)?;
     attachments
       .insert(child.id.clone(), Value::Array(item_attachments.into_iter().map(Value::from).collect::<Vec<_>>()));
   }
@@ -852,8 +866,25 @@ fn build_child_upsert_delta(db: &MutexGuard<'_, Db>, child: &Item) -> InfuResult
   delta.add_child_upsert(item_to_api_json_map_with_capabilities(db, child)?);
   if is_attachments_item_type(child.item_type) {
     delta.set_attachment_snapshot(&child.id, build_item_attachment_snapshot(db, &child.id)?);
+    add_nested_attachment_snapshot_deltas(db, &mut delta, &child.id)?;
   }
   Ok(delta)
+}
+
+/// Snapshots of the attachments of each attachment of the item with id item_id, which container snapshots include
+/// (see build_authoritative_child_attachment_snapshot). An attachment can arrive with attachments of its own, e.g. when
+/// moved.
+fn add_nested_attachment_snapshot_deltas(
+  db: &MutexGuard<'_, Db>,
+  delta: &mut ContainerSyncDelta,
+  item_id: &Uid,
+) -> InfuResult<()> {
+  for attachment in db.item.get_attachments(item_id)? {
+    if is_attachments_item_type(attachment.item_type) {
+      delta.set_attachment_snapshot(&attachment.id, build_item_attachment_snapshot(db, &attachment.id)?);
+    }
+  }
+  Ok(())
 }
 
 fn maybe_container_id_for_child_item(item: &Item) -> Option<Uid> {
@@ -905,12 +936,23 @@ fn validate_composite_parent_for_item(db: &MutexGuard<'_, Db>, item: &Item) -> I
   Ok(())
 }
 
+/// The container whose snapshot includes the attachments of the item with id parent_id: that of a child, or of the
+/// item an attachment is attached to (see build_authoritative_child_attachment_snapshot).
 fn maybe_container_id_for_attachment_parent(db: &MutexGuard<'_, Db>, parent_id: &Uid) -> InfuResult<Option<Uid>> {
   let parent_item = db.item.get(parent_id)?;
-  if parent_item.relationship_to_parent == RelationshipToParent::Child {
-    Ok(parent_item.parent_id.clone())
-  } else {
-    Ok(None)
+  match parent_item.relationship_to_parent {
+    RelationshipToParent::Child => Ok(parent_item.parent_id.clone()),
+    RelationshipToParent::Attachment => {
+      let Some(grandparent_item) = parent_item.parent_id.as_ref().and_then(|id| db.item.get(id).ok()) else {
+        return Ok(None);
+      };
+      if grandparent_item.relationship_to_parent == RelationshipToParent::Child {
+        Ok(grandparent_item.parent_id.clone())
+      } else {
+        Ok(None)
+      }
+    }
+    _ => Ok(None),
   }
 }
 
@@ -920,6 +962,9 @@ fn add_attachment_snapshot_delta_for_parent(
   parent_id: &Uid,
 ) -> InfuResult<()> {
   delta.set_attachment_snapshot(parent_id, build_item_attachment_snapshot(db, parent_id)?);
+  if db.item.get(parent_id)?.relationship_to_parent == RelationshipToParent::Child {
+    add_nested_attachment_snapshot_deltas(db, delta, parent_id)?;
+  }
   Ok(())
 }
 

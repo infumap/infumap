@@ -31,7 +31,7 @@ import { isPlaceholder } from "../../items/placeholder-item";
 import { TableItem, asTableItem, tableHeaderHeightBl } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
-import { Dimensions, EMPTY_BOUNDING_BOX, cloneBoundingBox, getBoundingBoxSize, zeroBoundingBoxTopLeft } from "../../util/geometry";
+import { BoundingBox, Dimensions, EMPTY_BOUNDING_BOX, cloneBoundingBox, getBoundingBoxSize, zeroBoundingBoxTopLeft } from "../../util/geometry";
 import { VisualElementSignal } from "../../util/signals";
 import { HitboxFlags } from "../hitbox";
 import { ItemGeometry } from "../item-geometry";
@@ -42,7 +42,7 @@ import { TabularContainerItem, TabularRowsExtent, tabularAttachmentCellLayouts, 
 import { VesCache } from "../ves-cache";
 import { VeFns, Veid, VisualElement, VisualElementFlags, VisualElementPath, VisualElementRelationships, VisualElementSpec, isTableView } from "../visual-element";
 
-import { arrangeItemAttachments } from "./attachments";
+import { PlannedAttachments, arrangeItemAttachments, attachmentsStripWidthBl, planItemAttachments } from "./attachments";
 import { ArrangeItemFlags, arrangedItemIsInOverlaySelection, getCommonVisualElementFlags } from "./item";
 import { getVePropertiesForItem } from "./util";
 
@@ -167,8 +167,12 @@ type TableRenderPlan = {
   path: VisualElementPath,
 };
 
-type TableRowRenderPlan = TableRenderPlan & {
+type TableCellRenderPlan = TableRenderPlan & {
   attachments: Array<TableRenderPlan>,
+};
+
+type TableRowRenderPlan = TableRenderPlan & {
+  attachments: Array<TableCellRenderPlan>,
 };
 
 type TableWindowSlotPlan =
@@ -721,7 +725,7 @@ function buildTableRowRenderPlan(
   };
 
   const tableChildRelationships: VisualElementRelationships = {};
-  const attachmentPlans: Array<TableRenderPlan> = [];
+  const attachmentPlans: Array<TableCellRenderPlan> = [];
 
   if (isAttachmentsItem(displayItem_childItem)) {
     const attachmentsItem = asAttachmentsItem(displayItem_childItem);
@@ -769,11 +773,17 @@ function buildTableRowRenderPlan(
         parentPath: tableChildVePath,
         blockSizePx
       };
-      const tableChildAttachmentRelationships: VisualElementRelationships = {};
+      const cellAttachments = planCellAttachments(store, displayItem_attachment, geometry.boundsPx, blockSizePx, tableChildAttachmentVePath);
+      tableChildAttachmentVeSpec.attachmentsOverflowMarkerPx = cellAttachments.overflowMarkerPx;
+      tableChildAttachmentVeSpec.lineItemTextRightPaddingPx = cellAttachments.textRightPaddingPx;
+      const tableChildAttachmentRelationships: VisualElementRelationships = {
+        attachmentsPaths: cellAttachments.attachments.map(attachment => attachment.path),
+      };
       attachmentPlans.push({
         spec: tableChildAttachmentVeSpec,
         relationships: tableChildAttachmentRelationships,
         path: tableChildAttachmentVePath,
+        attachments: cellAttachments.attachments,
       });
     }
 
@@ -785,6 +795,44 @@ function buildTableRowRenderPlan(
     relationships: tableChildRelationships,
     path: tableChildVePath,
     attachments: attachmentPlans,
+  };
+}
+
+
+/**
+ * The attachments of an item shown in an attachment cell (column 2+) are laid out as for a spatial item: right to left
+ * from the top right corner of the cell. Unlike on a spatial page they sit inside the cell, centred on its first line,
+ * rather than straddling its top edge: the row above is directly there, and the table viewport would clip them in the
+ * first visible row. Their bounds are relative to the table child area, like those of the cell. The text of the cell
+ * stops short of them (textRightPaddingPx), which the height of wrapped rows allows for (see tabular.ts).
+ */
+function planCellAttachments(
+  store: StoreContextModel,
+  cellItem: Item,
+  cellBoundsPx: BoundingBox,
+  blockSizePx: Dimensions,
+  cellVePath: VisualElementPath): PlannedAttachments & { textRightPaddingPx: number } {
+
+  const none = { attachments: [], overflowMarkerPx: null, textRightPaddingPx: 0 };
+  if (!isAttachmentsItem(cellItem)) { return none; }
+  const attachmentIds = asAttachmentsItem(cellItem).computed_attachments;
+  if (attachmentIds.length == 0) { return none; }
+
+  // Size to the row height, which can differ from the block width (e.g. a table item with a width override).
+  const planned = planItemAttachments(store, attachmentIds, { w: 1, h: 1 }, zeroBoundingBoxTopLeft(cellBoundsPx), cellVePath, blockSizePx.h);
+  const dx = cellBoundsPx.x;
+  const dy = cellBoundsPx.y + blockSizePx.h / 2;
+  for (const attachment of planned.attachments) {
+    const boundsPx = attachment.spec.boundsPx;
+    attachment.spec.boundsPx = { ...boundsPx, x: boundsPx.x + dx, y: boundsPx.y + dy };
+    // TODO (MEDIUM): moving these (and attaching to cells) is not supported yet, so they can only be opened.
+    attachment.spec.hitboxes = (attachment.spec.hitboxes ?? []).filter(hitbox => !(hitbox.type & HitboxFlags.Move));
+  }
+  const marker = planned.overflowMarkerPx;
+  return {
+    attachments: planned.attachments,
+    overflowMarkerPx: marker == null ? null : { ...marker, rightX: marker.rightX + dx, centerY: marker.centerY + dy },
+    textRightPaddingPx: attachmentsStripWidthBl(attachmentIds, cellBoundsPx.w / blockSizePx.h) * blockSizePx.h,
   };
 }
 
@@ -826,6 +874,13 @@ function materializeTableRowPlan(
 
   for (let i = 0; i < rowPlan.attachments.length; ++i) {
     const attachmentPlan = rowPlan.attachments[i];
+    for (const cellAttachmentPlan of attachmentPlan.attachments) {
+      if (vesToOverwrite != null) {
+        VesCache.mutate.create(cellAttachmentPlan.spec, cellAttachmentPlan.relationships, cellAttachmentPlan.path);
+      } else {
+        VesCache.arrange.writeVisualElement(cellAttachmentPlan.spec, cellAttachmentPlan.relationships, cellAttachmentPlan.path);
+      }
+    }
     if (vesToOverwrite != null) {
       VesCache.mutate.create(attachmentPlan.spec, attachmentPlan.relationships, attachmentPlan.path);
     } else {

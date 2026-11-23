@@ -977,6 +977,16 @@ export const VeFns = {
     if (treeItem.relationshipToParent == RelationshipToParent.Attachment) {
       const veParent = resolveParentVe(ve.parentPath!);
       if (!veParent) { return fallbackBounds(ve); }
+      // An attachment of the item in a table attachment cell has bounds in the same space as the cell.
+      if ((veParent.flags & VisualElementFlags.InsideTable) && (veParent.flags & VisualElementFlags.Attachment)) {
+        const cellBoundsPx = VeFns.veBoundsRelativeToDesktopPx(store, veParent);
+        return {
+          x: cellBoundsPx.x + ve.boundsPx.x - veParent.boundsPx.x,
+          y: cellBoundsPx.y + ve.boundsPx.y - veParent.boundsPx.y,
+          w: ve.boundsPx.w,
+          h: ve.boundsPx.h,
+        };
+      }
       const veParentParent = resolveParentVe(veParent.parentPath!);
       if (!veParentParent) { return fallbackBounds(veParent); }
       if (isTableView(veParentParent)) {
