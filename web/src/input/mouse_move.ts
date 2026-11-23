@@ -58,7 +58,7 @@ import {
   solveCalendarMonthWidthForDividerOffset,
 } from "../util/calendar-layout";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
-import { ReadOnlyDocumentHandlePress, readOnlyDocumentMoveOutVeAtClientPx } from "./document_move_out";
+import { ReadOnlyDocumentHandlePress, readOnlyDocumentHandleVeMaybe } from "./document_move_out";
 import { NativeTextSelectionState } from "./native_text_selection";
 import { readOnlyDocumentNoteBodyClick } from "./document_note_hit";
 
@@ -1681,8 +1681,8 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
 
   const ev = CursorEventState.get();
   const hitInfo = HitInfoFns.hit(store, desktopPxFromMouseEvent(ev, store), [], true, true, ev.shiftDown);
-  const readOnlyDocumentMoveOutVe = !ev.shiftDown && CursorEventState.getLatestDesktopPx(store).y >= 0
-    ? readOnlyDocumentMoveOutVeAtClientPx(CursorEventState.getLatestClientPx())
+  const readOnlyDocumentMoveOutVe = CursorEventState.getLatestDesktopPx(store).y >= 0
+    ? readOnlyDocumentHandleVeMaybe(HitInfoFns.getHitVe(hitInfo), hitInfo.hitboxType, ev.shiftDown)
     : null;
   const readOnlyDocumentMoveOutPath = readOnlyDocumentMoveOutVe != null
     ? VeFns.veToPath(readOnlyDocumentMoveOutVe)

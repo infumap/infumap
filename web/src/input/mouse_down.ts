@@ -55,7 +55,7 @@ import { isPassword, PasswordFns } from "../items/password-item";
 import { ImageFns, isImage } from "../items/image-item";
 import { commitActiveToolbarTitleEdit } from "./toolbar_title";
 import { isInsideDocumentPageClickContext, isReadOnlyDocumentPageOrInsideOne } from "../items/base/item-common-fns";
-import { ReadOnlyDocumentHandlePress, readOnlyDocumentMoveOutVeAtClientPx } from "./document_move_out";
+import { ReadOnlyDocumentHandlePress, readOnlyDocumentHandleVeMaybe } from "./document_move_out";
 import { NativeTextSelectionState } from "./native_text_selection";
 import { documentNoteBodyClick, isNoteInsideDocumentArrangedPage, noteBodyClick, readOnlyDocumentNoteBodyClick } from "./document_note_hit";
 import { isQueryItem, isQuerySearchResultsPage, isTranscriptMoveInFlight } from "../items/query-item";
@@ -738,14 +738,13 @@ export function mouseLeftDownHandler(store: StoreContextModel, defaultResult: Mo
   }
 
   const shiftDown = CursorEventState.get().shiftDown;
+  const hitInfo = HitInfoFns.hit(store, desktopPosPx, [], false, true, shiftDown, wasTextEditing);
+
   // The drag handle of a row in a read-only document: a drag from it copies the row (dragModifiers), so its hitbox is
   // kept although the row can't be moved, and a click places the caret in the row's text (mouse_up.ts).
-  const readOnlyDocumentHandleVe = shiftDown ? null : readOnlyDocumentMoveOutVeAtClientPx(CursorEventState.getLatestClientPx());
-  const pressedReadOnlyDocumentHandle = readOnlyDocumentHandleVe != null;
+  const readOnlyDocumentHandleVe = readOnlyDocumentHandleVeMaybe(HitInfoFns.getHitVe(hitInfo), hitInfo.hitboxType, shiftDown);
   ReadOnlyDocumentHandlePress.set(readOnlyDocumentHandleVe == null ? null : VeFns.veToPath(readOnlyDocumentHandleVe));
-  if (pressedReadOnlyDocumentHandle) { ClickState.setLinkWasClicked(false); }
-
-  const hitInfo = HitInfoFns.hit(store, desktopPosPx, [], false, true, shiftDown || pressedReadOnlyDocumentHandle, wasTextEditing);
+  if (readOnlyDocumentHandleVe != null) { ClickState.setLinkWasClicked(false); }
 
   const startPosBl = null;
   const startWidthBl = null;

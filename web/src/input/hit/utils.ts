@@ -28,6 +28,7 @@ import { VisualElementSignal } from "../../util/signals";
 import { Uid } from "../../util/uid";
 import { itemState } from "../../store/ItemState";
 import { HitboxScanOptions } from "./types";
+import { readOnlyDocumentHandleCopies } from "../document_move_out";
 import { VesCache } from "../../layout/ves-cache";
 
 
@@ -181,6 +182,11 @@ function filteredHitboxType(ve: VisualElement, type: HitboxFlags, meta: HitboxMe
   // Capabilities apply to the draggable tree item, not the rendered display target.
   if ((result & HitboxFlags.Move) && !itemCanMove(VeFns.treeItem(ve))) {
     if (hitboxOptions.allowCopyMove && itemCanCopy(VeFns.treeItem(ve))) {
+      return result;
+    }
+    // A read-only document row's handle copies it, without Shift (see readOnlyDocumentHandleCopies). Only the handle:
+    // pages and images in documents also have a Move hitbox over their whole bounds.
+    if (meta?.compositeMoveOut && readOnlyDocumentHandleCopies(ve)) {
       return result;
     }
     result = (result & ~HitboxFlags.Move) as HitboxFlags;

@@ -73,7 +73,7 @@ function gripHeightPx(rows: number): number {
 /**
  * Left edge of the dot grip, relative to the move out box.
  */
-export function compositeMoveOutHandleGripLeftPx(boundsPx: BoundingBox): number {
+function compositeMoveOutHandleGripLeftPx(boundsPx: BoundingBox): number {
   return Math.max(0, Math.round((boundsPx.w - gripWidthPx()) / 2));
 }
 

@@ -18,63 +18,42 @@
 
 import { itemCanCopy, itemCanMove } from "../items/base/capabilities-item";
 import { isInsideDocumentPageClickContext } from "../items/base/item-common-fns";
-import { compositeMoveOutHandleGripLeftPx } from "../layout/composite-move-out";
-import { VesCache } from "../layout/ves-cache";
+import { HitboxFlags } from "../layout/hitbox";
 import { VeFns, VisualElement, type VisualElementPath } from "../layout/visual-element";
-import { boundingBoxFromDOMRect, type BoundingBox, type Vector } from "../util/geometry";
 
 
-export const COMPOSITE_MOVE_OUT_HANDLE_PATH_ATTRIBUTE = "data-infumap-composite-move-out-path";
-
-
-function isInsideInclusive(point: Vector, boundingBox: BoundingBox): boolean {
-  return point.x >= boundingBox.x &&
-    point.x <= boundingBox.x + boundingBox.w &&
-    point.y >= boundingBox.y &&
-    point.y <= boundingBox.y + boundingBox.h;
-}
-
-function readOnlyDocumentMoveOutVeFromPath(path: VisualElementPath | null): VisualElement | null {
-  if (path == null) { return null; }
-
-  const visualElement = VesCache.current.readNode(path);
-  if (visualElement == null || !isInsideDocumentPageClickContext(visualElement)) {
-    return null;
-  }
-
+/**
+ * Whether a drag from visualElement's handle copies it: a row of a document page (or a child of a composite row) that
+ * can be copied but not moved, such as a table in a markdown file shown as a document. The hit test keeps the Move of
+ * such a handle (filteredHitboxType), though not of the row's other move hitboxes. It used to be found from where the
+ * handle was drawn instead, so a press counted only where the drawn handle and the hitbox overlapped, which was 3px when
+ * a table's handle was drawn in the wrong place.
+ */
+export function readOnlyDocumentHandleCopies(visualElement: VisualElement): boolean {
   const treeItem = VeFns.treeItem(visualElement);
-  return itemCanCopy(treeItem) && !itemCanMove(treeItem)
-    ? visualElement
-    : null;
+  return itemCanCopy(treeItem) && !itemCanMove(treeItem) && isInsideDocumentPageClickContext(visualElement);
 }
 
-export function readOnlyDocumentMoveOutVeAtClientPx(clientPosPx: Vector): VisualElement | null {
-  const handles = Array.from(document.querySelectorAll<HTMLElement>(`[${COMPOSITE_MOVE_OUT_HANDLE_PATH_ATTRIBUTE}]`));
-  for (let i = handles.length - 1; i >= 0; --i) {
-    const bounds = boundingBoxFromDOMRect(handles[i].getBoundingClientRect());
-    if (bounds == null) { continue; }
-    const hitBounds = {
-      ...bounds,
-      x: bounds.x + compositeMoveOutHandleGripLeftPx(bounds),
-    };
-    if (!isInsideInclusive(clientPosPx, hitBounds)) { continue; }
-
-    const visualElement = readOnlyDocumentMoveOutVeFromPath(
-      handles[i].getAttribute(COMPOSITE_MOVE_OUT_HANDLE_PATH_ATTRIBUTE)
-    );
-    if (visualElement != null) { return visualElement; }
-  }
-
-  return null;
+/**
+ * The read-only document row whose drag handle a hit (on hitVe, with hitboxType) is on, if it is. With Shift, a drag
+ * copies anything copyable from any of its move hitboxes, so isn't a handle drag.
+ */
+export function readOnlyDocumentHandleVeMaybe(
+  hitVe: VisualElement,
+  hitboxType: HitboxFlags,
+  shiftDown: boolean,
+): VisualElement | null {
+  if (shiftDown || !(hitboxType & HitboxFlags.Move)) { return null; }
+  return readOnlyDocumentHandleCopies(hitVe) ? hitVe : null;
 }
 
 
 let readOnlyDocumentHandlePressPath: VisualElementPath | null = null;
 
 /**
- * The row whose drag handle in a read-only document the current mouse action started on, if it did. The press is
- * found from the handle's DOM (above), not a hitbox, so it is recorded here for the drag (a copy, see dragModifiers in
- * mouse_move_move.ts) and the release (a click places the caret, see mouse_up.ts).
+ * The row whose drag handle in a read-only document the current mouse action started on, if it did. It is recorded here
+ * for the drag (a copy, see dragModifiers in mouse_move_move.ts) and the release (a click places the caret, see
+ * mouse_up.ts).
  */
 export const ReadOnlyDocumentHandlePress = {
   set: (path: VisualElementPath | null): void => { readOnlyDocumentHandlePressPath = path; },
