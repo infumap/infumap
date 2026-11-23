@@ -29,7 +29,6 @@ import { queryChatOutcomeText } from "./chat";
 import { markChildrenLoadAsInitiatedOrComplete } from "../layout/load";
 import { Item, ItemType } from "./base/item";
 import { ItemFns } from "./base/item-polymorphism";
-import { titleWithCopySuffix } from "./base/titled-item";
 import { PlaceholderFns } from "./placeholder-item";
 import { ItemIconMode, NoteFns, NoteItem } from "./note-item";
 import {
@@ -794,7 +793,6 @@ export function createPendingTextDocumentPage(
     relationshipToParent: RelationshipToParent.Child,
     ordering,
   });
-  page.title = titleWithCopySuffix(page.title);
   page.capabilities = null;
   page.backgroundColorIndex = 0;
   page.childrenLoaded = true;

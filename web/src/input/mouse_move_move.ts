@@ -23,7 +23,6 @@ import { itemCanAcceptManualChildren } from "../items/base/flags-item";
 import type { Item } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/base/positional-item";
-import { appendCopySuffixToTitledItem } from "../items/base/titled-item";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
 import { asCompositeItem, isComposite } from "../items/composite-item";
@@ -123,12 +122,6 @@ function newOrderingAtEndOfCurrentParent(item: Item): Uint8Array {
     : itemState.newOrderingAtEndOfChildren(item.parentId);
 }
 
-function appendCopySuffixToTextLikeClone(item: Item): void {
-  if (isNote(item) || isText(item)) {
-    appendCopySuffixToTitledItem(item);
-  }
-}
-
 function prepareShiftDragClone(cloned: Item, source: Item): void {
   cloned.endDateTime = moveCalendarDateTimeRangeToStart(
     source.dateTime,
@@ -143,7 +136,6 @@ function prepareShiftDragClone(cloned: Item, source: Item): void {
   cloned.groupId = null;
   // Where the clone is dropped decides whether it is pinned.
   cloned.pinnedTo = null;
-  appendCopySuffixToTextLikeClone(cloned);
 }
 
 /**
