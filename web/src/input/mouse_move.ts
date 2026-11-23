@@ -116,6 +116,24 @@ function isCopyOnlyMoveOutHover(hitInfo: ReturnType<typeof HitInfoFns.hit>): boo
 }
 
 
+/**
+ * The table that visualElement (a row, a cell, or something in one) is in, if the table has a document move handle: it is
+ * a row of a document page or a child of a composite row in one. Null if a page or composite comes first.
+ */
+function documentTablePathAboveMaybe(visualElement: VisualElement): VisualElementPath | null {
+  let currentPath = visualElement.parentPath;
+  while (currentPath != null) {
+    const currentVe = VesCache.current.readNode(currentPath);
+    if (currentVe == null || isPage(currentVe.displayItem) || isComposite(currentVe.displayItem)) { return null; }
+    if (isTable(currentVe.displayItem)) {
+      return currentVe.hitboxes.some(hitbox => hitbox.meta?.moveOutHandleBoundsPx != null) ? currentPath : null;
+    }
+    currentPath = currentVe.parentPath;
+  }
+  return null;
+}
+
+
 export function resolveActiveTreeItemForResize(activeVisualElement: VisualElement) {
   // The selected item of a list page is rendered via a synthetic link that is not in itemState and is
   // recreated on each arrange, so a resize applies to the actual link (if any), else the item itself.
@@ -1754,9 +1772,14 @@ export function mouseMove_handleNoButtonDown(store: StoreContextModel, hasUser: 
     lastMouseOverSearchGridPagePath = searchGridCellHover.pagePath;
   }
 
-  // Beside an item whose side clicks are inert, only its move handle is shown, not the hover highlight.
+  // Beside an item whose side clicks are inert, only its move handle is shown, not the hover highlight. The same goes
+  // for a table in a document while over its rows and cells, which are hit rather than the table.
   const overInertDocumentRowSide = readOnlyDocumentMoveOutPath == null && !!hitInfo.overElementMeta?.inert;
-  const documentRowSidePath = overInertDocumentRowSide && !hasModal && !isInsideToolbarPopup ? overElementPath : null;
+  const documentRowSidePath = hasModal || isInsideToolbarPopup
+    ? null
+    : overInertDocumentRowSide
+      ? overElementPath
+      : documentTablePathAboveMaybe(overElementVe);
   if (documentRowSidePath != lastMouseOverDocumentRowSidePath) {
     if (lastMouseOverDocumentRowSidePath != null) {
       store.perVe.setMouseIsOverDocumentRowSide(lastMouseOverDocumentRowSidePath, false);
