@@ -353,7 +353,10 @@ function arrangeCompositeChildItemPath(
   const compositeChildRelationships: VisualElementRelationships = {};
   if (isAttachmentsItem(displayItem_childItem)) {
     const parentItemSizeBl = ItemFns.calcSpatialDimensionsBl(linkItemMaybe_childItem == null ? displayItem_childItem : linkItemMaybe_childItem);
-    const attachments = arrangeItemAttachments(store, asAttachmentsItem(displayItem_childItem).computed_attachments, parentItemSizeBl, geometry.boundsPx, parentPath, geometry.attachmentBlockSizePx, geometry.attachmentAnchorRightPx);
+    // Attachment bounds are relative to the composite child, so the child (not the composite) must be their parent,
+    // or anything walking up parent paths to find their desktop position (e.g. attachment popup anchoring) misses
+    // the child's offset within the composite.
+    const attachments = arrangeItemAttachments(store, asAttachmentsItem(displayItem_childItem).computed_attachments, parentItemSizeBl, geometry.boundsPx, compositeChildVePath, geometry.attachmentBlockSizePx, geometry.attachmentAnchorRightPx);
     compositeChildRelationships.attachmentsPaths = attachments.paths;
     compositeChildVeSpec.attachmentsOverflowMarkerPx = attachments.overflowMarkerPx;
   } else {
