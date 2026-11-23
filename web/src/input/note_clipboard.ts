@@ -17,12 +17,15 @@
 */
 
 import { NoteFlags, noteIndentLevelFromFlags } from "../items/base/flags-item";
+import { isTitledItem } from "../items/base/titled-item";
 import { isDivider } from "../items/divider-item";
 import {
   NoteInlineMark, NoteInlineMarkFlags, NoteUrl, asNoteItem, isNote, normalizeNoteInlineMarks, normalizeNoteUrls,
   safeNoteLinkUrl, splitNoteInlineMarks, splitNoteUrls,
 } from "../items/note-item";
 import { asPageItem, isPage } from "../items/page-item";
+import { isPassword } from "../items/password-item";
+import { asTextItem, clipboardTextCreateShowsPlaceholder, isText } from "../items/text-item";
 import { noteHasBullet, noteHasNumbered } from "../layout/text";
 import { VesCache } from "../layout/ves-cache";
 import { StoreContextModel } from "../store/StoreProvider";
@@ -99,8 +102,19 @@ export function noteClipboardCopyOrCutHandler(store: StoreContextModel, ev: Clip
       pieces.push(selectedPart(asPageItem(item).title, [], [], NoteFlags.Heading1, null, from, to));
     } else if (isDivider(item)) {
       pieces.push({ kind: "divider" });
+    } else if (isTitledItem(item) && !isPassword(item) && !(isText(item) && clipboardTextCreateShowsPlaceholder(asTextItem(item)))) {
+      // Another item with its title shown (a text item, file, page, table ...): the selected part of the title, as
+      // shown, linked to the item, since that's what clicking the title does. Not the item itself: part of a title
+      // selected means nothing as an item, and items are copied by selecting them. A password is left out, so a select
+      // all doesn't put it on the clipboard, as is the prompt shown in a text item waiting for a paste.
+      const text = selectedTextWithin(range, titles[i]!);
+      if (text.trim() == "") { continue; }
+      pieces.push({
+        kind: "note", title: text, inlineMarks: [], flags: NoteFlags.None, listItemNumber: null,
+        urls: [{ start: 0, end: text.length, url: `infumap://${item.id}` }],
+      });
     }
-    // Other items (images, tables, files ...) have no text to copy.
+    // Items with no title shown (an image shown as a picture ...) have no text selected.
   }
   // A selection that starts at the very end of a note, or ends at the very start of one, touches it without selecting
   // any of its text: leave it out rather than adding an empty paragraph.
@@ -162,6 +176,15 @@ export function copiedPiecesFromClipboard(clipboardData: DataTransfer): Array<Co
 
 function boundaryOffset(title: HTMLElement, node: Node, offset: number, outside: number): number {
   return title.contains(node) ? getTextOffsetWithinElement(title, node, offset) : outside;
+}
+
+/** The text of element within range, as rendered. */
+function selectedTextWithin(range: Range, element: Element): string {
+  const part = document.createRange();
+  part.selectNodeContents(element);
+  if (range.compareBoundaryPoints(Range.START_TO_START, part) > 0) { part.setStart(range.startContainer, range.startOffset); }
+  if (range.compareBoundaryPoints(Range.END_TO_END, part) < 0) { part.setEnd(range.endContainer, range.endOffset); }
+  return part.toString();
 }
 
 function selectedPart(
