@@ -57,7 +57,7 @@ import { itemState, wouldCreateRelationshipCycle } from "../store/ItemState";
 import { panic } from "../util/lang";
 import { isUid } from "../util/uid";
 import { HitInfoFns } from "./hit";
-import { DoubleClickState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState, CursorEventState, MoveRollbackSnapshotEntry } from "./state";
+import { DoubleClickState, MouseAction, MouseActionState, UserSettingsMoveState, ClickState, CursorEventState, MoveRollbackSnapshotEntry, itemCopyMovePendingIds } from "./state";
 import { applyCollectionClick, applySelectionClick } from "./click_selection";
 import { collectionModeActive, sweepCollectionMembers } from "../items/collection-mode";
 import { MouseEventActionFlags } from "./enums";
@@ -100,8 +100,8 @@ interface MovePersistOperation {
 interface MoveRollbackContext {
   snapshot: Array<MoveRollbackSnapshotEntry>,
   activeTreeItemId: string | null,
-  /** Copies of the dragged item's descendants, parents first, for a copy-drag. Removed before the item. */
-  copiedDescendantIds: Array<string>,
+  /** For a copy drag, the copies and their descendants, each followed by its descendants. Removed in reverse. */
+  pendingCopyIds: Array<string>,
   newPlaceholderItemId: string | null,
   rollbackExtras: (() => void) | null,
   activeTreeItemServerCleanupHandledByOps: boolean,
@@ -465,9 +465,10 @@ function enqueueUpdateItem(
   _iconMoveDestinationVe?: VisualElement | null,
 ): void {
   const itemCopyMove = MouseActionState.getItemCopyMove();
-  if (itemCopyMove?.pendingItemId == item.id) {
+  const pendingDescendantIds = itemCopyMove?.pendingDescendantIdsByItemId.get(item.id);
+  if (pendingDescendantIds != null) {
     const snapshot = cloneItemSnapshot(item);
-    const descendantIds = [...itemCopyMove.pendingDescendantIds];
+    const descendantIds = [...pendingDescendantIds];
     const deleteFromServer = async (ids: Array<string>) => {
       for (const id of [...ids].reverse()) {
         await server.deleteItem(id).catch(e => console.error(`Could not delete copy '${id}':`, e));
@@ -679,7 +680,7 @@ function captureMoveRollbackContext(rollbackExtras: (() => void) | null = null):
       ordering: new Uint8Array(entry.ordering),
       spatialPositionGr: { ...entry.spatialPositionGr },
     })),
-    copiedDescendantIds: [...(MouseActionState.getItemCopyMove()?.pendingDescendantIds ?? [])],
+    pendingCopyIds: itemCopyMovePendingIds(MouseActionState.getItemCopyMove()),
     activeTreeItemId: activeElementPath != null
       ? (() => {
         const veid = VeFns.veidFromPath(activeElementPath);
@@ -717,7 +718,7 @@ function captureMoveFinalizeContext(): MoveFinalizeContext {
 
 function rollbackMove(store: StoreContextModel, context: MoveRollbackContext, deleteCreatedTreeItemOnServer: boolean = true): void {
   const rollbackIds = new Set(context.snapshot.map(entry => entry.id));
-  for (const id of [...context.copiedDescendantIds].reverse()) {
+  for (const id of [...context.pendingCopyIds].reverse()) {
     if (itemState.get(id) != null) {
       itemState.delete(id);
     }

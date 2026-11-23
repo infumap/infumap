@@ -22,6 +22,7 @@ import { itemCanCopy, itemCanEditChildren, itemCanMove } from "../items/base/cap
 import { itemCanAcceptManualChildren } from "../items/base/flags-item";
 import type { Item } from "../items/base/item";
 import { ItemFns } from "../items/base/item-polymorphism";
+import { GroupFns } from "../items/base/group-item";
 import { PositionalItem, asPositionalItem, isPositionalItem } from "../items/base/positional-item";
 import { asXSizableItem, isXSizableItem } from "../items/base/x-sizeable-item";
 import { asYSizableItem, isYSizableItem } from "../items/base/y-sizeable-item";
@@ -50,7 +51,7 @@ import { Vector, compareVector, getBoundingBoxTopLeft, vectorAdd, vectorSubtract
 import { assert, currentUnixTimeSeconds, panic } from "../util/lang";
 import { HitInfoFns } from "./hit";
 import { dockListPageIconMoveTargetMaybe, moveTargetWouldCreateRelationshipCycle, resolveInternalMoveTarget, resolveMoveTargetPageVe } from "./move_target";
-import { CursorEventState, MouseAction, MouseActionState } from "./state";
+import { CursorEventState, ItemCopyMoveState, MouseAction, MouseActionState, itemCopyMovePendingIds } from "./state";
 import { ReadOnlyDocumentHandlePress } from "./document_move_out";
 import { veIsSelected } from "./click_selection";
 import { dockInsertIndexAndPositionFromDockChildAreaY, getDockScrollYPx } from "../layout/arrange/dock";
@@ -228,22 +229,114 @@ function copyContentsForShiftDrag(source: Item, cloned: Item): Array<string> {
  * moved.
  */
 function addShiftDragClone(cloned: Item, source: Item, copyOnly: boolean): void {
+  const pendingDescendantIds = addPendingCopy(cloned, source, copyOnly);
+  MouseActionState.setItemCopyMove({ pendingDescendantIdsByItemId: new Map([[cloned.id, pendingDescendantIds]]) });
+}
+
+/** Adds `cloned` and copies of what comes with `source` to the client only. Returns the copies' ids, parents first. */
+function addPendingCopy(cloned: Item, source: Item, copyOnly: boolean): Array<string> {
   itemState.add(cloned);
-  let pendingDescendantIds: Array<string>;
   if (copyOnly) {
-    pendingDescendantIds = cloneDescendantsForCopy(source, cloned);
-  } else if (isContainer(source) && !isComposite(source)) {
+    return cloneDescendantsForCopy(source, cloned);
+  }
+  if (isContainer(source) && !isComposite(source)) {
     // A page or table copy is an empty one with the same settings, which is intended: sometimes that's what's wanted.
     // Its children are marked loaded, so arrange doesn't ask the server for them while the server doesn't have it.
     asContainerItem(cloned).computed_children = [];
     asContainerItem(cloned).childrenLoaded = true;
     markChildrenLoadAsInitiatedOrComplete(cloned.id);
     if (isAttachmentsItem(cloned)) { asAttachmentsItem(cloned).computed_attachments = []; }
-    pendingDescendantIds = [];
-  } else {
-    pendingDescendantIds = copyContentsForShiftDrag(source, cloned);
+    return [];
   }
-  MouseActionState.setItemCopyMove({ pendingItemId: cloned.id, pendingDescendantIds });
+  return copyContentsForShiftDrag(source, cloned);
+}
+
+/**
+ * For a Shift- or Ctrl-drag of a selected item: copies of all the selected items (Shift), or links to them (Ctrl), each
+ * added next to its original, for the drag to move as a group instead of the originals. With Shift, an item that can't
+ * be copied is linked to instead (see copyContentsForShiftDrag), and a link is copied, as for a single item. The copies
+ * are added to the server on drop. Afterwards the active element is the dragged item's copy. Returns the copies' group,
+ * or null if the drag isn't of a selection of more than one item, in which case nothing is changed.
+ */
+function copySelectionForMove(
+  store: StoreContextModel,
+  activeVisualElement: VisualElement,
+  parentItem: Item,
+  linkOnly: boolean,
+): Array<GroupMoveItem> | null {
+  const group = groupMoveItemsFromSelectionMaybe(store, activeVisualElement, parentItem);
+  if (group == null || group.length < 2) { return null; }
+  const activeVeid = VeFns.veidFromVe(activeVisualElement);
+  const now = currentUnixTimeSeconds();
+
+  // Copies of all the members of a group form a new group. A copy of only some of them leaves it.
+  const newGroupIds = new Map<string, string>();
+  for (const groupId of GroupFns.wholeGroupIds(parentItem.id, group.map(e => e.veid.linkIdMaybe ?? e.veid.itemId))) {
+    newGroupIds.set(groupId, newUid());
+  }
+
+  const pending = new Map<string, Array<string>>();
+  const copiedGroup: Array<GroupMoveItem> = [];
+  let activeCopyVeid: Veid | null = null;
+  for (const entry of group) {
+    const treeItem = itemState.get(entry.veid.linkIdMaybe ?? entry.veid.itemId);
+    if (treeItem == null || !isPositionalItem(treeItem)) { continue; }
+    const displayItem = itemState.get(entry.veid.itemId);
+    const groupId = treeItem.groupId == null ? null : newGroupIds.get(treeItem.groupId) ?? null;
+    const ordering = itemState.newOrderingDirectlyAfterChild(treeItem.parentId, treeItem.id);
+    let copyVeid: Veid;
+    if (isLink(treeItem)) {
+      const link = asPositionalItem(ItemFns.fromObject(ItemFns.toObject(treeItem), null));
+      link.id = newUid();
+      link.creationDate = now;
+      link.lastModifiedDate = now;
+      link.ordering = ordering;
+      link.groupId = groupId;
+      link.pinnedTo = null;
+      itemState.add(link);
+      pending.set(link.id, []);
+      copyVeid = { itemId: entry.veid.itemId, linkIdMaybe: link.id };
+    } else if (displayItem == null) {
+      continue;
+    } else if (linkOnly || (isDataItem(displayItem) && !isChatAttachmentItem(displayItem))) {
+      const link = LinkFns.createFromItem(displayItem, treeItem.parentId, treeItem.relationshipToParent, ordering);
+      link.groupId = groupId;
+      itemState.add(link);
+      pending.set(link.id, []);
+      copyVeid = { itemId: displayItem.id, linkIdMaybe: link.id };
+    } else {
+      const cloned = asPositionalItem(ItemFns.fromObject(ItemFns.toObject(displayItem), null));
+      cloned.id = newUid();
+      cloned.creationDate = now;
+      cloned.lastModifiedDate = now;
+      cloned.dateTime = now;
+      cloned.ordering = ordering;
+      prepareShiftDragClone(cloned, displayItem);
+      cloned.groupId = groupId;
+      keepChatAttachmentSource(displayItem, cloned);
+      pending.set(cloned.id, addPendingCopy(cloned, displayItem, itemCanCopy(displayItem) && !itemCanMove(displayItem)));
+      copyVeid = VeFns.veidFromId(cloned.id);
+    }
+    if (VeFns.compareVeids(entry.veid, activeVeid) == 0) { activeCopyVeid = copyVeid; }
+    copiedGroup.push({ veid: copyVeid, startPosGr: entry.startPosGr, parentId: entry.parentId });
+  }
+
+  const pendingState = { pendingDescendantIdsByItemId: pending };
+  if (activeCopyVeid == null) {
+    discardPendingCopies(pendingState);
+    return null;
+  }
+  MouseActionState.setItemCopyMove(pendingState);
+  MouseActionState.setActiveElementPath(VeFns.addVeidToPath(activeCopyVeid, activeVisualElement.parentPath!));
+  // The copies are arranged as ordinary items, as the originals were, before the drag moves them.
+  arrangeNow(store, "moving-init-copy-selection");
+  return copiedGroup;
+}
+
+function discardPendingCopies(itemCopyMove: ItemCopyMoveState): void {
+  for (const id of itemCopyMovePendingIds(itemCopyMove).reverse()) {
+    if (itemState.get(id) != null) { itemState.delete(id); }
+  }
 }
 
 /**
@@ -435,7 +528,7 @@ export function moving_initiateQueryChatTurnMarkdown(store: StoreContextModel, c
 
   const startPagePath = VeFns.veToPath(startPageVe);
   MouseActionState.setMoveRollback([]);
-  MouseActionState.setItemCopyMove({ pendingItemId: item.id, pendingDescendantIds: [] });
+  MouseActionState.setItemCopyMove({ pendingDescendantIdsByItemId: new Map([[item.id, []]]) });
   MouseActionState.setGroupMoveItems(undefined);
   MouseActionState.setStartPx(desktopPosPx);
   MouseActionState.setStartPosBl(startPosBl);
@@ -452,15 +545,10 @@ export function moving_initiateQueryChatTurnMarkdown(store: StoreContextModel, c
 }
 
 /**
- * The modifiers that change a drag of activeVisualElement: Shift to copy, Ctrl to link. Neither applies to a drag of a
- * selected item, which always moves the selection. Copying or linking only the item dragged (as these did) ignores the
- * rest of the selection, and doing it to every selected item is rarely wanted. The modifiers used to make the selection
- * are also often still held when the drag starts.
+ * The modifiers that change a drag of activeVisualElement: Shift to copy, Ctrl to link. For a selected item, they copy
+ * or link the whole selection (copySelectionForMove).
  */
-export function dragModifiers(store: StoreContextModel, activeVisualElement: VisualElement): { shiftDown: boolean, ctrlDown: boolean } {
-  if (veIsSelected(store, activeVisualElement)) {
-    return { shiftDown: false, ctrlDown: false };
-  }
+export function dragModifiers(_store: StoreContextModel, activeVisualElement: VisualElement): { shiftDown: boolean, ctrlDown: boolean } {
   // A row of a read-only document can't be moved, so a drag from its handle can only mean copy, as Shift does elsewhere.
   if (isReadOnlyDocumentHandleDrag(activeVisualElement)) {
     return { shiftDown: true, ctrlDown: false };
@@ -490,7 +578,26 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
     store.overlay.selectedVeids.set([]);
   }
   captureMoveRollbackSnapshot(store, activeVisualElement, activeItem);
-  if (materializeTextDocument) {
+  const parentItem = itemState.get(activeItem.parentId)!;
+  // For a selection, the copies or links are moved as a plain group move, in place of the originals.
+  const sourceActiveVisualElement = activeVisualElement;
+  const copiedGroup = (shiftDown || ctrlDown) && veIsSelected(store, activeVisualElement)
+    ? copySelectionForMove(store, activeVisualElement, parentItem, ctrlDown)
+    : null;
+  if (copiedGroup != null) {
+    const activeCopySignal = MouseActionState.getActiveVisualElementSignal();
+    if (activeCopySignal == null) {
+      discardPendingCopies(MouseActionState.getItemCopyMove()!);
+      MouseActionState.setItemCopyMove(null);
+      MouseActionState.setMoveRollback(null);
+      MouseActionState.setActiveElementPath(VeFns.veToPath(sourceActiveVisualElement));
+      arrangeNow(store, "moving-init-copy-selection-failed");
+      return;
+    }
+    activeVisualElement = activeCopySignal.get();
+    activeItem = asPositionalItem(VeFns.treeItem(activeVisualElement));
+  }
+  if (materializeTextDocument && copiedGroup == null) {
     if (!initiateTextDocumentMaterializeMove(store, asTextItem(activeVisualElement.displayItem), activeItem, activeVisualElement, desktopPosPx)) {
       MouseActionState.setMoveRollback(null);
     }
@@ -500,10 +607,10 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
   // A data item's copy would need its content; a chat attachment's is in its chat (`clientTextCopyData`).
   const shiftWantsClone = shiftDown &&
     (!isDataItem(activeVisualElement.displayItem) || isChatAttachmentItem(activeVisualElement.displayItem));
-  const shouldCreateLink = ctrlDown || (shiftWantsClone && isActiveLinkItem);
-  const shouldClone = shiftWantsClone && !isActiveLinkItem; // For link items, shift behaves like ctrl (create link)
-  const parentItem = itemState.get(activeItem.parentId)!;
-  if (isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
+  const shouldCreateLink = copiedGroup == null && (ctrlDown || (shiftWantsClone && isActiveLinkItem));
+  const shouldClone = copiedGroup == null && shiftWantsClone && !isActiveLinkItem; // For link items, shift behaves like ctrl (create link)
+  // The originals of copies stay where they are, so the list's selected item doesn't need preserving.
+  if (copiedGroup == null && isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.List) {
     const movingChild = itemState.get(movingChildIdFromVe(activeVisualElement));
     preserveListSelectionWhenMovingSelectedChild(
       store,
@@ -513,10 +620,10 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
     );
   }
   if (isTable(parentItem) && activeItem.relationshipToParent == RelationshipToParent.Child) {
-    // A copy or link is made of the active item only.
-    MouseActionState.setGroupMoveItems(shouldCreateLink || shouldClone
+    // A copy or link is made of the active item only, unless it's part of a selection (copiedGroup).
+    MouseActionState.setGroupMoveItems(copiedGroup ?? (shouldCreateLink || shouldClone
       ? undefined
-      : groupMoveItemsFromSelectionMaybe(store, activeVisualElement, parentItem));
+      : groupMoveItemsFromSelectionMaybe(store, activeVisualElement, parentItem)));
     if (!moving_activeItemOutOfTable(store, shouldCreateLink, shouldClone)) { return; }
     MouseActionState.setAction(MouseAction.Moving); // arrange must treat the re-parented item as moving.
     arrangeNow(store, "moving-init-out-of-table");
@@ -534,16 +641,18 @@ export function moving_initiate(store: StoreContextModel, activeItem: Positional
     arrangeNow(store, "moving-init-out-of-composite");
   }
   else {
-    const renderedStartPosBl = spatialStartPosBlFromRenderedVe(activeVisualElement);
+    // A copy of a selection starts where its original is shown. The copy itself may be laid out elsewhere, e.g. in a
+    // grid, where it follows the original.
+    const renderedStartPosBl = spatialStartPosBlFromRenderedVe(sourceActiveVisualElement);
     MouseActionState.setStartPosBl(renderedStartPosBl ?? {
       x: activeItem.spatialPositionGr.x / GRID_SIZE,
       y: activeItem.spatialPositionGr.y / GRID_SIZE
     });
 
-    // A copy or link is made of the active item only.
-    MouseActionState.setGroupMoveItems(shouldCreateLink || shouldClone
+    // A copy or link is made of the active item only, unless it's part of a selection (copiedGroup).
+    MouseActionState.setGroupMoveItems(copiedGroup ?? (shouldCreateLink || shouldClone
       ? undefined
-      : groupMoveItemsFromSelectionMaybe(store, activeVisualElement, parentItem));
+      : groupMoveItemsFromSelectionMaybe(store, activeVisualElement, parentItem)));
 
     if (shouldClone) {
       const toClone = activeVisualElement.displayItem;

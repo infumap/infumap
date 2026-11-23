@@ -81,9 +81,17 @@ export interface TextDocumentMaterializeMoveState {
 }
 
 export interface ItemCopyMoveState {
-  pendingItemId: string,
-  /** Copies of the item's descendants (children, and their children and attachments), parents first. */
-  pendingDescendantIds: Array<string>,
+  /**
+   * The copies being dragged, none of which the server has until they are dropped: by id, each with the copies of its
+   * descendants (children, and their children and attachments), parents first. More than one for a selection.
+   */
+  pendingDescendantIdsByItemId: Map<string, Array<string>>,
+}
+
+/** All the items of a copy drag, each copy followed by its descendants, parents first. */
+export function itemCopyMovePendingIds(itemCopyMove: ItemCopyMoveState | null): Array<string> {
+  if (itemCopyMove == null) { return []; }
+  return [...itemCopyMove.pendingDescendantIdsByItemId].flatMap(([id, descendantIds]) => [id, ...descendantIds]);
 }
 
 export interface CalendarRangeResizeState {
