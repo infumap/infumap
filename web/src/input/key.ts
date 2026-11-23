@@ -24,7 +24,7 @@ import { TableFns, isTable } from "../items/table-item";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
 import { RelationshipToParent } from "../layout/relationship-to-parent";
 import { arrangeNow, arrangeVirtual } from "../layout/arrange";
-import { initiateLoadItemMaybe } from "../layout/load";
+import { InitiateLoadResult, initiateLoadChildItemsMaybe, initiateLoadItemMaybe } from "../layout/load";
 import { calcJustifiedPagePaddingPx } from "../layout/arrange/justified_metrics";
 import { catalogResultControlsTopInsetPx } from "../layout/catalog-display";
 import { findClosest, FindDirection, findDirectionFromKeyCode } from "../layout/find";
@@ -43,11 +43,11 @@ import { canCreateItemsOnCurrentPage, newItemInContext } from "./create";
 import { isLink } from "../items/link-item";
 import { VesCache } from "../layout/ves-cache";
 import { serverOrRemote } from "../server";
-import { ItemType } from "../items/base/item";
+import { Item, ItemType } from "../items/base/item";
 import { HitInfoFns } from "./hit";
 import { EMPTY_UID, UMBRELLA_PAGE_UID, type Uid } from "../util/uid";
 import { clearRowRangeSelectionMaybe, extendRowRangeSelection } from "./row_selection";
-import { asContainerItem } from "../items/base/container-item";
+import { asContainerItem, isContainer } from "../items/base/container-item";
 import { MOUSE_RIGHT, focusPathInPopupForBackMaybe, mouseDownHandler } from "./mouse_down";
 import { CompositeFns, isComposite } from "../items/composite-item";
 import { FileFns, isFile } from "../items/file-item";
@@ -1489,39 +1489,157 @@ function tablePageHorizontalNeighborPathMaybe(
     : null;
 }
 
-function containingPageVeidForTableRootNavigationMaybe(currentPageVeid: Veid): Veid | null {
-  let treeItem = itemState.get(currentPageVeid.linkIdMaybe ?? currentPageVeid.itemId);
-  if (!treeItem) { return null; }
+const MAX_CONTAINING_PAGE_LEVELS = 8;
 
-  let tableParentId: string | null = null;
-  let parentId = treeItem.parentId;
-  while (parentId && parentId != EMPTY_UID) {
-    const parentItem = itemState.get(parentId);
-    if (!parentItem) { return null; }
-    if (isPage(parentItem) && asPageItem(parentItem).arrangeAlgorithm == ArrangeAlgorithm.Table) {
-      return { itemId: parentItem.id, linkIdMaybe: null };
-    }
-    if (isTable(parentItem)) {
-      tableParentId = parentItem.parentId;
-      break;
-    }
-    treeItem = parentItem;
-    parentId = treeItem.parentId;
+/**
+ * Whether the page containing `item` is `parent` ("stop"), or further up ("continue"). A page that an item is
+ * attached to shows it in its toolbar line when the page is the root, so it contains it, unless the page is a row in
+ * a table: there its attachments are in the row's cells, and the table is arranged in the page above. "unknown" if
+ * the item that would tell whether the page is in a table isn't loaded.
+ */
+function containingPageStep(item: Item, parent: Item): "stop" | "continue" | "unknown" {
+  if (!isPage(parent)) { return "continue"; }
+  if (item.relationshipToParent == RelationshipToParent.Child) { return "stop"; }
+  if (parent.relationshipToParent != RelationshipToParent.Child || !parent.parentId || parent.parentId == EMPTY_UID) {
+    return "stop";
   }
+  const grandparent = itemState.get(parent.parentId);
+  if (!grandparent) { return "unknown"; }
+  const parentIsTableRow = isTable(grandparent) ||
+    (isPage(grandparent) && asPageItem(grandparent).arrangeAlgorithm == ArrangeAlgorithm.Table);
+  return parentIsTableRow ? "continue" : "stop";
+}
 
-  if (!tableParentId) { return null; }
-
-  parentId = tableParentId;
-  while (parentId && parentId != EMPTY_UID) {
-    const parentItem = itemState.get(parentId);
-    if (!parentItem) { return null; }
-    if (isPage(parentItem)) {
-      return { itemId: parentItem.id, linkIdMaybe: null };
-    }
-    parentId = parentItem.parentId;
+/**
+ * The page containing the current root page, and the items from the root page up to it, not including it: e.g.
+ * [page, table] for a page in a table, or [page, row, table] for a page attached to a table row. Null if an item on
+ * the way isn't loaded, or the root page is at the top of the tree.
+ */
+function containingPageChainMaybe(currentPageVeid: Veid): { chain: Array<Item>, pageVeid: Veid } | null {
+  let item = itemState.get(currentPageVeid.linkIdMaybe ?? currentPageVeid.itemId);
+  if (!item) { return null; }
+  const chain: Array<Item> = [item];
+  for (let i = 0; i < MAX_CONTAINING_PAGE_LEVELS; ++i) {
+    const parentId = item.parentId;
+    if (!parentId || parentId == EMPTY_UID) { return null; }
+    const parent = itemState.get(parentId);
+    if (!parent) { return null; }
+    const step = containingPageStep(item, parent);
+    if (step == "unknown") { return null; }
+    if (step == "stop") { return { chain, pageVeid: { itemId: parent.id, linkIdMaybe: null } }; }
+    chain.push(parent);
+    item = parent;
   }
-
   return null;
+}
+
+/**
+ * Whether the containing page, and each container between it and the current root page, is loaded with its children.
+ * Attachments are loaded with the item they are attached to.
+ */
+function containingPageIsLoaded(currentPageVeid: Veid): boolean {
+  const containing = containingPageChainMaybe(currentPageVeid);
+  if (!containing) { return false; }
+  const parents = [...containing.chain.slice(1), itemState.get(containing.pageVeid.itemId)!];
+  return containing.chain.every((item, i) =>
+    item.relationshipToParent != RelationshipToParent.Child ||
+    !isContainer(parents[i]) || asContainerItem(parents[i]).childrenLoaded);
+}
+
+/**
+ * Loads what containingPageIsLoaded requires. A page opened by URL is loaded with its children only, so its parent,
+ * and its siblings, are not.
+ */
+async function loadContainingPage(store: StoreContextModel, currentPageVeid: Veid): Promise<void> {
+  let item = itemState.get(currentPageVeid.linkIdMaybe ?? currentPageVeid.itemId);
+  for (let i = 0; item && i < MAX_CONTAINING_PAGE_LEVELS; ++i) {
+    const parentId = item.parentId;
+    if (!parentId || parentId == EMPTY_UID) { return; }
+    if (await initiateLoadItemMaybe(store, parentId) == InitiateLoadResult.Failed) { return; }
+    const parent = itemState.get(parentId);
+    if (!parent) { return; }
+    if (containingPageStep(item, parent) == "unknown") {
+      if (await initiateLoadItemMaybe(store, parent.parentId) == InitiateLoadResult.Failed) { return; }
+    }
+    if (item.relationshipToParent == RelationshipToParent.Child && isContainer(parent)) {
+      await initiateLoadChildItemsMaybe(store, VeFns.veidFromId(parentId));
+    }
+    if (containingPageStep(item, parent) != "continue") { return; }
+    item = parent;
+  }
+}
+
+/**
+ * Arranges the page containing the current root page in the virtual scene, so the root page's siblings can be found.
+ * Tables only arrange the rows scrolled into view, so each table on the way (including the page itself, if arranged
+ * as a table) is scrolled to include the root page's row. Returns false if anything needed isn't loaded.
+ */
+function arrangeContainingPageVirtualMaybe(store: StoreContextModel, currentPageVeid: Veid): boolean {
+  if (!containingPageIsLoaded(currentPageVeid)) { return false; }
+  const { chain, pageVeid } = containingPageChainMaybe(currentPageVeid)!;
+  arrangeVirtual(store, pageVeid, "key-arrow-nav-containing-page");
+  // Outermost first: an inner table is only in the scene once the outer one includes its row.
+  const topDown: Array<Item> = [itemState.get(pageVeid.itemId)!, ...[...chain].reverse()];
+  for (let i = 0; i < topDown.length - 1; ++i) {
+    const tableVe = VesCache.virtual.findNodes(VeFns.veidFromId(topDown[i].id))[0];
+    if (!tableVe || !isTableView(tableVe)) { continue; }
+    const rowIdx = TableFns.tableVisibleRows(store, tableVe).findIndex(row => row.item.id == topDown[i + 1].id);
+    if (rowIdx < 0) { continue; }
+    const tableVeid = VeFns.veidFromVe(tableVe);
+    const scrollYPos = TableFns.scrollYPosToIncludeRow(store, tableVe, rowIdx);
+    if (scrollYPos != store.perItem.getTableScrollYPos(tableVeid)) {
+      store.perItem.setTableScrollYPos(tableVeid, scrollYPos);
+      arrangeVirtual(store, pageVeid, "key-arrow-nav-containing-page-include-row");
+    }
+  }
+  return true;
+}
+
+/** Whether the current root page is in a table: a table item, or a page arranged as a table. */
+function currentPageIsInTable(currentPageVeid: Veid): boolean {
+  const containing = containingPageChainMaybe(currentPageVeid);
+  if (!containing) { return false; }
+  const page = asPageItem(itemState.get(containing.pageVeid.itemId)!);
+  return containing.chain.some(item => isTable(item)) || page.arrangeAlgorithm == ArrangeAlgorithm.Table;
+}
+
+/**
+ * The current root page's path in the previous page in history, arranged in the virtual scene, if the user came down
+ * from it. After any other move (Home, Up, Queries, a search result) the previous page is just where they came from,
+ * and its focus can be on an unrelated page, whose neighbor an arrow key would then open.
+ */
+function historyParentFocusPathMaybe(store: StoreContextModel, reason: string): VisualElementPath | null {
+  const historyParentVeid = store.history.peekPrevPageVeid();
+  const currentPageVeid = store.history.currentPageVeid();
+  const parentFocusPath = store.history.getParentPageFocusPath();
+  if (!historyParentVeid || !currentPageVeid || !parentFocusPath) { return null; }
+  // Item ids only: the page may be reached through a link.
+  if (VeFns.veidFromPath(parentFocusPath).itemId != currentPageVeid.itemId) { return null; }
+  arrangeVirtual(store, historyParentVeid, reason);
+  // The path may not be in the scene, e.g. if it includes a link id from a popup.
+  return VesCache.virtual.readNode(parentFocusPath) ? parentFocusPath : null;
+}
+
+let containingPageLoadInFlight = false;
+
+/**
+ * Loads the page containing the current root page, then handles the arrow key again, unless the user has moved on.
+ * Arrow keys pressed meanwhile are dropped.
+ */
+function loadContainingPageThenRetry(store: StoreContextModel, ev: KeyboardEvent, currentPageVeid: Veid): void {
+  if (containingPageLoadInFlight) { return; }
+  containingPageLoadInFlight = true;
+  const focusPath = store.history.getFocusPathMaybe();
+  loadContainingPage(store, currentPageVeid)
+    .catch(e => console.error("Could not load the page containing the current page:", e))
+    .finally(() => {
+      containingPageLoadInFlight = false;
+      const pageNow = store.history.currentPageVeid();
+      if (pageNow == null || VeFns.compareVeids(pageNow, currentPageVeid) != 0) { return; }
+      if (store.history.currentPopupSpec() != null || store.history.getFocusPathMaybe() != focusPath) { return; }
+      if (!containingPageIsLoaded(currentPageVeid)) { return; }
+      arrowKeyHandler(store, ev);
+    });
 }
 
 function switchToTableRootNavigationTarget(
@@ -1602,19 +1720,13 @@ function handleTableRootPageNavigationMaybe(
   const currentPageItem = itemState.get(currentPageVeid.itemId);
   if (!currentPageItem || !isPage(currentPageItem)) { return false; }
 
-  const historyParentVeid = store.history.peekPrevPageVeid();
-  if (historyParentVeid) {
-    arrangeVirtual(store, historyParentVeid, "key-table-root-nav-parent-history");
-    const parentFocusPath = store.history.getParentPageFocusPath();
-    if (parentFocusPath && VesCache.virtual.readNode(parentFocusPath) && navigate(parentFocusPath, true)) {
-      return true;
-    }
+  const parentFocusPath = historyParentFocusPathMaybe(store, "key-table-root-nav-parent-history");
+  if (parentFocusPath && navigate(parentFocusPath, true)) { return true; }
+
+  // If the containing page isn't loaded, the general arrow key handling loads it and handles the key again.
+  if (!currentPageIsInTable(currentPageVeid) || !arrangeContainingPageVirtualMaybe(store, currentPageVeid)) {
+    return false;
   }
-
-  const containingPageVeid = containingPageVeidForTableRootNavigationMaybe(currentPageVeid);
-  if (!containingPageVeid) { return false; }
-
-  arrangeVirtual(store, containingPageVeid, "key-table-root-nav-parent-hierarchy");
   const virtualVesList = VesCache.virtual.findNodes(currentPageVeid);
   for (const virtualVe of virtualVesList) {
     if (navigate(VeFns.veToPath(virtualVe), false)) {
@@ -1721,51 +1833,34 @@ function arrowKeyHandler(store: StoreContextModel, ev: KeyboardEvent): void {
         const currentPageVeid = store.history.currentPageVeid();
         if (!currentPageVeid) return;
 
-        // Strategy 1: Use navigation history if available (works for tables and normal navigation)
-        const historyParentVeid = store.history.peekPrevPageVeid();
-        if (historyParentVeid) {
-          arrangeVirtual(store, historyParentVeid, "key-arrow-nav-parent-history");
-          const parentFocusPath = store.history.getParentPageFocusPath();
-          // Check if the path exists in the virtual cache (it might not if it includes a link ID from a popup)
-          if (parentFocusPath && VesCache.virtual.readNode(parentFocusPath)) {
-            const closestInParent = findClosest(VesCache.virtual, parentFocusPath, direction, false);
-            if (closestInParent) {
-              const closestVe = VesCache.virtual.readNode(closestInParent);
-              if (closestVe && isPage(closestVe.displayItem)) {
-                store.history.changeParentPageFocusPath(closestInParent);
-                switchToPage(store, VeFns.veidFromPath(closestInParent), true, false, true);
-                return;
-              }
+        // Strategy 1: the previous page in history, if the user came down from it. It records where in it the
+        // current page is, which matters if the page is in it more than once.
+        const parentFocusPath = historyParentFocusPathMaybe(store, "key-arrow-nav-parent-history");
+        if (parentFocusPath) {
+          const closestInParent = findClosest(VesCache.virtual, parentFocusPath, direction, false);
+          if (closestInParent) {
+            const closestVe = VesCache.virtual.readNode(closestInParent);
+            if (closestVe && isPage(closestVe.displayItem)) {
+              store.history.changeParentPageFocusPath(closestInParent);
+              switchToPage(store, VeFns.veidFromPath(closestInParent), true, false, true);
+              return;
             }
           }
         }
 
-        // Strategy 2: Use item hierarchy if history doesn't have a parent (works for popup entry)
-        const currentPageItem = itemState.get(currentPageVeid.itemId);
-        if (currentPageItem && currentPageItem.parentId) {
-          // Find the actual parent page (might need to traverse up through tables, etc.)
-          let parentId = currentPageItem.parentId;
-          let parentItem = itemState.get(parentId);
-          while (parentItem && !isPage(parentItem)) {
-            parentId = parentItem.parentId;
-            parentItem = parentId ? itemState.get(parentId) : null;
-          }
-          if (parentItem && isPage(parentItem)) {
-            const parentVeid = { itemId: parentId, linkIdMaybe: null };
-            arrangeVirtual(store, parentVeid, "key-arrow-nav-parent-hierarchy");
-            // Find the current page's path in the virtual cache (handles tables and other containers)
-            const virtualVesList = VesCache.virtual.findNodes(currentPageVeid);
-            if (virtualVesList.length > 0) {
-              const virtualVe = virtualVesList[0];
-              const currentPagePath = VeFns.veToPath(virtualVe);
-              const closestInParent = findClosest(VesCache.virtual, currentPagePath, direction, false);
-              if (closestInParent) {
-                const closestVe = VesCache.virtual.readNode(closestInParent);
-                if (closestVe && isPage(closestVe.displayItem)) {
-                  switchToPage(store, VeFns.veidFromPath(closestInParent), true, false, true);
-                  return;
-                }
-              }
+        // Strategy 2: the page containing it in the item hierarchy, loading it first if need be.
+        if (!arrangeContainingPageVirtualMaybe(store, currentPageVeid)) {
+          loadContainingPageThenRetry(store, ev, currentPageVeid);
+          return;
+        }
+        const virtualVe = VesCache.virtual.findNodes(currentPageVeid)[0];
+        if (virtualVe) {
+          const closestInParent = findClosest(VesCache.virtual, VeFns.veToPath(virtualVe), direction, false);
+          if (closestInParent) {
+            const closestVe = VesCache.virtual.readNode(closestInParent);
+            if (closestVe && isPage(closestVe.displayItem)) {
+              switchToPage(store, VeFns.veidFromPath(closestInParent), true, false, true);
+              return;
             }
           }
         }
