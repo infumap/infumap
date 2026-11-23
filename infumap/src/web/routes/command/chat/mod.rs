@@ -1666,7 +1666,8 @@ fn end_record(
   }
 }
 
-const CHAT_TITLE_PROMPT: &str = "For this request, give the conversation a concise, informative document title. \
+const CHAT_TITLE_PROMPT: &str = "For this request, give the conversation a concise, informative chat title. \
+Title the chat based on what the user explicitly asked for. Never invent a topic, setting, or detail. \
 Name the user's underlying topic or question, not the assistant's process, search method, sources, or caveats. \
 Err on the side of terseness: use the shortest natural noun phrase that clearly identifies the subject, usually \
 two to four words and never more than six. Use title case. Do not begin with words such as Finding, \
