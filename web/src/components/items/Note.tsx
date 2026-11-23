@@ -17,7 +17,7 @@
 */
 
 import { historyCaret } from "../../input/editor_history";
-import { Component, createRenderEffect, For, Show, untrack } from "solid-js";
+import { Component, createEffect, createRenderEffect, For, Show, untrack } from "solid-js";
 import { ItemIconRenderContext } from "../../items/base/icon-item";
 import { NoteFns, asNoteItem } from "../../items/note-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
@@ -405,10 +405,37 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
   const isTextEditTarget = () =>
     store.overlay.textEditInfo()?.itemPath == vePath();
 
-  // A fixed height note doesn't grow while its text is edited, so the text scrolls within it instead of
-  // spilling out (other notes let it overflow briefly, until the next arrange grows them).
-  const scrollsWhileEditing = () =>
-    isTextEditTarget() && !!(noteItem().flags & NoteFlags.ExplicitHeight) && !isInCompositeOrDocument();
+  // A fixed height note doesn't grow to fit its text, so the text scrolls within it, like a table's rows (other notes
+  // let edited text overflow briefly, until the next arrange grows them). It scrolls the same way as a table: no
+  // scrollbar styling, and the page takes over at either end. At rest it shows "…" instead, as a marker of hidden
+  // text, which a table doesn't have. line-clamp, which draws the "…", hides the lines below it, so a clamped note
+  // can't scroll. The clamp is dropped while the mouse is over the note (so the wheel scrolls it natively), while it
+  // is edited, and while it is scrolled down, where the scrolled text shows there's more and a "…" would be false.
+  const isFixedHeight = () =>
+    !!(noteItem().flags & NoteFlags.ExplicitHeight) && !isInCompositeOrDocument();
+  const scrollYPos = () => store.perItem.getNoteScrollYPos(VeFns.veidFromVe(props.visualElement));
+  const scrollsText = () =>
+    isFixedHeight() && (isTextEditTarget() || store.perVe.getMouseIsOver(vePath()) || scrollYPos() > 0);
+  const scrollsWhileEditing = () => isTextEditTarget() && isFixedHeight();
+
+  // As with a table, the scroll position is kept in the store, in lines, and put back on the DOM, so it survives
+  // re-rendering, resizing and switching between viewing and editing.
+  let textClipDiv: HTMLDivElement | undefined;
+  const scrollLineHeightPx = () => titleLineHeightPx() * textBlockScale();
+  const textScrollHandler = () => {
+    if (textClipDiv == null || !scrollsText()) { return; }
+    const lineHeightPx = scrollLineHeightPx();
+    if (Math.abs(textClipDiv.scrollTop - scrollYPos() * lineHeightPx) > 0.5) {
+      store.perItem.setNoteScrollYPos(VeFns.veidFromVe(props.visualElement), textClipDiv.scrollTop / lineHeightPx);
+    }
+  };
+  createEffect(() => {
+    if (!scrollsText() || textClipDiv == null) { return; }
+    const scrollTopPx = scrollYPos() * scrollLineHeightPx();
+    if (Math.abs(textClipDiv.scrollTop - scrollTopPx) > 0.5) {
+      textClipDiv.scrollTop = scrollTopPx;
+    }
+  });
 
   const renderedTitle = () => noteItem().title;
 
@@ -463,14 +490,16 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
         `overflow-wrap: break-word; white-space: pre-wrap; ` +
         `box-sizing: border-box; padding-left: ${titlePaddingLeftPx()}px; ` +
         `text-indent: ${titleTextIndentPx()}px; ` +
-        `${editing && scrollsWhileEditing() ? `padding-bottom: ${NOTE_PADDING_PX}px; ` : ""}` +
+        `${scrollsText() ? `padding-bottom: ${NOTE_PADDING_PX}px; ` : ""}` +
         `${infuTextStyle().isBold ? ' font-weight: bold; ' : ""}; ` +
         `outline: 0px solid transparent; ` +
         (editing
           ? `user-select: text; -webkit-user-select: text; `
           : isSelectableReadOnlyDocumentText()
             ? readOnlyDocumentSelectableTextStyle()
-            : `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${lineClamp()}; overflow: hidden; text-overflow: ellipsis; `)}
+            : scrollsText()
+              ? ""
+              : `display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${lineClamp()}; overflow: hidden; text-overflow: ellipsis; `)}
       contentEditable={canEdit() && editing ? "plaintext-only" : undefined}
       data-note-editor={editing ? "" : undefined}
       spellcheck={canEdit() && editing}
@@ -521,11 +550,13 @@ export const Note_Desktop: Component<VisualElementProps> = (props: VisualElement
           </div>
         </Show>
         {/* Always present (not toggled with Show) so turning on fixed height mid-edit doesn't recreate the
-            editor. It has the same bounds as its parent, so it doesn't move the text when it isn't scrolling.
-            mouse_down uses data-edit-clip to ignore clicks on the scrolled out parts of the editor. */}
-        <div class="absolute inset-0"
+            editor, and so its scroll position carries over between viewing and editing. It has the same bounds as
+            its parent, so it doesn't move the text when it isn't scrolling. mouse_down uses data-edit-clip to ignore
+            clicks on the scrolled out parts of the editor. */}
+        <div ref={textClipDiv} class="absolute inset-0"
           data-edit-clip={scrollsWhileEditing() ? "" : undefined}
-          style={scrollsWhileEditing() ? `overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin;` : ""}>
+          style={scrollsText() ? `overflow-y: auto; overflow-x: hidden;` : ""}
+          onScroll={textScrollHandler}>
           {renderListMarkerMaybe()}
           <Show when={isTextEditTarget()} fallback={renderTitle(false)}>
             {renderTitle(true)}

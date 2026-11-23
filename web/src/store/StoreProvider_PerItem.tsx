@@ -113,6 +113,10 @@ export interface PerItemStoreContextModel {
   getTableScrollYPos: (veid: Veid) => number,
   setTableScrollYPos: (veid: Veid, pos: number) => void,
 
+  /** The scroll position of a fixed height note's text, in lines of its text. */
+  getNoteScrollYPos: (veid: Veid) => number,
+  setNoteScrollYPos: (veid: Veid, pos: number) => void,
+
   getPageScrollXProp: (veid: Veid) => number,
   setPageScrollXProp: (veid: Veid, prop: number) => void,
 
@@ -160,6 +164,7 @@ export function makePerItemStore(
   // TODO (LOW): Unsure if lots of these signals, after lots of navigation, will create a perf issue. possibly
   // want to keep the number under control on page changes (delete those with value 0).
   const tableScrollPositions = new Map<string, NumberSignal>();
+  const noteScrollPositions = new Map<string, NumberSignal>();
   const pageScrollXPxs = new Map<string, NumberSignal>();
   const pageScrollYPxs = new Map<string, NumberSignal>();
   const listPageBandScrollYProps = new Map<string, NumberSignal>();
@@ -242,6 +247,23 @@ export function makePerItemStore(
       return;
     }
     tableScrollPositions.get(key)!.set(pos);
+  };
+
+  const getNoteScrollYPos = (veid: Veid): number => {
+    const key = veidKey(veid);
+    if (!noteScrollPositions.get(key)) {
+      noteScrollPositions.set(key, createNumberSignal(0.0));
+    }
+    return noteScrollPositions.get(key)!.get();
+  };
+
+  const setNoteScrollYPos = (veid: Veid, pos: number): void => {
+    const key = veidKey(veid);
+    if (!noteScrollPositions.get(key)) {
+      noteScrollPositions.set(key, createNumberSignal(pos));
+      return;
+    }
+    noteScrollPositions.get(key)!.set(pos);
   };
 
   const getPageScrollXProp = (veid: Veid): number => {
@@ -443,6 +465,7 @@ export function makePerItemStore(
 
   function clear() {
     tableScrollPositions.clear();
+    noteScrollPositions.clear();
     pageScrollXPxs.clear();
     pageScrollYPxs.clear();
     listPageBandScrollYProps.clear();
@@ -461,6 +484,7 @@ export function makePerItemStore(
     getSelectedListPageItem, setSelectedListPageItem,
     getFocusedListPageItem, setFocusedListPageItem, clearFocusedListPageItem,
     getTableScrollYPos, setTableScrollYPos,
+    getNoteScrollYPos, setNoteScrollYPos,
     getPageScrollXProp, setPageScrollXProp,
     getPageScrollYProp, setPageScrollYProp,
     getListPageBandScrollYProp, setListPageBandScrollYProp,

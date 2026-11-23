@@ -1102,9 +1102,16 @@ export const NoteFns = {
     arrangeNow(store, "note-enter-edit-mode");
     const freshEl = document.getElementById(editingDomId);
     if (freshEl instanceof HTMLElement) {
-      freshEl.focus();
+      // A fixed height note's editor is taller than the note and scrolls within it. focus() would scroll the
+      // editor's top into view, away from the scrolled position the click was made at, so it's left where it is,
+      // except that a caret placed at the end is scrolled to.
+      const scrollClipEl = freshEl.closest("[data-edit-clip]") as HTMLElement | null;
+      freshEl.focus({ preventScroll: scrollClipEl != null });
       const caretPosition = caretAtEnd ? asNoteItem(visualElement.displayItem).title.length : clampedClosestIdx;
       setCaretPosition(freshEl, caretPosition);
+      if (scrollClipEl != null && caretAtEnd) {
+        scrollClipEl.scrollTop = scrollClipEl.scrollHeight;
+      }
       store.overlay.noteTextSelectionInfo.set({
         itemPath,
         start: caretPosition,
