@@ -29,7 +29,7 @@ import { queryChatOutcomeText } from "./chat";
 import { markChildrenLoadAsInitiatedOrComplete } from "../layout/load";
 import { Item, ItemType } from "./base/item";
 import { ItemFns } from "./base/item-polymorphism";
-import { PlaceholderFns } from "./placeholder-item";
+import { PlaceholderFns, isPlaceholder } from "./placeholder-item";
 import { ItemIconMode, NoteFns, NoteItem } from "./note-item";
 import {
   parseTextDocumentBlocks,
@@ -668,9 +668,10 @@ function createChatDocumentItems(
     result.allItems.push(item);
   };
 
-  // A turn can be copied out by shift-dragging it, with its content, as in the chat window.
+  // A turn, or anything in one, can be copied out by dragging it from its handle, as in the chat window. Not an empty
+  // table cell, as in a markdown document.
   const makeCopyable = (item: Item): void => {
-    if (virtual) { item.capabilities = readonlyCopyableCapabilities; }
+    if (virtual && !isPlaceholder(item)) { item.capabilities = readonlyCopyableCapabilities; }
   };
 
   chat.turns.forEach((turn, turnIndex) => {
@@ -699,6 +700,7 @@ function createChatDocumentItems(
       const note = NoteFns.create(ownerId, composite.id, RelationshipToParent.Child, turn.text, nextChildOrdering());
       note.id = idFor(`${turnIndex}:you-text`);
       add(note);
+      makeCopyable(note);
     }
 
     if (turn.status == "completed" && turn.items != null && turn.items.length > 0) {
@@ -718,6 +720,7 @@ function createChatDocumentItems(
       }
       const visit = (item: Item): void => {
         add(item);
+        makeCopyable(item);
         for (const child of childrenOf.get(item.id) ?? []) {
           visit(child);
         }
@@ -728,7 +731,6 @@ function createChatDocumentItems(
           asCompositeItem(root).flags |= CompositeFlags.ShowTitle;
         }
         visit(root);
-        makeCopyable(root);
       }
     } else {
       const outcome = queryChatOutcomeText(turn.status, turn.error);

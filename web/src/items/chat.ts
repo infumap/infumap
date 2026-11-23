@@ -28,6 +28,7 @@ import { ItemFns } from "./base/item-polymorphism";
 import { TableFns, asTableItem, isTable } from "./table-item";
 import { CompositeFns, asCompositeItem, isComposite } from "./composite-item";
 import { NoteFns } from "./note-item";
+import { isPlaceholder } from "./placeholder-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, isPage } from "./page-item";
 import { ensureQueryEntryUnderQueries } from "./query-entry";
 import { QueryItem, asQueryItem, getQueryRuntime, isQueryItem, setQueryMode, updateQueryRuntime } from "./query-item";
@@ -91,8 +92,13 @@ function makeQueryChatItemReadOnly(item: Item): void {
   };
 }
 
-/** A turn can be copied out of the chat by shift-dragging it, with its content; nothing in the chat can be moved. */
+/**
+ * A turn, or anything in one, such as a table in an answer, can be copied out of the chat by dragging it from its handle,
+ * as from a markdown document; nothing in the chat can be moved. Not an empty table cell (a placeholder), which markdown
+ * documents don't make copyable either.
+ */
 function makeQueryChatTurnCopyable(item: Item): void {
+  if (isPlaceholder(item)) { return; }
   item.capabilities = { ...item.capabilities, copy: true };
 }
 
@@ -845,13 +851,15 @@ function addLocalQueryUserTurn(
     items.push(addLocalQueryAttachment(queryItem, composite.id, itemState.newOrderingAtEndOfChildren(composite.id), attachment));
   }
   if (text != "") {
-    items.push(createTurnNote(
+    const note = createTurnNote(
       queryItem.ownerId,
       composite.id,
       text,
       itemState.newOrderingAtEndOfChildren(composite.id),
       true,
-    ));
+    );
+    makeQueryChatTurnCopyable(note);
+    items.push(note);
   }
   setQueryChatRootIds(store, queryItem, [...queryChatRootIds(store, queryItem), composite.id]);
   return items;
@@ -1032,9 +1040,7 @@ function insertQueryChatAssistantTurn(
     batch(() => {
       for (const item of staged.itemsInInsertionOrder) {
         prepareReturnedItem(item, true);
-        if (staged.rootIds.includes(item.id)) {
-          makeQueryChatTurnCopyable(item);
-        }
+        makeQueryChatTurnCopyable(item);
         insertedItems.push(item);
         itemState.add(item);
       }
