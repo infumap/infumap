@@ -238,7 +238,17 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
         0,
         translucentDiv.scrollHeight - translucentDiv.clientHeight - translucentDiv.scrollTop,
       );
-      followingLatestChatTurn = distanceFromBottomPx <= CHAT_FOLLOW_LATEST_THRESHOLD_PX;
+      // Any upward scroll that leaves the bottom stops following. A threshold alone does not work: each scroll event
+      // re-runs the layout effect (the scroll signal has equals: false), which snaps back to the bottom while
+      // following, and trackpad gestures start with deltas smaller than the threshold, so they could never escape.
+      // Being exactly at the bottom keeps following, so a browser clamp after the content shrinks doesn't count.
+      if (distanceFromBottomPx < 1) {
+        followingLatestChatTurn = true;
+      } else if (translucentDiv.scrollTop < latestTranslucentScrollTopPx) {
+        followingLatestChatTurn = false;
+      } else {
+        followingLatestChatTurn = distanceFromBottomPx <= CHAT_FOLLOW_LATEST_THRESHOLD_PX;
+      }
     }
 
     if (childAreaBounds.h > pageBoundsPx.h) {
