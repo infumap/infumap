@@ -27,7 +27,6 @@ import { isImage } from "../../items/image-item";
 import { LinkItem, asLinkItem, isLink } from "../../items/link-item";
 import { NoteFns, asNoteItem, isNote } from "../../items/note-item";
 import { ArrangeAlgorithm, PageFns, PageItem, asPageItem, documentRowSideClickIsInert, isPage, pageUsesEmbeddedInteractiveMode } from "../../items/page-item";
-import { isQueryItem } from "../../items/query-item";
 import { asTableItem, isTable } from "../../items/table-item";
 import { itemState } from "../../store/ItemState";
 import { StoreContextModel } from "../../store/StoreProvider";
@@ -78,13 +77,12 @@ export function arrange_document_page(
   // in css. Popups aren't printed.
   const isPrintRoot = store.printMode.get() && !!(flags & ArrangeItemFlags.IsTopRoot);
 
-  // As for spatial pages, the children of non-interactive (e.g. translucent) pages are previews. Query chat transcripts
-  // are interactive workspaces, so are exempt.
+  // As for spatial pages, the children of non-interactive (e.g. translucent) pages are previews.
   const renderChildrenAsPreview =
     !!(flags & ArrangeItemFlags.IsPreview) ||
     (!arrangeFlagIsRoot(flags) &&
-      !(displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive) &&
-      !isQueryItem(itemState.get(VeFns.itemIdFromPath(parentPath)) ?? null));
+      !(flags & ArrangeItemFlags.IsQueryWorkspaceRoot) &&
+      !(displayItem_pageWithChildren.flags & PageFlags.EmbeddedInteractive));
 
   const totalMarginBl = PAGE_DOCUMENT_LEFT_MARGIN_BL + PAGE_DOCUMENT_RIGHT_MARGIN_BL;
   // The wider left margin accommodates editing affordances, which previews don't have, so they are centered.

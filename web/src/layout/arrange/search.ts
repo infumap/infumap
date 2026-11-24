@@ -178,7 +178,7 @@ export function arrangeSearchResultsPathMaybe(
     resultsPage,
     null,
     pageGeometry,
-    ArrangeItemFlags.RenderChildrenAsFull,
+    ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsQueryWorkspaceRoot,
   );
 }
 
@@ -230,6 +230,6 @@ export function arrangeQueryWorkspacePathMaybe(
     chatPage,
     null,
     pageGeometry,
-    ArrangeItemFlags.RenderChildrenAsFull,
+    ArrangeItemFlags.RenderChildrenAsFull | ArrangeItemFlags.IsQueryWorkspaceRoot,
   );
 }

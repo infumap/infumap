@@ -100,6 +100,14 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
     const itemPath = store.overlay.textEditInfo()?.itemPath;
     return itemPath != null && VeFns.parentPath(itemPath) == vePath();
   };
+  // A read-only document page's children container is contenteditable so that a text selection can run across rows
+  // (document-text-container.ts). There a composite inherits that, rather than being an island
+  // (contenteditable=false): Chrome confines a selection that starts inside an island to it, so a drag from one chat
+  // turn into the next selected nothing past the first.
+  const isInReadOnlyDocument = () => {
+    const documentPage = parentDocumentPageMaybe(props.visualElement);
+    return documentPage != null && !itemCanEdit(documentPage);
+  };
 
   const attachCompositeBoundsPx = (): BoundingBox => {
     return {
@@ -266,7 +274,7 @@ export const Composite_Desktop: Component<VisualElementProps> = (props: VisualEl
       <div class={`absolute ${props.suppressLocalShadow ? "" : "hover:shadow-md"}`}
         style={`left: 0px; top: 0px; width: ${boundsPx().w}px; height: ${boundsPx().h}px; z-index: 1; ` +
           `outline: 0px solid transparent; `}
-        contentEditable={linearTextEditIsActive()}
+        contentEditable={linearTextEditIsActive() ? true : isInReadOnlyDocument() ? undefined : false}
         onKeyUp={keyUpHandler}
         onKeyDown={keyDownHandler}
         onInput={inputListener}>

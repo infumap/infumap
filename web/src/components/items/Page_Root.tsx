@@ -26,7 +26,7 @@ import { CALENDAR_DAY_NUMBER_LEFT_PX, CALENDAR_DAY_NUMBER_WIDTH_PX, Z_INDEX_GLOB
 import { UMBRELLA_PAGE_UID } from "../../util/uid";
 import { ArrangeAlgorithm, PageFns, asPageItem, isPage } from "../../items/page-item";
 import { itemCanEdit } from "../../items/base/capabilities-item";
-import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
+import { createDocumentTextContainerHandlers } from "./document-text-container";
 import { PageVisualElementProps } from "./Page";
 import { BorderType, FOCUS_RING_BOX_SHADOW, borderColorForColorIdx } from "../../style";
 import { getMonthInfo } from "../../util/time";
@@ -466,36 +466,8 @@ export const Page_Root: Component<PageVisualElementProps> = (props: PageVisualEl
     );
   };
 
-  const keyUpHandler = (ev: KeyboardEvent) => {
-    if (readOnlyDocumentTextSelectionIsActive()) { return; }
-    edit_keyUpHandler(store, ev);
-  }
-
-  const keyDownHandler = (ev: KeyboardEvent) => {
-    if (readOnlyDocumentTextSelectionIsActive()) {
-      if (ev.key == "Backspace" || ev.key == "Delete" || ev.key == "Enter" || ev.key == "Tab") {
-        ev.preventDefault();
-        ev.stopPropagation();
-      }
-      return;
-    }
-    edit_keyDownHandler(store, props.visualElement, ev);
-  }
-
-  const inputListener = (ev: InputEvent) => {
-    if (readOnlyDocumentTextSelectionIsActive()) {
-      ev.preventDefault();
-      ev.stopPropagation();
-      return;
-    }
-    edit_inputListener(store, ev);
-  }
-
-  const beforeInputListener = (ev: InputEvent) => {
-    if (!readOnlyDocumentTextSelectionIsActive()) { return; }
-    ev.preventDefault();
-    ev.stopPropagation();
-  }
+  const { keyUpHandler, keyDownHandler, inputListener, beforeInputListener } =
+    createDocumentTextContainerHandlers(store, () => props.visualElement, readOnlyDocumentTextSelectionIsActive);
 
   const rootScrollHandler = (_ev: Event) => {
     if (!rootDiv || updatingRootScrollTop || printScrollWritesSuppressed()) { return; }

@@ -26,7 +26,6 @@ import { asImageItem, isImage } from "../items/image-item";
 import { asNoteItem, isNote } from "../items/note-item";
 import { ArrangeAlgorithm, asPageItem, isPage } from "../items/page-item";
 import { isPassword } from "../items/password-item";
-import { isQueryItem } from "../items/query-item";
 import { asTableItem, isTable } from "../items/table-item";
 import { VisualElement, VisualElementFlags, VeFns, isVeTranslucentPage } from "../layout/visual-element";
 import { VesCache } from "../layout/ves-cache";
@@ -110,20 +109,6 @@ function parentPageArrangeAlgorithm(visualElement: VisualElement): ArrangeAlgori
     : ArrangeAlgorithm.None;
 }
 
-function isInsideSearchWorkspace(visualElement: VisualElement): boolean {
-  const parentPath = visualElement.parentPath;
-  if (parentPath == null) {
-    return false;
-  }
-  const parentVe = VesCache.current.readNode(parentPath) ?? VesCache.render.getNode(parentPath)?.get() ?? null;
-  return parentVe != null && isQueryItem(parentVe.displayItem);
-}
-
-function pageUsesFlatWorkspaceChrome(visualElement: VisualElement): boolean {
-  return parentPageArrangeAlgorithm(visualElement) == ArrangeAlgorithm.List ||
-    isInsideSearchWorkspace(visualElement);
-}
-
 export const VisualElement_DesktopShadow: Component<VisualElementDesktopShadowProps> = (props: VisualElementDesktopShadowProps) => {
   const store = useStore();
   const offsetPx = () => props.offsetPx ?? DEFAULT_OFFSET_PX;
@@ -203,7 +188,9 @@ export const VisualElement_DesktopShadow: Component<VisualElementDesktopShadowPr
     }
 
     if (isPage(props.visualElement.displayItem)) {
-      if (isVeTranslucentPage(props.visualElement) && pageUsesFlatWorkspaceChrome(props.visualElement)) {
+      // A query workspace has no chrome. A translucent page shown as a list page's panel has none either.
+      if ((props.visualElement.flags & VisualElementFlags.QueryWorkspaceRoot) ||
+        (isVeTranslucentPage(props.visualElement) && parentPageArrangeAlgorithm(props.visualElement) == ArrangeAlgorithm.List)) {
         return null;
       }
       if (isVeTranslucentPage(props.visualElement) || (props.visualElement.flags & VisualElementFlags.Preview)) {

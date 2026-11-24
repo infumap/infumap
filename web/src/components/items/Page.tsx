@@ -41,6 +41,7 @@ import { Page_EmbeddedInteractive } from "./Page_EmbeddedInteractive";
 import { Page_Umbrella } from "./Page_Umbrella";
 import { Page_Dock } from "./Page_Dock";
 import { Page_Popup } from "./Page_Popup";
+import { Page_QueryWorkspace } from "./Page_QueryWorkspace";
 import { pageAttachInsertBarBoundsPx } from "./PageAttachments";
 import { outlineTextWidthPx } from "./LineItemOutline";
 import { calculateCalendarDimensionsForVisualElement, calculateCalendarWindowForPage, decodeCalendarCombinedIndex, getCalendarDayMetrics, getCalendarMonthLeftPx, getCalendarMonthWidthPx } from "../../util/calendar-layout";
@@ -918,6 +919,9 @@ export const Page_Desktop: Component<VisualElementProps> = (props: VisualElement
       </Match>
       <Match when={props.visualElement.flags & VisualElementFlags.EmbeddedInteractiveRoot}>
         <Page_EmbeddedInteractive visualElement={props.visualElement} pageFns={pageFns} suppressLocalShadow={props.suppressLocalShadow} />
+      </Match>
+      <Match when={props.visualElement.flags & VisualElementFlags.QueryWorkspaceRoot}>
+        <Page_QueryWorkspace visualElement={props.visualElement} pageFns={pageFns} />
       </Match>
       <Match when={!(props.visualElement.flags & VisualElementFlags.Detailed) ||
         !(props.visualElement.flags & VisualElementFlags.ShowChildren)}>

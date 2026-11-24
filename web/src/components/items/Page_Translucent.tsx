@@ -47,11 +47,9 @@ import {
   isCurrentDay,
 } from "../../util/calendar-layout";
 import { itemCanEdit, itemCanResize } from "../../items/base/capabilities-item";
-import { ClientOnlyItemKind } from "../../items/base/item";
 import { appendNewlineIfEmpty } from "../../util/string";
 import { miniatureChildItemRadiusStyle, autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, pageIsFocusedOpenPopupSource, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
 import { CompositeMoveOutHandle } from "./CompositeMoveOutHandle";
-import { isQueryItem } from "../../items/query-item";
 import { MouseAction, MouseActionState } from "../../input/state";
 import { PageGroupBoxes } from "./PageGroupBoxes";
 import { DocumentPageTitle } from "./DocumentPageTitle";
@@ -72,17 +70,11 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
   const store = useStore();
 
   let updatingTranslucentScrollTop = false;
-  let previousChildAreaHeightPx: number | null = null;
-  let latestTranslucentScrollTopPx = 0;
   let translucentDiv: any = undefined; // HTMLDivElement | undefined
-  let followingLatestChatTurn = true;
-  const CHAT_FOLLOW_LATEST_THRESHOLD_PX = 8;
 
   const pageFns = () => props.pageFns;
   const canEditPage = () => itemCanEdit(pageFns().pageItem());
   const canResizePage = () => itemCanResize(pageFns().pageItem()) && pageFns().hasResizeHitbox();
-  const isQueryChatPage = () =>
-    pageFns().pageItem().clientOnlyKind == ClientOnlyItemKind.QueryChatPage;
   const titleEditHandlers = createPageTitleEditHandlers(store, () => props.visualElement);
 
   onMount(() => {
@@ -96,7 +88,6 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
       const scrollYPx = scrollYProp * Math.max(0, props.visualElement.listChildAreaBoundsPx.h - props.visualElement.listViewportBoundsPx.h);
       translucentDiv.scrollTop = scrollYPx;
       translucentDiv.scrollLeft = 0;
-      latestTranslucentScrollTopPx = scrollYPx;
       return;
     }
 
@@ -104,18 +95,10 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     const scrollXPx = scrollXProp * (pageFns().childAreaBoundsPx().w - pageFns().viewportBoundsPx().w);
 
     const maxScrollYPx = Math.max(0, pageFns().childAreaBoundsPx().h - pageFns().viewportBoundsPx().h);
-    const scrollYProp = isQueryChatPage() && followingLatestChatTurn
-      ? 1
-      : store.perItem.getPageScrollYProp(veid);
-    const scrollYPx = scrollYProp * maxScrollYPx;
-
-    if (isQueryChatPage() && followingLatestChatTurn) {
-      store.perItem.setPageScrollYProp(veid, 1);
-    }
+    const scrollYPx = store.perItem.getPageScrollYProp(veid) * maxScrollYPx;
 
     translucentDiv.scrollTop = scrollYPx;
     translucentDiv.scrollLeft = scrollXPx;
-    latestTranslucentScrollTopPx = scrollYPx;
   });
 
   createEffect(() => {
@@ -132,8 +115,6 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
         const nextScrollTopPx = store.perItem.getPageScrollYProp(pageVeid) * maxScrollYPx;
         translucentDiv.scrollTop = nextScrollTopPx;
         translucentDiv.scrollLeft = 0;
-        latestTranslucentScrollTopPx = nextScrollTopPx;
-        previousChildAreaHeightPx = props.visualElement.listChildAreaBoundsPx.h;
         setTimeout(() => {
           updatingTranslucentScrollTop = false;
         }, 0);
@@ -141,36 +122,12 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
       }
 
       const maxScrollYPx = Math.max(0, pageFns().childAreaBoundsPx().h - props.visualElement.boundsPx.h);
-      // Read on every run, whichever branch is taken below: Solid tracks only what a run reads, so a run that skipped
-      // it would stop this effect following later scroll changes (e.g. arrow keys moving the focus through search
-      // results after more of them were loaded).
-      const scrollYProp = store.perItem.getPageScrollYProp(pageVeid);
-      const shouldPreserveAbsoluteScrollTop =
-        pageFns().hasCatalogResultContext() &&
-        previousChildAreaHeightPx != null &&
-        pageFns().childAreaBoundsPx().h > previousChildAreaHeightPx;
-
-      if (isQueryChatPage() && followingLatestChatTurn) {
-        translucentDiv.scrollTop = maxScrollYPx;
-        latestTranslucentScrollTopPx = maxScrollYPx;
-        // The scroll signal has equals: false and this effect reads it above, so an unconditional write here re-runs
-        // the effect forever (stack overflow in Solid's runUpdates).
-        if (scrollYProp != 1) { store.perItem.setPageScrollYProp(pageVeid, 1); }
-      } else if (shouldPreserveAbsoluteScrollTop) {
-        const preservedScrollTopPx = Math.min(latestTranslucentScrollTopPx, maxScrollYPx);
-        translucentDiv.scrollTop = preservedScrollTopPx;
-        latestTranslucentScrollTopPx = preservedScrollTopPx;
-        store.perItem.setPageScrollYProp(pageVeid, maxScrollYPx > 0 ? preservedScrollTopPx / maxScrollYPx : 0);
-      } else {
-        const nextScrollTopPx = scrollYProp * maxScrollYPx;
-        translucentDiv.scrollTop = nextScrollTopPx;
-        latestTranslucentScrollTopPx = nextScrollTopPx;
-      }
+      const nextScrollTopPx = store.perItem.getPageScrollYProp(pageVeid) * maxScrollYPx;
+      translucentDiv.scrollTop = nextScrollTopPx;
       translucentDiv.scrollLeft =
         store.perItem.getPageScrollXProp(pageVeid) *
         (pageFns().childAreaBoundsPx().w - props.visualElement.boundsPx.w);
     }
-    previousChildAreaHeightPx = pageFns().childAreaBoundsPx().h;
 
     setTimeout(() => {
       updatingTranslucentScrollTop = false;
@@ -220,11 +177,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
       const pageVeid = VeFns.veidFromVe(props.visualElement);
       const maxScrollYPx = Math.max(0, props.visualElement.listChildAreaBoundsPx.h - props.visualElement.listViewportBoundsPx.h);
       if (maxScrollYPx > 0) {
-        const scrollYProp = translucentDiv!.scrollTop / maxScrollYPx;
-        latestTranslucentScrollTopPx = translucentDiv!.scrollTop;
-        store.perItem.setPageScrollYProp(pageVeid, scrollYProp);
-      } else {
-        latestTranslucentScrollTopPx = 0;
+        store.perItem.setPageScrollYProp(pageVeid, translucentDiv!.scrollTop / maxScrollYPx);
       }
       return;
     }
@@ -233,30 +186,8 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
     const childAreaBounds = pageFns().childAreaBoundsPx();
     const pageVeid = VeFns.veidFromVe(props.visualElement);
 
-    if (isQueryChatPage()) {
-      const distanceFromBottomPx = Math.max(
-        0,
-        translucentDiv.scrollHeight - translucentDiv.clientHeight - translucentDiv.scrollTop,
-      );
-      // Any upward scroll that leaves the bottom stops following. A threshold alone does not work: each scroll event
-      // re-runs the layout effect (the scroll signal has equals: false), which snaps back to the bottom while
-      // following, and trackpad gestures start with deltas smaller than the threshold, so they could never escape.
-      // Being exactly at the bottom keeps following, so a browser clamp after the content shrinks doesn't count.
-      if (distanceFromBottomPx < 1) {
-        followingLatestChatTurn = true;
-      } else if (translucentDiv.scrollTop < latestTranslucentScrollTopPx) {
-        followingLatestChatTurn = false;
-      } else {
-        followingLatestChatTurn = distanceFromBottomPx <= CHAT_FOLLOW_LATEST_THRESHOLD_PX;
-      }
-    }
-
     if (childAreaBounds.h > pageBoundsPx.h) {
-      const scrollYProp = translucentDiv!.scrollTop / (childAreaBounds.h - pageBoundsPx.h);
-      latestTranslucentScrollTopPx = translucentDiv!.scrollTop;
-      store.perItem.setPageScrollYProp(pageVeid, scrollYProp);
-    } else {
-      latestTranslucentScrollTopPx = 0;
+      store.perItem.setPageScrollYProp(pageVeid, translucentDiv!.scrollTop / (childAreaBounds.h - pageBoundsPx.h));
     }
   };
 
@@ -371,8 +302,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
 
   // The title of a document page, in the space reserved for it by arrange_document_page. Like the page's children,
   // drawn as text when large enough to read, otherwise as an outline. Children of a translucent document page are
-  // previews, so the margins are centered (as for leftMarginBl in arrange_document_page). The exception, chat
-  // transcripts in queries, hide the document title.
+  // previews, so the margins are centered (as for leftMarginBl in arrange_document_page).
   const renderDocumentTitleMaybe = () =>
     <Show when={PageFns.showDocumentTitleInDocument(pageFns().pageItem())}>
       <Show when={!previewTextIsDetailed(PageFns.documentTitleStyle().fontSize, pageFns().documentScale())}
@@ -415,7 +345,7 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
           {pageFns().renderCatalogFooterHostMaybe()}
           {pageFns().renderGridLinesMaybe()}
           {pageFns().renderCatalogResultHoverMaybe()}
-          {pageFns().renderCatalogMetadataMaybe(pageFns().hasCatalogResultContext())}
+          {pageFns().renderCatalogMetadataMaybe(false)}
           {pageFns().renderMoveOverAnnotationMaybe()}
         </div>
       </div>
@@ -579,16 +509,9 @@ export const Page_Translucent: Component<PageVisualElementProps> = (props: PageV
       <InfuLinkTriangle />
     </Show>;
 
-  const isInsideSearchWorkspace = () => {
-    if (props.visualElement.parentPath == null) {
-      return false;
-    }
-    const parentVe = VesCache.current.readNode(props.visualElement.parentPath!);
-    return parentVe != null && isQueryItem(parentVe.displayItem);
-  };
-
+  // A translucent page shown as a list page's panel.
   const useFlatWorkspaceChrome = () =>
-    pageFns().parentPageArrangeAlgorithm() == ArrangeAlgorithm.List || isInsideSearchWorkspace();
+    pageFns().parentPageArrangeAlgorithm() == ArrangeAlgorithm.List;
 
   // Check if this page is currently focused (via focusPath or textEditInfo)
   const isFocused = () => {

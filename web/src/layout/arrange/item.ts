@@ -21,7 +21,6 @@ import { StoreContextModel } from "../../store/StoreProvider";
 import { Item } from "../../items/base/item";
 import { asPageItem, isPage, ArrangeAlgorithm, PageItem } from "../../items/page-item";
 import { PageFlags } from "../../items/base/flags-item";
-import { itemState } from "../../store/ItemState";
 import { asTableItem, isTable } from "../../items/table-item";
 import { isImage } from "../../items/image-item";
 import { asQueryItem, isQueryItem } from "../../items/query-item";
@@ -63,6 +62,9 @@ export enum ArrangeItemFlags {
   // A root (e.g. the selected item of a list page) shown inside a non-interactive (e.g. translucent) page. Its children
   // are arranged as for a non-root page: as a miniature, with outlines where too small to read.
   IsPreview = 0x1000,
+  // The chat transcript or search results page of a query (see arrangeQueryWorkspacePathMaybe). An interactive
+  // workspace, not a preview, though it shows its children inside another item as a translucent page does.
+  IsQueryWorkspaceRoot = 0x2000,
 }
 
 export function arrangeFlagIsRoot(flags: ArrangeItemFlags): boolean {
@@ -75,15 +77,15 @@ export function arrangeFlagIsRoot(flags: ArrangeItemFlags): boolean {
 
 /**
  * Whether a page is a non-interactive preview (e.g. a translucent page), so is drawn as a miniature of the full page,
- * without a minimum scale. Query search results are interactive workspaces, so are exempt.
+ * without a minimum scale.
  */
 export function pageIsPreview(page: PageItem, parentPath: VisualElementPath, flags: ArrangeItemFlags): boolean {
   if (flags & ArrangeItemFlags.IsPreview) { return true; }
-  if (flags & (ArrangeItemFlags.IsTopRoot | ArrangeItemFlags.IsPopupRoot | ArrangeItemFlags.IsListPageMainRoot | ArrangeItemFlags.IsDockRoot)) {
+  if (flags & (ArrangeItemFlags.IsTopRoot | ArrangeItemFlags.IsPopupRoot | ArrangeItemFlags.IsListPageMainRoot |
+    ArrangeItemFlags.IsDockRoot | ArrangeItemFlags.IsQueryWorkspaceRoot)) {
     return false;
   }
-  const isEmbeddedInteractive = !!(page.flags & PageFlags.EmbeddedInteractive) && VeFns.pathDepth(parentPath) >= 2;
-  return !isEmbeddedInteractive && !isQueryItem(itemState.get(VeFns.itemIdFromPath(parentPath)) ?? null);
+  return !(page.flags & PageFlags.EmbeddedInteractive) || VeFns.pathDepth(parentPath) < 2;
 }
 
 /**
@@ -132,7 +134,8 @@ export function getCommonVisualElementFlags(flags: ArrangeItemFlags): VisualElem
     (flags & ArrangeItemFlags.IsDockRoot ? VisualElementFlags.DockItem : VisualElementFlags.None) |
     (flags & ArrangeItemFlags.InsideCompositeOrDoc ? VisualElementFlags.InsideCompositeOrDoc : VisualElementFlags.None) |
     (flags & ArrangeItemFlags.IsFixed ? VisualElementFlags.Fixed : VisualElementFlags.None) |
-    (flags & ArrangeItemFlags.IsPreview ? VisualElementFlags.Preview : VisualElementFlags.None);
+    (flags & ArrangeItemFlags.IsPreview ? VisualElementFlags.Preview : VisualElementFlags.None) |
+    (flags & ArrangeItemFlags.IsQueryWorkspaceRoot ? VisualElementFlags.QueryWorkspaceRoot : VisualElementFlags.None);
 }
 
 function movingItemIsArrangedAtParentPath(itemVeid: ReturnType<typeof VeFns.veidFromPath>, parentPath: VisualElementPath): boolean {

@@ -33,7 +33,7 @@ import { useStore } from "../../store/StoreProvider";
 import { ArrangeAlgorithm, PageFns, isPage } from "../../items/page-item";
 import { ItemFns } from "../../items/base/item-polymorphism";
 import { itemCanEdit, itemCanResize } from "../../items/base/capabilities-item";
-import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
+import { createDocumentTextContainerHandlers } from "./document-text-container";
 import { linkHasTriangle } from "../../layout/link-triangle";
 import { PageVisualElementProps } from "./Page";
 import { miniatureChildItemRadiusStyle, autoMovedIntoViewWarningStyle, createPageTitleEditHandlers, desktopStackRootStyle, scrollGestureStyleForArrangeAlgorithm, shouldShowFocusRingForVisualElement, highlightStyle } from "./helper";
@@ -132,36 +132,8 @@ export const Page_EmbeddedInteractive: Component<PageVisualElementProps> = (prop
     syncRootScrollPosition();
   });
 
-  const keyUpHandler = (ev: KeyboardEvent) => {
-    if (readOnlyDocumentTextSelectionIsActive()) { return; }
-    edit_keyUpHandler(store, ev);
-  }
-
-  const keyDownHandler = (ev: KeyboardEvent) => {
-    if (readOnlyDocumentTextSelectionIsActive()) {
-      if (ev.key == "Backspace" || ev.key == "Delete" || ev.key == "Enter" || ev.key == "Tab") {
-        ev.preventDefault();
-        ev.stopPropagation();
-      }
-      return;
-    }
-    edit_keyDownHandler(store, props.visualElement, ev);
-  }
-
-  const inputListener = (ev: InputEvent) => {
-    if (readOnlyDocumentTextSelectionIsActive()) {
-      ev.preventDefault();
-      ev.stopPropagation();
-      return;
-    }
-    edit_inputListener(store, ev);
-  }
-
-  const beforeInputListener = (ev: InputEvent) => {
-    if (!readOnlyDocumentTextSelectionIsActive()) { return; }
-    ev.preventDefault();
-    ev.stopPropagation();
-  }
+  const { keyUpHandler, keyDownHandler, inputListener, beforeInputListener } =
+    createDocumentTextContainerHandlers(store, () => props.visualElement, readOnlyDocumentTextSelectionIsActive);
 
   const embeddedInteractiveTitleHeightPx = () => pageFns().boundsPx().h - pageFns().viewportBoundsPx().h;
   // Title text scales with block width, like note text, so it matches a borderless heading note

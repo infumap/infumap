@@ -103,6 +103,7 @@ export enum VisualElementFlags {
   LineItemOutline = 0x1000000, // Line item too small for its text to be legible, drawn as an outline.
   Preview = 0x2000000, // A page root (e.g. the selected item of a list page) shown inside a non-interactive page.
   HasHiddenAttachments = 0x4000000, // Table row with attachments beyond the visible columns.
+  QueryWorkspaceRoot = 0x8000000, // The chat transcript or search results page of a query, filling the query's workspace.
 }
 
 export function veFlagIsRoot(flags: VisualElementFlags): boolean {
@@ -141,7 +142,8 @@ export function isVeTranslucentPage(ve: Pick<VisualElement, "displayItem" | "fla
     flags & VisualElementFlags.Popup ||
     flags & VisualElementFlags.TopLevelRoot ||
     flags & VisualElementFlags.ListPageRoot ||
-    flags & VisualElementFlags.EmbeddedInteractiveRoot
+    flags & VisualElementFlags.EmbeddedInteractiveRoot ||
+    flags & VisualElementFlags.QueryWorkspaceRoot
   ) {
     return false;
   }

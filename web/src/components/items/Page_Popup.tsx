@@ -66,7 +66,7 @@ import { Page_TableContent } from "./Page_TableContent";
 import { PageAttachments } from "./PageAttachments";
 import { LinearSelectionGapCover, linearSelectionGapAfterBoundsPx } from "./LinearSelectionGapCover";
 import { itemCanEdit } from "../../items/base/capabilities-item";
-import { edit_inputListener, edit_keyDownHandler, edit_keyUpHandler } from "../../input/edit";
+import { createDocumentTextContainerHandlers } from "./document-text-container";
 
 
 // REMINDER: it is not valid to access VesCache in the item components (will result in heisenbugs)
@@ -100,36 +100,8 @@ export const Page_Popup: Component<PageVisualElementProps> = (props: PageVisualE
   const documentTextSelectionContainerIsActive = () =>
     documentTextEditIsActive() || readOnlyDocumentTextSelectionIsActive();
 
-  const keyUpHandler = (ev: KeyboardEvent) => {
-    if (readOnlyDocumentTextSelectionIsActive()) { return; }
-    edit_keyUpHandler(store, ev);
-  }
-
-  const keyDownHandler = (ev: KeyboardEvent) => {
-    if (readOnlyDocumentTextSelectionIsActive()) {
-      if (ev.key == "Backspace" || ev.key == "Delete" || ev.key == "Enter" || ev.key == "Tab") {
-        ev.preventDefault();
-        ev.stopPropagation();
-      }
-      return;
-    }
-    edit_keyDownHandler(store, props.visualElement, ev);
-  }
-
-  const inputListener = (ev: InputEvent) => {
-    if (readOnlyDocumentTextSelectionIsActive()) {
-      ev.preventDefault();
-      ev.stopPropagation();
-      return;
-    }
-    edit_inputListener(store, ev);
-  }
-
-  const beforeInputListener = (ev: InputEvent) => {
-    if (!readOnlyDocumentTextSelectionIsActive()) { return; }
-    ev.preventDefault();
-    ev.stopPropagation();
-  }
+  const { keyUpHandler, keyDownHandler, inputListener, beforeInputListener } =
+    createDocumentTextContainerHandlers(store, () => props.visualElement, readOnlyDocumentTextSelectionIsActive);
 
   const selectedRootVeMaybe = () => {
     const selectedVe = VesCache.render.getSelected(VeFns.veToPath(props.visualElement))()?.get() ?? null;

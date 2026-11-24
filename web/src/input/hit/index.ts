@@ -696,11 +696,8 @@ function hitSearchWorkspaceChildPageMaybe(
   hitboxOptions: HitboxScanOptions,
 ): HitInfo | null {
   const childVe = childVes.get();
-  if (!isPage(childVe.displayItem) || !(childVe.flags & VisualElementFlags.ShowChildren)) { return null; }
-  if (!childVe.parentPath || !childVe.viewportBoundsPx || !childVe.childAreaBoundsPx) { return null; }
-
-  const parentVe = VesCache.current.readNode(childVe.parentPath);
-  if (!parentVe || !isQueryItem(parentVe.displayItem)) { return null; }
+  if (!(childVe.flags & VisualElementFlags.QueryWorkspaceRoot)) { return null; }
+  if (!childVe.viewportBoundsPx || !childVe.childAreaBoundsPx) { return null; }
   if (!isInside(posRelativeToRootVeViewportPx, childVe.boundsPx)) { return null; }
 
   const scrollOffsetPx = pageContentScrollOffsetPx(store, childVe);

@@ -41,7 +41,6 @@ import { stackedInsertionIndexFromDesktopPx } from "../layout/stacked-insertion"
 import { gridInsertionIndexFromDesktopPx } from "../layout/grid-insertion";
 import { justifiedInsertionFromDesktopPx } from "../layout/justified-insertion";
 import { catalogInsertionIndexFromDesktopPx } from "../layout/catalog-display";
-import { isQueryItem } from "../items/query-item";
 import { server, serverOrRemote } from "../server";
 import { itemState } from "../store/ItemState";
 import { asAttachmentsItem, isAttachmentsItem } from "../items/base/attachments-item";
@@ -165,15 +164,12 @@ function findContainingPageVe(candidate: VisualElement | null): VisualElement | 
 
 /**
  * Translucent pages are previews that can only be opened, so items are not created in them. Nested calendars are
- * exempt: they map the position to a day, and the new item is editable there. Query result workspaces are exempt as
- * in isInsideTranslucentPage.
+ * exempt: they map the position to a day, and the new item is editable there.
  */
 function isCreateBlockingTranslucentPage(ve: VisualElement): boolean {
   if (!isVeTranslucentPage(ve)) { return false; }
   const arrangeAlgorithm = ve.linkItemMaybe?.overrideArrangeAlgorithm ?? asPageItem(ve.displayItem).arrangeAlgorithm;
-  if (arrangeAlgorithm == ArrangeAlgorithm.Calendar) { return false; }
-  const parentVe = ve.parentPath ? VesCache.current.readNode(ve.parentPath) ?? null : null;
-  return parentVe == null || !isQueryItem(parentVe.displayItem);
+  return arrangeAlgorithm != ArrangeAlgorithm.Calendar;
 }
 
 function outermostCreateBlockingTranslucentPageMaybe(ve: VisualElement): VisualElement | null {
